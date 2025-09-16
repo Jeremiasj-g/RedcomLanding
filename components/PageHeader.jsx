@@ -5,7 +5,7 @@ import Container from './Container';
 
 const PageHeader = ({ title, bg = ' ' }) => {
   return (
-    <div className="h-[550px] bg-[url('/REDCOM_PORTADA.jpg')] bg-cover bg-no-repeat
+    <div className="h-[550px] bg-[url('/redcom_portada.jpg')] bg-cover bg-no-repeat
              bg-black/20 bg-blend-multiply text-white py-20 relative shadow-2xl">
 
       <Container className='absolute bottom-[-6%] left-1/2 -translate-x-1/2'>
