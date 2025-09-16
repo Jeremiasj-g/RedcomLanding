@@ -9,6 +9,8 @@ import LookerEmbed from '@/components/LookerEmbed';
 import ClientGate from '@/components/ClientGate';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
+import MapsEmbed from '../../../components/MapsEmbed';
+import { IconMapPoint } from '@/components/Icons/IconMapPoint';
 
 export default function CorrientesMasivos() {
   return (
@@ -42,6 +44,12 @@ export default function CorrientesMasivos() {
         </Container>
 
         <LookerEmbed looker_id="masivos" />
+
+        <Container>
+          <SectionDivider title='Mapa de cobertura' icon={<IconMapPoint />} />
+        </Container>
+
+        <MapsEmbed map_id="masivos" />
       </div>
     </ClientGate>
   );
