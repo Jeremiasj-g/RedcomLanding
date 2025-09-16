@@ -11,7 +11,7 @@ import 'swiper/css/pagination';
 const slides = [
   {
     id: 1,
-    image: '/redcom_portada.PNG',
+    image: '/redcom_portada.png',
     title: 'Generando vinculos',
     subtitle: 'Más de 13 años de experiencia',
     description: 'Distribución en toda la región, conectamos productores y comercios con eficiencia y confianza'
