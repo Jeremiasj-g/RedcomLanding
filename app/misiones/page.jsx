@@ -9,6 +9,8 @@ import { misionesProducts } from '@/lib/data';
 import ClientGate from '@/components/ClientGate';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
+import MapsEmbed from '@/components/MapsEmbed';
+import { IconMapPoint } from '@/components/Icons/IconMapPoint';
 
 export default function Misiones() {
   return (
@@ -47,6 +49,12 @@ export default function Misiones() {
         </Container>
 
         <LookerEmbed looker_id='misiones' />
+
+        <Container>
+          <SectionDivider title='Mapa de cobertura' icon={<IconMapPoint />} />
+        </Container>
+
+        <MapsEmbed map_id="misiones" />
 
       </div>
 

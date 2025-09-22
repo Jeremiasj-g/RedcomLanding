@@ -4,7 +4,7 @@ export default function MapsEmbed({map_id}) {
     masivos: 'https://www.google.com/maps/d/u/0/embed?mid=1dswZoPN46Tw75GZOd2latT9AdKe0y8M&ehbc=2E312F',
     refrigerados: '',
     chaco: '',
-    misiones: '',
+    misiones: 'https://www.google.com/maps/d/u/0/embed?mid=1h1E8r7uu-jsySRjaEHpERx72CpNIISg&ehbc=2E312F',
     obera: ''
   }
 

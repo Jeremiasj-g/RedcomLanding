@@ -6,6 +6,9 @@ import Card from '@/components/Card';
 import Container from '@/components/Container';
 import { oberaProducts } from '@/lib/data';
 import ClientGate from '@/components/ClientGate';
+import { SectionDivider } from '@/components/SectionDivider';
+import { IconAnalytics } from '@/components/Icons/IconAnalytics';
+import LookerEmbed from '@/components/LookerEmbed';
 
 export default function Obera() {
   return (
@@ -36,6 +39,12 @@ export default function Obera() {
               ))}
             </div>
           </Container>
+
+          <Container>
+            <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
+          </Container>
+
+          <LookerEmbed looker_id="obera" />
         </section>
       </div>
     </ClientGate>

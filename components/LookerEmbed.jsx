@@ -5,7 +5,7 @@ export default function LookerEmbed({looker_id}) {
     refrigerados: 'https://lookerstudio.google.com/embed/reporting/f0a5a6bd-81c9-4520-9064-d0288fa5340a/page/OQ6XF',
     chaco: 'https://lookerstudio.google.com/embed/reporting/0d3a616b-9622-4510-9f96-0bfc2f3dce25/page/sKSXF',
     misiones: 'https://lookerstudio.google.com/embed/reporting/130950d7-ccf0-4b69-857f-322a721d836a/page/3LWWF',
-    obera: ''
+    obera: 'https://lookerstudio.google.com/embed/reporting/32609a9b-183e-442f-b43f-232c7134a8fa/page/YVQYF'
   }
 
 
