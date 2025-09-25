@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import FloatingTelegramButton from '@/components/Icons/FloatingTelegramButton';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -26,6 +27,8 @@ export default function RootLayout({
       <body className={inter.className}>
         <Navbar />
         <main>{children}</main>
+        {/* Botón flotante de Telegram */}
+        <FloatingTelegramButton />
         <Footer />
       </body>
     </html>

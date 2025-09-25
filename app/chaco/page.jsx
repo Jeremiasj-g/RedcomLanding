@@ -47,8 +47,7 @@ export default function Chaco() {
 
         <LookerEmbed looker_id='chaco' />
 
-        <iframe width="100%" height="1000" frameborder="0" scrolling="no"
-          src="https://1drv.ms/x/c/5faa1bc8501ebfb8/IQQ_kGd7cHdORbk7tspNW5s0ARrFAD4DEGUvEnrK_o387_U?em=2&wdHideGridlines=True&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+        <iframe width="100%" height="600" frameborder="0" scrolling="no" src="https://1drv.ms/x/c/520c6123535e3dab/IQQcOkzzuq4USKxaX9DBz9PnAa4edbigZE-wWZ4oK4T7y3U?em=2&wdHideGridlines=True&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
       </div>
 
     </ClientGate>
