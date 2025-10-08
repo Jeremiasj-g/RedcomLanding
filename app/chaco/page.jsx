@@ -9,6 +9,7 @@ import LookerEmbed from '@/components/LookerEmbed';
 import ClientGate from '@/components/ClientGate';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
+import TableroEmbed from "@/components/TableroEmbed"
 
 export default function Chaco() {
   return (
@@ -46,8 +47,7 @@ export default function Chaco() {
         </Container>
 
         <LookerEmbed looker_id='chaco' />
-
-        <iframe width="100%" height="600" frameborder="0" scrolling="no" src="https://1drv.ms/x/c/520c6123535e3dab/IQQcOkzzuq4USKxaX9DBz9PnAa4edbigZE-wWZ4oK4T7y3U?em=2&wdHideGridlines=True&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+      
       </div>
 
     </ClientGate>
