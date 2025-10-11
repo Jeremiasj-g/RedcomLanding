@@ -48,7 +48,7 @@ const Navbar = () => {
 
               <Link href="/" className="flex-shrink-0">
 
-                Redcom
+                REDCOM
               </Link>
             </div>
           </motion.div>
@@ -124,6 +124,28 @@ const Navbar = () => {
               >
                 Oberá
               </Link>
+              <Link
+                href="/gerencia"
+                className="group flex items-center gap-2 text-amber-300 hover:text-white px-3 py-2 text-md font-semibold transition-colors duration-200"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {/* Escudo (hereda el color del texto) */}
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  className="h-6 w-6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 3l7 3v6a9 9 0 01-7 8 9 9 0 01-7-8V6l7-3z" />
+                </svg>
+
+                <span>Gerencia</span>
+              </Link>
+
             </nav>
           </div>
 
@@ -207,6 +229,14 @@ const Navbar = () => {
               >
                 Oberá
               </Link>
+              <Link
+                href="/gerencia"
+                className="block text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors duration-200"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Gerencia
+              </Link>
+
             </div>
           </motion.div>
         )}

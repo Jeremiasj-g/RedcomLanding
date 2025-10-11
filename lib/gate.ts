@@ -6,6 +6,7 @@ export const GATE_HASH: Record<string, string> = {
     chaco: "f5b948acefe6789c6e76b37f02e8ba360d265820b6d39b7c589797a1eabe35d1",
     misiones: "227fbf4a2c5ad2e2d6ee32ac90094ac1870df7ad941a4a1d989a4e2a824022f6",
     obera: "12d1394988d1cf02a23166a9503a9bccc8cf5d3b3f8b8840c8ea194eded78411",
+    gerencia: "f4c855eb14d0307c29a4766dfd47439487c3dff300f6224774fcfd0a1cd90488",
 };
 
 export const GATE_TTL_MS = 8 * 60 * 60 * 1000; // 8h (cambiá a gusto)
