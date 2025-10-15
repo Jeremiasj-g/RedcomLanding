@@ -5,7 +5,8 @@ export default function MapsEmbed({map_id}) {
     refrigerados: '',
     chaco: '',
     misiones: 'https://www.google.com/maps/d/u/0/embed?mid=1h1E8r7uu-jsySRjaEHpERx72CpNIISg&ehbc=2E312F',
-    obera: ''
+    obera: '',
+    gerencia: 'https://www.google.com/maps/d/u/0/embed?mid=19y6MniEXtnVs3QBIZOlaXGOnkRMVTkI&ehbc=2E312F'
   }
 
 
@@ -16,7 +17,7 @@ export default function MapsEmbed({map_id}) {
       {/* contenedor responsive 16:9 */}
       <div className="relative w-full h-[600px] rounded-2xl overflow-hidden shadow-2xl">
         <iframe
-          title="Dashboard Ventas Redcom"
+          title="Mapa de coberturas Redcom"
           src={MAP_LINKS[map_id]}
           className="absolute inset-0 h-full w-full border-0"
           loading="lazy"
