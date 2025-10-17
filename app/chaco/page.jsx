@@ -9,7 +9,7 @@ import LookerEmbed from '@/components/LookerEmbed';
 import ClientGate from '@/components/ClientGate';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
-import TableroEmbed from "@/components/TableroEmbed"
+import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 
 export default function Chaco() {
   return (
@@ -19,6 +19,7 @@ export default function Chaco() {
         <PageHeader
           title="Chaco"
           bg='border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900'
+          bgImage="/mapa-chaco.png"
         />
 
         <section className="pt-24 pb-14">
@@ -43,11 +44,22 @@ export default function Chaco() {
         </section>
 
         <Container>
+          <FullScreenEmbedCard
+            title="Mapa de cobertura"
+            description="Visualizá el mapa de cobertura en pantalla completa."
+            embedUrl={'chaco'}
+            // icon={<IconMapPoint className="h-6 w-6 text-cyan-300" />} // opcional
+            preload={true}  // monta el iframe al cargar para evitar recarga al abrir
+            className=""
+          />
+        </Container>
+
+        <Container>
           <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
         </Container>
 
         <LookerEmbed looker_id='chaco' />
-      
+
       </div>
 
     </ClientGate>

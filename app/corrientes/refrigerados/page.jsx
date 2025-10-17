@@ -18,6 +18,7 @@ export default function CorrientesRefrigerados() {
         <PageHeader
           title="Refrigerados"
           bg="border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900"
+          bgImage="/mapa-corrientes.png"
         />
 
         <section className="pt-24 pb-14">

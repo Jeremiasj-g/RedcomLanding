@@ -18,6 +18,7 @@ export default function Obera() {
         <PageHeader
           title="Oberá"
           bg="border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900"
+          bgImage="/mapa-obera.png"
         />
 
         <section className="pt-24 pb-14">

@@ -10,15 +10,16 @@ import ClientGate from '@/components/ClientGate';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import MapsEmbed from '../../../components/MapsEmbed';
-import { IconMapPoint } from '@/components/Icons/IconMapPoint';
+import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 
 export default function CorrientesMasivos() {
   return (
     <ClientGate area="masivos">
       <div className="min-h-screen">
         <PageHeader
-          title="Masivos"
+          title="Corrientes"
           bg="border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900"
+          bgImage="/mapa-corrientes.png"
         />
 
         <section className="pt-24 pb-14">
@@ -40,16 +41,21 @@ export default function CorrientesMasivos() {
         </section>
 
         <Container>
+          <FullScreenEmbedCard
+            title="Mapa de cobertura"
+            description="Visualizá el mapa de cobertura en pantalla completa."
+            embedUrl={'masivos'}
+            // icon={<IconMapPoint className="h-6 w-6 text-cyan-300" />} // opcional
+            preload={true}  // monta el iframe al cargar para evitar recarga al abrir
+            className=""
+          />
+        </Container>
+
+        <Container>
           <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
         </Container>
 
         <LookerEmbed looker_id="masivos" />
-
-        <Container>
-          <SectionDivider title='Mapa de cobertura' icon={<IconMapPoint />} />
-        </Container>
-
-        <MapsEmbed map_id="masivos" />
       </div>
     </ClientGate>
   );
