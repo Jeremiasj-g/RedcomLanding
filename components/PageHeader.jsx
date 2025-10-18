@@ -14,7 +14,7 @@ export default function PageHeader(props) {
   } = props;
 
   return (
-    <header className={`relative h-[600px] min-h-[420px] overflow-hidden ${className}`}>
+    <header className={`relative h-[600px] min-h-[420px] overflow-hidden shadow-2xl ${className}`}>
       {/* Fondo */}
       <div className="absolute inset-0">
         <img
