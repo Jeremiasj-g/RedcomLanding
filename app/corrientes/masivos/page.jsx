@@ -6,7 +6,6 @@ import Card from '@/components/Card';
 import Container from '@/components/Container';
 import { corrientesMasivos } from '@/lib/data';
 import LookerEmbed from '@/components/LookerEmbed';
-import ClientGate from '@/components/ClientGate';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import MapsEmbed from '../../../components/MapsEmbed';
@@ -14,7 +13,6 @@ import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 
 export default function CorrientesMasivos() {
   return (
-    <ClientGate area="masivos">
       <div className="min-h-screen">
         <PageHeader
           title="Corrientes"
@@ -57,6 +55,5 @@ export default function CorrientesMasivos() {
 
         <LookerEmbed looker_id="masivos" />
       </div>
-    </ClientGate>
   );
 }

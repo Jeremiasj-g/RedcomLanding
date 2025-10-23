@@ -6,7 +6,6 @@ import LookerEmbed from '@/components/LookerEmbed';
 import Card from '@/components/Card';
 import Container from '@/components/Container';
 import { gerenciaProducts } from '@/lib/data';
-import ClientGate from '@/components/ClientGate';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
@@ -16,7 +15,6 @@ import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 
 export default function Gerencia() {
   return (
-    <ClientGate area="gerencia">
       <div className="min-h-screen">
         <PageHeader
           title="Gerencia"
@@ -62,6 +60,5 @@ export default function Gerencia() {
 
 
       </div>
-    </ClientGate>
   );
 }

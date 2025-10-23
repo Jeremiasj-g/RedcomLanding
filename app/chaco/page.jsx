@@ -6,15 +6,12 @@ import Card from '@/components/Card';
 import Container from '@/components/Container';
 import { chacoProducts } from '@/lib/data';
 import LookerEmbed from '@/components/LookerEmbed';
-import ClientGate from '@/components/ClientGate';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 
 export default function Chaco() {
   return (
-
-    <ClientGate area="chaco">
       <div className="min-h-screen">
         <PageHeader
           title="Chaco"
@@ -61,7 +58,5 @@ export default function Chaco() {
         <LookerEmbed looker_id='chaco' />
 
       </div>
-
-    </ClientGate>
   );
 }

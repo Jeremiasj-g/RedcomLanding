@@ -5,7 +5,6 @@ import PageHeader from '@/components/PageHeader';
 import Card from '@/components/Card';
 import Container from '@/components/Container';
 import { oberaProducts } from '@/lib/data';
-import ClientGate from '@/components/ClientGate';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import LookerEmbed from '@/components/LookerEmbed';
@@ -13,7 +12,6 @@ import LookerEmbed from '@/components/LookerEmbed';
 export default function Obera() {
   return (
 
-    <ClientGate area="obera">
       <div className="min-h-screen">
         <PageHeader
           title="Oberá"
@@ -48,7 +46,6 @@ export default function Obera() {
           <LookerEmbed looker_id="obera" />
         </section>
       </div>
-    </ClientGate>
 
 
   );

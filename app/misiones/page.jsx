@@ -6,15 +6,12 @@ import LookerEmbed from '@/components/LookerEmbed';
 import Card from '@/components/Card';
 import Container from '@/components/Container';
 import { misionesProducts } from '@/lib/data';
-import ClientGate from '@/components/ClientGate';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 
 export default function Misiones() {
   return (
-
-    <ClientGate area="misiones">
 
       <div className="min-h-screen">
         <PageHeader
@@ -62,8 +59,6 @@ export default function Misiones() {
         <LookerEmbed looker_id='misiones' />
 
       </div>
-
-    </ClientGate>
 
   );
 }
