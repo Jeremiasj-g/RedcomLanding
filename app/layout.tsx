@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import FloatingTelegramButton from '@/components/Icons/FloatingTelegramButton';
+import AuthProvider from '@/app/auth/AuthProvider';
 import { Head } from 'next/document';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -29,13 +30,16 @@ export default function RootLayout({
         <link rel="preconnect" href="https://www.google.com" />
         <link rel="preconnect" href="https://maps.gstatic.com" />
       </head>
-      <body className={inter.className}>
-        <Navbar />
-        <main>{children}</main>
-        {/* Botón flotante de Telegram */}
-        <FloatingTelegramButton />
-        <Footer />
-      </body>
+      
+      <AuthProvider>
+        <body className={inter.className}>
+          <Navbar />
+          <main>{children}</main>F
+          {/* Botón flotante de Telegram */}
+          <FloatingTelegramButton />
+          <Footer />
+        </body>
+      </AuthProvider>
     </html>
   );
 }

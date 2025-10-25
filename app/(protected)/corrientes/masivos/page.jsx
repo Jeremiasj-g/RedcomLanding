@@ -8,7 +8,6 @@ import { corrientesMasivos } from '@/lib/data';
 import LookerEmbed from '@/components/LookerEmbed';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
-import MapsEmbed from '../../../components/MapsEmbed';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 
 export default function CorrientesMasivos() {
