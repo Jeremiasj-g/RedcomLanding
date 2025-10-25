@@ -202,7 +202,7 @@ export default function LoginPage() {
 
           {/* Columna derecha: Ilustración / CTA */}
           <div className="relative hidden md:block">
-            <div className="absolute inset-0 bg-red-400" />
+            <div className="absolute inset-0 bg-[#A81C18]" />
             <div className="relative h-full w-full p-10 text-red-50">
               <h2 className="text-2xl font-bold leading-tight">Gestioná tu equipo y operaciones sin esfuerzo.</h2>
               <p className="mt-2 text-red-100/90">Accedé a tu panel para monitorear tus sucursales y procesos.</p>
@@ -216,7 +216,7 @@ export default function LoginPage() {
               </div>
               {/* <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(90rem_60rem_at_top,rgba(255,255,255,0.25),transparent)]" /> */}
               <div className="absolute bottom-0 right-0 h-[45%] w-[45%] border rounded-full bg-gray-50 blur-[120px]" />
-              <div className="absolute top-0 left-0 h-[25%] w-[25%] border rounded-full bg-gray-50 blur-[120px]" />
+              <div className="absolute top-0 left-2 h-[250px] w-[250px] border rounded-full bg-gray-50 blur-[120px]" />
             </div>
           </div>
         </div>
