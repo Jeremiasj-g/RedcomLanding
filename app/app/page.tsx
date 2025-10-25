@@ -1,23 +1,24 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+
+import { useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
 
 export default function AppHome() {
-  // Validación de sesión (como ya hacías)
-  const [sessionReady, setSessionReady] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
+  const router = useRouter();
   const { me, loading } = useMe();
 
+  // Evita redirecciones múltiples en cambios de foco o re-renders
+  const redirected = useRef(false);
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setHasSession(!!data.session);
-      setSessionReady(true);
-      if (!data.session) window.location.replace('/login');
-    });
-  }, []);
+    if (!loading && !me && !redirected.current) {
+      redirected.current = true;
+      router.replace('/login'); // navegación SPA, sin reload
+    }
+  }, [loading, me, router]);
 
   // saludo según hora
   const greeting = useMemo(() => {
@@ -28,34 +29,63 @@ export default function AppHome() {
   }, []);
 
   const firstName = useMemo(
-    () => ((me?.full_name ?? '').split(' ').filter(Boolean)[0] || me?.email?.split('@')[0] || '').trim(),
+    () =>
+      ((me?.full_name ?? '')
+        .split(' ')
+        .filter(Boolean)[0] ||
+        me?.email?.split('@')[0] ||
+        ''
+      ).trim(),
     [me?.full_name, me?.email]
   );
 
-  if (!sessionReady || loading) {
+  // Loader moderno mientras resolvemos el perfil
+  if (loading) {
     return (
-      <div className="min-h-[100dvh] grid place-items-center bg-gradient-to-br from-slate-50 via-white to-slate-100">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-700" />
+      <div className="min-h-[100dvh] grid place-items-center bg-gradient-to-br from-[#fff5f5] via-white to-[#fff0f0]">
+        <div className="flex flex-col items-center gap-5">
+          {/* Logo circular Redcom */}
+          <div className="relative">
+            <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[#A81C18] text-white text-2xl font-bold shadow-lg">
+              R
+            </div>
+            <div className="absolute -inset-2 rounded-3xl border border-red-200/60 animate-pulse" />
+          </div>
+          {/* Texto animado */}
+          <div className="text-center">
+            <p className="text-lg font-semibold text-[#A81C18]">Cargando tu panel…</p>
+            <div className="mt-2 flex items-center justify-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#A81C18] animate-bounce [animation-delay:-0.2s]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#A81C18] animate-bounce" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#A81C18] animate-bounce [animation-delay:0.2s]" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
-  if (!hasSession) return null; // redirigido
+
+  // Si no hay usuario (se disparó la redirección), no renderizamos nada
+  if (!me) return null;
 
   return (
-    <section className="relative min-h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100">
-
+    <section className="relative min-h-[100dvh] overflow-hidden bg-gradient-to-br from-[#fff5f5] via-white to-[#fff0f0]">
       <div className="mx-auto grid min-h-[100dvh] max-w-7xl grid-cols-1 gap-8 px-6 py-10 md:grid-cols-2 md:items-center lg:gap-6">
         {/* Columna izquierda: saludo + CTA */}
         <div className="order-2 md:order-1">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 shadow-sm">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
             Sesión activa
           </div>
 
           <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-6xl">
-            {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-800 to-red-400">{firstName || 'usuario'}</span>!
+            {greeting},{' '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#7e1411] to-[#e44b45]">
+              {firstName || 'usuario'}
+            </span>
+            !
           </h1>
-          <p className="mt-3 text-slate-600 text-lg">
+          <p className="mt-3 text-slate-700 text-lg">
             Bienvenido al panel general. Desde aquí podrás acceder rápidamente a tus sucursales y gestionar tu perfil.
           </p>
 
@@ -68,28 +98,30 @@ export default function AppHome() {
             </Link>
             <Link
               href="/perfil"
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+              className="rounded-xl border border-red-200 bg-white px-4 py-3 text-center text-sm font-medium text-slate-700 shadow-sm transition hover:bg-red-50"
             >
               Editar perfil
             </Link>
-            <Link
-              href="/login"
-              onClick={async (e) => { e.preventDefault(); await supabase.auth.signOut(); window.location.replace('/login'); }}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                router.replace('/login'); // sin reload
+              }}
+              className="rounded-xl border border-red-200 bg-white px-4 py-3 text-center text-sm font-medium text-slate-700 shadow-sm transition hover:bg-red-50"
             >
               Cerrar sesión
-            </Link>
+            </button>
           </div>
 
           {/* chips de sucursales si existen */}
-          {me?.branches?.length ? (
+          {me.branches?.length ? (
             <div className="mt-6">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tus sucursales</p>
               <div className="flex flex-wrap gap-2">
                 {me.branches.map((b) => (
                   <span
                     key={b}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 shadow-sm capitalize"
+                    className="rounded-full border border-red-200 bg-white px-3 py-1 text-sm text-slate-700 shadow-sm capitalize"
                   >
                     {b}
                   </span>
@@ -101,11 +133,10 @@ export default function AppHome() {
 
         {/* Columna derecha: espacio para avatar/imagen */}
         <div className="order-1 md:order-2">
-          <div className="relative mx-auto aspect-square  rounded-3xl border-slate-200 p-4">
-            {/* Inserta tu imagen en /public/avatar.png o cambia el src */}
-            <figure className="relative h-full w-full rounded-2xl ring-1 ring-inset ring-white/60">
+          <div className="relative mx-auto aspect-square rounded-3xl p-4">
+            <figure className="relative h-full w-full overflow-hidden rounded-2xl ring-1 ring-inset ring-white/60">
               <Image
-                src="/redcom_avatar.png"
+                src="/redcom_avatar.png" // poné tu imagen en /public
                 alt="Avatar del usuario"
                 fill
                 className="object-cover"
@@ -115,9 +146,11 @@ export default function AppHome() {
             </figure>
 
             {/* Placa con datos básicos */}
-            <div className="absolute inset-x-4 bottom-4 rounded-xl border border-slate-200 bg-white/60 p-8 backdrop-blur-md scale-110 shadow-xl">
-              <p className="truncate text-sm font-semibold text-slate-900">{me?.full_name || firstName || me?.email}</p>
-              <p className="truncate text-xs text-slate-500">{me?.email}</p>
+            <div className="absolute inset-x-4 bottom-4 rounded-xl border border-red-200 bg-white/70 p-4 backdrop-blur-md shadow-xl">
+              <p className="truncate text-sm font-semibold text-slate-900">
+                {me.full_name || firstName || me.email}
+              </p>
+              <p className="truncate text-xs text-slate-600">{me.email}</p>
             </div>
           </div>
         </div>

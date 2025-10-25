@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
 type Me = {
@@ -14,22 +15,24 @@ type Me = {
 
 type AuthCtx = {
   me: Me;
-  loading: boolean;
+  loading: boolean;                   // solo true en el primer boot
   signOut: () => Promise<void>;
-  refreshMe: () => Promise<void>;
+  refreshMe: () => Promise<void>;     // revalida sin flicker
 };
 
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [me, setMe] = useState<Me>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);      // solo para el arranque
+  const bootstrapped = useRef(false);                // evita flashes luego del primer load
 
-  const loadMe = async () => {
+  const fetchMe = async () => {
     const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) { setMe(null); setLoading(false); return; }
+    if (!auth.user) { setMe(null); return; }
 
-    // Primero intento la vista agregada v_user_with_branches
+    // 1) Vista preferida
     const { data, error } = await supabase
       .from('v_user_with_branches')
       .select('*')
@@ -45,11 +48,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         is_active: data.is_active,
         branches: (data.branches ?? []).map((x: string) => x?.toLowerCase?.() ?? x),
       });
-      setLoading(false);
       return;
     }
 
-    // Fallback (profiles + user_branches)
+    // 2) Fallback profiles + user_branches
     const [{ data: p }, { data: ub }] = await Promise.all([
       supabase.from('profiles').select('id,email,full_name,role,is_active').eq('id', auth.user.id).single(),
       supabase.from('user_branches').select('branch').eq('user_id', auth.user.id),
@@ -67,33 +69,58 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     } else {
       setMe(null);
     }
+  };
+
+  const loadFirstTime = async () => {
+    await fetchMe();
     setLoading(false);
+    bootstrapped.current = true;
   };
 
   useEffect(() => {
-    loadMe();
+    loadFirstTime();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setLoading(true);
-        loadMe();
-      } else {
+    // auth events: actualizar en silencio (sin setLoading(true))
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
         setMe(null);
-        setLoading(false);
+        return;
       }
+      // SIGNED_IN / TOKEN_REFRESHED → revalida suave
+      fetchMe();
     });
 
-    return () => sub.subscription.unsubscribe();
+    // al volver a la pestaña, revalida sin flicker
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && bootstrapped.current) {
+        fetchMe();
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+
+    return () => {
+      subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
     setMe(null);
+    router.push('/login'); // sin window.location.replace (evita reload duro)
   };
 
-  const value = useMemo<AuthCtx>(() => ({
-    me, loading, signOut, refreshMe: loadMe,
-  }), [me, loading]);
+  const value = useMemo<AuthCtx>(
+    () => ({
+      me,
+      loading,
+      signOut,
+      refreshMe: fetchMe,
+    }),
+    [me, loading]
+  );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
