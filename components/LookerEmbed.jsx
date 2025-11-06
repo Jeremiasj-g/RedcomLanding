@@ -1,7 +1,7 @@
 export default function LookerEmbed({looker_id}) {
 
   const LOOKER_LINKS = {
-    masivos: 'https://lookerstudio.google.com/embed/reporting/64277513-3ce5-4536-b948-68b716949d64/page/e2jXF',
+    masivos: 'https://lookerstudio.google.com/embed/reporting/060a7873-f0fd-4c6b-a47c-8309fad5feb2/page/yUXeF',
     refrigerados: 'https://lookerstudio.google.com/embed/reporting/f0a5a6bd-81c9-4520-9064-d0288fa5340a/page/OQ6XF',
     chaco: 'https://lookerstudio.google.com/embed/reporting/0d3a616b-9622-4510-9f96-0bfc2f3dce25/page/sKSXF',
     misiones: 'https://lookerstudio.google.com/embed/reporting/130950d7-ccf0-4b69-857f-322a721d836a/page/3LWWF',
