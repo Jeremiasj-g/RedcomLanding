@@ -9,8 +9,12 @@ import LookerEmbed from '@/components/LookerEmbed';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
+import { urls } from '@/lib/data';
 
 export default function Chaco() {
+
+  const resistenciaMapa = urls.mapas[1].resistencia
+
   return (
       <div className="min-h-screen">
         <PageHeader
@@ -41,14 +45,7 @@ export default function Chaco() {
         </section>
 
         <Container>
-          <FullScreenEmbedCard
-            title="Mapa de cobertura"
-            description="Visualizá el mapa de cobertura en pantalla completa."
-            embedUrl={'chaco'}
-            // icon={<IconMapPoint className="h-6 w-6 text-cyan-300" />} // opcional
-            preload={true}  // monta el iframe al cargar para evitar recarga al abrir
-            className=""
-          />
+          <FullScreenEmbedCard {...resistenciaMapa} />
         </Container>
 
         <Container>

@@ -1,63 +1,46 @@
 'use client';
 
-import { useState, useEffect, useCallback, ReactNode } from 'react';
+import { useState, useEffect, useCallback, ReactNode, ElementType } from 'react';
 import { motion } from 'framer-motion';
 import { IconMapPoint } from '@/components/Icons/IconMapPoint';
 
-// ==== Diccionario de mapas (fuera del componente) ====
-export const MAP_URLS = {
-  masivos: 'https://www.google.com/maps/d/u/0/embed?mid=1dswZoPN46Tw75GZOd2latT9AdKe0y8M&ehbc=2E312F',
-  refrigerados: '',
-  chaco: 'https://www.google.com/maps/d/embed?mid=1pUyjtXDwn9iylKJ4nBPSzp1-6LArvho&ehbc=2E312F',
-  misiones: 'https://www.google.com/maps/d/u/0/embed?mid=1h1E8r7uu-jsySRjaEHpERx72CpNIISg&ehbc=2E312F',
-  obera: '',
-  gerencia: 'https://www.google.com/maps/d/u/0/embed?mid=19y6MniEXtnVs3QBIZOlaXGOnkRMVTkI&ehbc=2E312F',
-} as const;
-
-export type Area = keyof typeof MAP_URLS; // "masivos" | "refrigerados" | ...
-
-// type guard para saber si un string es una key válida del diccionario
-function isArea(value: string): value is Area {
-  return value in MAP_URLS;
-}
-
-// ==== Props ====
-// embedUrl puede ser una key del diccionario o una URL completa:
 type FullScreenEmbedCardProps = {
   title: string;
   description?: string;
-  embedUrl: Area | string;    // <-- ya no opcional
-  icon?: ReactNode;
+  embedUrl: string;
+  /** 👇 ahora puede recibir cualquier ícono de lucide-react */
+  icon?: ReactNode | ElementType;
   buttonLabel?: string;
-  preload?: boolean;          // si true, monta el iframe al cargar
-  className?: string;         // estilos extra para el wrapper <section>
+  preload?: boolean;
+  className?: string;
+  gradientFrom?: string;
+  gradientVia?: string;
+  gradientTo?: string;
+  accentColor?: string;
 };
 
 export default function FullScreenEmbedCard({
   title,
   description = 'Visualizá el contenido en pantalla completa.',
   embedUrl,
-  icon,
+  icon: IconProp,
   buttonLabel = 'Abrir',
   preload = false,
   className = '',
+  gradientFrom = 'from-slate-900',
+  gradientVia = 'via-slate-800',
+  gradientTo = 'to-slate-900',
+  accentColor = '#f59e0b',
 }: FullScreenEmbedCardProps) {
-  const [visible, setVisible] = useState(false);     // mostrar/ocultar (sin desmontar)
-  const [mounted, setMounted] = useState(preload);   // si preload=true, ya arranca montado
+  const [visible, setVisible] = useState(false);
+  const [mounted, setMounted] = useState(preload);
 
-  // resolver URL final (key del diccionario o URL directa)
-  const url = typeof embedUrl === 'string' && isArea(embedUrl)
-    ? MAP_URLS[embedUrl]
-    : (embedUrl as string);
-
-  // abrir/cerrar
   const open = () => {
     if (!mounted) setMounted(true);
     setVisible(true);
   };
   const close = useCallback(() => setVisible(false), []);
 
-  // ESC para cerrar
   useEffect(() => {
     if (!visible) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
@@ -67,7 +50,6 @@ export default function FullScreenEmbedCard({
 
   return (
     <>
-      {/* Card disparador */}
       <section className={className}>
         <motion.button
           onClick={open}
@@ -76,21 +58,43 @@ export default function FullScreenEmbedCard({
           viewport={{ once: true }}
           className="group w-full"
         >
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 shadow-xl transition-transform duration-200 group-hover:scale-105">
-            <div className="absolute inset-0 pointer-events-none opacity-50 bg-[radial-gradient(1200px_200px_at_50%_-20%,rgba(59,130,246,0.20),transparent)]" />
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10">
-                {icon ?? <IconMapPoint className="h-6 w-6 text-cyan-300" />}
+          <div
+            className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${gradientFrom} ${gradientVia} ${gradientTo} p-6 shadow-xl transition-transform duration-200 group-hover:scale-105`}
+          >
+            <div
+              className="absolute inset-0 pointer-events-none opacity-40"
+              style={{
+                background: `radial-gradient(1200px 200px at 50% -20%, ${accentColor}33, transparent)`,
+              }}
+            />
+
+            <div className="flex items-center gap-4 relative z-10">
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10"
+                style={{ color: accentColor }}
+              >
+                {typeof IconProp === 'function' ? (
+                  <IconProp className="h-6 w-6" strokeWidth={1.5} />
+                ) : (
+                  IconProp ?? <IconMapPoint className="h-6 w-6" />
+                )}
               </div>
+
               <div className="flex-1 text-left">
                 <h3 className="text-lg font-semibold text-white tracking-tight">
                   {title}
                 </h3>
                 <p className="text-sm text-white/70">{description}</p>
               </div>
+
               <div
                 aria-hidden
-                className="ml-auto rounded-full px-3 py-1 text-xs font-medium text-cyan-300/90 ring-1 ring-cyan-400/30 group-hover:ring-cyan-300/60"
+                className="ml-auto rounded-full px-3 py-1 text-xs font-medium ring-1 group-hover:opacity-90 transition"
+                style={{
+                  color: accentColor,
+                  borderColor: `${accentColor}80`,
+                  backgroundColor: `${accentColor}15`,
+                }}
               >
                 {buttonLabel}
               </div>
@@ -99,7 +103,7 @@ export default function FullScreenEmbedCard({
         </motion.button>
       </section>
 
-      {/* Modal full-screen: queda montada si mounted=true; solo cambia visibilidad */}
+      {/* Modal full-screen */}
       {mounted && (
         <div
           className={`fixed inset-0 z-[999] transition-opacity duration-300 ${
@@ -109,22 +113,24 @@ export default function FullScreenEmbedCard({
           aria-modal="true"
           aria-hidden={!visible}
         >
-          {/* Cerrar al clickear el fondo */}
           <div className="absolute inset-0" onClick={close} />
 
           <div className="relative mx-auto h-screen w-screen">
             <button
               onClick={close}
-              className="absolute right-4 top-4 z-[1000] rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/20 backdrop-blur hover:bg-white/15"
+              className="absolute right-4 top-4 z-[1000] rounded-full px-4 py-2 text-sm font-medium text-white ring-1 ring-white/20 backdrop-blur hover:bg-white/15"
+              style={{
+                backgroundColor: `${accentColor}25`,
+                borderColor: `${accentColor}60`,
+              }}
             >
               Cerrar
             </button>
 
-            {/* Iframe siempre montado (no se desmonta al cerrar) */}
-            {url ? (
+            {embedUrl ? (
               <iframe
                 title={title}
-                src={url}
+                src={embedUrl}
                 className={`h-full w-full ${visible ? '' : 'invisible'}`}
                 loading={preload ? 'eager' : 'lazy'}
                 referrerPolicy="no-referrer-when-downgrade"

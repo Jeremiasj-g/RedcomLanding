@@ -9,50 +9,50 @@ import LookerEmbed from '@/components/LookerEmbed';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
+import { urls } from '@/lib/data';
+import { Table } from 'lucide-react';
 
 export default function CorrientesMasivos() {
+
+  const corrientesMapa = urls.mapas[0].corrientes;
+  const corrientesTablero = urls.tableros[0].corrientes;
+
   return (
-      <div className="min-h-screen">
-        <PageHeader
-          title="Corrientes"
-          bg="border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900"
-          bgImage="/mapa-corrientes.png"
-        />
+    <div className="min-h-screen">
+      <PageHeader
+        title="Corrientes"
+        bg="border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900"
+        bgImage="/mapa-corrientes.png"
+      />
 
-        <section className="pt-24 pb-14">
-          <Container>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {corrientesMasivos.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                >
-                  <Card {...product} />
-                </motion.div>
-              ))}
-            </div>
-          </Container>
-        </section>
-
+      <section className="pt-24 pb-14">
         <Container>
-          <FullScreenEmbedCard
-            title="Mapa de cobertura"
-            description="Visualizá el mapa de cobertura en pantalla completa."
-            embedUrl={'masivos'}
-            // icon={<IconMapPoint className="h-6 w-6 text-cyan-300" />} // opcional
-            preload={true}  // monta el iframe al cargar para evitar recarga al abrir
-            className=""
-          />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {corrientesMasivos.map((product, index) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                viewport={{ once: true }}
+              >
+                <Card {...product} />
+              </motion.div>
+            ))}
+          </div>
         </Container>
+      </section>
 
-        <Container>
-          <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
-        </Container>
+      <Container>
+        <FullScreenEmbedCard {...corrientesMapa} />
+        <FullScreenEmbedCard {...corrientesTablero} icon={<Table />} />
+      </Container>
 
-        <LookerEmbed looker_id="masivos" />
-      </div>
+      <Container>
+        <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
+      </Container>
+
+      <LookerEmbed looker_id="masivos" />
+    </div>
   );
 }
