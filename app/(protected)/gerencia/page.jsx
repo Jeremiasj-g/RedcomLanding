@@ -26,24 +26,6 @@ export default function Gerencia() {
         bg="border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900"
         bgImage="/mapa-corrientes.png"
       />
-      {/* 
-        <section className="pt-24 pb-14">
-          <Container>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {gerenciaProducts.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                >
-                  <Card {...product} />
-                </motion.div>
-              ))}
-            </div>
-          </Container>
-        </section> */}
 
       {/* Card + Modal reutilizable */}
       <section className="pt-24 pb-14">
