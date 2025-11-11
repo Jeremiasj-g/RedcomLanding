@@ -34,7 +34,7 @@ export default function RootLayout({
       <AuthProvider>
         <body className={inter.className}>
           <Navbar />
-          <main>{children}</main>F
+          <main>{children}</main>
           {/* Botón flotante de Telegram */}
           <FloatingTelegramButton />
           <Footer />

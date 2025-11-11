@@ -9,19 +9,24 @@ import { gerenciaProducts } from '@/lib/data';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
+import { urls } from '@/lib/data';
 // (opcional) import { IconMapPoint } from '@/components/Icons/IconMapPoint';
 
 /* const MAP_URL = 'https://www.google.com/maps/d/u/0/embed?mid=19y6MniEXtnVs3QBIZOlaXGOnkRMVTkI&ehbc=2E312F'; */
 
 export default function Gerencia() {
-  return (
-      <div className="min-h-screen">
-        <PageHeader
-          title="Gerencia"
-          bg="border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900"
-          bgImage="/mapa-corrientes.png"
-        />
 
+  const gerenciaMapa = urls.mapas[2].gerencia
+  const gerenciaTablero = urls.tableros[1].gerencia
+
+  return (
+    <div className="min-h-screen">
+      <PageHeader
+        title="Gerencia"
+        bg="border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900"
+        bgImage="/mapa-corrientes.png"
+      />
+      {/* 
         <section className="pt-24 pb-14">
           <Container>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -38,27 +43,22 @@ export default function Gerencia() {
               ))}
             </div>
           </Container>
-        </section>
+        </section> */}
 
-        {/* Card + Modal reutilizable */}
+      {/* Card + Modal reutilizable */}
+      <section className="pt-24 pb-14">
         <Container>
-          <FullScreenEmbedCard
-            title="Mapa de cobertura"
-            description="Visualizá el mapa de cobertura en pantalla completa."
-            embedUrl={'gerencia'}
-            // icon={<IconMapPoint className="h-6 w-6 text-cyan-300" />} // opcional
-            preload={true}  // monta el iframe al cargar para evitar recarga al abrir
-            className=""
-          />
+          <FullScreenEmbedCard {...gerenciaMapa} />
+          <FullScreenEmbedCard {...gerenciaTablero} />
         </Container>
+      </section>
+      <Container>
+        <SectionDivider title="Dashboard de ventas" icon={<IconAnalytics />} />
+      </Container>
 
-        <Container>
-          <SectionDivider title="Dashboard de ventas" icon={<IconAnalytics />} />
-        </Container>
-
-        <LookerEmbed looker_id="gerencia" />
+      <LookerEmbed looker_id="gerencia" />
 
 
-      </div>
+    </div>
   );
 }
