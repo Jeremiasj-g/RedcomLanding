@@ -16,6 +16,7 @@ type Row = {
   branches: string[];
   created_at?: string;            // opcional si extendiste la view
   last_sign_in_at?: string | null;// opcional si extendiste la view
+  last_active?: string | null;
 };
 
 type ActiveFilter = 'all' | 'active' | 'inactive';
@@ -85,14 +86,21 @@ export default function AdminUsersPage() {
   };
 
   const load = async () => {
-    setError(null);
-    const { data: auth } = await supabase.auth.getUser();
-    setCurrentUserId(auth.user?.id ?? null);
-    const { data, error } = await supabase.rpc('admin_list_users');
-    if (error) setError(error.message);
-    setRows((data ?? []) as Row[]);
-    setLoading(false);
-  };
+  setError(null);
+  const { data: auth } = await supabase.auth.getUser();
+  setCurrentUserId(auth.user?.id ?? null);
+
+  const { data, error } = await supabase.rpc('admin_list_users');
+if (error) setError(error.message);
+
+// 👇 LOGS útiles
+console.log('admin_list_users count:', data?.length);
+console.log('admin_list_users emails:', data?.map((r:any)=>r.email));
+console.log('admin_list_users full payload:', data); // si querés ver todo
+
+setRows((data ?? []) as Row[]);
+  setLoading(false);
+};
   useEffect(() => { load(); }, []);
 
   const isSelf = (u: Row) => u.id === currentUserId;
@@ -455,6 +463,10 @@ export default function AdminUsersPage() {
                       <div title={u.last_sign_in_at ? dtf.format(new Date(u.last_sign_in_at)) : ''}>
                         <span className="font-semibold text-slate-600">Último acceso: </span>
                         {u.last_sign_in_at ? fromNow(u.last_sign_in_at) : '—'}
+                      </div>
+                      <div title={(u.last_active ?? u.last_sign_in_at) ? dtf.format(new Date(u.last_active ?? u.last_sign_in_at!)) : ''}>
+                        <span className="font-semibold text-slate-600">Última actividad: </span>
+                        {(u.last_active ?? u.last_sign_in_at) ? fromNow(u.last_active ?? u.last_sign_in_at!) : '—'}
                       </div>
                     </div>
                   )}
