@@ -11,11 +11,18 @@ import LookerEmbed from '@/components/LookerEmbed';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics'
 import { RequireAuth } from '@/components/RouteGuards';
+import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
+import { urls } from '@/lib/data';
+import { Table } from 'lucide-react';
 
 export default function CorrientesRefrigerados() {
+
+  const refrigeradosTablero = urls.tableros[1].refrigerados
+
   return (
 
     <RequireAuth roles={['admin', 'supervisor']} branches={['refrigerados']}>
+
       <div className="min-h-screen">
         <PageHeader
           title="Refrigerados"
@@ -43,6 +50,10 @@ export default function CorrientesRefrigerados() {
             </div>
           </Container>
         </section>
+
+        <Container>
+          <FullScreenEmbedCard {...refrigeradosTablero} icon={<Table />} />
+        </Container>
 
         <Container>
           <SectionDivider title='Kílos - bultos' />
