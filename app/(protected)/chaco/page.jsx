@@ -10,12 +10,16 @@ import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 import { urls } from '@/lib/data';
+import { RequireAuth } from '@/components/RouteGuards';
 
 export default function Chaco() {
 
   const resistenciaMapa = urls.mapas[1].resistencia
 
   return (
+
+    <RequireAuth roles={['admin', 'supervisor']} branches={['chaco']}>
+
       <div className="min-h-screen">
         <PageHeader
           title="Chaco"
@@ -55,5 +59,7 @@ export default function Chaco() {
         <LookerEmbed looker_id='chaco' />
 
       </div>
+
+    </RequireAuth>
   );
 }

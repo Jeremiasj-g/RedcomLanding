@@ -4,11 +4,12 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
+// 👇 Ahora coincide con la BD: admin | supervisor | vendedor
 type Me = {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'admin' | 'user';
+  role: 'admin' | 'supervisor' | 'vendedor';
   is_active: boolean;
   branches: string[];
   last_active?: string | null; // opcional, por si lo querés usar en el cliente
@@ -48,7 +49,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         id: data.id,
         email: data.email,
         full_name: data.full_name,
-        role: data.role,
+        role: data.role, // 'admin' | 'supervisor' | 'vendedor'
         is_active: data.is_active,
         branches: (data.branches ?? []).map((x: string) => x?.toLowerCase?.() ?? x),
         last_active: data.last_active ?? null,
@@ -58,7 +59,11 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
     // 2) Fallback profiles + user_branches
     const [{ data: p }, { data: ub }] = await Promise.all([
-      supabase.from('profiles').select('id,email,full_name,role,is_active,last_active').eq('id', auth.user.id).single(),
+      supabase
+        .from('profiles')
+        .select('id,email,full_name,role,is_active,last_active')
+        .eq('id', auth.user.id)
+        .single(),
       supabase.from('user_branches').select('branch').eq('user_id', auth.user.id),
     ]);
 
@@ -67,7 +72,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         id: p.id,
         email: p.email,
         full_name: p.full_name,
-        role: p.role,
+        role: p.role, // 'admin' | 'supervisor' | 'vendedor'
         is_active: p.is_active,
         branches: (ub ?? []).map((r: any) => String(r.branch).toLowerCase()),
         last_active: p.last_active ?? null,

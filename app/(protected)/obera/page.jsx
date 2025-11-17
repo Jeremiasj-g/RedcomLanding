@@ -8,10 +8,12 @@ import { oberaProducts } from '@/lib/data';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import LookerEmbed from '@/components/LookerEmbed';
+import { RequireAuth } from '@/components/RouteGuards';
 
 export default function Obera() {
   return (
 
+    <RequireAuth roles={['admin', 'supervisor']} branches={['obera']}>
       <div className="min-h-screen">
         <PageHeader
           title="Oberá"
@@ -46,7 +48,7 @@ export default function Obera() {
           <LookerEmbed looker_id="obera" />
         </section>
       </div>
-
+    </RequireAuth>
 
   );
 }

@@ -10,6 +10,7 @@ import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 import { urls } from '@/lib/data';
+import { RequireAuth } from '@/components/RouteGuards';
 // (opcional) import { IconMapPoint } from '@/components/Icons/IconMapPoint';
 
 /* const MAP_URL = 'https://www.google.com/maps/d/u/0/embed?mid=19y6MniEXtnVs3QBIZOlaXGOnkRMVTkI&ehbc=2E312F'; */
@@ -20,27 +21,31 @@ export default function Gerencia() {
   const gerenciaTablero = urls.tableros[1].gerencia
 
   return (
-    <div className="min-h-screen">
-      <PageHeader
-        title="Gerencia"
-        bg="border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900"
-        bgImage="/mapa-corrientes.png"
-      />
+    <RequireAuth roles={['admin']}>
 
-      {/* Card + Modal reutilizable */}
-      <section className="pt-24 pb-14">
+      <div className="min-h-screen">
+        <PageHeader
+          title="Gerencia"
+          bg="border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900"
+          bgImage="/mapa-corrientes.png"
+        />
+
+        {/* Card + Modal reutilizable */}
+        <section className="pt-24 pb-14">
+          <Container>
+            <FullScreenEmbedCard {...gerenciaMapa} />
+            <FullScreenEmbedCard {...gerenciaTablero} />
+          </Container>
+        </section>
         <Container>
-          <FullScreenEmbedCard {...gerenciaMapa} />
-          <FullScreenEmbedCard {...gerenciaTablero} />
+          <SectionDivider title="Dashboard de ventas" icon={<IconAnalytics />} />
         </Container>
-      </section>
-      <Container>
-        <SectionDivider title="Dashboard de ventas" icon={<IconAnalytics />} />
-      </Container>
 
-      <LookerEmbed looker_id="gerencia" />
+        <LookerEmbed looker_id="gerencia" />
 
 
-    </div>
+      </div>
+    </RequireAuth>
+
   );
 }

@@ -9,10 +9,12 @@ import { misionesProducts } from '@/lib/data';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
+import { RequireAuth } from '@/components/RouteGuards';
 
 export default function Misiones() {
   return (
 
+    <RequireAuth roles={['admin', 'supervisor']} branches={['misiones']}>
       <div className="min-h-screen">
         <PageHeader
           title="Misiones"
@@ -59,6 +61,6 @@ export default function Misiones() {
         <LookerEmbed looker_id='misiones' />
 
       </div>
-
+    </RequireAuth>
   );
 }

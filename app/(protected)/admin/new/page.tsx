@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { Shield, Mail, Lock, Building2, UserPlus, Users } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 
 const ALL_BRANCHES = ['corrientes', 'chaco', 'misiones', 'obera', 'refrigerados'];
 
@@ -8,7 +9,9 @@ export default function NewUser() {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'user' | 'admin'>('user');
+  // 👇 ahora coincide con la BD: admin | supervisor | vendedor
+  const [role, setRole] =
+    useState<'admin' | 'supervisor' | 'vendedor'>('supervisor');
   const [isActive, setIsActive] = useState(true);
   const [branches, setBranches] = useState<string[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -16,7 +19,9 @@ export default function NewUser() {
   const [loading, setLoading] = useState(false);
 
   const toggle = (b: string) =>
-    setBranches((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]));
+    setBranches((prev) =>
+      prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]
+    );
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,13 +34,24 @@ export default function NewUser() {
     }
 
     setLoading(true);
+
+    // 👇 token REAL del usuario logueado (admin)
+    const { data: { session }, error: sessErr } = await supabase.auth.getSession();
+
+    if (sessErr || !session?.access_token) {
+      setLoading(false);
+      setErr('No se encontró una sesión válida. Volvé a iniciar sesión.');
+      return;
+    }
+
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin_create_user`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          // ⚠ Token del usuario, NO el anon key
+          Authorization: `Bearer ${session.access_token}`,
           apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
         },
         body: JSON.stringify({
@@ -43,7 +59,7 @@ export default function NewUser() {
           password,
           full_name: fullName,
           branches,
-          role,
+          role,          // 'admin' | 'supervisor' | 'vendedor'
           is_active: isActive,
         }),
       }
@@ -62,7 +78,7 @@ export default function NewUser() {
     setPassword('');
     setFullName('');
     setBranches([]);
-    setRole('user');
+    setRole('supervisor');
     setIsActive(true);
     setTimeout(() => setOk(false), 5000);
   };
@@ -135,9 +151,12 @@ export default function NewUser() {
                 <select
                   className="w-full cursor-pointer rounded-xl border border-slate-300 px-4 py-3 text-slate-900 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={role}
-                  onChange={(e) => setRole(e.target.value as 'user' | 'admin')}
+                  onChange={(e) =>
+                    setRole(e.target.value as 'admin' | 'supervisor' | 'vendedor')
+                  }
                 >
-                  <option value="user">Usuario Estándar</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="vendedor">Vendedor</option>
                   <option value="admin">Administrador</option>
                 </select>
               </div>
@@ -165,7 +184,9 @@ export default function NewUser() {
                 ))}
               </div>
               {branches.length === 0 && (
-                <p className="mt-2 text-xs text-slate-500">Seleccione al menos una sucursal</p>
+                <p className="mt-2 text-xs text-slate-500">
+                  Seleccione al menos una sucursal
+                </p>
               )}
             </div>
 
@@ -193,7 +214,9 @@ export default function NewUser() {
                   <span className="text-xs font-bold text-white">!</span>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-red-900">Error al crear usuario</p>
+                  <p className="text-sm font-semibold text-red-900">
+                    Error al crear usuario
+                  </p>
                   <p className="text-sm text-red-700">{err}</p>
                 </div>
               </div>
