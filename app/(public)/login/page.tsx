@@ -16,6 +16,11 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // forgot password
+  const [forgotSending, setForgotSending] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState<string | null>(null);
+  const [forgotErr, setForgotErr] = useState<string | null>(null);
+
   // modal: solicitar acceso
   const [askOpen, setAskOpen] = useState(false);
   const [askEmail, setAskEmail] = useState('');
@@ -47,12 +52,15 @@ export default function LoginPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setForgotErr(null);
+    setForgotMsg(null);
     setSubmitting(true);
 
     const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
     if (error) {
       setSubmitting(false);
       return setError(error.message);
@@ -79,6 +87,36 @@ export default function LoginPage() {
 
     router.replace('/app');
     router.refresh();
+  };
+
+  const handleForgotPassword = async () => {
+    setForgotErr(null);
+    setForgotMsg(null);
+
+    if (!email) {
+      setForgotErr('Ingresá tu correo primero.');
+      return;
+    }
+
+    setForgotSending(true);
+
+    const redirectTo = `${window.location.origin}/reset-password`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      { redirectTo }
+    );
+
+    setForgotSending(false);
+
+    if (error) {
+      setForgotErr(error.message);
+      return;
+    }
+
+    setForgotMsg(
+      'Si el correo existe en el sistema, te enviamos un enlace para restablecer tu contraseña.'
+    );
   };
 
   const togglePick = (name: string) => {
@@ -139,7 +177,9 @@ export default function LoginPage() {
             </div>
 
             <h1 className="text-3xl font-bold text-slate-900">¡Bienvenido otra vez!</h1>
-            <p className="mt-2 text-sm text-slate-500">Ingresá tu correo y contraseña para acceder a tu cuenta.</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Ingresá tu correo y contraseña para acceder a tu cuenta.
+            </p>
 
             <form onSubmit={onSubmit} className="mt-8 space-y-4">
               <div>
@@ -173,10 +213,19 @@ export default function LoginPage() {
                   <input type="checkbox" className="h-4 w-4 rounded border-slate-300" />
                   Recordarme
                 </label>
-                <span className="text-slate-500">¿Olvidaste tu contraseña?</span>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={forgotSending}
+                  className="text-slate-500 hover:text-slate-900 hover:underline disabled:opacity-60"
+                >
+                  {forgotSending ? 'Enviando enlace…' : '¿Olvidaste tu contraseña?'}
+                </button>
               </div>
 
               {error && <p className="text-sm text-red-600">{error}</p>}
+              {forgotErr && <p className="text-sm text-red-600">{forgotErr}</p>}
+              {forgotMsg && <p className="text-sm text-emerald-600">{forgotMsg}</p>}
 
               <button
                 className="mt-2 w-full rounded-xl bg-slate-900 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
@@ -204,8 +253,12 @@ export default function LoginPage() {
           <div className="relative hidden md:block">
             <div className="absolute inset-0 bg-[#A81C18]" />
             <div className="relative h-full w-full p-10 text-red-50">
-              <h2 className="text-2xl font-bold leading-tight">Gestioná tu equipo y operaciones sin esfuerzo.</h2>
-              <p className="mt-2 text-red-100/90">Accedé a tu panel para monitorear tus sucursales y procesos.</p>
+              <h2 className="text-2xl font-bold leading-tight">
+                Gestioná tu equipo y operaciones sin esfuerzo.
+              </h2>
+              <p className="mt-2 text-red-100/90">
+                Accedé a tu panel para monitorear tus sucursales y procesos.
+              </p>
               <div className="mt-8 rounded-2xl bg-white/10 p-4 ring-1 ring-white/20 backdrop-blur">
                 <div className="grid grid-cols-3 gap-3">
                   <div className="h-24 rounded-xl bg-white/20" />
@@ -214,7 +267,6 @@ export default function LoginPage() {
                   <div className="col-span-3 h-32 rounded-xl bg-white/20" />
                 </div>
               </div>
-              {/* <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(90rem_60rem_at_top,rgba(255,255,255,0.25),transparent)]" /> */}
               <div className="absolute bottom-0 right-0 h-[45%] w-[45%] border rounded-full bg-gray-50 blur-[120px]" />
               <div className="absolute top-0 left-2 h-[250px] w-[250px] border rounded-full bg-gray-50 blur-[120px]" />
             </div>
@@ -264,7 +316,9 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">Comentario (opcional)</label>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Comentario (opcional)
+                </label>
                 <textarea
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
                   rows={3}
