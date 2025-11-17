@@ -192,7 +192,7 @@ export default function ResetPasswordPage() {
               {okMsg && <p className="text-sm text-emerald-700">{okMsg}</p>}
 
               <button
-                className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60 mt-2"
+                className="w-full rounded-xl bg-slate-900 py-3 font-semibold text-white hover:bg-slate-800 disabled:opacity-60 mt-2"
                 disabled={submitting}
               >
                 {submitting ? 'Guardando…' : 'Guardar nueva contraseña'}
