@@ -10,6 +10,7 @@ import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 import { urls } from '@/lib/data';
+import { Table } from 'lucide-react';
 import { RequireAuth } from '@/components/RouteGuards';
 // (opcional) import { IconMapPoint } from '@/components/Icons/IconMapPoint';
 
@@ -18,7 +19,7 @@ import { RequireAuth } from '@/components/RouteGuards';
 export default function Gerencia() {
 
   const gerenciaMapa = urls.mapas[2].gerencia
-  const gerenciaTablero = urls.tableros[1].gerencia
+  const gerenciaTablero = urls.tableros[2].gerencia
 
   return (
     <RequireAuth roles={['admin']}>
@@ -34,7 +35,7 @@ export default function Gerencia() {
         <section className="pt-24 pb-14">
           <Container>
             <FullScreenEmbedCard {...gerenciaMapa} />
-            <FullScreenEmbedCard {...gerenciaTablero} />
+            <FullScreenEmbedCard {...gerenciaTablero} icon={<Table />}  />
           </Container>
         </section>
         <Container>

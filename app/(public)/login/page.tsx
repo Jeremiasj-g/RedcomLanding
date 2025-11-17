@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import { Eye, EyeOff } from 'lucide-react';
 
 type Branch = { name: string };
 
@@ -12,6 +13,7 @@ export default function LoginPage() {
   // login
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +122,9 @@ export default function LoginPage() {
   };
 
   const togglePick = (name: string) => {
-    setPicked(prev => (prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name]));
+    setPicked(prev =>
+      prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name]
+    );
   };
 
   const submitAsk = async (e: React.FormEvent) => {
@@ -172,7 +176,9 @@ export default function LoginPage() {
           {/* Columna izquierda: Form */}
           <div className="p-8 md:p-12">
             <div className="mb-8 flex items-center gap-3">
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-slate-900 text-white font-semibold">R</div>
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-slate-900 text-white font-semibold">
+                R
+              </div>
               <span className="text-lg font-semibold text-slate-900">REDCOM</span>
             </div>
 
@@ -183,7 +189,9 @@ export default function LoginPage() {
 
             <form onSubmit={onSubmit} className="mt-8 space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">Correo</label>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Correo
+                </label>
                 <input
                   type="email"
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
@@ -196,21 +204,39 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">Contraseña</label>
-                <input
-                  type="password"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                  placeholder="********"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  required
-                />
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-12 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                    placeholder="********"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-between text-sm">
                 <label className="flex items-center gap-2 text-slate-600">
-                  <input type="checkbox" className="h-4 w-4 rounded border-slate-300" />
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
                   Recordarme
                 </label>
                 <button
@@ -225,7 +251,9 @@ export default function LoginPage() {
 
               {error && <p className="text-sm text-red-600">{error}</p>}
               {forgotErr && <p className="text-sm text-red-600">{forgotErr}</p>}
-              {forgotMsg && <p className="text-sm text-emerald-600">{forgotMsg}</p>}
+              {forgotMsg && (
+                <p className="text-sm text-emerald-600">{forgotMsg}</p>
+              )}
 
               <button
                 className="mt-2 w-full rounded-xl bg-slate-900 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
@@ -277,11 +305,15 @@ export default function LoginPage() {
       {/* Modal Solicitar Acceso */}
       {askOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => !askSending && setAskOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => !askSending && setAskOpen(false)}
+          />
           <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-slate-900">Solicitar acceso</h3>
             <p className="mt-1 text-sm text-slate-600">
-              Ingresá tu correo, elegí tus sucursales y añadí un comentario si lo necesitás.
+              Ingresá tu correo, elegí tus sucursales y añadí un comentario si lo
+              necesitás.
             </p>
 
             <form onSubmit={submitAsk} className="mt-4 space-y-4">
@@ -297,7 +329,7 @@ export default function LoginPage() {
               <div>
                 <div className="mb-2 text-xs text-slate-600">Sucursales</div>
                 <div className="flex flex-wrap gap-2">
-                  {branches.map(b => {
+                  {branches.map((b) => {
                     const active = picked.includes(b.name);
                     return (
                       <button
@@ -305,7 +337,9 @@ export default function LoginPage() {
                         type="button"
                         onClick={() => togglePick(b.name)}
                         className={`rounded-full border px-3 py-1 text-sm capitalize ${
-                          active ? 'bg-emerald-100 border-emerald-300' : 'hover:bg-slate-50'
+                          active
+                            ? 'bg-emerald-100 border-emerald-300'
+                            : 'hover:bg-slate-50'
                         }`}
                       >
                         {b.name}

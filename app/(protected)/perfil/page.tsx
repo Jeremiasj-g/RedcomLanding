@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
-import { Check, AlertCircle } from 'lucide-react';
+import { Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function MiPerfilPage() {
   const { me, loading } = useMe();
@@ -15,6 +15,8 @@ export default function MiPerfilPage() {
   const [pwd, setPwd] = useState('');
   const [pwd2, setPwd2] = useState('');
   const [savingPwd, setSavingPwd] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
+  const [showPwd2, setShowPwd2] = useState(false);
 
   // Mensajes
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -109,7 +111,11 @@ export default function MiPerfilPage() {
               : 'border-red-200 bg-red-50 text-red-800'
           }`}
         >
-          {msg.type === 'ok' ? <Check className="mt-0.5 h-5 w-5" /> : <AlertCircle className="mt-0.5 h-5 w-5" />}
+          {msg.type === 'ok' ? (
+            <Check className="mt-0.5 h-5 w-5" />
+          ) : (
+            <AlertCircle className="mt-0.5 h-5 w-5" />
+          )}
           <span className="text-sm">{msg.text}</span>
         </div>
       )}
@@ -133,15 +139,23 @@ export default function MiPerfilPage() {
                 <p className="mt-1 font-medium capitalize text-slate-900">{me.role}</p>
               </div>
               <div className="rounded-xl border border-slate-200 p-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Estado</p>
-                <p className={`mt-1 font-medium ${me.is_active ? 'text-emerald-700' : 'text-red-700'}`}>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Estado
+                </p>
+                <p
+                  className={`mt-1 font-medium ${
+                    me.is_active ? 'text-emerald-700' : 'text-red-700'
+                  }`}
+                >
                   {me.is_active ? 'Activo' : 'Inactivo'}
                 </p>
               </div>
             </div>
 
             <div className="mt-5 w-full rounded-xl border border-slate-200 p-3">
-              <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">Sucursales</p>
+              <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
+                Sucursales
+              </p>
               <div className="flex flex-wrap gap-2">
                 {branches.length === 0 && (
                   <span className="text-sm text-slate-400">Sin asignación</span>
@@ -165,8 +179,13 @@ export default function MiPerfilPage() {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {/* Form Nombre */}
-            <form onSubmit={saveName} className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-              <h3 className="mb-3 text-sm font-semibold text-slate-800">Nombre completo</h3>
+            <form
+              onSubmit={saveName}
+              className="rounded-xl border border-slate-200 bg-slate-50 p-5"
+            >
+              <h3 className="mb-3 text-sm font-semibold text-slate-800">
+                Nombre completo
+              </h3>
               <div className="space-y-2">
                 <label className="text-xs font-medium text-slate-600">Nombre</label>
                 <input
@@ -188,28 +207,63 @@ export default function MiPerfilPage() {
             </form>
 
             {/* Form Password */}
-            <form onSubmit={savePwd} className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-              <h3 className="mb-3 text-sm font-semibold text-slate-800">Cambiar contraseña</h3>
+            <form
+              onSubmit={savePwd}
+              className="rounded-xl border border-slate-200 bg-slate-50 p-5"
+            >
+              <h3 className="mb-3 text-sm font-semibold text-slate-800">
+                Cambiar contraseña
+              </h3>
 
               <div className="space-y-2">
-                <label className="text-xs font-medium text-slate-600">Nueva contraseña</label>
-                <input
-                  type="password"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent"
-                  placeholder="Mínimo 8 caracteres"
-                  value={pwd}
-                  onChange={(e) => setPwd(e.target.value)}
-                />
+                <label className="text-xs font-medium text-slate-600">
+                  Nueva contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPwd ? 'text' : 'password'}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent"
+                    placeholder="Mínimo 8 caracteres"
+                    value={pwd}
+                    onChange={(e) => setPwd(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                  >
+                    {showPwd ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="mt-3 space-y-2">
-                <label className="text-xs font-medium text-slate-600">Repetir contraseña</label>
-                <input
-                  type="password"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent"
-                  value={pwd2}
-                  onChange={(e) => setPwd2(e.target.value)}
-                />
+                <label className="text-xs font-medium text-slate-600">
+                  Repetir contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPwd2 ? 'text' : 'password'}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent"
+                    value={pwd2}
+                    onChange={(e) => setPwd2(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd2((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                  >
+                    {showPwd2 ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="mt-4 flex justify-end">

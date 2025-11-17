@@ -10,8 +10,14 @@ import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 import { RequireAuth } from '@/components/RouteGuards';
+import { urls } from '@/lib/data';
+import { Table } from 'lucide-react';
 
 export default function Misiones() {
+
+  const mapaMisiones = urls.mapas[3].misiones
+  const tableroMisiones = urls.tableros[3].misiones
+
   return (
 
     <RequireAuth roles={['admin', 'supervisor']} branches={['misiones']}>
@@ -44,14 +50,8 @@ export default function Misiones() {
         </section>
 
         <Container>
-          <FullScreenEmbedCard
-            title="Mapa de cobertura"
-            description="Visualizá el mapa de cobertura en pantalla completa."
-            embedUrl={'misiones'}
-            // icon={<IconMapPoint className="h-6 w-6 text-cyan-300" />} // opcional
-            preload={true}  // monta el iframe al cargar para evitar recarga al abrir
-            className=""
-          />
+          <FullScreenEmbedCard {...mapaMisiones} />
+          <FullScreenEmbedCard {...tableroMisiones} icon={<Table />} />
         </Container>
 
         <Container>

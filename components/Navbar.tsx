@@ -17,11 +17,69 @@ export default function Navbar() {
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const logged = !!me;
-  const branches = useMemo(() => (me?.branches ?? []).map(b => b.toLowerCase()), [me?.branches]);
+  const branches = useMemo(
+    () => (me?.branches ?? []).map((b) => b.toLowerCase()),
+    [me?.branches]
+  );
 
   const hasCorrientes = branches.includes('corrientes');
   const hasRefrigerados = branches.includes('refrigerados');
   const showCorrientesDropdown = hasCorrientes || hasRefrigerados;
+
+  // Contador de solicitudes pendientes
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Solo admins necesitan ver el contador
+    if (!me || me.role !== 'admin') {
+      setPendingCount(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchCount = async () => {
+      const { count, error } = await supabase
+        .from('signup_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending');
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error('Error contando solicitudes pendientes', error);
+        setPendingCount(null);
+        return;
+      }
+
+      setPendingCount(count ?? 0);
+    };
+
+    // primera carga
+    fetchCount();
+
+    // Realtime: escuchar cualquier cambio en signup_requests
+    const channel = supabase
+      .channel('signup_requests_admin_badge')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // insert | update | delete
+          schema: 'public',
+          table: 'signup_requests',
+        },
+        () => {
+          // cada vez que cambie la tabla, refrescamos el contador
+          fetchCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [me?.role]); // si deja de ser admin o aún no está cargado, limpiamos
 
   // Cerrar dropdowns con click fuera / ESC
   useEffect(() => {
@@ -31,7 +89,10 @@ export default function Navbar() {
       if (!t.closest?.('#menu-user')) setUserOpen(false);
     };
     const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setOpenCtes(false); setUserOpen(false); }
+      if (e.key === 'Escape') {
+        setOpenCtes(false);
+        setUserOpen(false);
+      }
     };
     document.addEventListener('click', onClick);
     document.addEventListener('keydown', onEsc);
@@ -67,6 +128,7 @@ export default function Navbar() {
             REDCOM
           </Link>
         </motion.div>
+
         {/* Sección derecha */}
         <div className="flex items-center gap-2">
           {/* Sucursales visibles (solo si está logueado y activo) */}
@@ -76,7 +138,7 @@ export default function Navbar() {
               {showCorrientesDropdown && (
                 <div className="relative" id="menu-ctes">
                   <button
-                    onClick={() => setOpenCtes(v => !v)}
+                    onClick={() => setOpenCtes((v) => !v)}
                     className="rounded-xl px-3 py-2 font-semibold text-slate-100 hover:bg-slate-800 focus:outline-none focus:ring"
                     aria-haspopup="true"
                     aria-expanded={openCtes}
@@ -119,22 +181,32 @@ export default function Navbar() {
                 </div>
               )}
               {branches.includes('chaco') && (
-                <Link className="rounded-xl px-3 py-2 font-semibold text-slate-100 hover:bg-slate-800" href="/chaco">
+                <Link
+                  className="rounded-xl px-3 py-2 font-semibold text-slate-100 hover:bg-slate-800"
+                  href="/chaco"
+                >
                   Chaco
                 </Link>
               )}
               {branches.includes('misiones') && (
-                <Link className="rounded-xl px-3 py-2 font-semibold text-slate-100 hover:bg-slate-800" href="/misiones">
+                <Link
+                  className="rounded-xl px-3 py-2 font-semibold text-slate-100 hover:bg-slate-800"
+                  href="/misiones"
+                >
                   Misiones
                 </Link>
               )}
               {branches.includes('obera') && (
-                <Link className="rounded-xl px-3 py-2 font-semibold text-slate-100 hover:bg-slate-800" href="/obera">
+                <Link
+                  className="rounded-xl px-3 py-2 font-semibold text-slate-100 hover:bg-slate-800"
+                  href="/obera"
+                >
                   Oberá
                 </Link>
               )}
             </div>
           )}
+
           {/* Si NO está logueado → botón Ingresar */}
           {!loading && !logged && (
             <Link
@@ -145,12 +217,13 @@ export default function Navbar() {
               Ingresar
             </Link>
           )}
+
           {/* Si está logueado → Avatar con dropdown */}
           {logged && (
             <div className="relative" id="menu-user">
               <button
                 ref={userBtnRef}
-                onClick={() => setUserOpen(v => !v)}
+                onClick={() => setUserOpen((v) => !v)}
                 aria-haspopup="true"
                 aria-expanded={userOpen}
                 className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/60 p-1 pl-2 pr-1 text-slate-100 hover:bg-slate-800"
@@ -169,10 +242,10 @@ export default function Navbar() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={{ duration: 0.16 }}
-                    className="absolute right-0 mt-2 p-2 w-max overflow-hidden rounded-xl border border-slate-800 bg-slate-900 shadow-2xl"
+                    className="absolute right-0 mt-2 w-max overflow-hidden rounded-xl border border-slate-800 bg-slate-900 p-2 shadow-2xl"
                     role="menu"
                   >
-                    <div className="px-3 py-2 text-xs text-slate-400 border-b border-slate-800">
+                    <div className="border-b border-slate-800 px-3 py-2 text-xs text-slate-400">
                       {me?.email}
                     </div>
                     <Link
@@ -184,6 +257,7 @@ export default function Navbar() {
                       <User className="w-4 h-4" />
                       Mi perfil
                     </Link>
+
                     {me?.role === 'admin' && (
                       <Link
                         href="/admin"
@@ -195,22 +269,39 @@ export default function Navbar() {
                         Panel de administrador
                       </Link>
                     )}
+
                     {me?.role === 'admin' && (
-                      <Link href="/admin/solicitudes" className="flex items-center gap-2 px-3 py-2 text-slate-100 hover:bg-slate-800">
+                      <Link
+                        href="/admin/solicitudes"
+                        className="flex items-center gap-2 px-3 py-2 text-slate-100 hover:bg-slate-800"
+                        onClick={() => setUserOpen(false)}
+                      >
                         <ClipboardList className="w-4 h-4" />
-                        Solicitudes
+                        <span>Solicitudes</span>
+                        {pendingCount !== null && pendingCount > 0 && (
+                          <span className="ml-2 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold leading-none text-slate-900">
+                            {pendingCount}
+                          </span>
+                        )}
                       </Link>
                     )}
+
                     {me?.role === 'admin' && (
-                      <Link href="/gerencia" className="flex items-center gap-2 px-3 py-2 text-slate-100 hover:bg-slate-800">
+                      <Link
+                        href="/gerencia"
+                        className="flex items-center gap-2 px-3 py-2 text-slate-100 hover:bg-slate-800"
+                        onClick={() => setUserOpen(false)}
+                      >
                         <Hammer className="w-4 h-4" />
                         Recursos
                       </Link>
                     )}
+
                     <div className="my-1 border-t border-slate-800" />
+
                     <button
                       role="menuitem"
-                      className="flex items-center gap-2 w-full px-3 py-2 text-left text-slate-100 hover:bg-slate-800"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-slate-100 hover:bg-slate-800"
                       onClick={async () => {
                         setUserOpen(false);
                         await supabase.auth.signOut();
