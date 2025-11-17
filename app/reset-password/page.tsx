@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
@@ -20,7 +21,7 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
 
-  // 1) Leer token desde el hash y crear sesión temporal
+  // 1) Leer token desde el hash
   useEffect(() => {
     (async () => {
       try {
@@ -57,7 +58,7 @@ export default function ResetPasswordPage() {
         }
 
         setLinkStatus('ok');
-      } catch {
+      } catch (err) {
         setLinkStatus('invalid');
         setError(
           'El enlace de recuperación no es válido, ya fue usado o expiró. Pedí uno nuevo desde el inicio de sesión.'
@@ -81,7 +82,6 @@ export default function ResetPasswordPage() {
     }
 
     setSubmitting(true);
-
     const { error } = await supabase.auth.updateUser({
       password: pass1,
     });
@@ -111,95 +111,95 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-slate-50 flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md rounded-3xl bg-white shadow-xl ring-1 ring-black/5 p-8">
-        <h1 className="text-2xl font-bold text-slate-900">
-          Restablecer contraseña
-        </h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Ingresá tu nueva contraseña para continuar.
-        </p>
+    <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 px-4 py-8">
+      <div className="w-full max-w-5xl bg-white shadow-xl ring-1 ring-black/5 rounded-3xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
+        
+        {/* LEFT SIDE — AVATAR / ILLUSTRATION */}
+        <div className="relative hidden md:flex items-center justify-center bg-slate-100 p-8">
+          <Image
+            src="/reset-illustration.png"
+            alt="Reset Password Illustration"
+            width={400}
+            height={400}
+            className="object-contain drop-shadow-xl select-none"
+            priority
+          />
+        </div>
 
-        {linkStatus === 'invalid' && (
-          <p className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-            {error}
+        {/* RIGHT SIDE — FORM */}
+        <div className="p-8 md:p-12">
+          <h1 className="text-2xl font-bold text-slate-900">Restablecer contraseña</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            Ingresá tu nueva contraseña para continuar.
           </p>
-        )}
 
-        {linkStatus === 'ok' && (
-          <form onSubmit={onSubmit} className="mt-6 space-y-4">
-            {/* Campo 1 */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">
-                Nueva contraseña
-              </label>
+          {linkStatus === 'invalid' && (
+            <p className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              {error}
+            </p>
+          )}
 
-              <div className="relative">
-                <input
-                  type={show1 ? 'text' : 'password'}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-12 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                  placeholder="Mínimo 8 caracteres"
-                  value={pass1}
-                  onChange={(e) => setPass1(e.target.value)}
-                  required
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setShow1(!show1)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 transition"
-                >
-                  {show1 ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </button>
+          {linkStatus === 'ok' && (
+            <form onSubmit={onSubmit} className="mt-6 space-y-4">
+              
+              {/* PASSWORD 1 */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Nueva contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    type={show1 ? 'text' : 'password'}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-12 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900"
+                    placeholder="Mínimo 8 caracteres"
+                    value={pass1}
+                    onChange={(e) => setPass1(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShow1(!show1)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                  >
+                    {show1 ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Campo 2 */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">
-                Repetir contraseña
-              </label>
-
-              <div className="relative">
-                <input
-                  type={show2 ? 'text' : 'password'}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-12 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                  placeholder="Repetí la contraseña"
-                  value={pass2}
-                  onChange={(e) => setPass2(e.target.value)}
-                  required
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setShow2(!show2)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 transition"
-                >
-                  {show2 ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </button>
+              {/* PASSWORD 2 */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Repetir contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    type={show2 ? 'text' : 'password'}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-12 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900"
+                    placeholder="Repetí la contraseña"
+                    value={pass2}
+                    onChange={(e) => setPass2(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShow2(!show2)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                  >
+                    {show2 ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            {okMsg && <p className="text-sm text-emerald-700">{okMsg}</p>}
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              {okMsg && <p className="text-sm text-emerald-700">{okMsg}</p>}
 
-            <button
-              type="submit"
-              className="mt-2 w-full rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-              disabled={submitting}
-            >
-              {submitting ? 'Guardando…' : 'Guardar nueva contraseña'}
-            </button>
-          </form>
-        )}
+              <button
+                className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60 mt-2"
+                disabled={submitting}
+              >
+                {submitting ? 'Guardando…' : 'Guardar nueva contraseña'}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
