@@ -3,20 +3,24 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
 
   const [pass1, setPass1] = useState('');
   const [pass2, setPass2] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [show1, setShow1] = useState(false);
+  const [show2, setShow2] = useState(false);
 
+  const [submitting, setSubmitting] = useState(false);
   const [linkStatus, setLinkStatus] =
     useState<'checking' | 'ok' | 'invalid'>('checking');
+
   const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
 
-  // 1) Leer el hash #access_token=...&refresh_token=...&type=recovery
+  // 1) Leer token desde el hash y crear sesión temporal
   useEffect(() => {
     (async () => {
       try {
@@ -31,7 +35,6 @@ export default function ResetPasswordPage() {
         const refresh_token = params.get('refresh_token');
         const type = params.get('type');
 
-        // Debe venir como tipo "recovery" con ambos tokens
         if (!access_token || !refresh_token || type !== 'recovery') {
           setLinkStatus('invalid');
           setError(
@@ -40,14 +43,12 @@ export default function ResetPasswordPage() {
           return;
         }
 
-        // 2) Crear sesión explícitamente con esos tokens
         const { data, error } = await supabase.auth.setSession({
           access_token,
           refresh_token,
         });
 
         if (error || !data.session) {
-          console.error('setSession error', error);
           setLinkStatus('invalid');
           setError(
             'El enlace de recuperación no es válido, ya fue usado o expiró. Pedí uno nuevo desde el inicio de sesión.'
@@ -56,8 +57,7 @@ export default function ResetPasswordPage() {
         }
 
         setLinkStatus('ok');
-      } catch (err) {
-        console.error('reset-password hash error', err);
+      } catch {
         setLinkStatus('invalid');
         setError(
           'El enlace de recuperación no es válido, ya fue usado o expiró. Pedí uno nuevo desde el inicio de sesión.'
@@ -70,11 +70,6 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setError(null);
     setOkMsg(null);
-
-    if (linkStatus !== 'ok') {
-      setError('El enlace de recuperación no es válido o ya expiró.');
-      return;
-    }
 
     if (pass1.length < 8) {
       setError('La contraseña debe tener al menos 8 caracteres.');
@@ -94,7 +89,6 @@ export default function ResetPasswordPage() {
     setSubmitting(false);
 
     if (error) {
-      console.error('updateUser error', error);
       setError(error.message || 'No se pudo actualizar la contraseña.');
       return;
     }
@@ -103,7 +97,6 @@ export default function ResetPasswordPage() {
     setPass1('');
     setPass2('');
 
-    // Volver al login después de un ratito
     setTimeout(() => {
       router.replace('/login');
     }, 2500);
@@ -135,31 +128,64 @@ export default function ResetPasswordPage() {
 
         {linkStatus === 'ok' && (
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
+            {/* Campo 1 */}
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">
                 Nueva contraseña
               </label>
-              <input
-                type="password"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                placeholder="Mínimo 8 caracteres"
-                value={pass1}
-                onChange={(e) => setPass1(e.target.value)}
-                required
-              />
+
+              <div className="relative">
+                <input
+                  type={show1 ? 'text' : 'password'}
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-12 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                  placeholder="Mínimo 8 caracteres"
+                  value={pass1}
+                  onChange={(e) => setPass1(e.target.value)}
+                  required
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShow1(!show1)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 transition"
+                >
+                  {show1 ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
+
+            {/* Campo 2 */}
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">
                 Repetir contraseña
               </label>
-              <input
-                type="password"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                placeholder="Repetí la contraseña"
-                value={pass2}
-                onChange={(e) => setPass2(e.target.value)}
-                required
-              />
+
+              <div className="relative">
+                <input
+                  type={show2 ? 'text' : 'password'}
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-12 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                  placeholder="Repetí la contraseña"
+                  value={pass2}
+                  onChange={(e) => setPass2(e.target.value)}
+                  required
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShow2(!show2)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 transition"
+                >
+                  {show2 ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
