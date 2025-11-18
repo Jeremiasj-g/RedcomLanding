@@ -118,11 +118,11 @@ export default function FullScreenEmbedCard({
           <div className="relative mx-auto h-screen w-screen">
             <button
               onClick={close}
-              className="absolute right-4 top-4 z-[1000] rounded-full px-4 py-2 text-sm font-medium text-white ring-1 ring-white/20 backdrop-blur hover:bg-white/15"
-              style={{
-                backgroundColor: `${accentColor}25`,
-                borderColor: `${accentColor}60`,
-              }}
+              className="absolute right-4 top-4 z-[1000] rounded-full shadow-2xl px-6 py-2 text-sm font-medium text-bold bg-rose-900 text-white backdrop-blur hover:bg-white/15"
+              /* style={{
+                backgroundColor: `${accentColor}`,
+                borderColor: `${accentColor}`,
+              }} */
             >
               Cerrar
             </button>

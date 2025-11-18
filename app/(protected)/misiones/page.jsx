@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import PageHeader from '@/components/PageHeader';
 import LookerEmbed from '@/components/LookerEmbed';
-import Card from '@/components/Card';
+import CardSucursales from '@/components/CardSucursales';
 import Container from '@/components/Container';
 import { misionesProducts } from '@/lib/data';
 import { SectionDivider } from '@/components/SectionDivider';
@@ -30,7 +30,7 @@ export default function Misiones() {
 
         <section className="pt-24 pb-14">
           <Container>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
               {misionesProducts.map((product, index) => (
                 <motion.div
                   key={product.id}
@@ -42,7 +42,7 @@ export default function Misiones() {
                   }}
                   viewport={{ once: true }}
                 >
-                  <Card {...product} />
+                  <CardSucursales {...product} />
                 </motion.div>
               ))}
             </div>

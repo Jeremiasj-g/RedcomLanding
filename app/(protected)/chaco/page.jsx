@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import PageHeader from '@/components/PageHeader';
-import Card from '@/components/Card';
+import CardSucursales from '@/components/CardSucursales';
 import Container from '@/components/Container';
 import { chacoProducts } from '@/lib/data';
 import LookerEmbed from '@/components/LookerEmbed';
@@ -15,6 +15,7 @@ import { RequireAuth } from '@/components/RouteGuards';
 export default function Chaco() {
 
   const resistenciaMapa = urls.mapas[1].resistencia
+
 
   return (
 
@@ -29,7 +30,7 @@ export default function Chaco() {
 
         <section className="pt-24 pb-14">
           <Container>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
               {chacoProducts.map((product, index) => (
                 <motion.div
                   key={product.id}
@@ -41,7 +42,7 @@ export default function Chaco() {
                   }}
                   viewport={{ once: true }}
                 >
-                  <Card {...product} />
+                  <CardSucursales {...product} />
                 </motion.div>
               ))}
             </div>

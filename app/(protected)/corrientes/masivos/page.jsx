@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import PageHeader from '@/components/PageHeader';
 import Card from '@/components/Card';
+import CardSucursales from '@/components/CardSucursales';
 import Container from '@/components/Container';
 import { corrientesMasivos } from '@/lib/data';
 import LookerEmbed from '@/components/LookerEmbed';
@@ -31,7 +32,7 @@ export default function CorrientesMasivos() {
 
         <section className="pt-24 pb-14">
           <Container>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
               {corrientesMasivos.map((product, index) => (
                 <motion.div
                   key={product.id}
@@ -40,7 +41,8 @@ export default function CorrientesMasivos() {
                   transition={{ duration: 0.5, delay: index * 0.1 }}
                   viewport={{ once: true }}
                 >
-                  <Card {...product} />
+                  <CardSucursales {...product} />
+                  {/* <Card {...product} /> */}
                 </motion.div>
               ))}
             </div>

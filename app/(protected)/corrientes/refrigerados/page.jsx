@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import PageHeader from '@/components/PageHeader';
-import Card from '@/components/Card';
+import CardSucursales from '@/components/CardSucursales';
 import Container from '@/components/Container';
 import { corrientesRefrigerados } from '@/lib/data';
 import { corrientesRefrigeradosKilosBultos } from '@/lib/data';
@@ -32,7 +32,7 @@ export default function CorrientesRefrigerados() {
 
         <section className="pt-24 pb-14">
           <Container>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
               {corrientesRefrigerados.map((product, index) => (
                 <motion.div
                   key={product.id}
@@ -44,7 +44,7 @@ export default function CorrientesRefrigerados() {
                   }}
                   viewport={{ once: true }}
                 >
-                  <Card {...product} />
+                  <CardSucursales {...product} />
                 </motion.div>
               ))}
             </div>
@@ -61,7 +61,7 @@ export default function CorrientesRefrigerados() {
 
         <section className="py-12">
           <Container>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
               {corrientesRefrigeradosKilosBultos.map((product, index) => (
                 <motion.div
                   key={product.id}
@@ -73,7 +73,7 @@ export default function CorrientesRefrigerados() {
                   }}
                   viewport={{ once: true }}
                 >
-                  <Card {...product} />
+                  <CardSucursales {...product} />
                 </motion.div>
               ))}
             </div>

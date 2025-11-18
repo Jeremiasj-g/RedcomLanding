@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import PageHeader from '@/components/PageHeader';
-import Card from '@/components/Card';
+import CardSucursales from '@/components/CardSucursales';
 import Container from '@/components/Container';
 import { oberaProducts } from '@/lib/data';
 import { SectionDivider } from '@/components/SectionDivider';
@@ -23,7 +23,7 @@ export default function Obera() {
 
         <section className="pt-24 pb-14">
           <Container>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
               {oberaProducts.map((product, index) => (
                 <motion.div
                   key={product.id}
@@ -35,7 +35,7 @@ export default function Obera() {
                   }}
                   viewport={{ once: true }}
                 >
-                  <Card {...product} />
+                  <CardSucursales {...product} />
                 </motion.div>
               ))}
             </div>
