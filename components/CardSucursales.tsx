@@ -71,8 +71,8 @@ const Card = ({
         <span
           className= {`
             absolute top-6 left-8
-            text-[11px] md:text-xs border border-[${borderColor}] rounded-xl px-2 py-0.5
-            bg-black/20 text-[${borderColor}] backdrop-blur-sm
+            text-[11px] md:text-xs border border-[#57C2E8] rounded-xl px-2 py-0.5
+            bg-black/20 text-[#57C2E8] backdrop-blur-sm
             z-10
             transition-opacity duration-150
             group-hover:opacity-0
