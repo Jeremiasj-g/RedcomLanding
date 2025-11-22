@@ -10,11 +10,13 @@ import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 import { urls } from '@/lib/data';
+import { Table } from 'lucide-react'; 
 import { RequireAuth } from '@/components/RouteGuards';
 
 export default function Chaco() {
 
   const resistenciaMapa = urls.mapas[1].resistencia
+  const resistenciaTablero = urls.tableros[4].resistencia
 
 
   return (
@@ -51,6 +53,7 @@ export default function Chaco() {
 
         <Container>
           <FullScreenEmbedCard {...resistenciaMapa} />
+          <FullScreenEmbedCard {...resistenciaTablero} icon={<Table />} />
         </Container>
 
         <Container>
