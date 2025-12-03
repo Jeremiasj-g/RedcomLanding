@@ -228,16 +228,16 @@ export default function SupervisorTasksPage() {
   }
 
   return (
-    <RequireAuth roles={['admin', 'supervisor']}>
+    <RequireAuth roles={['admin']}>
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6">
         {/* Header */}
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-100">
-              <Users2 className="h-5 w-5 text-sky-400" />
+            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-black">
+              <Users2 className="h-5 w-5 font-bold text-black" />
               Tareas de supervisores
             </h1>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-slate-500">
               Vista de seguimiento de tareas por supervisor (solo lectura).
             </p>
           </div>

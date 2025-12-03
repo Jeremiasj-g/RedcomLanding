@@ -358,7 +358,7 @@ export default function TareasPage() {
   }
 
   return (
-    <RequireAuth>
+    <RequireAuth roles={['admin', 'supervisor']}>
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6">
         {/* Header */}
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

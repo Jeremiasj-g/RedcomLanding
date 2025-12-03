@@ -4,7 +4,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMe } from '@/hooks/useMe';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Shield, ClipboardList, LogOut, LogIn, Hammer } from 'lucide-react';
+import {
+  User,
+  Shield,
+  ClipboardList,
+  LogOut,
+  LogIn,
+  Hammer,
+  CalendarDays,
+  ListChecks,
+} from 'lucide-react';
 
 export default function Navbar() {
   const { me, firstName, loading } = useMe();
@@ -19,7 +28,7 @@ export default function Navbar() {
   const logged = !!me;
   const branches = useMemo(
     () => (me?.branches ?? []).map((b) => b.toLowerCase()),
-    [me?.branches]
+    [me?.branches],
   );
 
   const hasCorrientes = branches.includes('corrientes');
@@ -71,7 +80,7 @@ export default function Navbar() {
         () => {
           // cada vez que cambie la tabla, refrescamos el contador
           fetchCount();
-        }
+        },
       )
       .subscribe();
 
@@ -117,7 +126,7 @@ export default function Navbar() {
         <motion.div
           whileHover={{ scale: 1.03 }}
           transition={{ duration: 0.15 }}
-          className="flex h-full items-center"
+          className="flex h-full items-center gap-2"
         >
           <img
             src="/LogoRedcom.png"
@@ -130,7 +139,18 @@ export default function Navbar() {
         </motion.div>
 
         {/* Sección derecha */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Link a Tareas (para admins y supervisores activos) */}
+          {logged && me?.is_active && (
+            <Link
+              href="/tareas"
+              className="flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold text-sky-300 hover:bg-slate-800 hover:text-sky-200"
+            >
+              <CalendarDays className="h-4 w-4" />
+              <span>Mis tareas</span>
+            </Link>
+          )}
+
           {/* Sucursales visibles (solo si está logueado y activo) */}
           {logged && me?.is_active && (
             <div className="hidden items-center gap-1 md:flex">
@@ -211,9 +231,9 @@ export default function Navbar() {
           {!loading && !logged && (
             <Link
               href="/login"
-              className="flex items-center gap-2 rounded-xl border border-slate-400 px-3 py-2 text-slate-100 hover:bg-slate-800 transition-all"
+              className="flex items-center gap-2 rounded-xl border border-slate-400 px-3 py-2 text-slate-100 transition-all hover:bg-slate-800"
             >
-              <LogIn className="w-4 h-4" />
+              <LogIn className="h-4 w-4" />
               Ingresar
             </Link>
           )}
@@ -254,7 +274,7 @@ export default function Navbar() {
                       className="flex items-center gap-2 px-3 py-2 text-slate-100 hover:bg-slate-800"
                       onClick={() => setUserOpen(false)}
                     >
-                      <User className="w-4 h-4" />
+                      <User className="h-4 w-4" />
                       Mi perfil
                     </Link>
 
@@ -265,8 +285,21 @@ export default function Navbar() {
                         className="flex items-center gap-2 px-3 py-2 text-amber-300 hover:bg-slate-800 hover:text-amber-200"
                         onClick={() => setUserOpen(false)}
                       >
-                        <Shield className="w-4 h-4" />
+                        <Shield className="h-4 w-4" />
                         Panel de administrador
+                      </Link>
+                    )}
+
+                    {/* Tareas de supervisores (solo admin) */}
+                    {me?.role === 'admin' && (
+                      <Link
+                        href="/tareas/supervisores"
+                        role="menuitem"
+                        className="flex items-center gap-2 px-3 py-2 text-sky-300 hover:bg-slate-800 hover:text-sky-200"
+                        onClick={() => setUserOpen(false)}
+                      >
+                        <ListChecks className="h-4 w-4" />
+                        Tareas de supervisores
                       </Link>
                     )}
 
@@ -276,7 +309,7 @@ export default function Navbar() {
                         className="flex items-center gap-2 px-3 py-2 text-slate-100 hover:bg-slate-800"
                         onClick={() => setUserOpen(false)}
                       >
-                        <ClipboardList className="w-4 h-4" />
+                        <ClipboardList className="h-4 w-4" />
                         <span>Solicitudes</span>
                         {pendingCount !== null && pendingCount > 0 && (
                           <span className="ml-2 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold leading-none text-slate-900">
@@ -292,7 +325,7 @@ export default function Navbar() {
                         className="flex items-center gap-2 px-3 py-2 text-slate-100 hover:bg-slate-800"
                         onClick={() => setUserOpen(false)}
                       >
-                        <Hammer className="w-4 h-4" />
+                        <Hammer className="h-4 w-4" />
                         Recursos
                       </Link>
                     )}
@@ -308,7 +341,7 @@ export default function Navbar() {
                         window.location.replace('/login');
                       }}
                     >
-                      <LogOut className="w-4 h-4" />
+                      <LogOut className="h-4 w-4" />
                       Salir
                     </button>
                   </motion.div>
