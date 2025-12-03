@@ -8,17 +8,15 @@ import {
   Loader2,
   Filter,
   Search,
-  CheckCircle2,
 } from 'lucide-react';
 import {
   TaskStatus,
   TaskWithOwner,
   fetchSupervisorTasksByRange,
-  updateTaskStatus,
-  updateTaskNotes,
 } from '@/lib/tasks';
 import { RequireAuth } from '@/components/RouteGuards';
 import { addDays, endOfWeek, startOfWeek } from 'date-fns';
+import { useMe } from '@/hooks/useMe';
 
 type WeekRange = {
   from: Date;
@@ -64,19 +62,20 @@ function formatTimeFromISO(iso: string) {
 }
 
 export default function SupervisorTasksPage() {
+  const { me, loading: loadingMe } = useMe();
+
   const [week, setWeek] = useState<WeekRange>(() => getCurrentWeek());
   const [branchFilter, setBranchFilter] = useState<'all' | string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [supervisorFilter, setSupervisorFilter] = useState<'all' | string>('all'); // 👈 nuevo
+  const [supervisorFilter, setSupervisorFilter] = useState<'all' | string>('all');
   const [search, setSearch] = useState('');
 
   const [tasks, setTasks] = useState<TaskWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
-  const [changingStatusId, setChangingStatusId] = useState<number | null>(null);
-  const [savingNotesId, setSavingNotesId] = useState<number | null>(null);
-  const [notesDraft, setNotesDraft] = useState<Record<number, string>>({});
 
-  // cargar tareas cuando cambian semana / filtros de backend (branch/status)
+  // ─────────────────────────────────────────
+  // 1) Cargar tareas (backend) por semana / sucursal / estado
+  // ─────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
       try {
@@ -91,7 +90,6 @@ export default function SupervisorTasksPage() {
           status: statusFilter === 'all' ? undefined : statusFilter,
         });
 
-        console.log('[SupervisorTasks] data from fetchSupervisorTasksByRange:', data);
         setTasks(data);
       } catch (err) {
         console.error('Error fetching supervisor tasks', err);
@@ -100,55 +98,60 @@ export default function SupervisorTasksPage() {
       }
     };
 
-    console.log('[SupervisorTasks] loading with filters:', {
-      weekFrom: week.from.toISOString(),
-      weekTo: week.to.toISOString(),
-      branchFilter,
-      statusFilter,
-    });
-
     load();
   }, [week, branchFilter, statusFilter]);
 
-  // sucursales disponibles según lo que vino
+  // ─────────────────────────────────────────
+  // 2) Filtrado por branches del ADMIN (según usuario logueado)
+  // ─────────────────────────────────────────
+  const tasksFilteredByRole = useMemo(() => {
+    if (!me || me.role !== 'admin') {
+      // supervisor (u otro rol) ve todo lo que trae el backend
+      return tasks;
+    }
+
+    const allowed = new Set(
+      (me.branches ?? []).map((b: string) => b.toLowerCase()),
+    );
+
+    return tasks.filter((t) => {
+      const branches = t.owner_branches ?? [];
+      if (branches.length === 0) return false;
+      return branches.some((b) => allowed.has(b.toLowerCase()));
+    });
+  }, [tasks, me]);
+
+  // ─────────────────────────────────────────
+  // 3) Opciones de sucursal del filtro
+  // ─────────────────────────────────────────
   const branchesFromData = useMemo(() => {
     const set = new Set<string>();
-    tasks.forEach((t) => {
-      t.owner_branches?.forEach((b) => {
-        if (b) set.add(b.toLowerCase());
-      });
-    });
-    return Array.from(set).sort();
-  }, [tasks]);
 
-  // supervisores disponibles según lo que vino
+    if (me?.role === 'admin') {
+      (me.branches ?? []).forEach((b: string) =>
+        set.add(String(b).toLowerCase()),
+      );
+    } else {
+      tasksFilteredByRole.forEach((t) => {
+        t.owner_branches?.forEach((b) => {
+          if (b) set.add(b.toLowerCase());
+        });
+      });
+    }
+
+    return Array.from(set).sort();
+  }, [tasksFilteredByRole, me]);
+
+  // ─────────────────────────────────────────
+  // 4) Opciones de supervisor del filtro
+  // ─────────────────────────────────────────
   const supervisorsFromData = useMemo(() => {
     const set = new Set<string>();
-    tasks.forEach((t) => {
+    tasksFilteredByRole.forEach((t) => {
       if (t.owner_full_name) set.add(t.owner_full_name);
     });
     return Array.from(set).sort();
-  }, [tasks]);
-
-  // logs de debug para ver qué está pasando con sucursales / supervisores
-  useEffect(() => {
-  console.log(
-    '[SupervisorTasks] owner_branches por tarea:',
-    tasks.map((t) => ({
-      id: t.id,
-      owner_full_name: t.owner_full_name,
-      owner_branches: t.owner_branches,
-    })),
-  );
-}, [tasks]);
-
-  useEffect(() => {
-    console.log('[SupervisorTasks] branchesFromData:', branchesFromData);
-  }, [branchesFromData]);
-
-  useEffect(() => {
-    console.log('[SupervisorTasks] supervisorsFromData:', supervisorsFromData);
-  }, [supervisorsFromData]);
+  }, [tasksFilteredByRole]);
 
   const weekLabel = useMemo(() => {
     const fmt = (d: Date) =>
@@ -156,9 +159,11 @@ export default function SupervisorTasksPage() {
     return `${fmt(week.from)} – ${fmt(week.to)}`;
   }, [week]);
 
-  // filtro de búsqueda + filtro por supervisor (en frontend)
+  // ─────────────────────────────────────────
+  // 5) Filtro de búsqueda + filtro por supervisor (frontend)
+  // ─────────────────────────────────────────
   const filteredTasks = useMemo(() => {
-    let base = tasks;
+    let base = tasksFilteredByRole;
 
     if (supervisorFilter !== 'all') {
       const target = supervisorFilter.toLowerCase();
@@ -182,14 +187,18 @@ export default function SupervisorTasksPage() {
         .toLowerCase();
       return parts.includes(q);
     });
-  }, [tasks, search, supervisorFilter]);
+  }, [tasksFilteredByRole, search, supervisorFilter]);
 
-  // métricas resumen
+  // ─────────────────────────────────────────
+  // 6) Métricas resumen
+  // ─────────────────────────────────────────
   const metrics = useMemo(() => {
     const total = filteredTasks.length;
     const done = filteredTasks.filter((t) => t.status === 'done').length;
     const pending = filteredTasks.filter((t) => t.status === 'pending').length;
-    const inProgress = filteredTasks.filter((t) => t.status === 'in_progress').length;
+    const inProgress = filteredTasks.filter(
+      (t) => t.status === 'in_progress',
+    ).length;
 
     return {
       total,
@@ -200,50 +209,23 @@ export default function SupervisorTasksPage() {
     };
   }, [filteredTasks]);
 
-  const nextStatus = (status: TaskStatus): TaskStatus => {
-    if (status === 'pending') return 'in_progress';
-    if (status === 'in_progress') return 'done';
-    if (status === 'done') return 'pending';
-    if (status === 'cancelled') return 'pending';
-    return 'pending';
-  };
-
-  const handleChangeStatus = async (task: TaskWithOwner) => {
-    const newStatus = nextStatus(task.status);
-    try {
-      setChangingStatusId(task.id);
-      await updateTaskStatus(task.id, newStatus);
-      setTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t)),
-      );
-    } catch (err) {
-      console.error('Error updating task status', err);
-    } finally {
-      setChangingStatusId(null);
-    }
-  };
-
-  const handleSaveNotes = async (task: TaskWithOwner) => {
-    const value = notesDraft[task.id] ?? task.notes ?? '';
-    try {
-      setSavingNotesId(task.id);
-      await updateTaskNotes(task.id, value);
-      setTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, notes: value } : t)),
-      );
-    } catch (err) {
-      console.error('Error saving notes', err);
-    } finally {
-      setSavingNotesId(null);
-    }
-  };
-
   const changeWeek = (direction: 'prev' | 'next') => {
     const delta = direction === 'prev' ? -7 : 7;
     const newFrom = addDays(week.from, delta);
     const newTo = addDays(week.to, delta);
     setWeek({ from: newFrom, to: newTo });
   };
+
+  if (loadingMe && !me) {
+    return (
+      <RequireAuth roles={['admin', 'supervisor']}>
+        <div className="flex min-h-[200px] items-center justify-center text-sm text-slate-300">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Cargando información de usuario...
+        </div>
+      </RequireAuth>
+    );
+  }
 
   return (
     <RequireAuth roles={['admin', 'supervisor']}>
@@ -256,7 +238,7 @@ export default function SupervisorTasksPage() {
               Tareas de supervisores
             </h1>
             <p className="text-sm text-slate-400">
-              Controlá el avance de las tareas planificadas por cada supervisor.
+              Vista de seguimiento de tareas por supervisor (solo lectura).
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -331,7 +313,11 @@ export default function SupervisorTasksPage() {
                 }
                 className="rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               >
-                <option value="all">Todas las sucursales</option>
+                <option value="all">
+                  {me?.role === 'admin'
+                    ? 'Todas mis sucursales'
+                    : 'Todas las sucursales'}
+                </option>
                 {branchesFromData.map((b) => (
                   <option key={b} value={b}>
                     {b.charAt(0).toUpperCase() + b.slice(1)}
@@ -393,7 +379,7 @@ export default function SupervisorTasksPage() {
           </div>
         </section>
 
-        {/* Tabla de tareas */}
+        {/* Tabla de tareas (solo lectura) */}
         <section className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-3 shadow-lg shadow-slate-950/50">
           <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
             <span>
@@ -472,43 +458,21 @@ export default function SupervisorTasksPage() {
                         : '—'}
                     </div>
 
-                    {/* Estado / Notas */}
+                    {/* Estado / Notas (solo lectura) */}
                     <div className="flex flex-col gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleChangeStatus(task)}
-                        disabled={changingStatusId === task.id}
-                        className={`inline-flex items-center gap-1 self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          STATUS_BADGE_CLASSES[task.status]
-                        } disabled:cursor-not-allowed`}
+                      {/* Chip de estado, sin onClick */}
+                      <div
+                        className={`inline-flex items-center gap-1 self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_BADGE_CLASSES[task.status]}`}
                       >
-                        {changingStatusId === task.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="h-3 w-3" />
-                        )}
+                        <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />
                         {STATUS_LABEL[task.status]}
-                      </button>
-                      <div className="flex items-center gap-1">
-                        <input
-                          className="w-full rounded-lg border border-slate-800 bg-slate-950/70 px-2 py-1 text-[10px] text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                          placeholder="Notas / seguimiento..."
-                          value={notesDraft[task.id] ?? task.notes ?? ''}
-                          onChange={(e) =>
-                            setNotesDraft((prev) => ({
-                              ...prev,
-                              [task.id]: e.target.value,
-                            }))
-                          }
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleSaveNotes(task)}
-                          disabled={savingNotesId === task.id}
-                          className="rounded-lg bg-slate-800 px-2 py-1 text-[10px] text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-900"
-                        >
-                          {savingNotesId === task.id ? '...' : 'OK'}
-                        </button>
+                      </div>
+
+                      {/* Notas como texto plano */}
+                      <div className="rounded-lg border border-slate-900 bg-slate-950/60 px-2 py-1 text-[10px] text-slate-200">
+                        {task.notes && task.notes.trim().length > 0
+                          ? task.notes
+                          : 'Sin notas registradas.'}
                       </div>
                     </div>
                   </motion.div>

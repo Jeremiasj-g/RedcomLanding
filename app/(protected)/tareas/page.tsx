@@ -25,8 +25,8 @@ import {
 } from '@/lib/tasks';
 import { RequireAuth } from '@/components/RouteGuards';
 import { startOfWeek, addDays, endOfWeek } from 'date-fns';
-import { DayPicker, DateRange } from 'react-day-picker';
 import { es } from 'date-fns/locale';
+import { DayPicker, DateRange, type DayModifiers } from 'react-day-picker';
 
 type WeekRange = {
   from: Date;
@@ -48,7 +48,6 @@ const BRIEF_STATUS: Record<Task['status'], string> = {
 };
 
 export default function TareasPage() {
-  // 👇 AHORA sí, el hook está dentro del componente
   const { me, loading: loadingMe } = useMe();
 
   const [week, setWeek] = useState<WeekRange>(() => getCurrentWeek());
@@ -62,14 +61,14 @@ export default function TareasPage() {
     time: '09:00',
   });
 
-  // 🔁 rango de fechas seleccionado en el calendario
+  // rango de fechas para crear varias tareas
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
     return { from: today, to: today };
   });
   const [calendarOpen, setCalendarOpen] = useState(false);
 
-  // 🔁 popover de hora
+  // selector de hora para nueva tarea
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const timeOptions = useMemo(
     () =>
@@ -86,12 +85,23 @@ export default function TareasPage() {
   const [changingStatus, setChangingStatus] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  // 🔁 estado para duplicar tareas individuales
+  // duplicar tarea
   const [duplicateOpenFor, setDuplicateOpenFor] = useState<number | null>(null);
   const [duplicateDraft, setDuplicateDraft] = useState<
     Record<number, { date: string; time: string }>
   >({});
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
+
+  // popovers de duplicado (calendar + hora)
+  const [dupCalendarOpenFor, setDupCalendarOpenFor] = useState<number | null>(
+    null,
+  );
+  const [dupTimePickerOpenFor, setDupTimePickerOpenFor] = useState<
+    number | null
+  >(null);
+
+  // eliminar todas las tareas de un día
+  const [deletingDayKey, setDeletingDayKey] = useState<string | null>(null);
 
   const daysOfWeek = useMemo(
     () =>
@@ -103,7 +113,7 @@ export default function TareasPage() {
   );
 
   useEffect(() => {
-    if (!me) return; // todavía no sabemos quién es el usuario
+    if (!me) return;
 
     const load = async () => {
       try {
@@ -111,7 +121,6 @@ export default function TareasPage() {
         const fromISO = week.from.toISOString();
         const toISO = week.to.toISOString();
 
-        // 👇 ahora siempre filtramos por el user_id del usuario logueado
         const data = await fetchMyTasksByRange(fromISO, toISO, me.id);
         setTasks(data);
       } catch (err) {
@@ -138,6 +147,16 @@ export default function TareasPage() {
     return map;
   }, [daysOfWeek, tasks]);
 
+  // modifiers para pintar todo el rango de fechas
+  const rangeModifiers: DayModifiers | undefined =
+    dateRange?.from && dateRange.to
+      ? {
+        in_range: { from: dateRange.from, to: dateRange.to }, // todo el tramo
+        range_start: dateRange.from, // día inicial
+        range_end: dateRange.to, // día final
+      }
+      : undefined;
+
   // etiqueta del rango
   const rangeLabel = useMemo(() => {
     if (!dateRange?.from) return 'Seleccionar días';
@@ -147,13 +166,13 @@ export default function TareasPage() {
     return `${fmt(dateRange.from)} – ${fmt(dateRange.to)}`;
   }, [dateRange]);
 
-  // etiqueta de la hora
+  // etiqueta de hora
   const timeLabel = useMemo(
     () => newTask.time || 'Seleccionar hora',
     [newTask.time],
   );
 
-  // 🔁 crear 1 tarea por cada día del rango [from, to]
+  // crear 1 tarea por cada día del rango [from, to]
   const handleCreate = async () => {
     if (!newTask.title.trim() || !dateRange?.from || !newTask.time) return;
 
@@ -184,7 +203,6 @@ export default function TareasPage() {
 
       setTasks((prev) => [...prev, ...createdTasks]);
 
-      // limpiamos título/descripcion, mantenemos rango y hora
       setNewTask((prev) => ({
         ...prev,
         title: '',
@@ -197,10 +215,11 @@ export default function TareasPage() {
     }
   };
 
+  // ahora incluye "cancelled" en el ciclo
   const nextStatus = (status: Task['status']): Task['status'] => {
     if (status === 'pending') return 'in_progress';
     if (status === 'in_progress') return 'done';
-    if (status === 'done') return 'pending';
+    if (status === 'done') return 'cancelled';
     if (status === 'cancelled') return 'pending';
     return 'pending';
   };
@@ -244,7 +263,32 @@ export default function TareasPage() {
     }
   };
 
-  // 🔁 preparar valores por defecto de duplicado
+  // eliminar todas las tareas de un día
+  const handleDeleteDay = async (dayKey: string) => {
+    const dayTasks = tasksByDay[dayKey] ?? [];
+    if (dayTasks.length === 0) return;
+
+    if (
+      !confirm(
+        `¿Eliminar todas las ${dayTasks.length} tareas de este día? Esta acción no se puede deshacer.`,
+      )
+    )
+      return;
+
+    try {
+      setDeletingDayKey(dayKey);
+      await Promise.all(dayTasks.map((t) => deleteTask(t.id)));
+      setTasks((prev) =>
+        prev.filter((t) => t.scheduled_at.slice(0, 10) !== dayKey),
+      );
+    } catch (err) {
+      console.error('Error deleting day tasks', err);
+    } finally {
+      setDeletingDayKey(null);
+    }
+  };
+
+  // preparar valores por defecto de duplicado
   const openDuplicateForTask = (task: Task) => {
     const original = new Date(task.scheduled_at);
     const date = original.toISOString().slice(0, 10);
@@ -254,6 +298,8 @@ export default function TareasPage() {
       [task.id]: { date, time },
     }));
     setDuplicateOpenFor((current) => (current === task.id ? null : task.id));
+    setDupCalendarOpenFor(null);
+    setDupTimePickerOpenFor(null);
   };
 
   const handleDuplicate = async (task: Task) => {
@@ -270,6 +316,8 @@ export default function TareasPage() {
       });
       setTasks((prev) => [...prev, created]);
       setDuplicateOpenFor(null);
+      setDupCalendarOpenFor(null);
+      setDupTimePickerOpenFor(null);
     } catch (err) {
       console.error('Error duplicating task', err);
     } finally {
@@ -299,7 +347,6 @@ export default function TareasPage() {
     setDateRange(undefined);
   };
 
-  // Mientras todavía se está resolviendo el usuario
   if (loadingMe && !me) {
     return (
       <RequireAuth>
@@ -381,7 +428,7 @@ export default function TareasPage() {
                 </button>
 
                 {calendarOpen && (
-                  <div className="absolute z-50 mt-2 w-[280px] rounded-2xl border border-slate-800 bg-slate-950/95 p-3 text-xs text-slate-100 shadow-xl shadow-slate-950/60">
+                  <div className="absolute z-50 mt-2 w-[320px] max-w-[90vw] rounded-2xl border border-slate-800 bg-slate-950/95 p-3 text-xs text-slate-100 shadow-xl shadow-slate-950/60">
                     <DayPicker
                       mode="range"
                       selected={dateRange}
@@ -391,11 +438,13 @@ export default function TareasPage() {
                       numberOfMonths={1}
                       showOutsideDays
                       pagedNavigation
+                      modifiers={rangeModifiers}
                       modifiersClassNames={{
-                        selected: 'bg-sky-500 text-slate-900',
-                        range_start: 'bg-sky-500 text-slate-900',
-                        range_end: 'bg-sky-500 text-slate-900',
-                        today: 'border border-sky-400',
+                        selected: 'bg-sky-500 text-slate-900',          // días seleccionados
+                        range_start: 'rounded-l-full',                  // primer día del rango
+                        range_end: 'rounded-r-full',                    // último día
+                        in_range: 'bg-sky-500/30 text-slate-50',        // días del medio
+                        today: 'border border-sky-400',                 // hoy
                       }}
                     />
                     <div className="mt-2 flex items-center justify-between gap-2">
@@ -427,7 +476,7 @@ export default function TareasPage() {
                 )}
               </div>
 
-              {/* Selector de hora custom */}
+              {/* Selector de hora */}
               <div className="relative w-full sm:w-[140px]">
                 <button
                   type="button"
@@ -456,8 +505,8 @@ export default function TareasPage() {
                             setTimePickerOpen(false);
                           }}
                           className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] ${newTask.time === t
-                              ? 'bg-sky-500 text-slate-950'
-                              : 'text-slate-100 hover:bg-slate-800'
+                            ? 'bg-sky-500 text-slate-950'
+                            : 'text-slate-100 hover:bg-slate-800'
                             }`}
                         >
                           <span>{t}</span>
@@ -514,7 +563,7 @@ export default function TareasPage() {
             return (
               <div
                 key={key}
-                className={`flex min-h-[180px] flex-col rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-lg shadow-slate-950/40 ${isToday ? 'ring-1 ring-sky-500/60' : ''
+                className={`group flex min-h-[180px] flex-col rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-lg shadow-slate-950/40 ${isToday ? 'ring-1 ring-sky-500/60' : ''
                   }`}
               >
                 <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-300">
@@ -539,163 +588,274 @@ export default function TareasPage() {
                     </div>
                   ) : (
                     <AnimatePresence initial={false}>
-                      {list.map((task) => (
-                        <motion.div
-                          key={task.id}
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -6 }}
-                          transition={{ duration: 0.16 }}
-                          className="group rounded-xl border border-slate-800 bg-gray-700/70 p-2 text-xs text-slate-100 shadow-sm shadow-slate-950/60"
-                        >
-                          <div className="mb-1 flex items-center justify-between gap-2">
-                            <button
-                              onClick={() => handleToggleStatus(task)}
-                              disabled={changingStatus === task.id}
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${task.status === 'done'
+                      {list.map((task) => {
+                        const dup = duplicateDraft[task.id];
+                        const dupDate =
+                          dup?.date && !Number.isNaN(new Date(dup.date).getTime())
+                            ? new Date(dup.date)
+                            : new Date(task.scheduled_at);
+                        const dupTime = dup?.time ?? '09:00';
+
+                        return (
+                          <motion.div
+                            key={task.id}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.16 }}
+                            className="group rounded-xl border border-slate-800 bg-gray-700/70 p-2 text-xs text-slate-100 shadow-sm shadow-slate-950/60"
+                          >
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <button
+                                onClick={() => handleToggleStatus(task)}
+                                disabled={changingStatus === task.id}
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${task.status === 'done'
                                   ? 'bg-emerald-500/15 text-emerald-300'
                                   : task.status === 'in_progress'
                                     ? 'bg-sky-500/15 text-sky-300'
                                     : task.status === 'cancelled'
                                       ? 'bg-rose-500/15 text-rose-300'
                                       : 'bg-slate-700/60 text-slate-200'
-                                }`}
-                            >
-                              {changingStatus === task.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="h-3 w-3" />
-                              )}
-                              {BRIEF_STATUS[task.status]}
-                            </button>
-                            <span className="text-[10px] text-slate-400">
-                              {new Date(task.scheduled_at).toLocaleTimeString('es-AR', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </span>
-                          </div>
-                          <div className="text-[11px] font-medium leading-tight">
-                            {task.title}
-                          </div>
-                          {task.description && (
-                            <div className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">
-                              {task.description}
+                                  }`}
+                              >
+                                {changingStatus === task.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="h-3 w-3" />
+                                )}
+                                {BRIEF_STATUS[task.status]}
+                              </button>
+                              <span className="text-[10px] text-slate-400">
+                                {new Date(task.scheduled_at).toLocaleTimeString('es-AR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
                             </div>
-                          )}
-
-                          {/* Notas + acciones */}
-                          <div className="mt-2 flex items-center gap-1">
-                            <StickyNote className="h-3 w-3 text-slate-500" />
-                            <input
-                              className="w-full rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                              placeholder="Notas / observaciones..."
-                              value={notesDraft[task.id] ?? task.notes ?? ''}
-                              onChange={(e) =>
-                                setNotesDraft((prev) => ({
-                                  ...prev,
-                                  [task.id]: e.target.value,
-                                }))
-                              }
-                            />
-                            <button
-                              onClick={() => handleSaveNotes(task)}
-                              disabled={savingNotes === task.id}
-                              className="rounded-lg bg-slate-800 px-2 py-1 text-[10px] text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-900"
-                            >
-                              {savingNotes === task.id ? 'Guardando...' : 'OK'}
-                            </button>
-                            {/* botón duplicar */}
-                            <button
-                              onClick={() => openDuplicateForTask(task)}
-                              className="rounded-lg bg-slate-900/80 p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
-                            >
-                              <Copy className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(task)}
-                              disabled={deletingId === task.id}
-                              className="rounded-lg bg-slate-900/80 p-1 text-slate-500 hover:bg-rose-500/10 hover:text-rose-300 disabled:cursor-not-allowed"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-
-                          {/* Panel de duplicado */}
-                          {duplicateOpenFor === task.id && (
-                            <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/80 p-2 text-[11px] text-slate-200">
-                              <div className="mb-1 text-[10px] text-slate-400">
-                                Duplicar tarea en otra fecha/hora
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                <input
-                                  type="date"
-                                  className="w-[120px] rounded-lg border border-slate-800 bg-slate-900/80 px-2 py-1 text-[11px] text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                                  value={duplicateDraft[task.id]?.date ?? ''}
-                                  onChange={(e) =>
-                                    setDuplicateDraft((prev) => ({
-                                      ...prev,
-                                      [task.id]: {
-                                        ...(prev[task.id] ?? {
-                                          date: '',
-                                          time: '09:00',
-                                        }),
-                                        date: e.target.value,
-                                      },
-                                    }))
-                                  }
-                                />
-                                <input
-                                  type="time"
-                                  className="w-[90px] rounded-lg border border-slate-800 bg-slate-900/80 px-2 py-1 text-[11px] text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                                  value={duplicateDraft[task.id]?.time ?? '09:00'}
-                                  onChange={(e) =>
-                                    setDuplicateDraft((prev) => ({
-                                      ...prev,
-                                      [task.id]: {
-                                        ...(prev[task.id] ?? {
-                                          date:
-                                            prev[task.id]?.date ??
-                                            new Date(task.scheduled_at)
-                                              .toISOString()
-                                              .slice(0, 10),
-                                        }),
-                                        time: e.target.value,
-                                      },
-                                    }))
-                                  }
-                                />
-                                <button
-                                  onClick={() => handleDuplicate(task)}
-                                  disabled={duplicatingId === task.id}
-                                  className="inline-flex items-center rounded-lg bg-emerald-500/90 px-3 py-1 text-[11px] font-medium text-emerald-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-emerald-700/60"
-                                >
-                                  {duplicatingId === task.id ? (
-                                    <>
-                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                      Duplicando...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="mr-1 h-3 w-3" />
-                                      Duplicar
-                                    </>
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => setDuplicateOpenFor(null)}
-                                  className="rounded-lg px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
+                            <div className="text-[11px] font-medium leading-tight">
+                              {task.title}
                             </div>
-                          )}
-                        </motion.div>
-                      ))}
+                            {task.description && (
+                              <div className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">
+                                {task.description}
+                              </div>
+                            )}
+
+                            {/* Notas + acciones */}
+                            <div className="mt-2 flex items-center gap-1">
+                              <StickyNote className="h-3 w-3 text-slate-500" />
+                              <input
+                                className="w-full rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                placeholder="Notas / observaciones..."
+                                value={notesDraft[task.id] ?? task.notes ?? ''}
+                                onChange={(e) =>
+                                  setNotesDraft((prev) => ({
+                                    ...prev,
+                                    [task.id]: e.target.value,
+                                  }))
+                                }
+                              />
+                              <button
+                                onClick={() => handleSaveNotes(task)}
+                                disabled={savingNotes === task.id}
+                                className="rounded-lg bg-slate-800 px-2 py-1 text-[10px] text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-900"
+                              >
+                                {savingNotes === task.id ? 'Guardando...' : 'OK'}
+                              </button>
+                              {/* botón duplicar */}
+                              <button
+                                onClick={() => openDuplicateForTask(task)}
+                                className="rounded-lg bg-slate-900/80 p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(task)}
+                                disabled={deletingId === task.id}
+                                className="rounded-lg bg-slate-900/80 p-1 text-slate-500 hover:bg-rose-500/10 hover:text-rose-300 disabled:cursor-not-allowed"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+
+                            {/* Panel de duplicado */}
+                            {duplicateOpenFor === task.id && (
+                              <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/80 p-2 text-[11px] text-slate-200">
+                                <div className="mb-1 text-[10px] text-slate-400">
+                                  Duplicar tarea en otra fecha/hora
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {/* Fecha (DayPicker single) */}
+                                  <div className="relative flex-1 min-w-[140px]">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setDupCalendarOpenFor((prev) =>
+                                          prev === task.id ? null : task.id,
+                                        );
+                                        setDupTimePickerOpenFor(null);
+                                      }}
+                                      className="flex w-full items-center justify-between rounded-xl border border-slate-700/70 bg-gray-700/70 px-3 py-1.5 text-left text-[11px] text-slate-100 hover:border-sky-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                    >
+                                      <span className="truncate">
+                                        {dupDate.toLocaleDateString('es-AR', {
+                                          day: '2-digit',
+                                          month: 'short',
+                                          year: 'numeric',
+                                        })}
+                                      </span>
+                                      <CalendarDays className="ml-2 h-3 w-3 text-slate-400" />
+                                    </button>
+
+                                    {dupCalendarOpenFor === task.id && (
+                                      <div className="absolute z-50 mt-2 w-max max-w-[90vw] rounded-2xl border border-slate-800 bg-slate-950/95 p-3 text-[11px] text-slate-100 shadow-xl shadow-slate-950/60">
+                                        <DayPicker
+                                          mode="single"
+                                          selected={dupDate}
+                                          onSelect={(date) => {
+                                            if (!date) return;
+                                            const dateStr = date.toISOString().slice(0, 10);
+                                            setDuplicateDraft((prev) => ({
+                                              ...prev,
+                                              [task.id]: {
+                                                ...(prev[task.id] ?? { time: dupTime }),
+                                                date: dateStr,
+                                              },
+                                            }));
+                                          }}
+                                          locale={es}
+                                          weekStartsOn={1}
+                                          numberOfMonths={1}
+                                          showOutsideDays
+                                          pagedNavigation
+                                          modifiersClassNames={{
+                                            selected: 'bg-sky-500 text-slate-900 rounded-full',
+                                            today: 'border border-sky-400',
+                                          }}
+                                        />
+                                        <div className="mt-2 flex justify-end">
+                                          <button
+                                            type="button"
+                                            onClick={() => setDupCalendarOpenFor(null)}
+                                            className="rounded-full bg-sky-500 px-3 py-1 text-[11px] font-medium text-slate-950 hover:bg-sky-400"
+                                          >
+                                            Listo
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Hora (lista igual a la de arriba) */}
+                                  <div className="relative w-[110px]">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setDupTimePickerOpenFor((prev) =>
+                                          prev === task.id ? null : task.id,
+                                        );
+                                        setDupCalendarOpenFor(null);
+                                      }}
+                                      className="flex w-full items-center justify-between rounded-xl border border-slate-700/70 bg-gray-700/70 px-3 py-1.5 text-left text-[11px] text-slate-100 hover:border-sky-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                    >
+                                      <span>{dupTime}</span>
+                                      <Clock3 className="ml-2 h-3 w-3 text-slate-400" />
+                                    </button>
+
+                                    {dupTimePickerOpenFor === task.id && (
+                                      <div className="absolute right-0 z-50 mt-2 w-[170px] rounded-2xl border border-slate-800 bg-slate-950/95 p-2 text-xs text-slate-100 shadow-xl shadow-slate-950/60">
+                                        <div className="mb-1 flex items-center justify-between text-[10px] text-slate-400">
+                                          <span>Seleccionar hora</span>
+                                        </div>
+                                        <div className="max-h-52 space-y-1 overflow-y-auto pr-1">
+                                          {timeOptions.map((t) => (
+                                            <button
+                                              key={t}
+                                              type="button"
+                                              onClick={() => {
+                                                setDuplicateDraft((prev) => ({
+                                                  ...prev,
+                                                  [task.id]: {
+                                                    ...(prev[task.id] ?? {
+                                                      date: dupDate.toISOString().slice(0, 10),
+                                                    }),
+                                                    time: t,
+                                                  },
+                                                }));
+                                                setDupTimePickerOpenFor(null);
+                                              }}
+                                              className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] ${dupTime === t
+                                                ? 'bg-sky-500 text-slate-950'
+                                                : 'text-slate-100 hover:bg-slate-800'
+                                                }`}
+                                            >
+                                              <span>{t}</span>
+                                              {dupTime === t && (
+                                                <span className="text-[9px] font-semibold uppercase">
+                                                  Seleccionado
+                                                </span>
+                                              )}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <button
+                                    onClick={() => handleDuplicate(task)}
+                                    disabled={duplicatingId === task.id}
+                                    className="inline-flex items-center rounded-lg bg-emerald-500/90 px-3 py-1 text-[11px] font-medium text-emerald-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-emerald-700/60"
+                                  >
+                                    {duplicatingId === task.id ? (
+                                      <>
+                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                        Duplicando...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="mr-1 h-3 w-3" />
+                                        Duplicar
+                                      </>
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setDuplicateOpenFor(null);
+                                      setDupCalendarOpenFor(null);
+                                      setDupTimePickerOpenFor(null);
+                                    }}
+                                    className="rounded-lg px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
                     </AnimatePresence>
                   )}
                 </div>
+
+                {/* botón: eliminar todas las tareas del día */}
+                {list.length > 0 && (
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      onClick={() => handleDeleteDay(key)}
+                      disabled={deletingDayKey === key}
+                      className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 px-2 py-1 text-[10px] text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-rose-500/10 hover:text-rose-300 disabled:cursor-not-allowed"
+                    >
+                      {deletingDayKey === key ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3 w-3" />
+                      )}
+                      <span>Eliminar día</span>
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
