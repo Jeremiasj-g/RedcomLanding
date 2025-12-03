@@ -8,6 +8,8 @@ import {
   Loader2,
   Filter,
   Search,
+  LayoutGrid,
+  Table as TableIcon,
 } from 'lucide-react';
 import {
   TaskStatus,
@@ -24,6 +26,7 @@ type WeekRange = {
 };
 
 type StatusFilter = 'all' | TaskStatus;
+type ViewMode = 'table' | 'grid';
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   pending: 'Pendiente',
@@ -69,6 +72,8 @@ export default function SupervisorTasksPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [supervisorFilter, setSupervisorFilter] = useState<'all' | string>('all');
   const [search, setSearch] = useState('');
+
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
 
   const [tasks, setTasks] = useState<TaskWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -216,9 +221,34 @@ export default function SupervisorTasksPage() {
     setWeek({ from: newFrom, to: newTo });
   };
 
+  // ─────────────────────────────────────────
+  // 7) Datos para vista GRID (días de la semana + tareas por día)
+  // ─────────────────────────────────────────
+  const daysOfWeek = useMemo(
+    () =>
+      Array.from({ length: 7 }).map((_, idx) => addDays(week.from, idx)),
+    [week],
+  );
+
+  const tasksByDay = useMemo(() => {
+    const map: Record<string, TaskWithOwner[]> = {};
+    daysOfWeek.forEach((d) => {
+      const key = d.toISOString().slice(0, 10);
+      map[key] = [];
+    });
+
+    filteredTasks.forEach((t) => {
+      const key = t.scheduled_at.slice(0, 10);
+      if (!map[key]) map[key] = [];
+      map[key].push(t);
+    });
+
+    return map;
+  }, [daysOfWeek, filteredTasks]);
+
   if (loadingMe && !me) {
     return (
-      <RequireAuth roles={['admin', 'supervisor']}>
+      <RequireAuth roles={['admin']}>
         <div className="flex min-h-[200px] items-center justify-center text-sm text-slate-300">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           Cargando información de usuario...
@@ -298,10 +328,41 @@ export default function SupervisorTasksPage() {
 
         {/* Filtros */}
         <section className="rounded-2xl border border-slate-800/80 bg-slate-900/80 p-3 shadow-md shadow-slate-950/40">
-          <div className="mb-3 flex items-center gap-2 text-xs font-medium text-slate-300">
-            <Filter className="h-4 w-4 text-sky-400" />
-            Filtros
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
+              <Filter className="h-4 w-4 text-sky-400" />
+              Filtros
+            </div>
+
+            {/* Toggle vista tabla / grid */}
+            <div className="inline-flex items-center gap-1 rounded-full bg-slate-950/80 p-1 text-[11px] text-slate-300">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
+                  viewMode === 'table'
+                    ? 'bg-sky-500 text-slate-950'
+                    : 'text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <TableIcon className="h-3 w-3" />
+                Tabla
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
+                  viewMode === 'grid'
+                    ? 'bg-sky-500 text-slate-950'
+                    : 'text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <LayoutGrid className="h-3 w-3" />
+                Grid
+              </button>
+            </div>
           </div>
+
           <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,2fr)]">
             {/* Sucursal */}
             <div className="flex flex-col gap-1 text-xs text-slate-300">
@@ -379,12 +440,16 @@ export default function SupervisorTasksPage() {
           </div>
         </section>
 
-        {/* Tabla de tareas (solo lectura) */}
+        {/* Vista de tareas (tabla o grid) */}
         <section className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-3 shadow-lg shadow-slate-950/50">
           <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
             <span>
               {filteredTasks.length} tarea
               {filteredTasks.length !== 1 && 's'} encontradas
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 px-2 py-1 text-[10px] text-slate-300">
+              <CalendarDays className="h-3 w-3" />
+              Semana: {weekLabel}
             </span>
           </div>
 
@@ -397,7 +462,8 @@ export default function SupervisorTasksPage() {
             <div className="flex h-24 items-center justify-center text-xs text-slate-500">
               No se encontraron tareas con los filtros actuales.
             </div>
-          ) : (
+          ) : viewMode === 'table' ? (
+            // ───────────── Vista TABLA ─────────────
             <div className="overflow-hidden rounded-xl border border-slate-800/80 bg-slate-950/80">
               <div className="grid grid-cols-[1.3fr_1.1fr_0.8fr_0.8fr_1.2fr_1.4fr] border-b border-slate-800/80 bg-slate-900/80 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">
                 <div>Supervisor</div>
@@ -460,7 +526,6 @@ export default function SupervisorTasksPage() {
 
                     {/* Estado / Notas (solo lectura) */}
                     <div className="flex flex-col gap-1">
-                      {/* Chip de estado, sin onClick */}
                       <div
                         className={`inline-flex items-center gap-1 self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_BADGE_CLASSES[task.status]}`}
                       >
@@ -468,7 +533,6 @@ export default function SupervisorTasksPage() {
                         {STATUS_LABEL[task.status]}
                       </div>
 
-                      {/* Notas como texto plano */}
                       <div className="rounded-lg border border-slate-900 bg-slate-950/60 px-2 py-1 text-[10px] text-slate-200">
                         {task.notes && task.notes.trim().length > 0
                           ? task.notes
@@ -478,6 +542,105 @@ export default function SupervisorTasksPage() {
                   </motion.div>
                 ))}
               </AnimatePresence>
+            </div>
+          ) : (
+            // ───────────── Vista GRID ─────────────
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {daysOfWeek.map((day) => {
+                const key = day.toISOString().slice(0, 10);
+                const list = tasksByDay[key] || [];
+                const label = formatDate(day);
+                const isToday =
+                  new Date().toISOString().slice(0, 10) ===
+                  day.toISOString().slice(0, 10);
+
+                return (
+                  <div
+                    key={key}
+                    className={`flex min-h-[180px] flex-col rounded-2xl border border-slate-800/80 bg-slate-950/80 p-3 shadow-lg shadow-slate-950/40 ${
+                      isToday ? 'ring-1 ring-sky-500/60' : ''
+                    }`}
+                  >
+                    <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-300">
+                      <span className="uppercase tracking-wide">
+                        {label.replace('.', '')}
+                      </span>
+                      {isToday && (
+                        <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-300">
+                          Hoy
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex-1 space-y-2">
+                      {list.length === 0 ? (
+                        <div className="flex h-full items-center justify-center text-[11px] text-slate-600">
+                          Sin tareas
+                        </div>
+                      ) : (
+                        <AnimatePresence initial={false}>
+                          {list.map((task) => (
+                            <motion.div
+                              key={task.id}
+                              initial={{ opacity: 0, y: 6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -6 }}
+                              transition={{ duration: 0.16 }}
+                              className="group rounded-xl border border-slate-800 bg-slate-900/80 p-2 text-xs text-slate-100 shadow-sm shadow-slate-950/60"
+                            >
+                              <div className="mb-1 flex items-center justify-between gap-2">
+                                <div
+                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_BADGE_CLASSES[task.status]}`}
+                                >
+                                  <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />
+                                  {STATUS_LABEL[task.status]}
+                                </div>
+                                <span className="text-[10px] text-slate-400">
+                                  {formatTimeFromISO(task.scheduled_at)}
+                                </span>
+                              </div>
+
+                              <div className="text-[11px] font-semibold leading-tight">
+                                {task.title}
+                              </div>
+                              {task.description && (
+                                <div className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">
+                                  {task.description}
+                                </div>
+                              )}
+
+                              <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-slate-400">
+                                <span className="font-medium text-slate-200">
+                                  {task.owner_full_name ?? '—'}
+                                </span>
+                                <span className="mx-1 text-slate-500">•</span>
+                                <span>
+                                  {task.owner_branches &&
+                                  task.owner_branches.length > 0
+                                    ? task.owner_branches
+                                        .map(
+                                          (b) =>
+                                            b.charAt(0).toUpperCase() +
+                                            b.slice(1),
+                                        )
+                                        .join(' · ')
+                                    : 'Sin sucursal'}
+                                </span>
+                              </div>
+
+                              <div className="mt-2 rounded-lg border border-slate-900 bg-slate-950/70 px-2 py-1 text-[10px] text-slate-200">
+                                {task.notes && task.notes.trim().length > 0
+                                  ? task.notes
+                                  : 'Sin notas registradas.'}
+                              </div>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
