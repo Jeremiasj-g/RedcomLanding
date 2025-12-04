@@ -21,11 +21,6 @@ import {
   updateTaskStatus,
   updateTaskNotes,
   deleteTask,
-  // 👇 nuevas funciones para items
-  fetchTaskItems,
-  createTaskItem,
-  toggleTaskItem,
-  deleteTaskItem,
   Task,
 } from '@/lib/tasks';
 import { RequireAuth } from '@/components/RouteGuards';
@@ -36,14 +31,6 @@ import { DayPicker, DateRange, type DayModifiers } from 'react-day-picker';
 type WeekRange = {
   from: Date;
   to: Date;
-};
-
-type TaskItem = {
-  id: number;
-  task_id: number;
-  content: string;
-  is_done: boolean;
-  created_at: string;
 };
 
 function getCurrentWeek(): WeekRange {
@@ -116,9 +103,6 @@ export default function TareasPage() {
   // eliminar todas las tareas de un día
   const [deletingDayKey, setDeletingDayKey] = useState<string | null>(null);
 
-  // 👇 tarea seleccionada para la modal
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-
   const daysOfWeek = useMemo(
     () =>
       Array.from({ length: 7 }).map((_, idx) => {
@@ -167,10 +151,10 @@ export default function TareasPage() {
   const rangeModifiers: DayModifiers | undefined =
     dateRange?.from && dateRange.to
       ? {
-          in_range: { from: dateRange.from, to: dateRange.to }, // todo el tramo
-          range_start: dateRange.from, // día inicial
-          range_end: dateRange.to, // día final
-        }
+        in_range: { from: dateRange.from, to: dateRange.to }, // todo el tramo
+        range_start: dateRange.from, // día inicial
+        range_end: dateRange.to, // día final
+      }
       : undefined;
 
   // etiqueta del rango
@@ -205,9 +189,7 @@ export default function TareasPage() {
 
       while (current <= to) {
         const dateStr = current.toISOString().slice(0, 10);
-        const dateTimeISO = new Date(
-          `${dateStr}T${newTask.time}:00`,
-        ).toISOString();
+        const dateTimeISO = new Date(`${dateStr}T${newTask.time}:00`).toISOString();
 
         const created = await createTask({
           title: newTask.title.trim(),
@@ -248,8 +230,6 @@ export default function TareasPage() {
       setChangingStatus(task.id);
       const updated = await updateTaskStatus(task.id, newStatus);
       setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
-      // si la tarea está abierta en la modal, sincronizamos
-      setSelectedTask((prev) => (prev && prev.id === task.id ? updated : prev));
     } catch (err) {
       console.error('Error updating status', err);
     } finally {
@@ -263,7 +243,6 @@ export default function TareasPage() {
       setSavingNotes(task.id);
       const updated = await updateTaskNotes(task.id, notes);
       setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
-      setSelectedTask((prev) => (prev && prev.id === task.id ? updated : prev));
     } catch (err) {
       console.error('Error saving notes', err);
     } finally {
@@ -277,7 +256,6 @@ export default function TareasPage() {
       setDeletingId(task.id);
       await deleteTask(task.id);
       setTasks((prev) => prev.filter((t) => t.id !== task.id));
-      setSelectedTask((prev) => (prev && prev.id === task.id ? null : prev));
     } catch (err) {
       console.error('Error deleting task', err);
     } finally {
@@ -303,7 +281,6 @@ export default function TareasPage() {
       setTasks((prev) =>
         prev.filter((t) => t.scheduled_at.slice(0, 10) !== dayKey),
       );
-      setSelectedTask(null);
     } catch (err) {
       console.error('Error deleting day tasks', err);
     } finally {
@@ -331,9 +308,7 @@ export default function TareasPage() {
 
     try {
       setDuplicatingId(task.id);
-      const dateTimeISO = new Date(
-        `${draft.date}T${draft.time}:00`,
-      ).toISOString();
+      const dateTimeISO = new Date(`${draft.date}T${draft.time}:00`).toISOString();
       const created = await createTask({
         title: task.title,
         description: task.description ?? undefined,
@@ -384,7 +359,7 @@ export default function TareasPage() {
 
   return (
     <RequireAuth roles={['admin', 'supervisor']}>
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-12">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6">
         {/* Header */}
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -393,9 +368,8 @@ export default function TareasPage() {
               Tareas de la semana
             </h1>
             <p className="mt-1 max-w-xl text-sm text-slate-500">
-              Planificá tu semana y marcá el avance de tus tareas diarias. Usá
-              el teclado o la lectura de pantalla para navegar por los días y
-              acciones.
+              Planificá tu semana y marcá el avance de tus tareas diarias. Usá el teclado o la
+              lectura de pantalla para navegar por los días y acciones.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -428,17 +402,13 @@ export default function TareasPage() {
               className="w-full rounded-xl border border-slate-700/70 bg-gray-700/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               placeholder="Título (ej: Enviar reporte de ventas)"
               value={newTask.title}
-              onChange={(e) =>
-                setNewTask((p) => ({ ...p, title: e.target.value }))
-              }
+              onChange={(e) => setNewTask((p) => ({ ...p, title: e.target.value }))}
             />
             <input
               className="w-full rounded-xl border border-slate-700/70 bg-gray-700/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               placeholder="Descripción / detalle"
               value={newTask.description}
-              onChange={(e) =>
-                setNewTask((p) => ({ ...p, description: e.target.value }))
-              }
+              onChange={(e) => setNewTask((p) => ({ ...p, description: e.target.value }))}
             />
 
             {/* selector de rango + hora */}
@@ -453,9 +423,7 @@ export default function TareasPage() {
                   }}
                   className="flex w-full items-center justify-between rounded-xl border border-slate-700/70 bg-gray-700/70 px-3 py-2 text-left text-sm text-slate-100 hover:border-sky-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                 >
-                  <span className="truncate text-xs text-slate-300">
-                    {rangeLabel}
-                  </span>
+                  <span className="truncate text-xs text-slate-300">{rangeLabel}</span>
                   <CalendarDays className="ml-2 h-4 w-4 text-slate-400" />
                 </button>
 
@@ -472,11 +440,11 @@ export default function TareasPage() {
                       pagedNavigation
                       modifiers={rangeModifiers}
                       modifiersClassNames={{
-                        selected: 'bg-sky-500 text-slate-900', // días seleccionados
-                        range_start: 'rounded-l-full', // primer día del rango
-                        range_end: 'rounded-r-full', // último día
-                        in_range: 'bg-sky-500/30 text-slate-50', // días del medio
-                        today: 'border border-sky-400', // hoy
+                        selected: 'bg-sky-500 text-slate-900',          // días seleccionados
+                        range_start: 'rounded-l-full',                  // primer día del rango
+                        range_end: 'rounded-r-full',                    // último día
+                        in_range: 'bg-sky-500/30 text-slate-50',        // días del medio
+                        today: 'border border-sky-400',                 // hoy
                       }}
                     />
                     <div className="mt-2 flex items-center justify-between gap-2">
@@ -536,11 +504,10 @@ export default function TareasPage() {
                             setNewTask((prev) => ({ ...prev, time: t }));
                             setTimePickerOpen(false);
                           }}
-                          className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] ${
-                            newTask.time === t
-                              ? 'bg-sky-500 text-slate-950'
-                              : 'text-slate-100 hover:bg-slate-800'
-                          }`}
+                          className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] ${newTask.time === t
+                            ? 'bg-sky-500 text-slate-950'
+                            : 'text-slate-100 hover:bg-slate-800'
+                            }`}
                         >
                           <span>{t}</span>
                           {newTask.time === t && (
@@ -575,9 +542,8 @@ export default function TareasPage() {
             </button>
           </div>
           <p className="mt-2 text-[11px] text-gray-400">
-            Tip: seleccioná un rango de días en el calendario (ej: lunes a
-            sábado) y una hora en el selector para crear la misma tarea en todos
-            esos días.
+            Tip: seleccioná un rango de días en el calendario (ej: lunes a sábado) y una hora en el
+            selector para crear la misma tarea en todos esos días.
           </p>
         </section>
 
@@ -592,15 +558,13 @@ export default function TareasPage() {
               month: 'short',
             });
             const isToday =
-              new Date().toISOString().slice(0, 10) ===
-              day.toISOString().slice(0, 10);
+              new Date().toISOString().slice(0, 10) === day.toISOString().slice(0, 10);
 
             return (
               <div
                 key={key}
-                className={`group flex min-h-[180px] flex-col rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-lg shadow-slate-950/40 ${
-                  isToday ? 'ring-1 ring-sky-500/60' : ''
-                }`}
+                className={`group flex min-h-[180px] flex-col rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-lg shadow-slate-950/40 ${isToday ? 'ring-1 ring-sky-500/60' : ''
+                  }`}
               >
                 <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-300">
                   <span className="uppercase tracking-wide">
@@ -627,8 +591,7 @@ export default function TareasPage() {
                       {list.map((task) => {
                         const dup = duplicateDraft[task.id];
                         const dupDate =
-                          dup?.date &&
-                          !Number.isNaN(new Date(dup.date).getTime())
+                          dup?.date && !Number.isNaN(new Date(dup.date).getTime())
                             ? new Date(dup.date)
                             : new Date(task.scheduled_at);
                         const dupTime = dup?.time ?? '09:00';
@@ -640,25 +603,20 @@ export default function TareasPage() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -6 }}
                             transition={{ duration: 0.16 }}
-                            onClick={() => setSelectedTask(task)}
-                            className="group cursor-pointer rounded-xl border border-slate-800 bg-gray-700/70 p-2 text-xs text-slate-100 shadow-sm shadow-slate-950/60 hover:border-sky-500/70 hover:bg-gray-700"
+                            className="group rounded-xl border border-slate-800 bg-gray-700/70 p-2 text-xs text-slate-100 shadow-sm shadow-slate-950/60"
                           >
                             <div className="mb-1 flex items-center justify-between gap-2">
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleToggleStatus(task);
-                                }}
+                                onClick={() => handleToggleStatus(task)}
                                 disabled={changingStatus === task.id}
-                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                  task.status === 'done'
-                                    ? 'bg-emerald-500/15 text-emerald-300'
-                                    : task.status === 'in_progress'
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${task.status === 'done'
+                                  ? 'bg-emerald-500/15 text-emerald-300'
+                                  : task.status === 'in_progress'
                                     ? 'bg-sky-500/15 text-sky-300'
                                     : task.status === 'cancelled'
-                                    ? 'bg-rose-500/15 text-rose-300'
-                                    : 'bg-slate-700/60 text-slate-200'
-                                }`}
+                                      ? 'bg-rose-500/15 text-rose-300'
+                                      : 'bg-slate-700/60 text-slate-200'
+                                  }`}
                               >
                                 {changingStatus === task.id ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -668,9 +626,7 @@ export default function TareasPage() {
                                 {BRIEF_STATUS[task.status]}
                               </button>
                               <span className="text-[10px] text-slate-400">
-                                {new Date(
-                                  task.scheduled_at,
-                                ).toLocaleTimeString('es-AR', {
+                                {new Date(task.scheduled_at).toLocaleTimeString('es-AR', {
                                   hour: '2-digit',
                                   minute: '2-digit',
                                 })}
@@ -686,10 +642,7 @@ export default function TareasPage() {
                             )}
 
                             {/* Notas + acciones */}
-                            <div
-                              className="mt-2 flex items-center gap-1"
-                              onClick={(e) => e.stopPropagation()}
-                            >
+                            <div className="mt-2 flex items-center gap-1">
                               <StickyNote className="h-3 w-3 text-slate-500" />
                               <input
                                 className="w-full rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
@@ -707,25 +660,17 @@ export default function TareasPage() {
                                 disabled={savingNotes === task.id}
                                 className="rounded-lg bg-slate-800 px-2 py-1 text-[10px] text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-900"
                               >
-                                {savingNotes === task.id
-                                  ? 'Guardando...'
-                                  : 'OK'}
+                                {savingNotes === task.id ? 'Guardando...' : 'OK'}
                               </button>
                               {/* botón duplicar */}
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openDuplicateForTask(task);
-                                }}
+                                onClick={() => openDuplicateForTask(task)}
                                 className="rounded-lg bg-slate-900/80 p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
                               >
                                 <Copy className="h-3 w-3" />
                               </button>
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(task);
-                                }}
+                                onClick={() => handleDelete(task)}
                                 disabled={deletingId === task.id}
                                 className="rounded-lg bg-slate-900/80 p-1 text-slate-500 hover:bg-rose-500/10 hover:text-rose-300 disabled:cursor-not-allowed"
                               >
@@ -735,10 +680,7 @@ export default function TareasPage() {
 
                             {/* Panel de duplicado */}
                             {duplicateOpenFor === task.id && (
-                              <div
-                                className="mt-2 rounded-lg border border-slate-800 bg-slate-950/80 p-2 text-[11px] text-slate-200"
-                                onClick={(e) => e.stopPropagation()}
-                              >
+                              <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/80 p-2 text-[11px] text-slate-200">
                                 <div className="mb-1 text-[10px] text-slate-400">
                                   Duplicar tarea en otra fecha/hora
                                 </div>
@@ -772,14 +714,11 @@ export default function TareasPage() {
                                           selected={dupDate}
                                           onSelect={(date) => {
                                             if (!date) return;
-                                            const dateStr =
-                                              date.toISOString().slice(0, 10);
+                                            const dateStr = date.toISOString().slice(0, 10);
                                             setDuplicateDraft((prev) => ({
                                               ...prev,
                                               [task.id]: {
-                                                ...(prev[task.id] ?? {
-                                                  time: dupTime,
-                                                }),
+                                                ...(prev[task.id] ?? { time: dupTime }),
                                                 date: dateStr,
                                               },
                                             }));
@@ -790,17 +729,14 @@ export default function TareasPage() {
                                           showOutsideDays
                                           pagedNavigation
                                           modifiersClassNames={{
-                                            selected:
-                                              'bg-sky-500 text-slate-900 rounded-full',
+                                            selected: 'bg-sky-500 text-slate-900 rounded-full',
                                             today: 'border border-sky-400',
                                           }}
                                         />
                                         <div className="mt-2 flex justify-end">
                                           <button
                                             type="button"
-                                            onClick={() =>
-                                              setDupCalendarOpenFor(null)
-                                            }
+                                            onClick={() => setDupCalendarOpenFor(null)}
                                             className="rounded-full bg-sky-500 px-3 py-1 text-[11px] font-medium text-slate-950 hover:bg-sky-400"
                                           >
                                             Listo
@@ -841,20 +777,17 @@ export default function TareasPage() {
                                                   ...prev,
                                                   [task.id]: {
                                                     ...(prev[task.id] ?? {
-                                                      date: dupDate
-                                                        .toISOString()
-                                                        .slice(0, 10),
+                                                      date: dupDate.toISOString().slice(0, 10),
                                                     }),
                                                     time: t,
                                                   },
                                                 }));
                                                 setDupTimePickerOpenFor(null);
                                               }}
-                                              className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] ${
-                                                dupTime === t
-                                                  ? 'bg-sky-500 text-slate-950'
-                                                  : 'text-slate-100 hover:bg-slate-800'
-                                              }`}
+                                              className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] ${dupTime === t
+                                                ? 'bg-sky-500 text-slate-950'
+                                                : 'text-slate-100 hover:bg-slate-800'
+                                                }`}
                                             >
                                               <span>{t}</span>
                                               {dupTime === t && (
@@ -870,10 +803,7 @@ export default function TareasPage() {
                                   </div>
 
                                   <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDuplicate(task);
-                                    }}
+                                    onClick={() => handleDuplicate(task)}
                                     disabled={duplicatingId === task.id}
                                     className="inline-flex items-center rounded-lg bg-emerald-500/90 px-3 py-1 text-[11px] font-medium text-emerald-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-emerald-700/60"
                                   >
@@ -890,8 +820,7 @@ export default function TareasPage() {
                                     )}
                                   </button>
                                   <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
+                                    onClick={() => {
                                       setDuplicateOpenFor(null);
                                       setDupCalendarOpenFor(null);
                                       setDupTimePickerOpenFor(null);
@@ -932,239 +861,6 @@ export default function TareasPage() {
           })}
         </section>
       </div>
-
-      {/* Modal de detalle */}
-      <AnimatePresence>
-        {selectedTask && (
-          <motion.div
-            key={selectedTask.id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-md"
-            onClick={() => setSelectedTask(null)}
-          >
-            <motion.div
-              initial={{ y: 24, scale: 0.97, opacity: 0 }}
-              animate={{ y: 0, scale: 1, opacity: 1 }}
-              exit={{ y: 24, scale: 0.97, opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              className="relative max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-800 bg-gray-800 text-slate-100 shadow-2xl shadow-slate-950/70"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-start justify-between gap-3 border-b border-slate-800 px-5 py-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <span className="inline-flex items-center rounded-full bg-slate-900 px-2 py-0.5">
-                      <CalendarDays className="mr-1 h-3 w-3" />
-                      {new Date(
-                        selectedTask.scheduled_at,
-                      ).toLocaleString('es-AR', {
-                        weekday: 'short',
-                        day: '2-digit',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      Estado: {BRIEF_STATUS[selectedTask.status]}
-                    </span>
-                  </div>
-                  <h2 className="text-lg pt-6 font-semibold leading-tight">
-                    {selectedTask.title}
-                  </h2>
-                  {selectedTask.description && (
-                    <p className="text-xs text-slate-400">
-                      {selectedTask.description}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => setSelectedTask(null)}
-                  className="rounded-full bg-slate-900 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-100"
-                >
-                  Cerrar
-                </button>
-              </div>
-
-              <TaskDetailContent task={selectedTask} />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </RequireAuth>
-  );
-}
-
-/** Contenido scrollable de la modal: items / checklist */
-function TaskDetailContent({ task }: { task: Task }) {
-  const [items, setItems] = useState<TaskItem[]>([]);
-  const [newItem, setNewItem] = useState('');
-  const [loadingItems, setLoadingItems] = useState(true);
-  const [savingItem, setSavingItem] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        setLoadingItems(true);
-        const data = await fetchTaskItems(task.id);
-        if (!cancelled) setItems(data);
-      } catch (err) {
-        console.error('Error fetching task items', err);
-      } finally {
-        if (!cancelled) setLoadingItems(false);
-      }
-    };
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [task.id]);
-
-  const handleAddItem = async () => {
-    if (!newItem.trim()) return;
-    try {
-      setSavingItem(true);
-      const created = await createTaskItem(task.id, newItem.trim());
-      setItems((prev) => [...prev, created]);
-      setNewItem('');
-    } catch (err) {
-      console.error('Error creating item', err);
-    } finally {
-      setSavingItem(false);
-    }
-  };
-
-  const handleToggleItem = async (item: TaskItem) => {
-    try {
-      const updated = await toggleTaskItem(item.id, !item.is_done);
-      setItems((prev) =>
-        prev.map((it) => (it.id === item.id ? updated : it)),
-      );
-    } catch (err) {
-      console.error('Error toggling item', err);
-    }
-  };
-
-  const handleDeleteItem = async (item: TaskItem) => {
-    if (!confirm('¿Eliminar este ítem?')) return;
-    try {
-      await deleteTaskItem(item.id);
-      setItems((prev) => prev.filter((it) => it.id !== item.id));
-    } catch (err) {
-      console.error('Error deleting item', err);
-    }
-  };
-
-  return (
-    <div className="max-h-[70vh] overflow-y-auto px-5 py-4 space-y-5">
-      {/* notas breves (si hay) */}
-      {task.notes && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-3 text-xs text-slate-200">
-          <div className="mb-1 flex items-center gap-2 text-[11px] font-medium text-slate-400">
-            <StickyNote className="h-3 w-3" />
-            Nota breve guardada
-          </div>
-          <p className="text-[12px] leading-relaxed whitespace-pre-wrap">
-            {task.notes}
-          </p>
-        </div>
-      )}
-
-      {/* checklist / items */}
-      <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-slate-100">
-              Items • acciones realizadas
-            </h3>
-            <p className="text-[11px] text-slate-400">
-              Registrá pasos concretos: pruebas, correcciones, llamadas, etc.
-            </p>
-          </div>
-        </div>
-
-        {/* input nuevo item */}
-        <div className="mb-3 flex gap-2">
-          <input
-            className="flex-1 rounded-lg border border-slate-700/70 bg-slate-950/70 px-3 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-            placeholder="Ej: Revisé línea de obj. fiambres 214 y FRS..."
-            value={newItem}
-            onChange={(e) => setNewItem(e.target.value)}
-          />
-          <button
-            onClick={handleAddItem}
-            disabled={savingItem || !newItem.trim()}
-            className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-emerald-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-emerald-700/60"
-          >
-            {savingItem ? 'Guardando...' : 'Agregar'}
-          </button>
-        </div>
-
-        {/* lista items */}
-        {loadingItems ? (
-          <div className="flex items-center gap-2 text-[11px] text-slate-400">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Cargando items...
-          </div>
-        ) : items.length === 0 ? (
-          <p className="text-[11px] text-slate-500">
-            Todavía no registraste ninguna acción para esta tarea.
-          </p>
-        ) : (
-          <ul className="space-y-1.5">
-            {items.map((item) => (
-              <li
-                key={item.id}
-                className="flex items-start gap-2 rounded-lg border border-slate-800/70 bg-slate-950/70 px-2 py-1.5"
-              >
-                <button
-                  onClick={() => handleToggleItem(item)}
-                  className={`mt-[2px] flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border text-[10px] ${
-                    item.is_done
-                      ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                      : 'border-slate-600 bg-slate-900 text-slate-400'
-                  }`}
-                >
-                  {item.is_done && <CheckCircle2 className="h-3 w-3" />}
-                </button>
-                <div className="flex-1 text-[11px] leading-snug text-slate-200">
-                  <p
-                    className={
-                      item.is_done ? 'line-through text-slate-500' : ''
-                    }
-                  >
-                    {item.content}
-                  </p>
-                  <span className="mt-0.5 block text-[10px] text-slate-500">
-                    {new Date(item.created_at).toLocaleString('es-AR', {
-                      day: '2-digit',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleDeleteItem(item)}
-                  className="mt-[2px] rounded bg-slate-900/80 p-1 text-slate-500 hover:bg-rose-500/10 hover:text-rose-300"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <div className="text-[11px] text-slate-500">
-        Tip: este checklist te sirve como historial de qué hiciste para cumplir
-        la tarea.
-      </div>
-    </div>
   );
 }

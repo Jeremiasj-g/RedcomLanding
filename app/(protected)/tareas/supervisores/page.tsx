@@ -10,11 +10,16 @@ import {
   Search,
   LayoutGrid,
   Table as TableIcon,
+  StickyNote,
+  Trash2,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   TaskStatus,
   TaskWithOwner,
   fetchSupervisorTasksByRange,
+  // 👇 nuevas funciones para ver ítems
+  fetchTaskItems,
 } from '@/lib/tasks';
 import { RequireAuth } from '@/components/RouteGuards';
 import { addDays, endOfWeek, startOfWeek } from 'date-fns';
@@ -27,6 +32,14 @@ type WeekRange = {
 
 type StatusFilter = 'all' | TaskStatus;
 type ViewMode = 'table' | 'grid';
+
+type TaskItem = {
+  id: number;
+  task_id: number;
+  content: string;
+  is_done: boolean;
+  created_at: string;
+};
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   pending: 'Pendiente',
@@ -70,13 +83,17 @@ export default function SupervisorTasksPage() {
   const [week, setWeek] = useState<WeekRange>(() => getCurrentWeek());
   const [branchFilter, setBranchFilter] = useState<'all' | string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [supervisorFilter, setSupervisorFilter] = useState<'all' | string>('all');
+  const [supervisorFilter, setSupervisorFilter] =
+    useState<'all' | string>('all');
   const [search, setSearch] = useState('');
 
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const [tasks, setTasks] = useState<TaskWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 👇 tarea seleccionada para la modal
+  const [selectedTask, setSelectedTask] = useState<TaskWithOwner | null>(null);
 
   // ─────────────────────────────────────────
   // 1) Cargar tareas (backend) por semana / sucursal / estado
@@ -259,7 +276,7 @@ export default function SupervisorTasksPage() {
 
   return (
     <RequireAuth roles={['admin']}>
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-12">
         {/* Header */}
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -292,28 +309,28 @@ export default function SupervisorTasksPage() {
 
         {/* Resumen */}
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-3 shadow-md shadow-slate-950/40">
+          <div className="rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-md shadow-slate-950/40">
             <p className="text-xs text-slate-400">Tareas en la semana</p>
             <p className="mt-1 text-2xl font-semibold text-slate-100">
               {metrics.total}
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-3 shadow-md shadow-slate-950/40">
+          <div className="rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-md shadow-slate-950/40">
             <p className="text-xs text-slate-400">Completadas</p>
             <p className="mt-1 text-2xl font-semibold text-emerald-400">
               {metrics.done}
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-3 shadow-md shadow-slate-950/40">
+          <div className="rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-md shadow-slate-950/40">
             <p className="text-xs text-slate-400">Pendientes</p>
             <p className="mt-1 text-2xl font-semibold text-amber-300">
               {metrics.pending}
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-3 shadow-md shadow-slate-950/40">
+          <div className="rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-md shadow-slate-950/40">
             <p className="text-xs text-slate-400">Nivel de cumplimiento</p>
             <div className="mt-2 flex items-center gap-2">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-600">
                 <div
                   className="h-full rounded-full bg-emerald-500"
                   style={{ width: `${metrics.completion}%` }}
@@ -327,7 +344,7 @@ export default function SupervisorTasksPage() {
         </section>
 
         {/* Filtros */}
-        <section className="rounded-2xl border border-slate-800/80 bg-slate-900/80 p-3 shadow-md shadow-slate-950/40">
+        <section className="rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-md shadow-slate-950/40">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
               <Filter className="h-4 w-4 text-sky-400" />
@@ -372,7 +389,7 @@ export default function SupervisorTasksPage() {
                 onChange={(e) =>
                   setBranchFilter(e.target.value as 'all' | string)
                 }
-                className="rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="rounded-xl border border-slate-700/80 bg-slate-950/70 px-3 py-2 text-xs text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               >
                 <option value="all">
                   {me?.role === 'admin'
@@ -441,8 +458,8 @@ export default function SupervisorTasksPage() {
         </section>
 
         {/* Vista de tareas (tabla o grid) */}
-        <section className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-3 shadow-lg shadow-slate-950/50">
-          <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+        <section className="rounded-2xl border shadow-slate-950/50">
+          <div className="mb-2 flex items-center justify-between text-xl font-bold text-black">
             <span>
               {filteredTasks.length} tarea
               {filteredTasks.length !== 1 && 's'} encontradas
@@ -482,7 +499,8 @@ export default function SupervisorTasksPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
                     transition={{ duration: 0.15 }}
-                    className="grid grid-cols-[1.3fr_1.1fr_0.8fr_0.8fr_1.2fr_1.4fr] border-t border-slate-900/70 px-3 py-2 text-[11px] text-slate-100 hover:bg-slate-900/70"
+                    onClick={() => setSelectedTask(task)}
+                    className="grid cursor-pointer grid-cols-[1.3fr_1.1fr_0.8fr_0.8fr_1.2fr_1.4fr] border-t border-slate-900/70 px-3 py-2 text-[11px] text-slate-100 hover:bg-slate-900/70"
                   >
                     {/* Supervisor */}
                     <div className="flex flex-col">
@@ -557,7 +575,7 @@ export default function SupervisorTasksPage() {
                 return (
                   <div
                     key={key}
-                    className={`flex min-h-[180px] flex-col rounded-2xl border border-slate-800/80 bg-slate-950/80 p-3 shadow-lg shadow-slate-950/40 ${
+                    className={`flex min-h-[180px] flex-col rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-lg shadow-slate-950/40 ${
                       isToday ? 'ring-1 ring-sky-500/60' : ''
                     }`}
                   >
@@ -586,7 +604,8 @@ export default function SupervisorTasksPage() {
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -6 }}
                               transition={{ duration: 0.16 }}
-                              className="group rounded-xl border border-slate-800 bg-slate-900/80 p-2 text-xs text-slate-100 shadow-sm shadow-slate-950/60"
+                              onClick={() => setSelectedTask(task)}
+                              className="group cursor-pointer rounded-xl border border-slate-800 bg-gray-700/70 p-2 text-xs text-slate-100 shadow-sm shadow-slate-950/60 hover:border-sky-500/70 hover:bg-gray-700"
                             >
                               <div className="mb-1 flex items-center justify-between gap-2">
                                 <div
@@ -628,7 +647,7 @@ export default function SupervisorTasksPage() {
                                 </span>
                               </div>
 
-                              <div className="mt-2 rounded-lg border border-slate-900 bg-slate-950/70 px-2 py-1 text-[10px] text-slate-200">
+                              <div className="mt-2 rounded-lg border border-slate-900 bg-slate-950/60 px-2 py-1 text-[10px] text-slate-500">
                                 {task.notes && task.notes.trim().length > 0
                                   ? task.notes
                                   : 'Sin notas registradas.'}
@@ -645,6 +664,199 @@ export default function SupervisorTasksPage() {
           )}
         </section>
       </div>
+
+      {/* Modal de detalle (solo lectura) */}
+      <AnimatePresence>
+        {selectedTask && (
+          <motion.div
+            key={selectedTask.id}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setSelectedTask(null)}
+          >
+            <motion.div
+              initial={{ y: 24, scale: 0.97, opacity: 0 }}
+              animate={{ y: 0, scale: 1, opacity: 1 }}
+              exit={{ y: 24, scale: 0.97, opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="relative max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-800 bg-gray-800 text-slate-100 shadow-2xl shadow-slate-950/70"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3 border-b border-slate-800 px-5 py-4">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                    <span className="inline-flex items-center rounded-full bg-slate-900 px-2 py-0.5">
+                      <CalendarDays className="mr-1 h-3 w-3" />
+                      {new Date(
+                        selectedTask.scheduled_at,
+                      ).toLocaleString('es-AR', {
+                        weekday: 'short',
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2 py-0.5 text-[11px]">
+                      <Users2 className="h-3 w-3" />
+                      {selectedTask.owner_full_name ?? '—'}
+                    </span>
+                    {selectedTask.owner_branches &&
+                      selectedTask.owner_branches.length > 0 && (
+                        <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px]">
+                          {selectedTask.owner_branches
+                            .map(
+                              (b) => b.charAt(0).toUpperCase() + b.slice(1),
+                            )
+                            .join(' · ')}
+                        </span>
+                      )}
+                    <span className="text-[11px] text-slate-500">
+                      Estado: {STATUS_LABEL[selectedTask.status]}
+                    </span>
+                  </div>
+                  <h2 className="text-lg pt-6 font-semibold leading-tight">
+                    {selectedTask.title}
+                  </h2>
+                  {selectedTask.description && (
+                    <p className="text-xs text-slate-400">
+                      {selectedTask.description}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelectedTask(null)}
+                  className="rounded-full bg-slate-900 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                >
+                  Cerrar
+                </button>
+              </div>
+
+              <TaskItemsReadOnly taskId={selectedTask.id} notes={selectedTask.notes} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </RequireAuth>
+  );
+}
+
+/** Contenido de la modal: notas + checklist solo lectura */
+function TaskItemsReadOnly({
+  taskId,
+  notes,
+}: {
+  taskId: number;
+  notes: string | null;
+}) {
+  const [items, setItems] = useState<TaskItem[]>([]);
+  const [loadingItems, setLoadingItems] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        setLoadingItems(true);
+        const data = await fetchTaskItems(taskId);
+        if (!cancelled) setItems(data);
+      } catch (err) {
+        console.error('Error fetching task items', err);
+      } finally {
+        if (!cancelled) setLoadingItems(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [taskId]);
+
+  return (
+    <div className="max-h-[70vh] overflow-y-auto px-5 py-4 space-y-5">
+      {/* nota breve que guardó el supervisor */}
+      {notes && notes.trim().length > 0 && (
+        <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-3 text-xs text-slate-200">
+          <div className="mb-1 flex items-center gap-2 text-[11px] font-medium text-slate-400">
+            <StickyNote className="h-3 w-3" />
+            Nota breve
+          </div>
+          <p className="text-[12px] leading-relaxed whitespace-pre-wrap">
+            {notes}
+          </p>
+        </div>
+      )}
+
+      <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-slate-100">
+              Items / acciones registradas
+            </h3>
+            <p className="text-[11px] text-slate-400">
+              Checklist creado por el supervisor. Solo lectura.
+            </p>
+          </div>
+        </div>
+
+        {loadingItems ? (
+          <div className="flex items-center gap-2 text-[11px] text-slate-400">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Cargando items...
+          </div>
+        ) : items.length === 0 ? (
+          <p className="text-[11px] text-slate-500">
+            No hay ítems registrados para esta tarea.
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {items.map((item) => (
+              <li
+                key={item.id}
+                className="flex items-start gap-2 rounded-lg border border-slate-800/70 bg-slate-950/70 px-2 py-1.5"
+              >
+                <div
+                  className={`mt-[2px] flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border text-[10px] ${
+                    item.is_done
+                      ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
+                      : 'border-slate-600 bg-slate-900 text-slate-400'
+                  }`}
+                >
+                  {item.is_done && <CheckCircle2 className="h-3 w-3" />}
+                </div>
+                <div className="flex-1 text-[11px] leading-snug text-slate-200">
+                  <p
+                    className={
+                      item.is_done ? 'line-through text-slate-500' : ''
+                    }
+                  >
+                    {item.content}
+                  </p>
+                  <span className="mt-0.5 block text-[10px] text-slate-500">
+                    {new Date(item.created_at).toLocaleString('es-AR', {
+                      day: '2-digit',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                <div className="mt-[2px] flex h-4 w-4 items-center justify-center rounded bg-slate-900/80 text-slate-600">
+                  <Trash2 className="h-3 w-3" />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <div className="text-[11px] text-slate-500">
+        Tip: este detalle te ayuda a ver qué acciones concretas hizo el
+        supervisor para cumplir la tarea.
+      </div>
+    </div>
   );
 }

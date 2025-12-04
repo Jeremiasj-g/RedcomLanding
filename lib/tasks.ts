@@ -4,6 +4,57 @@ import { supabase } from '@/lib/supabaseClient';
 export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'cancelled';
 export type TaskPriority = 'low' | 'medium' | 'high';
 
+export type TaskItem = {
+  id: number;
+  task_id: number;
+  content: string;
+  is_done: boolean;
+  created_at: string;
+};
+
+// obtener items de una tarea
+export async function fetchTaskItems(taskId: number): Promise<TaskItem[]> {
+  const { data, error } = await supabase
+    .from('task_items')
+    .select('*')
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+// crear item
+export async function createTaskItem(taskId: number, content: string) {
+  const { data, error } = await supabase
+    .from('task_items')
+    .insert({ task_id: taskId, content })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as TaskItem;
+}
+
+// toggle done
+export async function toggleTaskItem(id: number, is_done: boolean) {
+  const { data, error } = await supabase
+    .from('task_items')
+    .update({ is_done })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as TaskItem;
+}
+
+// eliminar
+export async function deleteTaskItem(id: number) {
+  const { error } = await supabase.from('task_items').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export type Task = {
   id: number;
   user_id: string;
