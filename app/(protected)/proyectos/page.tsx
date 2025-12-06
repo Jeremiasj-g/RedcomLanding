@@ -126,6 +126,8 @@ export default function ProyectosPage() {
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newSummary, setNewSummary] = useState('');
+  const [newProject, setNewProject] = useState(''); // 👈 nuevo
+  const [newDueDate, setNewDueDate] = useState(''); // yyyy-mm-dd 👈 nuevo
 
   // dropdowns por fila
   const [statusOpenFor, setStatusOpenFor] = useState<number | null>(null);
@@ -220,10 +222,11 @@ export default function ProyectosPage() {
 
       const payload = {
         title: newTitle.trim(),
-        project: 'Introducción a Proyectos y Tareas',
+        project: newProject.trim() || 'Proyecto general',
         summary: newSummary.trim() || null,
         status: 'not_started' as ProjectTaskStatus,
         priority: 'medium' as ProjectTaskPriority,
+        due_date: newDueDate || null,
         // por defecto, asignamos al creador
         assigneeIds: [me.id],
       };
@@ -232,6 +235,8 @@ export default function ProyectosPage() {
       setTasks((prev) => [created, ...prev]);
       setNewTitle('');
       setNewSummary('');
+      setNewProject('');
+      setNewDueDate('');
       setPage(1); // siempre mostramos la nueva en la primera página
     } catch (err) {
       console.error('Error creating project task', err);
@@ -257,7 +262,7 @@ export default function ProyectosPage() {
     status: ProjectTaskStatus,
   ) => {
     // si está bloqueada, solo lectura
-    if (task.is_locked) return;
+    if ((task as any).is_locked) return;
 
     try {
       const updatedRow = await updateProjectTask(task.id, { status });
@@ -278,7 +283,7 @@ export default function ProyectosPage() {
     priority: ProjectTaskPriority,
   ) => {
     // si está bloqueada, solo lectura
-    if (task.is_locked) return;
+    if ((task as any).is_locked) return;
 
     try {
       const updatedRow = await updateProjectTask(task.id, { priority });
@@ -300,7 +305,7 @@ export default function ProyectosPage() {
   ) => {
     if (!isAdmin) return;
     // si está bloqueada, solo lectura
-    if (task.is_locked) return;
+    if ((task as any).is_locked) return;
 
     const currentIds = new Set(task.assignees.map((a) => a.user_id));
     if (currentIds.has(userId)) {
@@ -342,7 +347,7 @@ export default function ProyectosPage() {
   // Cerrar tarea = marcarla como bloqueada (solo lectura), sin cambiar estado
   const handleCloseTask = async (task: ProjectTaskWithAssignees) => {
     if (!isAdmin) return;
-    if (task.is_locked) return;
+    if ((task as any).is_locked) return;
 
     try {
       const updatedRow = await updateProjectTask(task.id, {
@@ -430,7 +435,7 @@ export default function ProyectosPage() {
         <section className="rounded-2xl border border-slate-200 bg-slate-950/90 shadow-lg shadow-slate-900/40">
           {/* Encabezado de columnas */}
           <div className="grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,2fr)] border-b border-slate-800 bg-slate-950 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            <div>Tarea</div>
+            <div>Tarea / Proyecto</div>
             <div>Estado</div>
             <div>Prioridad</div>
             <div>Fecha límite</div>
@@ -440,6 +445,7 @@ export default function ProyectosPage() {
           {/* Fila de creación rápida (solo admin) */}
           {isAdmin && (
             <div className="grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,2fr)] border-b border-slate-800 bg-slate-900/80 px-4 py-2 text-xs text-slate-100">
+              {/* Título + resumen + proyecto */}
               <div className="flex flex-col gap-1 pr-2">
                 <input
                   className="w-full rounded-md border border-slate-700/80 bg-slate-900 px-2 py-1 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
@@ -453,24 +459,41 @@ export default function ProyectosPage() {
                   value={newSummary}
                   onChange={(e) => setNewSummary(e.target.value)}
                 />
+                <input
+                  className="w-full rounded-md border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  placeholder="Proyecto (ej: Portal Redcom V2)"
+                  value={newProject}
+                  onChange={(e) => setNewProject(e.target.value)}
+                />
               </div>
+
+              {/* Estado (preview) */}
               <div className="flex items-center text-[11px] text-slate-500">
                 <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[11px]">
                   <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
                   Sin empezar
                 </span>
               </div>
+
+              {/* Prioridad (preview) */}
               <div className="flex items-center text-[11px] text-slate-500">
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] text-amber-200">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                   Media
                 </span>
               </div>
+
+              {/* Fecha límite (editable) */}
               <div className="flex items-center text-[11px] text-slate-500">
-                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] text-slate-400">
-                  Sin fecha
-                </span>
+                <input
+                  type="date"
+                  value={newDueDate}
+                  onChange={(e) => setNewDueDate(e.target.value)}
+                  className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
               </div>
+
+              {/* Botón crear */}
               <div className="flex items-center justify-end">
                 <button
                   onClick={handleCreate}
@@ -510,7 +533,7 @@ export default function ProyectosPage() {
                   const statusCfg = getStatusConfig(task.status);
                   const priorityCfg = getPriorityConfig(task.priority);
 
-                  const isLocked = !!task.is_locked;
+                  const isLocked = !!(task as any).is_locked;
 
                   // usuarios filtrados para el dropdown de responsables
                   const filteredUsers = supervisors.filter((u) => {
@@ -528,9 +551,14 @@ export default function ProyectosPage() {
                       className="group grid cursor-pointer grid-cols-[minmax(0,2.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,2fr)] border-t border-slate-900/70 bg-slate-900/70 px-4 py-2 text-[11px] text-slate-100 hover:bg-slate-900"
                       onClick={() => setSelectedTask(task)}
                     >
-                      {/* Tarea + resumen */}
+                      {/* Tarea + resumen + proyecto */}
                       <div className="flex flex-col gap-0.5 pr-2">
-                        <span className="font-medium">{task.title}</span>
+                        <span className="font-medium text-sm">{task.title}</span>
+                        {task.project && (
+                          <span className="text-[10px] text-slate-400">
+                            {task.project}
+                          </span>
+                        )}
                         {task.summary && (
                           <span className="line-clamp-1 text-[10px] text-slate-400">
                             {task.summary}
@@ -657,8 +685,8 @@ export default function ProyectosPage() {
                       </div>
 
                       {/* Fecha límite */}
-                      <div className="flex items-center text-[10px] text-slate-300">
-                        <span className="rounded-full bg-slate-900 px-2 py-0.5">
+                      <div className="flex items-center text-[10px] text-black/50 font-bold ">
+                        <span className="rounded-full px-2 py-0.5 bg-slate-800 text-slate-100">
                           {formatDueDate(task.due_date)}
                         </span>
                       </div>
@@ -873,4 +901,3 @@ export default function ProyectosPage() {
     </RequireAuth>
   );
 }
-  

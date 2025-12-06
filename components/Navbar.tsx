@@ -14,6 +14,7 @@ import {
   CalendarDays,
   ListChecks,
   Bell,
+  Check,
 } from 'lucide-react';
 
 type TaskNotification = {
@@ -293,7 +294,7 @@ export default function Navbar() {
     setNotifOpen((v) => !v);
   };
 
-  // botón "Marcar como leído"
+  // botón "Marcar todo como leído" (persiste usando lastSeen)
   const handleMarkAllRead = () => {
     if (!me?.id) return;
     const nowIso = new Date().toISOString();
@@ -303,6 +304,13 @@ export default function Navbar() {
       // ignore
     }
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  // marcar una sola notificación como leída (solo en memoria)
+  const handleMarkOneRead = (id: number) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
   };
 
   return (
@@ -579,9 +587,10 @@ export default function Navbar() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={{ duration: 0.16 }}
-                    className="absolute right-0 mt-2 w-80 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 p-2 text-xs text-slate-100 shadow-2xl"
+                    className="absolute right-0 mt-2 w-max overflow-hidden rounded-xl border border-slate-800 bg-slate-900 p-2 text-xs text-slate-100 shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="mb-1 flex items-center justify-between px-2 pb-1">
+                    <div className="mb-1 flex gap-4 items-center justify-between px-2 pb-1">
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                         Proyectos asignados
                       </span>
@@ -590,9 +599,9 @@ export default function Navbar() {
                           type="button"
                           onClick={handleMarkAllRead}
                           disabled={notifications.length === 0 || unreadCount === 0}
-                          className="text-[10px] text-slate-400 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="text-[10px] text-slate-100 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          Marcar como leído
+                          Marcar todo como leído
                         </button>
                         <Link
                           href="/proyectos"
@@ -618,12 +627,38 @@ export default function Navbar() {
                             })
                             : 'Sin fecha límite';
 
+                          const createdDate = n.created_at
+                            ? new Date(n.created_at)
+                            : null;
+
+                          const timeLabel = createdDate
+                            ? createdDate.toLocaleTimeString('es-AR', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                            : '';
+
+                          const cardClasses = n.read
+                            ? 'border-slate-900 bg-slate-900/40'
+                            : 'border-slate-700 bg-slate-900/80';
+
                           return (
                             <div
                               key={n.id}
-                              className="rounded-lg border border-slate-800 bg-slate-900/80 px-3 py-2"
+                              className={`relative rounded-lg border px-3 py-2 transition ${cardClasses}`}
                             >
-                              <div className="mb-1 flex items-center justify-between gap-2">
+                              {/* Botón individual marcar como leído */}
+                              {!n.read && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleMarkOneRead(n.id)}
+                                  className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-500/60 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/30"
+                                >
+                                  <Check className="h-3 w-3" />
+                                </button>
+                              )}
+
+                              <div className="mb-1 flex items-center justify-between gap-6 pr-6">
                                 <span className="line-clamp-1 text-[11px] font-semibold text-slate-100">
                                   {n.title}
                                 </span>
@@ -633,21 +668,35 @@ export default function Navbar() {
                                   </span>
                                 )}
                               </div>
+
                               <p className="mb-1 line-clamp-2 text-[11px] text-slate-400">
                                 {n.summary || 'Sin descripción.'}
                               </p>
-                              <div className="flex items-center justify-between text-[10px] text-slate-500">
+
+                              <div className="flex flex-col items-start text-[10px] text-slate-500">
                                 <span className="line-clamp-1">
                                   Proyecto:{' '}
                                   <span className="text-slate-300">
                                     {n.project || 'General'}
                                   </span>
                                 </span>
-                                <span>
+                                <span className="text-right">
                                   Vence:{' '}
                                   <span className="text-slate-300">
                                     {dueLabel}
                                   </span>
+                                </span>
+                              </div>
+
+                              <div className="mt-1 text-[10px] text-slate-500">
+                                Asignado:{' '}
+                                <span className="text-slate-300">
+                                  {createdDate
+                                    ? createdDate.toLocaleDateString('es-AR', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                    }) + ` · ${timeLabel} hs`
+                                    : 'Fecha no disponible'}
                                 </span>
                               </div>
                             </div>
