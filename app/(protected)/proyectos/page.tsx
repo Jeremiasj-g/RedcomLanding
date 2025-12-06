@@ -408,7 +408,7 @@ export default function ProyectosPage() {
   return (
     <RequireAuth roles={['admin', 'supervisor']}>
       <div
-        className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-10"
+        className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-10 min-h-[80vh]"
         // evitar que el click en el contenedor cierre popovers
         onClick={(e) => e.stopPropagation()}
       >
