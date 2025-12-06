@@ -140,7 +140,7 @@ export default function Navbar() {
 
         {/* Sección derecha */}
         <div className="flex items-center gap-3">
-          {/* Link a Tareas (para admins y supervisores activos) */}
+          {/* Link a Mis tareas (para usuarios activos) */}
           {logged && me?.is_active && (
             <Link
               href="/tareas"
@@ -150,6 +150,26 @@ export default function Navbar() {
               <span>Mis tareas</span>
             </Link>
           )}
+
+          {/* Link a Proyectos (solo admin y supervisores activos) */}
+          {(() => {
+            const canSeeProjects =
+              logged &&
+              me?.is_active &&
+              ['admin', 'supervisor'].includes((me?.role ?? '') as string);
+
+            if (!canSeeProjects) return null;
+
+            return (
+              <Link
+                href="/proyectos"
+                className="flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold text-emerald-300 hover:bg-slate-800 hover:text-emerald-200"
+              >
+                <ListChecks className="h-4 w-4" />
+                <span>Proyectos</span>
+              </Link>
+            );
+          })()}
 
           {/* Sucursales visibles (solo si está logueado y activo) */}
           {logged && me?.is_active && (
