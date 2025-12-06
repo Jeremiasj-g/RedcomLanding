@@ -26,6 +26,9 @@ import { RequireAuth } from '@/components/RouteGuards';
 import { useMe } from '@/hooks/useMe';
 import ProjectTaskDrawer from './ProjectTaskDrawer';
 import { supabase } from '@/lib/supabaseClient';
+import ProjectTaskFilters, {
+  ProjectTaskFiltersState,
+} from './ProjectTaskFilters';
 
 // ─────────────────────────────────────────
 //  Config visual Estado / Prioridad (Notion-like)
@@ -93,7 +96,9 @@ function getStatusConfig(value: ProjectTaskStatus) {
 }
 
 function getPriorityConfig(value: ProjectTaskPriority) {
-  return PRIORITY_OPTIONS.find((p) => p.value === value) ?? PRIORITY_OPTIONS[1];
+  return (
+    PRIORITY_OPTIONS.find((p) => p.value === value) ?? PRIORITY_OPTIONS[1]
+  );
 }
 
 const PAGE_SIZE = 15;
@@ -126,19 +131,41 @@ export default function ProyectosPage() {
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newSummary, setNewSummary] = useState('');
-  const [newProject, setNewProject] = useState(''); // 👈 nuevo
-  const [newDueDate, setNewDueDate] = useState(''); // yyyy-mm-dd 👈 nuevo
+  const [newProject, setNewProject] = useState('');
+  const [newDueDate, setNewDueDate] = useState(''); // yyyy-mm-dd
 
   // dropdowns por fila
   const [statusOpenFor, setStatusOpenFor] = useState<number | null>(null);
   const [priorityOpenFor, setPriorityOpenFor] = useState<number | null>(null);
-  const [assigneesOpenFor, setAssigneesOpenFor] = useState<number | null>(null);
+  const [assigneesOpenFor, setAssigneesOpenFor] =
+    useState<number | null>(null);
   const [assigneeSearch, setAssigneeSearch] = useState('');
+
+  // filtros
+  const [filters, setFilters] = useState<ProjectTaskFiltersState>({
+    search: '',
+    status: 'all',
+    priority: 'all',
+    project: '',
+    responsibleIds: [], // multi
+    dueFrom: '',
+    dueTo: '',
+    viewMode: 'table',
+  });
+
+  // vista (tabla / grid) – por ahora solo tabla pero lo dejamos listo
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   // paginación
   const [page, setPage] = useState(1);
 
   const isAdmin = me?.role === 'admin';
+
+  const closeAllPopovers = () => {
+    setStatusOpenFor(null);
+    setPriorityOpenFor(null);
+    setAssigneesOpenFor(null);
+  };
 
   // ─────────────────────────────────────────
   // 1) Cargar tareas visibles + supervisores
@@ -172,42 +199,92 @@ export default function ProyectosPage() {
     }
   }, [assigneesOpenFor]);
 
-  // cerrar todos los popovers con click fuera o ESC
+  // cerrar todos los popovers con ESC
   useEffect(() => {
-    const closeAll = () => {
-      setStatusOpenFor(null);
-      setPriorityOpenFor(null);
-      setAssigneesOpenFor(null);
-    };
-
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeAll();
+      if (e.key === 'Escape') {
+        closeAllPopovers();
+      }
     };
 
-    window.addEventListener('click', closeAll);
     window.addEventListener('keydown', handleKey);
-
     return () => {
-      window.removeEventListener('click', closeAll);
       window.removeEventListener('keydown', handleKey);
     };
   }, []);
 
-  // ajustar página si cambia la cantidad total de tareas
+  // ─────────────────────────────────────────
+  // Filtro + métricas
+  // ─────────────────────────────────────────
+  const filteredTasks = tasks.filter((t) => {
+    // search
+    if (filters.search) {
+      const text = `${t.title} ${t.summary ?? ''} ${t.project ?? ''}`.toLowerCase();
+      if (!text.includes(filters.search.toLowerCase())) return false;
+    }
+
+    // estado
+    if (filters.status !== 'all' && t.status !== filters.status) return false;
+
+    // prioridad
+    if (filters.priority !== 'all' && t.priority !== filters.priority) {
+      return false;
+    }
+
+    // proyecto
+    if (
+      filters.project &&
+      !(t.project ?? '').toLowerCase().includes(filters.project.toLowerCase())
+    ) {
+      return false;
+    }
+
+    // responsables (multi)
+    if (filters.responsibleIds.length > 0) {
+      const ids = new Set(filters.responsibleIds);
+      if (!t.assignees.some((a) => ids.has(a.user_id))) return false;
+    }
+
+    // fechas (comparación sencilla yyyy-mm-dd)
+    if (filters.dueFrom && (!t.due_date || t.due_date < filters.dueFrom)) {
+      return false;
+    }
+    if (filters.dueTo && (!t.due_date || t.due_date > filters.dueTo)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // métricas
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter((t) => t.status === 'done').length;
+  const pendingTasks = totalTasks - completedTasks;
+  const completionRate =
+    totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+
+  const totalVisible = filteredTasks.length;
+  const completedVisible = filteredTasks.filter(
+    (t) => t.status === 'done',
+  ).length;
+  const pendingVisible = totalVisible - completedVisible;
+
+  // ajustar página si cambia la cantidad filtrada
   useEffect(() => {
     setPage((prev) => {
-      const maxPage = Math.max(1, Math.ceil(tasks.length / PAGE_SIZE));
+      const maxPage = Math.max(1, Math.ceil(filteredTasks.length / PAGE_SIZE));
       return Math.min(prev, maxPage);
     });
-  }, [tasks.length]);
+  }, [filteredTasks.length]);
 
-  // ─────────────────────────────────────────
   // Helpers de vista (paginación)
-  // ─────────────────────────────────────────
-  const totalPages = Math.max(1, Math.ceil(tasks.length / PAGE_SIZE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredTasks.length / PAGE_SIZE),
+  );
   const startIndex = (page - 1) * PAGE_SIZE;
   const endIndex = startIndex + PAGE_SIZE;
-  const visibleTasks = tasks.slice(startIndex, endIndex);
+  const visibleTasks = filteredTasks.slice(startIndex, endIndex);
 
   // ─────────────────────────────────────────
   // 2) Crear tarea nueva (solo admin)
@@ -227,7 +304,6 @@ export default function ProyectosPage() {
         status: 'not_started' as ProjectTaskStatus,
         priority: 'medium' as ProjectTaskPriority,
         due_date: newDueDate || null,
-        // por defecto, asignamos al creador
         assigneeIds: [me.id],
       };
 
@@ -237,7 +313,7 @@ export default function ProyectosPage() {
       setNewSummary('');
       setNewProject('');
       setNewDueDate('');
-      setPage(1); // siempre mostramos la nueva en la primera página
+      setPage(1);
     } catch (err) {
       console.error('Error creating project task', err);
     } finally {
@@ -261,7 +337,6 @@ export default function ProyectosPage() {
     task: ProjectTaskWithAssignees,
     status: ProjectTaskStatus,
   ) => {
-    // si está bloqueada, solo lectura
     if ((task as any).is_locked) return;
 
     try {
@@ -282,7 +357,6 @@ export default function ProyectosPage() {
     task: ProjectTaskWithAssignees,
     priority: ProjectTaskPriority,
   ) => {
-    // si está bloqueada, solo lectura
     if ((task as any).is_locked) return;
 
     try {
@@ -304,15 +378,11 @@ export default function ProyectosPage() {
     userId: string,
   ) => {
     if (!isAdmin) return;
-    // si está bloqueada, solo lectura
     if ((task as any).is_locked) return;
 
     const currentIds = new Set(task.assignees.map((a) => a.user_id));
-    if (currentIds.has(userId)) {
-      currentIds.delete(userId);
-    } else {
-      currentIds.add(userId);
-    }
+    if (currentIds.has(userId)) currentIds.delete(userId);
+    else currentIds.add(userId);
     const newIds = Array.from(currentIds);
 
     try {
@@ -344,7 +414,7 @@ export default function ProyectosPage() {
     setSelectedTask(updated);
   };
 
-  // Cerrar tarea = marcarla como bloqueada (solo lectura), sin cambiar estado
+  // Cerrar tarea
   const handleCloseTask = async (task: ProjectTaskWithAssignees) => {
     if (!isAdmin) return;
     if ((task as any).is_locked) return;
@@ -358,14 +428,11 @@ export default function ProyectosPage() {
         assignees: task.assignees,
       };
       patchTask(updated);
-      // si el drawer está abierto, lo actualizamos también
       setSelectedTask((prev) => (prev && prev.id === task.id ? updated : prev));
     } catch (err) {
       console.error('Error al cerrar tarea', err);
     } finally {
-      setAssigneesOpenFor(null);
-      setStatusOpenFor(null);
-      setPriorityOpenFor(null);
+      closeAllPopovers();
     }
   };
 
@@ -387,7 +454,6 @@ export default function ProyectosPage() {
         console.error('Error deleting task', error);
         return;
       }
-
       removeTask(task.id);
     } catch (err) {
       console.error('Error deleting task', err);
@@ -412,11 +478,7 @@ export default function ProyectosPage() {
 
   return (
     <RequireAuth roles={['admin', 'supervisor']}>
-      <div
-        className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-10 min-h-[80vh]"
-        // evitar que el click en el contenedor cierre popovers
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="mx-auto flex min-h-[80vh] max-w-7xl flex-col gap-6 px-4 py-10">
         {/* Header */}
         <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -431,9 +493,22 @@ export default function ProyectosPage() {
           </div>
         </header>
 
-        {/* Tabla estilo Notion (modo oscuro accesible) */}
+        {/* Resumen + filtros */}
+        <ProjectTaskFilters
+          supervisors={supervisors}
+          value={filters}
+          onChange={setFilters}
+          stats={{
+            total: totalVisible,
+            completed: completedVisible,
+            pending: pendingVisible,
+            completionRate,
+          }}
+        />
+
+        {/* Tabla estilo Notion (por ahora solo vista tabla) */}
         <section className="rounded-2xl border border-slate-200 bg-slate-950/90 shadow-lg shadow-slate-900/40">
-          {/* Encabezado de columnas */}
+          {/* Encabezado */}
           <div className="grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,2fr)] border-b border-slate-800 bg-slate-950 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             <div>Tarea / Proyecto</div>
             <div>Estado</div>
@@ -442,10 +517,9 @@ export default function ProyectosPage() {
             <div>Responsables</div>
           </div>
 
-          {/* Fila de creación rápida (solo admin) */}
+          {/* Fila creación rápida */}
           {isAdmin && (
             <div className="grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,2fr)] border-b border-slate-800 bg-slate-900/80 px-4 py-2 text-xs text-slate-100">
-              {/* Título + resumen + proyecto */}
               <div className="flex flex-col gap-1 pr-2">
                 <input
                   className="w-full rounded-md border border-slate-700/80 bg-slate-900 px-2 py-1 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
@@ -467,7 +541,6 @@ export default function ProyectosPage() {
                 />
               </div>
 
-              {/* Estado (preview) */}
               <div className="flex items-center text-[11px] text-slate-500">
                 <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[11px]">
                   <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
@@ -475,7 +548,6 @@ export default function ProyectosPage() {
                 </span>
               </div>
 
-              {/* Prioridad (preview) */}
               <div className="flex items-center text-[11px] text-slate-500">
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] text-amber-200">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
@@ -483,7 +555,6 @@ export default function ProyectosPage() {
                 </span>
               </div>
 
-              {/* Fecha límite (editable) */}
               <div className="flex items-center text-[11px] text-slate-500">
                 <input
                   type="date"
@@ -493,7 +564,6 @@ export default function ProyectosPage() {
                 />
               </div>
 
-              {/* Botón crear */}
               <div className="flex items-center justify-end">
                 <button
                   onClick={handleCreate}
@@ -522,9 +592,9 @@ export default function ProyectosPage() {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Cargando tareas...
             </div>
-          ) : tasks.length === 0 ? (
+          ) : filteredTasks.length === 0 ? (
             <div className="flex h-32 items-center justify-center px-4 text-xs text-slate-400">
-              No tenés tareas asignadas por ahora.
+              No se encontraron tareas con los filtros actuales.
             </div>
           ) : (
             <>
@@ -532,14 +602,18 @@ export default function ProyectosPage() {
                 {visibleTasks.map((task) => {
                   const statusCfg = getStatusConfig(task.status);
                   const priorityCfg = getPriorityConfig(task.priority);
-
                   const isLocked = !!(task as any).is_locked;
 
-                  // usuarios filtrados para el dropdown de responsables
                   const filteredUsers = supervisors.filter((u) => {
                     const text = (u.full_name ?? u.email ?? '').toLowerCase();
                     return text.includes(assigneeSearch.toLowerCase());
                   });
+
+                  const isStatusOpen = statusOpenFor === task.id && !isLocked;
+                  const isPriorityOpen =
+                    priorityOpenFor === task.id && !isLocked;
+                  const isAssigneesOpen =
+                    isAdmin && assigneesOpenFor === task.id && !isLocked;
 
                   return (
                     <motion.div
@@ -551,9 +625,10 @@ export default function ProyectosPage() {
                       className="group grid cursor-pointer grid-cols-[minmax(0,2.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,2fr)] border-t border-slate-900/70 bg-slate-900/70 px-4 py-2 text-[11px] text-slate-100 hover:bg-slate-900"
                       onClick={() => setSelectedTask(task)}
                     >
-                      {/* Tarea + resumen + proyecto */}
                       <div className="flex flex-col gap-0.5 pr-2">
-                        <span className="font-medium text-sm">{task.title}</span>
+                        <span className="text-sm font-medium">
+                          {task.title}
+                        </span>
                         {task.project && (
                           <span className="text-[10px] text-slate-400">
                             {task.project}
@@ -579,10 +654,12 @@ export default function ProyectosPage() {
                             setStatusOpenFor((prev) =>
                               prev === task.id ? null : task.id,
                             );
+                            setPriorityOpenFor(null);
+                            setAssigneesOpenFor(null);
                           }}
                           disabled={isLocked}
                           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusCfg.pillClass} ${
-                            isLocked ? 'opacity-70 cursor-not-allowed' : ''
+                            isLocked ? 'cursor-not-allowed opacity-70' : ''
                           }`}
                         >
                           <span
@@ -594,34 +671,41 @@ export default function ProyectosPage() {
                           )}
                         </button>
 
-                        {statusOpenFor === task.id && !isLocked && (
-                          <div
-                            className="absolute z-20 mt-1 w-44 rounded-xl border border-slate-800 bg-slate-950/95 p-1 text-[11px] text-slate-100 shadow-xl shadow-slate-950/70"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {STATUS_OPTIONS.map((opt) => (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() =>
-                                  handleChangeStatus(task, opt.value)
-                                }
-                                className="flex w-full items-center justify-between rounded-lg px-2 py-1 hover:bg-slate-800"
-                              >
-                                <span className="flex items-center gap-2">
-                                  <span
-                                    className={`h-1.5 w-1.5 rounded-full ${opt.dotClass}`}
-                                  />
-                                  {opt.label}
-                                </span>
-                                {opt.value === task.status && (
-                                  <span className="text-[10px] text-sky-300">
-                                    Actual
+                        {isStatusOpen && (
+                          <>
+                            {/* Overlay para cerrar al click fuera */}
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={closeAllPopovers}
+                            />
+                            <div
+                              className="absolute z-20 mt-1 w-44 rounded-xl border border-slate-800 bg-slate-950/95 p-1 text-[11px] text-slate-100 shadow-xl shadow-slate-950/70"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {STATUS_OPTIONS.map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() =>
+                                    handleChangeStatus(task, opt.value)
+                                  }
+                                  className="flex w-full items-center justify-between rounded-lg px-2 py-1 hover:bg-slate-800"
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <span
+                                      className={`h-1.5 w-1.5 rounded-full ${opt.dotClass}`}
+                                    />
+                                    {opt.label}
                                   </span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
+                                  {opt.value === task.status && (
+                                    <span className="text-[10px] text-sky-300">
+                                      Actual
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </>
                         )}
                       </div>
 
@@ -638,10 +722,12 @@ export default function ProyectosPage() {
                             setPriorityOpenFor((prev) =>
                               prev === task.id ? null : task.id,
                             );
+                            setStatusOpenFor(null);
+                            setAssigneesOpenFor(null);
                           }}
                           disabled={isLocked}
                           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${priorityCfg.pillClass} ${
-                            isLocked ? 'opacity-70 cursor-not-allowed' : ''
+                            isLocked ? 'cursor-not-allowed opacity-70' : ''
                           }`}
                         >
                           <span
@@ -653,40 +739,47 @@ export default function ProyectosPage() {
                           )}
                         </button>
 
-                        {priorityOpenFor === task.id && !isLocked && (
-                          <div
-                            className="absolute z-20 mt-1 w-40 rounded-xl border border-slate-800 bg-slate-950/95 p-1 text-[11px] text-slate-100 shadow-xl shadow-slate-950/70"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {PRIORITY_OPTIONS.map((opt) => (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() =>
-                                  handleChangePriority(task, opt.value)
-                                }
-                                className="flex w-full items-center justify-between rounded-lg px-2 py-1 hover:bg-slate-800"
-                              >
-                                <span className="flex items-center gap-2">
-                                  <span
-                                    className={`h-1.5 w-1.5 rounded-full ${opt.dotClass}`}
-                                  />
-                                  {opt.label}
-                                </span>
-                                {opt.value === task.priority && (
-                                  <span className="text-[10px] text-sky-300">
-                                    Actual
+                        {isPriorityOpen && (
+                          <>
+                            {/* Overlay para cerrar al click fuera */}
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={closeAllPopovers}
+                            />
+                            <div
+                              className="absolute z-20 mt-1 w-40 rounded-xl border border-slate-800 bg-slate-950/95 p-1 text-[11px] text-slate-100 shadow-xl shadow-slate-950/70"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {PRIORITY_OPTIONS.map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() =>
+                                    handleChangePriority(task, opt.value)
+                                  }
+                                  className="flex w-full items-center justify-between rounded-lg px-2 py-1 hover:bg-slate-800"
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <span
+                                      className={`h-1.5 w-1.5 rounded-full ${opt.dotClass}`}
+                                    />
+                                    {opt.label}
                                   </span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
+                                  {opt.value === task.priority && (
+                                    <span className="text-[10px] text-sky-300">
+                                      Actual
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </>
                         )}
                       </div>
 
                       {/* Fecha límite */}
-                      <div className="flex items-center text-[10px] text-black/50 font-bold ">
-                        <span className="rounded-full px-2 py-0.5 bg-slate-800 text-slate-100">
+                      <div className="flex items-center text-[10px] font-bold text-black/50">
+                        <span className="rounded-full bg-slate-800 px-2 py-0.5 text-slate-100">
                           {formatDueDate(task.due_date)}
                         </span>
                       </div>
@@ -713,7 +806,6 @@ export default function ProyectosPage() {
 
                         {isAdmin && (
                           <div className="ml-auto flex items-center gap-1">
-                            {/* Dropdown gestionar responsables */}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -722,10 +814,14 @@ export default function ProyectosPage() {
                                 setAssigneesOpenFor((prev) =>
                                   prev === task.id ? null : task.id,
                                 );
+                                setStatusOpenFor(null);
+                                setPriorityOpenFor(null);
                               }}
                               disabled={isLocked}
                               className={`inline-flex items-center rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800 ${
-                                isLocked ? 'opacity-60 cursor-not-allowed' : ''
+                                isLocked
+                                  ? 'cursor-not-allowed opacity-60'
+                                  : ''
                               }`}
                             >
                               Gestionar
@@ -734,7 +830,6 @@ export default function ProyectosPage() {
                               )}
                             </button>
 
-                            {/* Botón cerrar tarea (bloquear) */}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -743,14 +838,15 @@ export default function ProyectosPage() {
                               }}
                               disabled={isLocked}
                               className={`inline-flex items-center rounded-full border border-amber-600/60 bg-amber-900/40 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-800/70 ${
-                                isLocked ? 'opacity-60 cursor-not-allowed' : ''
+                                isLocked
+                                  ? 'cursor-not-allowed opacity-60'
+                                  : ''
                               }`}
                             >
                               <Ban className="mr-1 h-3 w-3" />
                               Cerrar
                             </button>
 
-                            {/* Botón eliminar */}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -765,9 +861,13 @@ export default function ProyectosPage() {
                           </div>
                         )}
 
-                        {isAdmin &&
-                          assigneesOpenFor === task.id &&
-                          !isLocked && (
+                        {isAssigneesOpen && (
+                          <>
+                            {/* Overlay para cerrar al click fuera */}
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={closeAllPopovers}
+                            />
                             <div
                               className="absolute right-0 top-6 z-20 w-64 rounded-xl border border-slate-800 bg-slate-950/95 p-2 text-[11px] text-slate-100 shadow-xl shadow-slate-950/70"
                               onClick={(e) => e.stopPropagation()}
@@ -827,7 +927,8 @@ export default function ProyectosPage() {
                                 </div>
                               )}
                             </div>
-                          )}
+                          </>
+                        )}
                       </div>
                     </motion.div>
                   );
@@ -843,13 +944,13 @@ export default function ProyectosPage() {
                   </span>{' '}
                   -{' '}
                   <span className="font-semibold text-slate-200">
-                    {Math.min(endIndex, tasks.length)}
+                    {Math.min(endIndex, filteredTasks.length)}
                   </span>{' '}
                   de{' '}
                   <span className="font-semibold text-slate-200">
-                    {tasks.length}
+                    {filteredTasks.length}
                   </span>{' '}
-                  tareas
+                  tareas filtradas
                 </span>
                 <div className="flex items-center gap-2">
                   <button
@@ -885,7 +986,6 @@ export default function ProyectosPage() {
         </section>
       </div>
 
-      {/* Drawer lateral tipo Notion */}
       <AnimatePresence>
         {selectedTask && (
           <ProjectTaskDrawer
