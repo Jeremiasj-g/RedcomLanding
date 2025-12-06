@@ -130,7 +130,7 @@ export default function ProjectTaskFilters({
   };
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-950/90 p-4 shadow-md shadow-slate-900/40">
+    <section className="flex flex-col gap-4 rounded-2xl">
       {/* Resumen / métricas */}
       <div className="grid gap-3 sm:grid-cols-4">
         <MetricCard
@@ -159,7 +159,7 @@ export default function ProjectTaskFilters({
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs text-slate-100">
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/90 p-3 text-xs text-slate-100">
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
           <Filter className="h-3.5 w-3.5" />
           Filtros de vista
@@ -175,7 +175,7 @@ export default function ProjectTaskFilters({
                   value={search}
                   onChange={(e) => handleChange({ search: e.target.value })}
                   placeholder="Buscar por título, resumen o proyecto..."
-                  className="w-full rounded-lg border border-slate-800 bg-slate-900 pl-7 pr-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950 pl-7 pr-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                 />
               </div>
             </div>
@@ -185,7 +185,7 @@ export default function ProjectTaskFilters({
                 value={project}
                 onChange={(e) => handleChange({ project: e.target.value })}
                 placeholder="Filtrar por nombre de proyecto..."
-                className="w-full rounded-lg border border-slate-800 bg-slate-900 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
             </div>
           </div>
@@ -199,7 +199,7 @@ export default function ProjectTaskFilters({
                   status: e.target.value as ProjectTaskFiltersState['status'],
                 })
               }
-              className="min-w-[130px] rounded-full border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-[11px] text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              className="min-w-[130px] rounded-full border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-[11px] text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
             >
               <option value="all">Estado: Todos</option>
               <option value="not_started">Estado: Sin empezar</option>
@@ -216,7 +216,7 @@ export default function ProjectTaskFilters({
                     .value as ProjectTaskFiltersState['priority'],
                 })
               }
-              className="min-w-[130px] rounded-full border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-[11px] text-slate-100 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="min-w-[130px] rounded-full border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-[11px] text-slate-100 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
             >
               <option value="all">Prioridad: Todas</option>
               <option value="low">Prioridad: Baja</option>
@@ -233,7 +233,7 @@ export default function ProjectTaskFilters({
             <button
               type="button"
               onClick={() => setResponsibleOpen((o) => !o)}
-              className="flex w-full items-center justify-between rounded-full border border-slate-800 bg-slate-900 px-3 py-1.5 text-[11px] text-slate-100 hover:bg-slate-800"
+              className="flex w-full items-center justify-between rounded-full border border-slate-800 bg-slate-950 px-3 py-1.5 text-[11px] text-slate-100 hover:bg-slate-800"
             >
               <span className="flex items-center gap-2">
                 <Users2 className="h-3.5 w-3.5 text-slate-400" />
@@ -377,7 +377,7 @@ export default function ProjectTaskFilters({
                 type="date"
                 value={dueFrom}
                 onChange={(e) => handleChange({ dueFrom: e.target.value })}
-                className="rounded-lg border border-slate-800 bg-slate-900 px-2 py-1 text-[11px] text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
             </div>
             <div className="flex items-center gap-1">
@@ -386,7 +386,7 @@ export default function ProjectTaskFilters({
                 type="date"
                 value={dueTo}
                 onChange={(e) => handleChange({ dueTo: e.target.value })}
-                className="rounded-lg border border-slate-800 bg-slate-900 px-2 py-1 text-[11px] text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
               />
             </div>
           </div>
@@ -489,21 +489,21 @@ function MetricCard({
   accent?: 'slate' | 'emerald' | 'amber' | 'sky';
 }) {
   const accentClasses: Record<string, string> = {
-    slate: 'border-slate-700/70 bg-slate-900/60 text-slate-100',
-    emerald: 'border-emerald-700/60 bg-emerald-950/30 text-emerald-50',
-    amber: 'border-amber-700/60 bg-amber-950/30 text-amber-50',
-    sky: 'border-sky-700/60 bg-sky-950/30 text-sky-50',
+    slate: 'border-slate-700/70 bg-slate-900 text-slate-100',
+    emerald: 'border-emerald-700/60 bg-emerald-900 text-emerald-50',
+    amber: 'border-amber-700/60 bg-yellow-600 text-amber-50',
+    sky: 'border-sky-700/60 bg-sky-950 text-sky-50',
   };
 
   return (
     <div
       className={`flex flex-col rounded-xl border px-3 py-2 text-xs shadow-sm ${accentClasses[accent]}`}
     >
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400/80">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-white/90">
         {label}
       </span>
       <span className="mt-1 text-lg font-semibold">{value}</span>
-      <span className="mt-1 text-[10px] text-slate-400">
+      <span className="mt-1 text-[10px] text-white/90">
         {description}
       </span>
     </div>
