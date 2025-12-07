@@ -1,6 +1,85 @@
 // lib/projectTasks.ts
 import { supabase } from '@/lib/supabaseClient';
 
+/* ---------------------------------------------- */
+// 👇 TIPOS PARA EL WORKSPACE
+
+export type ProjectTaskWorkspaceTodo = {
+  id: string;
+  text: string;
+  done: boolean;
+};
+
+export type ProjectTaskWorkspaceLink = {
+  id: string;
+  label: string;
+  url: string;
+};
+
+export type ProjectTaskWorkspace = {
+  id: number;
+  task_id: number;
+  todos: ProjectTaskWorkspaceTodo[];
+  quick_notes: string | null;
+  resource_links: ProjectTaskWorkspaceLink[];
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// 👇 OBTENER workspace de una tarea (puede no existir aún)
+export async function fetchTaskWorkspace(
+  taskId: number,
+): Promise<ProjectTaskWorkspace | null> {
+  const { data, error } = await supabase
+    .from('project_task_workspace')
+    .select('*')
+    .eq('task_id', taskId)
+    .maybeSingle();
+
+  if (error) {
+    // si el error es "no rows" lo maneja maybeSingle; otros errores sí
+    console.error('Error fetching task workspace', error);
+    throw error;
+  }
+
+  return data as ProjectTaskWorkspace | null;
+}
+
+// 👇 crear / actualizar workspace de una tarea
+export async function upsertTaskWorkspace(params: {
+  taskId: number;
+  todos: ProjectTaskWorkspaceTodo[];
+  quickNotes: string;
+  resourceLinks: ProjectTaskWorkspaceLink[];
+  updatedBy?: string | null;
+}): Promise<ProjectTaskWorkspace> {
+  const { taskId, todos, quickNotes, resourceLinks, updatedBy } = params;
+
+  const { data, error } = await supabase
+    .from('project_task_workspace')
+    .upsert(
+      {
+        task_id: taskId,
+        todos,
+        quick_notes: quickNotes,
+        resource_links: resourceLinks,
+        updated_by: updatedBy ?? null,
+      },
+      { onConflict: 'task_id' },
+    )
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Error upserting task workspace', error);
+    throw error;
+  }
+
+  return data as ProjectTaskWorkspace;
+}
+/* ---------------------------------------------- */
+
 export type AppRole = 'admin' | 'supervisor' | 'vendedor' | string;
 
 export type ProjectTaskStatus =

@@ -1,6 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import 'react-quill/dist/quill.snow.css';
+
 
 /* Estilos personalizados para Swiper */
 .swiper-button-next,
