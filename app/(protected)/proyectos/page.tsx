@@ -39,31 +39,31 @@ const STATUS_OPTIONS: {
   pillClass: string;
   dotClass: string;
 }[] = [
-  {
-    value: 'not_started',
-    label: 'Sin empezar',
-    pillClass: 'bg-slate-800 text-slate-100',
-    dotClass: 'bg-slate-300',
-  },
-  {
-    value: 'in_progress',
-    label: 'En curso',
-    pillClass: 'bg-sky-500/15 text-sky-300',
-    dotClass: 'bg-sky-400',
-  },
-  {
-    value: 'done',
-    label: 'Completada',
-    pillClass: 'bg-emerald-500/15 text-emerald-300',
-    dotClass: 'bg-emerald-400',
-  },
-  {
-    value: 'cancelled',
-    label: 'Cancelada',
-    pillClass: 'bg-rose-500/15 text-rose-300',
-    dotClass: 'bg-rose-400',
-  },
-];
+    {
+      value: 'not_started',
+      label: 'Sin empezar',
+      pillClass: 'bg-slate-800 text-slate-100',
+      dotClass: 'bg-slate-300',
+    },
+    {
+      value: 'in_progress',
+      label: 'En curso',
+      pillClass: 'bg-sky-500/15 text-sky-300',
+      dotClass: 'bg-sky-400',
+    },
+    {
+      value: 'done',
+      label: 'Completada',
+      pillClass: 'bg-emerald-500/15 text-emerald-300',
+      dotClass: 'bg-emerald-400',
+    },
+    {
+      value: 'cancelled',
+      label: 'Cancelada',
+      pillClass: 'bg-rose-500/15 text-rose-300',
+      dotClass: 'bg-rose-400',
+    },
+  ];
 
 const PRIORITY_OPTIONS: {
   value: ProjectTaskPriority;
@@ -71,25 +71,25 @@ const PRIORITY_OPTIONS: {
   pillClass: string;
   dotClass: string;
 }[] = [
-  {
-    value: 'low',
-    label: 'Baja',
-    pillClass: 'bg-emerald-500/15 text-emerald-300',
-    dotClass: 'bg-emerald-400',
-  },
-  {
-    value: 'medium',
-    label: 'Media',
-    pillClass: 'bg-amber-500/20 text-amber-200',
-    dotClass: 'bg-amber-400',
-  },
-  {
-    value: 'high',
-    label: 'Alta',
-    pillClass: 'bg-rose-500/15 text-rose-300',
-    dotClass: 'bg-rose-400',
-  },
-];
+    {
+      value: 'low',
+      label: 'Baja',
+      pillClass: 'bg-emerald-500/15 text-emerald-300',
+      dotClass: 'bg-emerald-400',
+    },
+    {
+      value: 'medium',
+      label: 'Media',
+      pillClass: 'bg-amber-500/20 text-amber-200',
+      dotClass: 'bg-amber-400',
+    },
+    {
+      value: 'high',
+      label: 'Alta',
+      pillClass: 'bg-rose-500/15 text-rose-300',
+      dotClass: 'bg-rose-400',
+    },
+  ];
 
 function getStatusConfig(value: ProjectTaskStatus) {
   return STATUS_OPTIONS.find((s) => s.value === value) ?? STATUS_OPTIONS[0];
@@ -658,9 +658,8 @@ export default function ProyectosPage() {
                             setAssigneesOpenFor(null);
                           }}
                           disabled={isLocked}
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusCfg.pillClass} ${
-                            isLocked ? 'cursor-not-allowed opacity-70' : ''
-                          }`}
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusCfg.pillClass} ${isLocked ? 'cursor-not-allowed opacity-70' : ''
+                            }`}
                         >
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${statusCfg.dotClass}`}
@@ -726,9 +725,8 @@ export default function ProyectosPage() {
                             setAssigneesOpenFor(null);
                           }}
                           disabled={isLocked}
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${priorityCfg.pillClass} ${
-                            isLocked ? 'cursor-not-allowed opacity-70' : ''
-                          }`}
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${priorityCfg.pillClass} ${isLocked ? 'cursor-not-allowed opacity-70' : ''
+                            }`}
                         >
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${priorityCfg.dotClass}`}
@@ -818,11 +816,10 @@ export default function ProyectosPage() {
                                 setPriorityOpenFor(null);
                               }}
                               disabled={isLocked}
-                              className={`inline-flex items-center rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800 ${
-                                isLocked
+                              className={`inline-flex items-center rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800 ${isLocked
                                   ? 'cursor-not-allowed opacity-60'
                                   : ''
-                              }`}
+                                }`}
                             >
                               Gestionar
                               {!isLocked && (
@@ -837,11 +834,10 @@ export default function ProyectosPage() {
                                 handleCloseTask(task);
                               }}
                               disabled={isLocked}
-                              className={`inline-flex items-center rounded-full border border-amber-600/60 bg-amber-900/40 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-800/70 ${
-                                isLocked
+                              className={`inline-flex items-center rounded-full border border-amber-600/60 bg-amber-900/40 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-800/70 ${isLocked
                                   ? 'cursor-not-allowed opacity-60'
                                   : ''
-                              }`}
+                                }`}
                             >
                               <Ban className="mr-1 h-3 w-3" />
                               Cerrar
@@ -900,11 +896,10 @@ export default function ProyectosPage() {
                                         onClick={() =>
                                           handleToggleAssignee(task, user.id)
                                         }
-                                        className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-left hover:bg-slate-800 ${
-                                          isSelected
+                                        className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-left hover:bg-slate-800 ${isSelected
                                             ? 'text-sky-200'
                                             : 'text-slate-100'
-                                        }`}
+                                          }`}
                                       >
                                         <span className="flex flex-col">
                                           <span className="text-[11px]">
@@ -993,6 +988,7 @@ export default function ProyectosPage() {
             task={selectedTask}
             supervisors={supervisors}
             currentUserRole={me?.role ?? 'vendedor'}
+            currentUserId={me?.id ?? null}
             onClose={() => setSelectedTask(null)}
             onUpdated={handleTaskUpdatedFromDrawer}
           />
