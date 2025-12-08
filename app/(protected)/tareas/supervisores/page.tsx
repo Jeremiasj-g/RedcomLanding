@@ -24,6 +24,7 @@ import {
 import { RequireAuth } from '@/components/RouteGuards';
 import { addDays, endOfWeek, startOfWeek } from 'date-fns';
 import { useMe } from '@/hooks/useMe';
+import DualSpinner from '@/components/ui/DualSpinner';
 
 type WeekRange = {
   from: Date;
@@ -266,9 +267,8 @@ export default function SupervisorTasksPage() {
   if (loadingMe && !me) {
     return (
       <RequireAuth roles={['admin']}>
-        <div className="flex min-h-[200px] items-center justify-center text-sm text-slate-300">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Cargando información de usuario...
+        <div className="grid min-h-[80vh] place-items-center">
+          <DualSpinner size={60} thickness={4} />
         </div>
       </RequireAuth>
     );
@@ -356,11 +356,10 @@ export default function SupervisorTasksPage() {
               <button
                 type="button"
                 onClick={() => setViewMode('table')}
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
-                  viewMode === 'table'
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${viewMode === 'table'
                     ? 'bg-sky-500 text-slate-950'
                     : 'text-slate-300 hover:bg-slate-800'
-                }`}
+                  }`}
               >
                 <TableIcon className="h-3 w-3" />
                 Tabla
@@ -368,11 +367,10 @@ export default function SupervisorTasksPage() {
               <button
                 type="button"
                 onClick={() => setViewMode('grid')}
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
-                  viewMode === 'grid'
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${viewMode === 'grid'
                     ? 'bg-sky-500 text-slate-950'
                     : 'text-slate-300 hover:bg-slate-800'
-                }`}
+                  }`}
               >
                 <LayoutGrid className="h-3 w-3" />
                 Grid
@@ -535,10 +533,10 @@ export default function SupervisorTasksPage() {
                     <div className="flex items-center text-[10px] text-slate-300">
                       {task.owner_branches && task.owner_branches.length > 0
                         ? task.owner_branches
-                            .map(
-                              (b) => b.charAt(0).toUpperCase() + b.slice(1),
-                            )
-                            .join(' · ')
+                          .map(
+                            (b) => b.charAt(0).toUpperCase() + b.slice(1),
+                          )
+                          .join(' · ')
                         : '—'}
                     </div>
 
@@ -575,9 +573,8 @@ export default function SupervisorTasksPage() {
                 return (
                   <div
                     key={key}
-                    className={`flex min-h-[180px] flex-col rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-lg shadow-slate-950/40 ${
-                      isToday ? 'ring-1 ring-sky-500/60' : ''
-                    }`}
+                    className={`flex min-h-[180px] flex-col rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-lg shadow-slate-950/40 ${isToday ? 'ring-1 ring-sky-500/60' : ''
+                      }`}
                   >
                     <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-300">
                       <span className="uppercase tracking-wide">
@@ -635,14 +632,14 @@ export default function SupervisorTasksPage() {
                                 <span className="mx-1 text-slate-500">•</span>
                                 <span>
                                   {task.owner_branches &&
-                                  task.owner_branches.length > 0
+                                    task.owner_branches.length > 0
                                     ? task.owner_branches
-                                        .map(
-                                          (b) =>
-                                            b.charAt(0).toUpperCase() +
-                                            b.slice(1),
-                                        )
-                                        .join(' · ')
+                                      .map(
+                                        (b) =>
+                                          b.charAt(0).toUpperCase() +
+                                          b.slice(1),
+                                      )
+                                      .join(' · ')
                                     : 'Sin sucursal'}
                                 </span>
                               </div>
@@ -819,11 +816,10 @@ function TaskItemsReadOnly({
                 className="flex items-start gap-2 rounded-lg border border-slate-800/70 bg-slate-950/70 px-2 py-1.5"
               >
                 <div
-                  className={`mt-[2px] flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border text-[10px] ${
-                    item.is_done
+                  className={`mt-[2px] flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border text-[10px] ${item.is_done
                       ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
                       : 'border-slate-600 bg-slate-900 text-slate-400'
-                  }`}
+                    }`}
                 >
                   {item.is_done && <CheckCircle2 className="h-3 w-3" />}
                 </div>

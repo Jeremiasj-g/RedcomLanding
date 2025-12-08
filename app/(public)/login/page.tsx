@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
+import DualSpinner from '@/components/ui/DualSpinner';
 
 type Branch = { name: string };
 
@@ -163,8 +164,8 @@ export default function LoginPage() {
 
   if (loadingSession) {
     return (
-      <div className="grid min-h-[70vh] place-items-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-700" />
+      <div className="grid min-h-[80vh] place-items-center">
+        <DualSpinner size={60} thickness={4} />
       </div>
     );
   }
@@ -336,11 +337,10 @@ export default function LoginPage() {
                         key={b.name}
                         type="button"
                         onClick={() => togglePick(b.name)}
-                        className={`rounded-full border px-3 py-1 text-sm capitalize ${
-                          active
+                        className={`rounded-full border px-3 py-1 text-sm capitalize ${active
                             ? 'bg-emerald-100 border-emerald-300'
                             : 'hover:bg-slate-50'
-                        }`}
+                          }`}
                       >
                         {b.name}
                       </button>

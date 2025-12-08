@@ -32,6 +32,7 @@ import { RequireAuth } from '@/components/RouteGuards';
 import { startOfWeek, addDays, endOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DayPicker, DateRange, type DayModifiers } from 'react-day-picker';
+import DualSpinner from '@/components/ui/DualSpinner';
 
 type WeekRange = {
   from: Date;
@@ -375,8 +376,8 @@ export default function TareasPage() {
   if (loadingMe && !me) {
     return (
       <RequireAuth>
-        <div className="flex h-full items-center justify-center text-sm text-slate-400">
-          Cargando tus tareas...
+        <div className="grid min-h-[80vh] place-items-center">
+          <DualSpinner size={60} thickness={4} />
         </div>
       </RequireAuth>
     );

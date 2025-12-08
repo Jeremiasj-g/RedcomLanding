@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import DualSpinner from '@/components/ui/DualSpinner';
 
 type Req = {
   id: string;
@@ -251,8 +252,8 @@ export default function AdminSolicitudesPage() {
 
   if (loading)
     return (
-      <div className="grid min-h-[50vh] place-items-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-slate-700" />
+      <div className="grid min-h-[80vh] place-items-center">
+        <DualSpinner size={60} thickness={4} />
       </div>
     );
 
@@ -270,11 +271,10 @@ export default function AdminSolicitudesPage() {
     <div className="max-w-7xl mx-auto py-6">
       {toast && (
         <div
-          className={`fixed right-4 top-4 z-50 rounded-lg px-4 py-2 shadow ${
-            toast.type === 'ok'
+          className={`fixed right-4 top-4 z-50 rounded-lg px-4 py-2 shadow ${toast.type === 'ok'
               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
               : 'bg-red-50 text-red-800 border border-red-200'
-          }`}
+            }`}
         >
           {toast.msg}
         </div>
@@ -292,19 +292,18 @@ export default function AdminSolicitudesPage() {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`rounded-lg px-3 py-2 text-sm border ${
-                statusFilter === s
+              className={`rounded-lg px-3 py-2 text-sm border ${statusFilter === s
                   ? 'bg-slate-900 text-white border-slate-900'
                   : 'bg-white text-slate-700 hover:bg-slate-50'
-              }`}
+                }`}
             >
               {s === 'pending'
                 ? 'Pendientes'
                 : s === 'approved'
-                ? 'Aprobadas'
-                : s === 'rejected'
-                ? 'Rechazadas'
-                : 'Todas'}
+                  ? 'Aprobadas'
+                  : s === 'rejected'
+                    ? 'Rechazadas'
+                    : 'Todas'}
             </button>
           ))}
         </div>
@@ -484,11 +483,10 @@ export default function AdminSolicitudesPage() {
                       key={b}
                       type="button"
                       onClick={() => toggleBranch(b)}
-                      className={`rounded-full border px-3 py-1 text-sm ${
-                        branches.includes(b)
+                      className={`rounded-full border px-3 py-1 text-sm ${branches.includes(b)
                           ? 'bg-emerald-100 border-emerald-300'
                           : 'hover:bg-slate-50'
-                      }`}
+                        }`}
                     >
                       {b}
                     </button>
@@ -506,9 +504,8 @@ export default function AdminSolicitudesPage() {
                 Cancelar
               </button>
               <button
-                className={`rounded-lg px-4 py-2 text-white ${
-                  saving ? 'opacity-60' : 'bg-slate-900 hover:bg-slate-800'
-                }`}
+                className={`rounded-lg px-4 py-2 text-white ${saving ? 'opacity-60' : 'bg-slate-900 hover:bg-slate-800'
+                  }`}
                 onClick={approve}
                 disabled={saving}
               >
@@ -560,9 +557,8 @@ export default function AdminSolicitudesPage() {
                 Cancelar
               </button>
               <button
-                className={`rounded-lg px-4 py-2 text-white ${
-                  rejecting ? 'opacity-60' : 'bg-red-600 hover:bg-red-700'
-                }`}
+                className={`rounded-lg px-4 py-2 text-white ${rejecting ? 'opacity-60' : 'bg-red-600 hover:bg-red-700'
+                  }`}
                 onClick={confirmReject}
                 disabled={rejecting}
               >

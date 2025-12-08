@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import AdminChangePasswordModal from '@/components/AdminChangePasswordModal';
 import { RequireAuth } from '@/components/RouteGuards';
+import DualSpinner from '@/components/ui/DualSpinner';
 
 type Row = {
   id: string;
@@ -247,8 +248,8 @@ export default function AdminUsersPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-slate-600" />
+      <div className="grid min-h-[80vh] place-items-center">
+        <DualSpinner size={60} thickness={4} />
       </div>
     );
   }

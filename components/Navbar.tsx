@@ -124,83 +124,12 @@ export default function Navbar() {
     let cancelled = false;
 
     const loadInitialNotifications = async () => {
-      try {
-        // último "visto" guardado en localStorage
-        let lastSeenDate: Date | null = null;
-        try {
-          const raw = localStorage.getItem(getNotifStorageKey(me.id));
-          if (raw) {
-            const d = new Date(raw);
-            if (!isNaN(d.getTime())) lastSeenDate = d;
-          }
-        } catch {
-          // ignore
-        }
-
-        // 1) tareas donde el usuario está asignado
-        const { data: assignees, error: assigneesError } = await supabase
-          .from('project_task_assignees')
-          .select('task_id')
-          .eq('user_id', me.id);
-
-        if (assigneesError) {
-          console.error('Error cargando asignaciones para notifs', assigneesError);
-          return;
-        }
-
-        const taskIds = Array.from(
-          new Set((assignees ?? []).map((a) => a.task_id as number)),
-        );
-
-        if (taskIds.length === 0) {
-          setNotifications([]);
-          return;
-        }
-
-        // 2) traer tareas
-        const { data: tasks, error: tasksError } = await supabase
-          .from('project_tasks')
-          .select('id, title, summary, due_date, project, created_at')
-          .in('id', taskIds)
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        if (tasksError) {
-          console.error('Error cargando tareas para notifs', tasksError);
-          return;
-        }
-
-        if (cancelled) return;
-
-        const mapped: TaskNotification[] =
-          (tasks ?? []).map((t) => {
-            const created_at = (t as any).created_at ?? '';
-            const createdDate = created_at ? new Date(created_at) : null;
-            const read =
-              lastSeenDate && createdDate
-                ? createdDate <= lastSeenDate
-                : false;
-
-            return {
-              id: t.id as number,
-              title: (t as any).title ?? '',
-              summary: (t as any).summary ?? null,
-              due_date: (t as any).due_date ?? null,
-              project: (t as any).project ?? '',
-              created_at,
-              read,
-            };
-          }) ?? [];
-
-        setNotifications(mapped);
-      } catch (err) {
-        console.error('Error inicializando notificaciones de proyectos', err);
-      }
+      // ... carga inicial de tareas asignadas ...
     };
 
     loadInitialNotifications();
 
-    // Realtime: cuando le asignan una tarea nueva a este usuario
+    // 🔴 AQUÍ: realtime para nuevas asignaciones de tareas
     const channel = supabase
       .channel(`project_notifications_${me.id}`)
       .on(
@@ -213,38 +142,32 @@ export default function Navbar() {
         },
         async (payload) => {
           const taskId = (payload.new as any).task_id as number;
-          try {
-            const { data: task, error } = await supabase
-              .from('project_tasks')
-              .select('id, title, summary, due_date, project, created_at')
-              .eq('id', taskId)
-              .single();
 
-            if (error) {
-              console.error('Error trayendo tarea para notif realtime', error);
-              return;
-            }
-            if (!task || cancelled) return;
+          const { data: task, error } = await supabase
+            .from('project_tasks')
+            .select('id, title, summary, due_date, project, created_at')
+            .eq('id', taskId)
+            .single();
 
-            setNotifications((prev) => {
-              const exists = prev.find((n) => n.id === taskId);
-              const newNotif: TaskNotification = {
-                id: task.id as number,
-                title: (task as any).title ?? '',
-                summary: (task as any).summary ?? null,
-                due_date: (task as any).due_date ?? null,
-                project: (task as any).project ?? '',
-                created_at: (task as any).created_at ?? '',
-                read: false, // siempre nueva
-              };
-              const withoutDup = exists
-                ? prev.filter((n) => n.id !== taskId)
-                : prev;
-              return [newNotif, ...withoutDup].slice(0, 10);
-            });
-          } catch (e) {
-            console.error('Error manejando notif realtime', e);
-          }
+          if (error || !task || cancelled) return;
+
+          // la metemos arriba de la lista
+          setNotifications((prev) => {
+            const exists = prev.find((n) => n.id === taskId);
+            const newNotif: TaskNotification = {
+              id: task.id as number,
+              title: (task as any).title ?? '',
+              summary: (task as any).summary ?? null,
+              due_date: (task as any).due_date ?? null,
+              project: (task as any).project ?? '',
+              created_at: (task as any).created_at ?? '',
+              read: false,
+            };
+            const withoutDup = exists
+              ? prev.filter((n) => n.id !== taskId)
+              : prev;
+            return [newNotif, ...withoutDup].slice(0, 10);
+          });
         },
       )
       .subscribe();

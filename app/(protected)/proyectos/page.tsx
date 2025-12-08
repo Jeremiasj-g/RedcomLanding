@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Loader2,
@@ -29,6 +29,39 @@ import { supabase } from '@/lib/supabaseClient';
 import ProjectTaskFilters, {
   ProjectTaskFiltersState,
 } from './ProjectTaskFilters';
+import DualSpinner from '@/components/ui/DualSpinner';
+
+// ─────────────────────────────────────────
+//  Tailwind helpers
+// ─────────────────────────────────────────
+const TABLE_GRID_COLS =
+  'grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,2fr)]';
+
+const TABLE_HEADER_CELL =
+  'border-b border-slate-800 bg-slate-950 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400';
+
+const TABLE_ROW_BASE =
+  'border-t border-slate-900/70 bg-slate-900/70 px-4 py-2 text-[11px] text-slate-100 hover:bg-slate-900';
+
+const BADGE_PILL_BASE =
+  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium';
+
+const SMALL_PILL_BASE =
+  'rounded-full px-2 py-0.5 text-[10px]';
+
+const POPOVER_OVERLAY = 'fixed inset-0 z-10';
+
+const STATUS_POPOVER_PANEL =
+  'absolute z-20 mt-1 w-44 rounded-xl border border-slate-800 bg-slate-950/95 p-1 text-[11px] text-slate-100 shadow-xl shadow-slate-950/70';
+
+const PRIORITY_POPOVER_PANEL =
+  'absolute z-20 mt-1 w-40 rounded-xl border border-slate-800 bg-slate-950/95 p-1 text-[11px] text-slate-100 shadow-xl shadow-slate-950/70';
+
+const ASSIGNEES_POPOVER_PANEL =
+  'absolute right-0 top-6 z-20 w-64 rounded-xl border border-slate-800 bg-slate-950/95 p-2 text-[11px] text-slate-100 shadow-xl shadow-slate-950/70';
+
+const PAGINATION_BTN_BASE =
+  'rounded-full border border-slate-700 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50';
 
 // ─────────────────────────────────────────
 //  Config visual Estado / Prioridad (Notion-like)
@@ -214,9 +247,41 @@ export default function ProyectosPage() {
   }, []);
 
   // ─────────────────────────────────────────
+  // 1b) Hidratar responsables con nombres/emails
+  // ─────────────────────────────────────────
+  const supervisorById = useMemo(() => {
+    const map = new Map<string, SupervisorOption>();
+    supervisors.forEach((s) => {
+      map.set(s.id, s);
+    });
+    return map;
+  }, [supervisors]);
+
+  const hydratedTasks = useMemo(
+    () =>
+      tasks.map((t) => ({
+        ...t,
+        assignees: t.assignees.map((a) => {
+          // si ya vino con nombre/email desde el backend, respetamos eso
+          if (a.full_name || a.email) return a;
+
+          const sup = supervisorById.get(a.user_id);
+          if (!sup) return a;
+
+          return {
+            ...a,
+            full_name: sup.full_name ?? a.full_name,
+            email: sup.email ?? a.email,
+          };
+        }),
+      })),
+    [tasks, supervisorById],
+  );
+
+  // ─────────────────────────────────────────
   // Filtro + métricas
   // ─────────────────────────────────────────
-  const filteredTasks = tasks.filter((t) => {
+  const filteredTasks = hydratedTasks.filter((t) => {
     // search
     if (filters.search) {
       const text = `${t.title} ${t.summary ?? ''} ${t.project ?? ''}`.toLowerCase();
@@ -257,8 +322,10 @@ export default function ProyectosPage() {
   });
 
   // métricas
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((t) => t.status === 'done').length;
+  const totalTasks = hydratedTasks.length;
+  const completedTasks = hydratedTasks.filter(
+    (t) => t.status === 'done',
+  ).length;
   const pendingTasks = totalTasks - completedTasks;
   const completionRate =
     totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
@@ -352,6 +419,8 @@ export default function ProyectosPage() {
       setStatusOpenFor(null);
     }
   };
+
+
 
   const handleChangePriority = async (
     task: ProjectTaskWithAssignees,
@@ -468,13 +537,14 @@ export default function ProyectosPage() {
   if (loadingMe && !me) {
     return (
       <RequireAuth roles={['admin', 'supervisor']}>
-        <div className="flex min-h-[200px] items-center justify-center text-sm text-slate-500">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Cargando usuario...
+        <div className="grid min-h-[80vh] place-items-center">
+          <DualSpinner size={60} thickness={4} />
         </div>
       </RequireAuth>
     );
   }
+
+
 
   return (
     <RequireAuth roles={['admin', 'supervisor']}>
@@ -509,7 +579,7 @@ export default function ProyectosPage() {
         {/* Tabla estilo Notion (por ahora solo vista tabla) */}
         <section className="rounded-2xl border border-slate-200 bg-slate-950/90 shadow-lg shadow-slate-900/40">
           {/* Encabezado */}
-          <div className="grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,2fr)] border-b border-slate-800 bg-slate-950 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <div className={`${TABLE_GRID_COLS} ${TABLE_HEADER_CELL}`}>
             <div>Tarea / Proyecto</div>
             <div>Estado</div>
             <div>Prioridad</div>
@@ -519,7 +589,9 @@ export default function ProyectosPage() {
 
           {/* Fila creación rápida */}
           {isAdmin && (
-            <div className="grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,2fr)] border-b border-slate-800 bg-slate-900/80 px-4 py-2 text-xs text-slate-100">
+            <div
+              className={`${TABLE_GRID_COLS} border-b border-slate-800 bg-slate-900/80 px-4 py-2 text-xs text-slate-100`}
+            >
               <div className="flex flex-col gap-1 pr-2">
                 <input
                   className="w-full rounded-md border border-slate-700/80 bg-slate-900 px-2 py-1 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
@@ -542,14 +614,18 @@ export default function ProyectosPage() {
               </div>
 
               <div className="flex items-center text-[11px] text-slate-500">
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[11px]">
+                <span
+                  className={`${BADGE_PILL_BASE} bg-slate-800 text-slate-100`}
+                >
                   <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
                   Sin empezar
                 </span>
               </div>
 
               <div className="flex items-center text-[11px] text-slate-500">
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] text-amber-200">
+                <span
+                  className={`${BADGE_PILL_BASE} bg-amber-500/20 text-amber-200`}
+                >
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                   Media
                 </span>
@@ -622,7 +698,7 @@ export default function ProyectosPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -4 }}
                       transition={{ duration: 0.16 }}
-                      className="group grid cursor-pointer grid-cols-[minmax(0,2.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,2fr)] border-t border-slate-900/70 bg-slate-900/70 px-4 py-2 text-[11px] text-slate-100 hover:bg-slate-900"
+                      className={`${TABLE_GRID_COLS} ${TABLE_ROW_BASE} group cursor-pointer`}
                       onClick={() => setSelectedTask(task)}
                     >
                       <div className="flex flex-col gap-0.5 pr-2">
@@ -658,7 +734,7 @@ export default function ProyectosPage() {
                             setAssigneesOpenFor(null);
                           }}
                           disabled={isLocked}
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusCfg.pillClass} ${isLocked ? 'cursor-not-allowed opacity-70' : ''
+                          className={`${BADGE_PILL_BASE} ${statusCfg.pillClass} ${isLocked ? 'cursor-not-allowed opacity-70' : ''
                             }`}
                         >
                           <span
@@ -674,11 +750,11 @@ export default function ProyectosPage() {
                           <>
                             {/* Overlay para cerrar al click fuera */}
                             <div
-                              className="fixed inset-0 z-10"
+                              className={POPOVER_OVERLAY}
                               onClick={closeAllPopovers}
                             />
                             <div
-                              className="absolute z-20 mt-1 w-44 rounded-xl border border-slate-800 bg-slate-950/95 p-1 text-[11px] text-slate-100 shadow-xl shadow-slate-950/70"
+                              className={STATUS_POPOVER_PANEL}
                               onClick={(e) => e.stopPropagation()}
                             >
                               {STATUS_OPTIONS.map((opt) => (
@@ -725,7 +801,7 @@ export default function ProyectosPage() {
                             setAssigneesOpenFor(null);
                           }}
                           disabled={isLocked}
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${priorityCfg.pillClass} ${isLocked ? 'cursor-not-allowed opacity-70' : ''
+                          className={`${BADGE_PILL_BASE} ${priorityCfg.pillClass} ${isLocked ? 'cursor-not-allowed opacity-70' : ''
                             }`}
                         >
                           <span
@@ -741,11 +817,11 @@ export default function ProyectosPage() {
                           <>
                             {/* Overlay para cerrar al click fuera */}
                             <div
-                              className="fixed inset-0 z-10"
+                              className={POPOVER_OVERLAY}
                               onClick={closeAllPopovers}
                             />
                             <div
-                              className="absolute z-20 mt-1 w-40 rounded-xl border border-slate-800 bg-slate-950/95 p-1 text-[11px] text-slate-100 shadow-xl shadow-slate-950/70"
+                              className={PRIORITY_POPOVER_PANEL}
                               onClick={(e) => e.stopPropagation()}
                             >
                               {PRIORITY_OPTIONS.map((opt) => (
@@ -777,7 +853,9 @@ export default function ProyectosPage() {
 
                       {/* Fecha límite */}
                       <div className="flex items-center text-[10px] font-bold text-black/50">
-                        <span className="rounded-full bg-slate-800 px-2 py-0.5 text-slate-100">
+                        <span
+                          className={`${SMALL_PILL_BASE} bg-slate-800 text-slate-100`}
+                        >
                           {formatDueDate(task.due_date)}
                         </span>
                       </div>
@@ -792,14 +870,28 @@ export default function ProyectosPage() {
                             Sin responsables
                           </span>
                         ) : (
-                          task.assignees.map((a) => (
-                            <span
-                              key={a.user_id}
-                              className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-200"
-                            >
-                              {a.full_name ?? a.email ?? 'Sin nombre'}
-                            </span>
-                          ))
+                          task.assignees.map((a) => {
+                            // Buscar datos del supervisor a partir del user_id
+                            const sup = supervisors.find(
+                              (s) => String(s.id) === String(a.user_id),
+                            );
+
+                            const label =
+                              a.full_name ??
+                              sup?.full_name ??
+                              a.email ??
+                              sup?.email ??
+                              'Sin nombre';
+
+                            return (
+                              <span
+                                key={a.user_id}
+                                className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-200"
+                              >
+                                {label}
+                              </span>
+                            );
+                          })
                         )}
 
                         {isAdmin && (
@@ -816,9 +908,7 @@ export default function ProyectosPage() {
                                 setPriorityOpenFor(null);
                               }}
                               disabled={isLocked}
-                              className={`inline-flex items-center rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800 ${isLocked
-                                  ? 'cursor-not-allowed opacity-60'
-                                  : ''
+                              className={`inline-flex items-center rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800 ${isLocked ? 'cursor-not-allowed opacity-60' : ''
                                 }`}
                             >
                               Gestionar
@@ -834,9 +924,7 @@ export default function ProyectosPage() {
                                 handleCloseTask(task);
                               }}
                               disabled={isLocked}
-                              className={`inline-flex items-center rounded-full border border-amber-600/60 bg-amber-900/40 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-800/70 ${isLocked
-                                  ? 'cursor-not-allowed opacity-60'
-                                  : ''
+                              className={`inline-flex items-center rounded-full border border-amber-600/60 bg-amber-900/40 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-800/70 ${isLocked ? 'cursor-not-allowed opacity-60' : ''
                                 }`}
                             >
                               <Ban className="mr-1 h-3 w-3" />
@@ -873,9 +961,7 @@ export default function ProyectosPage() {
                                   className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                                   placeholder="Buscar supervisor..."
                                   value={assigneeSearch}
-                                  onChange={(e) =>
-                                    setAssigneeSearch(e.target.value)
-                                  }
+                                  onChange={(e) => setAssigneeSearch(e.target.value)}
                                 />
                               </div>
 
@@ -893,12 +979,8 @@ export default function ProyectosPage() {
                                       <button
                                         key={user.id}
                                         type="button"
-                                        onClick={() =>
-                                          handleToggleAssignee(task, user.id)
-                                        }
-                                        className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-left hover:bg-slate-800 ${isSelected
-                                            ? 'text-sky-200'
-                                            : 'text-slate-100'
+                                        onClick={() => handleToggleAssignee(task, user.id)}
+                                        className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-left hover:bg-slate-800 ${isSelected ? 'text-sky-200' : 'text-slate-100'
                                           }`}
                                       >
                                         <span className="flex flex-col">
@@ -925,6 +1007,7 @@ export default function ProyectosPage() {
                           </>
                         )}
                       </div>
+
                     </motion.div>
                   );
                 })}
@@ -951,7 +1034,7 @@ export default function ProyectosPage() {
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="rounded-full border border-slate-700 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    className={PAGINATION_BTN_BASE}
                   >
                     Anterior
                   </button>
@@ -970,7 +1053,7 @@ export default function ProyectosPage() {
                       setPage((p) => Math.min(totalPages, p + 1))
                     }
                     disabled={page === totalPages}
-                    className="rounded-full border border-slate-700 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    className={PAGINATION_BTN_BASE}
                   >
                     Siguiente
                   </button>

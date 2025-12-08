@@ -1,0 +1,48 @@
+.dual-spinner-wrapper {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Base de los círculos */
+.dual-spinner {
+  position: absolute;
+  border-radius: 50%;
+  border-style: solid;
+  border-color: transparent;
+  box-sizing: border-box;
+}
+
+/* Círculo externo: rota a la derecha */
+.dual-spinner.outer {
+  border-bottom-color: #8a231f; /* celeste */
+  border-left-color: #8a231f;
+  animation: spin 1s linear infinite;
+}
+
+/* Círculo interno: rota a la izquierda */
+.dual-spinner.inner {
+  border-top-color: #2a2a2a; /* verde */
+  border-right-color: #2a2a2a;
+  animation: spin-reverse 1s linear infinite;
+}
+
+/* Animaciones */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}

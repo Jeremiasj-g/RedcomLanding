@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
 import { Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import DualSpinner from "@/components/ui/DualSpinner";
 
 export default function MiPerfilPage() {
   const { me, loading } = useMe();
@@ -94,8 +95,8 @@ export default function MiPerfilPage() {
 
   if (loading || !me) {
     return (
-      <div className="grid min-h-[100dvh] place-items-center bg-slate-50">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-700" />
+      <div className="grid min-h-[80vh] place-items-center">
+        <DualSpinner size={60} thickness={4} />
       </div>
     );
   }
@@ -105,11 +106,10 @@ export default function MiPerfilPage() {
       {/* Toast */}
       {msg && (
         <div
-          className={`fixed right-4 top-4 z-50 flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg ${
-            msg.type === 'ok'
+          className={`fixed right-4 top-4 z-50 flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg ${msg.type === 'ok'
               ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
               : 'border-red-200 bg-red-50 text-red-800'
-          }`}
+            }`}
         >
           {msg.type === 'ok' ? (
             <Check className="mt-0.5 h-5 w-5" />
@@ -143,9 +143,8 @@ export default function MiPerfilPage() {
                   Estado
                 </p>
                 <p
-                  className={`mt-1 font-medium ${
-                    me.is_active ? 'text-emerald-700' : 'text-red-700'
-                  }`}
+                  className={`mt-1 font-medium ${me.is_active ? 'text-emerald-700' : 'text-red-700'
+                    }`}
                 >
                   {me.is_active ? 'Activo' : 'Inactivo'}
                 </p>

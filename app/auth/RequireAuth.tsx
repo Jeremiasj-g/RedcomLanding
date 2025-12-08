@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
+import DualSpinner from '@/components/ui/DualSpinner';
 
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
   const { me, loading } = useAuth();
@@ -18,8 +19,8 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
 
   if (loading) {
     return (
-      <div className="grid min-h-[60vh] place-items-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-slate-700" />
+      <div className="grid min-h-[80vh] place-items-center">
+        <DualSpinner size={60} thickness={4} />
       </div>
     );
   }
