@@ -9,8 +9,15 @@ import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import LookerEmbed from '@/components/LookerEmbed';
 import { RequireAuth } from '@/components/RouteGuards';
+import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
+import { urls } from '@/lib/data';
+import { Table } from 'lucide-react';
 
 export default function Obera() {
+
+  // const mapaMisiones = urls.mapas[3].misiones
+  const tableroObera = urls.tableros[5].obera
+
   return (
 
     <RequireAuth roles={['admin', 'supervisor']} branches={['obera']}>
@@ -40,13 +47,17 @@ export default function Obera() {
               ))}
             </div>
           </Container>
-
-          <Container>
-            <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
-          </Container>
-
-          <LookerEmbed looker_id="obera" />
         </section>
+        
+        <Container>
+          <FullScreenEmbedCard {...tableroObera} icon={<Table />} />
+        </Container>
+
+        <Container>
+          <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
+        </Container>
+
+        <LookerEmbed looker_id="obera" />
       </div>
     </RequireAuth>
 
