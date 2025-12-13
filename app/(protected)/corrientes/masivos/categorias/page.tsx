@@ -1,14 +1,25 @@
 import React from 'react'
 import CategoriasTable from './CategoriasTable'
 import Container from '@/components/Container'
+import CategoriasGrid from './CategoriasGrid'
+import { RequireAuth } from '@/components/RouteGuards'
 
 const page = () => {
     return (
-        <section className='mt-24 mb-24"'>
-            <Container>
-                <CategoriasTable />
-            </Container>
-        </section>
+        <RequireAuth
+            roles={['admin', 'supervisor', 'vendedor']}
+            branches={['corrientes']}
+        >
+            <section className='mt-24 mb-24"'>
+                <Container>
+                    <CategoriasTable />
+                </Container>
+
+                <Container>
+                    <CategoriasGrid />
+                </Container>
+            </section>
+        </RequireAuth>
     )
 }
 

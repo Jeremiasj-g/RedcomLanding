@@ -12,6 +12,7 @@ import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 import { Table } from 'lucide-react';
 import { RequireAuth } from '@/components/RouteGuards';
 import { useMe } from '@/hooks/useMe';
+import CategoryBannerLink from './categorias/CategoryBannerLink';
 
 export default function CorrientesMasivos() {
   const { me } = useMe();
@@ -65,6 +66,19 @@ export default function CorrientesMasivos() {
             )}
           </Container>
         </section>
+
+        {/* ✅ banner a categorías */}
+        <Container>
+          <div className="mt-6 mb-2">
+            <CategoryBannerLink
+              branchLabel="Corrientes"
+              href="/corrientes/masivos/categorias"
+              title="Categorías"
+              description="Ranking por vendedor, puntajes y comparación por criterios."
+              buttonLabel="Abrir"
+            />
+          </div>
+        </Container>
 
         {canSeeAnalytics && (
           <>

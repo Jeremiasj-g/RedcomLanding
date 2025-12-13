@@ -13,6 +13,10 @@ export type CategoriaConfig = {
   horario_ruta: boolean;
   efectividad: boolean;
 
+  // ✅ NUEVO: requisitos mínimos globales (o por categoría si querés)
+  horas_ruta_min: string;     // "5:20:00"
+  efectividad_min: number;    // 89
+
   eficiencia: number;
   cobertura: number;
   volumen: number;
@@ -26,6 +30,29 @@ export type CategoriaConfig = {
     text: string;
     border: string;
   };
+};
+
+export const CATEGORIA_ACCENTS = {
+  PLAN_MEJORA: '#ef4444',   // red-500
+  JUNIOR: '#eab308',        // yellow-500
+  SEMI_SENIOR: '#34d399',   // emerald-400
+  SENIOR: '#047857',        // emerald-700
+} as const;
+
+export const CATEGORIA_RANK: Record<string, number> = {
+  PLAN_MEJORA: 0,
+  JUNIOR: 1,
+  SEMI_SENIOR: 2,
+  SENIOR: 3,
+};
+
+export const PUNTOS = {
+  FACTURACION: 30,
+  EFICIENCIA: 15,
+  COBERTURA: 15,
+  VOLUMEN: 15,
+  POP: 5,
+  EXHIBICION: 5,
 };
 
 export const CATEGORIA_COLORS = {
@@ -58,6 +85,8 @@ export const CATEGORIAS: CategoriaConfig[] = [
     facturacion: 'SENIOR',
     horario_ruta: true,
     efectividad: true,
+    horas_ruta_min: '5:20:00',
+    efectividad_min: 89,
     eficiencia: 84,
     cobertura: 7,
     volumen: 7,
@@ -72,6 +101,8 @@ export const CATEGORIAS: CategoriaConfig[] = [
     facturacion: 'SEMI_SENIOR',
     horario_ruta: true,
     efectividad: true,
+    horas_ruta_min: '5:20:00',
+    efectividad_min: 89,
     eficiencia: 79,
     cobertura: 6,
     volumen: 6,
@@ -86,6 +117,8 @@ export const CATEGORIAS: CategoriaConfig[] = [
     facturacion: 'JUNIOR',
     horario_ruta: true,
     efectividad: true,
+    horas_ruta_min: '5:20:00',
+    efectividad_min: 89,
     eficiencia: 74,
     cobertura: 5,
     volumen: 5,
@@ -103,6 +136,8 @@ export const PLAN_MEJORA: CategoriaConfig = {
   facturacion: 'PLAN_MEJORA',
   horario_ruta: false,
   efectividad: false,
+  horas_ruta_min: '5:20:00',
+  efectividad_min: 89,
   eficiencia: 0,
   cobertura: 0,
   volumen: 0,
