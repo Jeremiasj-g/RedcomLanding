@@ -2,27 +2,39 @@
 
 import { motion } from 'framer-motion';
 import PageHeader from '@/components/PageHeader';
-import Card from '@/components/Card';
 import CardSucursales from '@/components/CardSucursales';
 import Container from '@/components/Container';
-import { corrientesMasivos } from '@/lib/data';
+import { corrientesMasivos, urls } from '@/lib/data';
 import LookerEmbed from '@/components/LookerEmbed';
 import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
-import { urls } from '@/lib/data';
 import { Table } from 'lucide-react';
 import { RequireAuth } from '@/components/RouteGuards';
+import { useMe } from '@/hooks/useMe';
 
 export default function CorrientesMasivos() {
+  const { me } = useMe();
 
   const corrientesMapa = urls.mapas[0].corrientes;
   const corrientesTablero = urls.tableros[0].corrientes;
 
+  const role = me?.role ?? 'vendedor';
+
+  const visibleProducts = corrientesMasivos.filter((product) =>
+    (product.roles ?? []).includes(role),
+  );
+
+  const PERMISSIONS = {
+    analytics: ['admin', 'supervisor'],
+  };
+
+  const canSeeAnalytics = PERMISSIONS.analytics.includes(role);
   return (
-
-    <RequireAuth roles={['admin', 'supervisor']} branches={['corrientes']}>
-
+    <RequireAuth
+      roles={['admin', 'supervisor', 'vendedor']}
+      branches={['corrientes']}
+    >
       <div className="min-h-screen">
         <PageHeader
           title="Corrientes"
@@ -32,8 +44,8 @@ export default function CorrientesMasivos() {
 
         <section className="pt-24 pb-14">
           <Container>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
-              {corrientesMasivos.map((product, index) => (
+            <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-3">
+              {visibleProducts.map((product, index) => (
                 <motion.div
                   key={product.id}
                   initial={{ opacity: 0, y: 30 }}
@@ -42,26 +54,33 @@ export default function CorrientesMasivos() {
                   viewport={{ once: true }}
                 >
                   <CardSucursales {...product} />
-                  {/* <Card {...product} /> */}
                 </motion.div>
               ))}
             </div>
+
+            {visibleProducts.length === 0 && (
+              <div className="mt-6 rounded-2xl border border-slate-800 bg-gray-900/70 p-4 text-sm text-slate-300">
+                No tenés accesos habilitados para ver módulos en esta sección.
+              </div>
+            )}
           </Container>
         </section>
 
-        <Container>
-          <FullScreenEmbedCard {...corrientesMapa} />
-          <FullScreenEmbedCard {...corrientesTablero} icon={<Table />} />
-        </Container>
+        {canSeeAnalytics && (
+          <>
+            <Container>
+              <FullScreenEmbedCard {...corrientesMapa} />
+              <FullScreenEmbedCard {...corrientesTablero} icon={<Table />} />
+            </Container>
 
-        <Container>
-          <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
-        </Container>
+            <Container>
+              <SectionDivider title="Dashboard de ventas" icon={<IconAnalytics />} />
+            </Container>
 
-        <LookerEmbed looker_id="masivos" />
+            <LookerEmbed looker_id="masivos" />
+          </>
+        )}
       </div>
-
     </RequireAuth>
-
   );
 }
