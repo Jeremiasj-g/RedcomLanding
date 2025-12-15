@@ -1,7 +1,7 @@
 import React from 'react'
-import CategoriasTable from './CategoriasTable'
+import CategoriasTable from '@/components/categoria/CategoriasTable'
 import Container from '@/components/Container'
-import CategoriasGrid from './CategoriasGrid'
+import CategoriasGrid from '@/components/categoria/CategoriasGrid'
 import { RequireAuth } from '@/components/RouteGuards'
 
 const page = () => {

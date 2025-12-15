@@ -12,7 +12,7 @@ import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 import { Table } from 'lucide-react';
 import { RequireAuth } from '@/components/RouteGuards';
 import { useMe } from '@/hooks/useMe';
-import CategoryBannerLink from './categorias/CategoryBannerLink';
+import CategoryBannerLink from '@/components/categoria/CategoryBannerLink';
 
 export default function CorrientesMasivos() {
   const { me } = useMe();
