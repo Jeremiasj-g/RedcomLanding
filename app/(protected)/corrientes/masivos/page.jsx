@@ -31,6 +31,7 @@ export default function CorrientesMasivos() {
   };
 
   const canSeeAnalytics = PERMISSIONS.analytics.includes(role);
+  
   return (
     <RequireAuth
       roles={['admin', 'supervisor', 'vendedor']}
@@ -69,7 +70,7 @@ export default function CorrientesMasivos() {
 
         {/* ✅ banner a categorías */}
         <Container>
-          <div className="mt-6 mb-2">
+          <div className="mt-6">
             <CategoryBannerLink
               branchLabel="Corrientes"
               href="/corrientes/masivos/categorias"

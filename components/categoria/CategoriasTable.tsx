@@ -17,7 +17,7 @@ const CategoriasTable = () => {
   };
 
   return (
-    <div className="hidden md:block">
+    <div className="hidden md:block shadow-2xl">
       <h2 className="text-xl sm:text-2xl mb-4 font-bold">Escalas de Evaluación</h2>
 
       <section className="sticky top-21 z-10 bg-white pb-4 shadow-sm overflow-x-auto rounded-lg md:-z-10">

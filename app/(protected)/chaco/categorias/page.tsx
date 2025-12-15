@@ -10,7 +10,7 @@ const page = () => {
       roles={['admin', 'supervisor', 'vendedor']}
       branches={['corrientes']}
     >
-      <section className='mt-24 mb-24"'>
+      <section className='mt-24 mb-24'>
         <Container>
           <CategoriasTable />
         </Container>

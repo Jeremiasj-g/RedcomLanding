@@ -32,6 +32,13 @@ export type CategoriaConfig = {
   };
 };
 
+export const CATEGORIA_PILL = {
+  PLAN_MEJORA: { active: 'bg-red-600 text-white border-red-600', idle: 'bg-white text-slate-700 border-slate-200 hover:border-red-300' },
+  JUNIOR: { active: 'bg-yellow-400 text-white border-yellow-500', idle: 'bg-white text-slate-700 border-slate-200 hover:border-yellow-300' },
+  SEMI_SENIOR: { active: 'bg-emerald-500 text-white border-emerald-500', idle: 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300' },
+  SENIOR: { active: 'bg-emerald-700 text-white border-emerald-700', idle: 'bg-white text-slate-700 border-slate-200 hover:border-emerald-400' },
+} as const;
+
 export const CATEGORIA_ACCENTS = {
   PLAN_MEJORA: '#ef4444',   // red-500
   JUNIOR: '#eab308',        // yellow-500
