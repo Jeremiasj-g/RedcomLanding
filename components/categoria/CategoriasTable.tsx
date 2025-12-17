@@ -18,10 +18,10 @@ const CategoriasTable = () => {
 
   return (
     <div className="hidden md:block shadow-2xl">
-      <h2 className="text-xl sm:text-2xl mb-4 font-bold">Escalas de Evaluación</h2>
+{/*       <h2 className="text-xl sm:text-2xl mb-4 font-bold">Escalas de Evaluación</h2> */}
 
-      <section className="sticky top-21 z-10 bg-white pb-4 shadow-sm overflow-x-auto rounded-lg md:-z-10">
-        <table className="min-w-[900px] w-full text-xs text-left mt-2">
+      <section className="sticky z-10 bg-white py-4 px-2 shadow-sm overflow-x-auto rounded-xl md:-z-10">
+        <table className="min-w-[1000px] w-full text-xs text-left">
           <thead className="text-gray-700 uppercase bg-gray-50 sticky top-0 z-10">
             <tr>
               <th className="px-3 py-2">Categoría</th>

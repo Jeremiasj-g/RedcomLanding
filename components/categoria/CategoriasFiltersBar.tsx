@@ -38,14 +38,14 @@ export default function CategoriasFiltersBar({
     return (
         <div className="w-full flex flex-col gap-4">
             <div className="flex items-center gap-6 flex-wrap">
-                <h2 className="text-2xl font-extrabold text-slate-900">Vendedores</h2>
+                {/* <h2 className="text-2xl font-extrabold text-slate-900">Vendedores</h2> */}
 
                 <div className="flex-1 min-w-[240px]">
                     <input
                         value={query}
                         onChange={(e) => onQueryChange(e.target.value)}
                         placeholder="Buscar vendedor..."
-                        className="w-full max-w-[380px] rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm
+                        className="w-full max-w-[380px] rounded-xl border border-slate-400 bg-white px-4 py-2.5 text-sm
                        outline-none focus:ring-2 focus:ring-slate-200"
                     />
                 </div>

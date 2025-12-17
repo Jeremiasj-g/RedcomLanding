@@ -10,11 +10,12 @@ const page = () => {
             roles={['admin', 'supervisor', 'vendedor']}
             branches={['corrientes']}
         >
-            <section className='mt-24 mb-24"'>
-                <Container>
+            <div className="hero relative h-[350px] w-full bg-[url('/categorias.png')] bg-cover bg-bottom">
+                <div className='absolute bottom-0 translate-y-[50%] left-[50%] translate-x-[-50%] z-10'>
                     <CategoriasTable />
-                </Container>
-
+                </div>
+            </div>
+            <section className='mt-40 mb-24"'>
                 <Container>
                     <CategoriasGrid />
                 </Container>
