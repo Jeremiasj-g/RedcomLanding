@@ -46,7 +46,7 @@ export default function CorrientesMasivos() {
 
         <section className="pt-24 pb-14">
           <Container>
-            <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-3">
               {visibleProducts.map((product, index) => (
                 <motion.div
                   key={product.id}

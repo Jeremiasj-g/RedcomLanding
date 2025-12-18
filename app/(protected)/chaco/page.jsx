@@ -48,7 +48,7 @@ export default function Chaco() {
 
         <section className="pt-24 pb-14">
           <Container>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-3 lg:grid-cols-3 gap-6">
               {visibleProducts.map((product, index) => (
                 <motion.div
                   key={product.id}

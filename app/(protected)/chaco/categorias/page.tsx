@@ -1,28 +1,17 @@
-import Container from '@/components/Container'
-import { RequireAuth } from '@/components/RouteGuards'
 import React from 'react'
 import CategoriasTable from '@/components/categoria/CategoriasTable'
 import CategoriasGrid from '@/components/categoria/CategoriasGrid'
+import CategoriasLayout from '@/components/categoria/CategoriasLayout'
 
-const page = () => {
+export default function Page() {
   return (
-    <RequireAuth
+    <CategoriasLayout
       roles={['admin', 'supervisor', 'vendedor']}
       branches={['corrientes']}
-    >
-      <div className="hero relative h-[350px] w-full bg-[url('/categorias.png')] bg-cover bg-bottom">
-        <div className='absolute bottom-0 translate-y-[50%] left-[50%] translate-x-[-50%] z-10'>
-          <CategoriasTable />
-        </div>
-      </div>
-
-      <section className='mt-40 mb-24'>
-        <Container>
-          <CategoriasGrid />
-        </Container>
-      </section>
-    </RequireAuth>
+      heroBgUrl="/categorias.webp"
+      heroHasShadow
+      table={<CategoriasTable />}
+      grid={<CategoriasGrid />}
+    />
   )
 }
-
-export default page
