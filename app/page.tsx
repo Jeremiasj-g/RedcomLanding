@@ -93,7 +93,6 @@ export default function Home() {
               <div
                 className="
     grid 
-    grid-cols-2          /* móvil: 2 columnas normales */
     md:grid-cols-2       /* tablet: 2 columnas */
     lg:grid-cols-6       /* desktop: 6 columnas para controlar spans */
     gap-6
