@@ -1,11 +1,20 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import { CATEGORIAS, getCategoriaByKey, PUNTOS, CATEGORIA_RANK } from '@/utils/categories';
-import type { VendedorCategoriaRow } from '@/hooks/useCategoriasVendedores';
-import { parseBoolTF, parseFloatSafe, parseIntSafe } from '@/utils/vendors/parsers';
-import { hmsToSeconds } from '@/utils/vendors/time';
+import React, { useEffect, useMemo, useState } from 'react';
 
+import {
+  CATEGORIAS,
+  getCategoriaByKey,
+  PUNTOS,
+  CATEGORIA_RANK,
+} from '@/utils/categories';
+import type { VendedorCategoriaRow } from '@/hooks/useCategoriasVendedores';
+import {
+  parseBoolTF,
+  parseFloatSafe,
+  parseIntSafe,
+} from '@/utils/vendors/parsers';
+import { hmsToSeconds } from '@/utils/vendors/time';
 
 type Props = {
   open: boolean;
@@ -13,8 +22,18 @@ type Props = {
   row: VendedorCategoriaRow | null;
 };
 
-export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props) {
-  const [showMore, setShowMore] = useState(false);
+type TabKey = 'comparacion' | 'datos';
+
+export default function CategoriaDetailsModal({
+  open,
+  onOpenChange,
+  row,
+}: Props) {
+  const [activeTab, setActiveTab] = useState<TabKey>('comparacion');
+
+  useEffect(() => {
+    if (open) setActiveTab('comparacion');
+  }, [open, row?.id]);
 
   const computed = useMemo(() => {
     if (!row) return null;
@@ -32,7 +51,9 @@ export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props
 
       horasRutaStr: row.horas_promedio_ruta,
       horasRutaSec: hmsToSeconds(row.horas_promedio_ruta),
-      proyeccion: String(row.Categoria_segun_proyeccion ?? '').trim().toUpperCase(),
+      proyeccion: String(row.Categoria_segun_proyeccion ?? '')
+        .trim()
+        .toUpperCase(),
     };
   }, [row]);
 
@@ -47,16 +68,20 @@ export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props
   return (
     <div className="fixed inset-0 z-50">
       {/* overlay */}
-      <div className="absolute inset-0 bg-black/50" onClick={() => onOpenChange(false)} />
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={() => onOpenChange(false)}
+      />
 
       {/* modal */}
       <div className="absolute left-1/2 top-1/2 w-[min(1200px,92vw)] max-h-[85vh] -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-center gap-4 relative">
-            <div className='flex items-center justify-center gap-4'>
+            <div className="flex items-center justify-center gap-4">
               <div className="text-2xl font-extrabold text-slate-900">
                 Análisis de {row.vendedor}
               </div>
+
               <div className="mt-1 inline-flex items-center gap-2">
                 <span
                   className={[
@@ -70,6 +95,7 @@ export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props
             </div>
 
             <button
+              type="button"
               onClick={() => onOpenChange(false)}
               className="absolute rounded-lg px-3 py-2 text-sm bg-slate-900 text-white hover:bg-slate-800 right-0"
             >
@@ -79,15 +105,31 @@ export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props
 
           <div className="mt-6 justify-center flex gap-8 text-sm">
             <div className="text-center">
-              <div className="text-slate-500">Horario requerido: {baseReq.horas_ruta_min}</div>
-              <div className={okHorario ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>
+              <div className="text-slate-500">
+                Horario requerido: {baseReq.horas_ruta_min}
+              </div>
+              <div
+                className={
+                  okHorario
+                    ? 'text-emerald-600 font-semibold'
+                    : 'text-red-600 font-semibold'
+                }
+              >
                 Alcanzado: {computed.horasRutaStr} {okHorario ? '✓' : '✕'}
               </div>
             </div>
 
             <div className="text-center">
-              <div className="text-slate-500">Efectividad requerida: {baseReq.efectividad_min}%</div>
-              <div className={okEfect ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>
+              <div className="text-slate-500">
+                Efectividad requerida: {baseReq.efectividad_min}%
+              </div>
+              <div
+                className={
+                  okEfect
+                    ? 'text-emerald-600 font-semibold'
+                    : 'text-red-600 font-semibold'
+                }
+              >
                 Alcanzado: {computed.efectividad.toFixed(2)}% {okEfect ? '✓' : '✕'}
               </div>
             </div>
@@ -95,35 +137,58 @@ export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(85vh-84px)]">
-          {/* ✅ Comparación por categoría (3 columnas como captura) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {CATEGORIAS.map((cat) => (
-              <CompareColumn key={cat.key} cat={cat} computed={computed} />
-            ))}
+          {/* ✅ Tabs navigation (debajo de horario/efectividad) */}
+          <div className="mb-6 flex justify-center">
+            <div className="inline-flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab('comparacion')}
+                className={[
+                  'px-4 py-2 text-sm font-semibold rounded-xl transition',
+                  activeTab === 'comparacion'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900',
+                ].join(' ')}
+              >
+                Comparación
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('datos')}
+                className={[
+                  'px-4 py-2 text-sm font-semibold rounded-xl transition',
+                  activeTab === 'datos'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900',
+                ].join(' ')}
+              >
+                Datos + Cálculos
+              </button>
+            </div>
           </div>
 
-          <div className="mt-6 flex gap-3 justify-center">
-            <button
-              onClick={() => setShowMore(v => !v)}
-              className="rounded-lg px-4 py-2 text-sm bg-slate-900 text-white hover:bg-slate-800"
-            >
-              {showMore ? 'Ocultar datos' : 'Mostrar más'}
-            </button>
+          {/* ✅ Contenido por tabs */}
+          {activeTab === 'comparacion' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              {CATEGORIAS.map((cat) => (
+                <CompareColumn key={cat.key} cat={cat} computed={computed} />
+              ))}
+            </div>
+          ) : (
+            <FullDataSection row={row} computed={computed} />
+          )}
 
+          {/* footer */}
+          <div className="mt-6 flex justify-center">
             <button
+              type="button"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 text-slate-800"
+              className="rounded-lg px-4 py-2 text-sm bg-slate-900 text-white hover:bg-slate-800"
             >
               Cerrar
             </button>
           </div>
-
-          {/* ✅ “Mostrar más”: todos los datos + cálculos */}
-          {showMore && (
-            <div className="mt-8">
-              <FullDataSection row={row} computed={computed} />
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -131,29 +196,16 @@ export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props
 }
 
 function CompareColumn({ cat, computed }: any) {
-  const okHorario = !cat.horario_ruta || computed.cumpleHorario;
-  const okEfectiv = !cat.efectividad || computed.cumpleEfectividad;
-
   const puntosFacturacion =
-    CATEGORIA_RANK[computed.categoriaAlcanzada] >=
-      CATEGORIA_RANK[cat.facturacion]
+    CATEGORIA_RANK[computed.categoriaAlcanzada] >= CATEGORIA_RANK[cat.facturacion]
       ? PUNTOS.FACTURACION
       : 0;
 
-  const puntosEficiencia =
-    computed.eficiencia >= cat.eficiencia ? PUNTOS.EFICIENCIA : 0;
-
-  const puntosCobertura =
-    computed.cobertura >= cat.cobertura ? PUNTOS.COBERTURA : 0;
-
-  const puntosVolumen =
-    computed.volumen >= cat.volumen ? PUNTOS.VOLUMEN : 0;
-
-  const puntosPop =
-    computed.pop >= cat.pop ? PUNTOS.POP : 0;
-
-  const puntosExhib =
-    computed.exhib >= cat.exhibicion ? PUNTOS.EXHIBICION : 0;
+  const puntosEficiencia = computed.eficiencia >= cat.eficiencia ? PUNTOS.EFICIENCIA : 0;
+  const puntosCobertura = computed.cobertura >= cat.cobertura ? PUNTOS.COBERTURA : 0;
+  const puntosVolumen = computed.volumen >= cat.volumen ? PUNTOS.VOLUMEN : 0;
+  const puntosPop = computed.pop >= cat.pop ? PUNTOS.POP : 0;
+  const puntosExhib = computed.exhib >= cat.exhibicion ? PUNTOS.EXHIBICION : 0;
 
   const puntosAlcanzados =
     puntosFacturacion +
@@ -185,46 +237,21 @@ function CompareColumn({ cat, computed }: any) {
       <div className="p-4 space-y-3">
         <RowProjection
           required={cat.facturacion.replaceAll('_', ' ')}
-          got={String(computed.categoriaAlcanzada).replaceAll('_', ' ')}  // ✅
-          points={PUNTOS.FACTURACION}
+          got={String(computed.categoriaAlcanzada).replaceAll('_', ' ')}
           earned={puntosFacturacion}
         />
 
-        {/*         <RowCompare
-          label="Horario"
-          req={cat.horario_ruta ? cat.horas_ruta_min : '—'}
-          got={cat.horario_ruta ? computed.horasRutaStr : '—'}
-          points={0}
-          earned={0}
-          ok={okHorario}      // ✅ ahora define el color
-        />
-
-        <RowCompare
-          label="Efectividad"
-          req={cat.efectividad ? `${cat.efectividad_min}%` : '—'}
-          got={cat.efectividad ? `${computed.efectividad.toFixed(2)}%` : '—'}
-          points={0}
-          earned={0}
-          ok={okEfectiv}      // ✅
-        /> */}
-
-        <RowCompare label="Eficiencia" req={`${cat.eficiencia}%`} got={`${computed.eficiencia.toFixed(2)}%`} points={PUNTOS.EFICIENCIA}
-          earned={puntosEficiencia} />
-        <RowCompare label="Cobertura" req={cat.cobertura} got={computed.cobertura} points={PUNTOS.COBERTURA}
-          earned={puntosCobertura} />
-        <RowCompare label="Volumen" req={cat.volumen} got={computed.volumen} points={PUNTOS.VOLUMEN}
-          earned={puntosVolumen} />
-        <RowCompare label="% POP" req={`${cat.pop}%`} got={`${computed.pop.toFixed(2)}%`} points={PUNTOS.POP}
-          earned={puntosPop} />
-        <RowCompare label="% Exhibición" req={`${cat.exhibicion}%`} got={`${computed.exhib.toFixed(2)}%`} points={PUNTOS.EXHIBICION}
-          earned={puntosExhib} />
+        <RowCompare label="Eficiencia" req={`${cat.eficiencia}%`} got={`${computed.eficiencia.toFixed(2)}%`} earned={puntosEficiencia} />
+        <RowCompare label="Cobertura" req={cat.cobertura} got={computed.cobertura} earned={puntosCobertura} />
+        <RowCompare label="Volumen" req={cat.volumen} got={computed.volumen} earned={puntosVolumen} />
+        <RowCompare label="% POP" req={`${cat.pop}%`} got={`${computed.pop.toFixed(2)}%`} earned={puntosPop} />
+        <RowCompare label="% Exhibición" req={`${cat.exhibicion}%`} got={`${computed.exhib.toFixed(2)}%`} earned={puntosExhib} />
       </div>
     </div>
   );
 }
 
-
-function RowProjection({ required, got, points, earned }: any) {
+function RowProjection({ required, got, earned }: any) {
   const ok = earned > 0;
 
   return (
@@ -236,9 +263,7 @@ function RowProjection({ required, got, points, earned }: any) {
         </span>
       </div>
 
-      <div className="mt-1 text-xs text-slate-600">
-        Requerido: {required}
-      </div>
+      <div className="mt-1 text-xs text-slate-600">Requerido: {required}</div>
 
       <div className="text-xs">
         Alcanzado:{' '}
@@ -250,9 +275,8 @@ function RowProjection({ required, got, points, earned }: any) {
   );
 }
 
-
-function RowCompare({ label, req, got, points, earned, ok: okProp }: any) {
-  const ok = typeof okProp === 'boolean' ? okProp : earned > 0;
+function RowCompare({ label, req, got, earned }: any) {
+  const ok = earned > 0;
 
   return (
     <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
@@ -275,36 +299,128 @@ function RowCompare({ label, req, got, points, earned, ok: okProp }: any) {
   );
 }
 
+/* -------------------------------------------------- */
+/* FULL DATA SECTION (moderno, no tabla) */
+/* -------------------------------------------------- */
 
 function FullDataSection({ row, computed }: any) {
-  // acá armamos la sección tipo tu captura 3:
-  // - Datos generales
-  // - Cards con cálculos (efectividad, eficiencia, %PDV, %Distancia)
-  // - Datos facturación, etc.
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
-      <div className="text-lg font-bold text-slate-900">Datos Generales</div>
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <MiniKpi title="Efectividad" value={`${computed.efectividad.toFixed(2)}%`} subtitle={`Planeadas: ${row.visitas_planeadas} | Visitados: ${row.visitados}`} />
-        <MiniKpi title="Eficiencia" value={`${computed.eficiencia.toFixed(2)}%`} subtitle={`Ventas: ${row.total_de_ventas} | Visitados: ${row.visitados}`} />
-        <MiniKpi title="% Ventas en PDV" value={row.porcentaje_de_ventas_en_el_PDV} subtitle={`PDV: ${row.venta_en_el_pdv} | Total: ${row.total_de_ventas}`} />
-        <MiniKpi title="% Ventas a Distancia" value={row.porcentaje_de_ventas_a_distancia} subtitle={`Distancia: ${row.venta_a_distancia} | Planeadas: ${row.visitas_planeadas}`} />
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <KpiExplainCard
+          title="Efectividad"
+          value={`${computed.efectividad.toFixed(2)}%`}
+          kpis={[
+            { label: 'Visitas Planeadas', value: row.visitas_planeadas },
+            { label: 'Visitados', value: row.visitados },
+          ]}
+          formula="(visitados / visitas planeadas) * 100"
+        />
+
+        <KpiExplainCard
+          title="Eficiencia"
+          value={`${computed.eficiencia.toFixed(2)}%`}
+          kpis={[
+            { label: 'Visitados', value: row.visitados },
+            { label: 'Total de Ventas', value: row.total_de_ventas },
+          ]}
+          formula="(ventas / visitados) * 100"
+        />
+
+        <KpiExplainCard
+          title="% Ventas en PDV"
+          value={row.porcentaje_de_ventas_en_el_PDV}
+          kpis={[
+            { label: 'Total de Ventas', value: row.total_de_ventas },
+            { label: 'Venta en el PDV', value: row.venta_en_el_pdv },
+          ]}
+          formula="(ventas pdv / total ventas) * 100"
+        />
+
+        <KpiExplainCard
+          title="% Ventas a Distancia"
+          value={row.porcentaje_de_ventas_a_distancia}
+          kpis={[
+            { label: 'Visitas Planeadas', value: row.visitas_planeadas },
+            { label: 'Venta a Distancia', value: row.venta_a_distancia },
+          ]}
+          formula="(ventas distancia / visitas planeadas) * 100"
+        />
       </div>
 
-      <div className="mt-6 text-sm text-slate-600">
-        Facturación: <span className="font-semibold text-slate-900">{row.facturacion}</span> ·
-        Categoría según proyección: <span className="font-semibold text-slate-900">{row.Categoria_segun_proyeccion}</span>
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-lg font-extrabold text-slate-900">Resumen del vendedor</div>
+            <div className="text-sm text-slate-500">KPIs base + datos para cálculos</div>
+          </div>
+
+          <div className="text-xs text-slate-500">
+            ID: <span className="font-semibold text-slate-900">{row.id}</span>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          <StatCard title="Facturación" value={row.facturacion} hint="Total facturado" />
+          <StatCard title="Total de ventas" value={row.total_de_ventas} hint="Boletas / ventas registradas" />
+          <StatCard title="Visitados" value={row.visitados} hint="Clientes visitados" />
+          <StatCard title="Visitas planeadas" value={row.visitas_planeadas} hint="Objetivo de visitas" />
+          <StatCard title="Venta a distancia" value={row.venta_a_distancia} hint="Ventas sin PDV" />
+          <StatCard title="Venta en el PDV" value={row.venta_en_el_pdv} hint="Ventas en punto de venta" />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+        <div className="text-lg font-extrabold text-slate-900">Datos de Facturación</div>
+        <div className="text-sm text-slate-500">Promedios y datos considerados del período</div>
+
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          <BentoCard title="Días considerados" value={row.dias_considerados} />
+          <BentoCard title="Promedio boletas diarias" value={row.promedio_boletas_diarias} />
+          <BentoCard title="Facturación promedio" value={row.facturacion_promedio} />
+          <BentoCard title="Promedio $ boletas" value={row['promedio_$_boletas']} />
+          <BentoCard title="Categoría según proyección" value={String(row.Categoria_segun_proyeccion ?? '—')} />
+        </div>
       </div>
     </div>
   );
 }
 
-function MiniKpi({ title, value, subtitle }: any) {
+function StatCard({ title, value, hint }: any) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
+      <div className="text-xs font-semibold text-slate-500">{title}</div>
+      <div className="mt-2 text-xl font-extrabold text-slate-900">{value}</div>
+      <div className="mt-1 text-xs text-slate-500">{hint}</div>
+    </div>
+  );
+}
+
+function BentoCard({ title, value }: any) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4">
+      <div className="text-xs font-semibold text-slate-500">{title}</div>
+      <div className="mt-2 text-base font-bold text-slate-900 truncate">{value}</div>
+    </div>
+  );
+}
+
+function KpiExplainCard({ title, value, kpis, formula }: any) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
       <div className="text-sm font-semibold text-slate-900">{title}</div>
-      <div className="mt-2 text-2xl font-extrabold text-slate-900">{value}</div>
-      <div className="mt-2 text-xs text-slate-600">{subtitle}</div>
+      <div className="mt-2 text-3xl font-extrabold text-slate-900">{value}</div>
+
+      <div className="mt-4 space-y-1 text-sm text-slate-600">
+        {kpis.map((k: any) => (
+          <div key={k.label} className="flex items-center gap-2">
+            <span>{k.label}:</span>
+            <span className="font-semibold text-slate-900">{k.value}</span>
+          </div>
+        ))}
+        <br />
+        <code className='text-xs'>{formula}</code>
+      </div>
     </div>
   );
 }

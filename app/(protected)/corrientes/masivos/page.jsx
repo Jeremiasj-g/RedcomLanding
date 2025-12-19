@@ -15,11 +15,10 @@ import { useMe } from '@/hooks/useMe';
 import CategoryBannerLink from '@/components/categoria/CategoryBannerLink';
 
 export default function CorrientesMasivos() {
-  const { me } = useMe();
-
   const corrientesMapa = urls.mapas[0].corrientes;
   const corrientesTablero = urls.tableros[0].corrientes;
-
+  
+  const { me } = useMe();
   const role = me?.role ?? 'vendedor';
 
   const visibleProducts = corrientesMasivos.filter((product) =>

@@ -34,7 +34,7 @@ export default function CategoriaCard({
   onDetails,
 }: Props) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
       {/* top bar */}
       <div className={['h-1.5 w-full', categoriaColor.bg.replace(/\/\d+$/, '')].join(' ')} />
 
@@ -73,7 +73,7 @@ export default function CategoriaCard({
 
         <button
           onClick={onDetails}
-          className="mt-5 w-full rounded-xl bg-slate-50 hover:bg-slate-100 transition px-4 py-3 text-sm font-medium text-slate-700 flex items-center justify-center gap-2"
+          className="mt-5 w-full rounded-xl bg-slate-200/70 hover:bg-slate-300/60 transition px-4 py-3 text-sm font-medium text-slate-700 flex items-center justify-center gap-2"
         >
           Ver detalles <span aria-hidden>→</span>
         </button>

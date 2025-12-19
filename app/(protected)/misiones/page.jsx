@@ -12,15 +12,30 @@ import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 import { RequireAuth } from '@/components/RouteGuards';
 import { urls } from '@/lib/data';
 import { Table } from 'lucide-react';
+import CategoryBannerLink from '@/components/categoria/CategoryBannerLink';
+import { useMe } from '@/hooks/useMe';
 
 export default function Misiones() {
 
   const mapaMisiones = urls.mapas[3].misiones
   const tableroMisiones = urls.tableros[3].misiones
 
+  const { me } = useMe();
+  const role = me?.role ?? 'vendedor';
+
+  const visibleProducts = misionesProducts.filter((product) =>
+    (product.roles ?? []).includes(role),
+  );
+
+  const PERMISSIONS = {
+    analytics: ['admin', 'supervisor'],
+  };
+
+  const canSeeAnalytics = PERMISSIONS.analytics.includes(role);
+
   return (
 
-    <RequireAuth roles={['admin', 'supervisor']} branches={['misiones']}>
+    <RequireAuth roles={['admin', 'supervisor', 'vendedor']} branches={['misiones']}>
       <div className="min-h-screen">
         <PageHeader
           title="Misiones"
@@ -31,7 +46,7 @@ export default function Misiones() {
         <section className="pt-24 pb-14">
           <Container>
             <div className="grid md:grid-cols-3 lg:grid-cols-3 gap-6">
-              {misionesProducts.map((product, index) => (
+              {visibleProducts.map((product, index) => (
                 <motion.div
                   key={product.id}
                   initial={{ opacity: 0, y: 30 }}
@@ -49,16 +64,35 @@ export default function Misiones() {
           </Container>
         </section>
 
+        {/* ✅ banner a categorías */}
         <Container>
-          <FullScreenEmbedCard {...mapaMisiones} />
-          <FullScreenEmbedCard {...tableroMisiones} icon={<Table />} />
+          <div className="mt-6">
+            <CategoryBannerLink
+              branchLabel="Misiones"
+              href="/misiones/categorias"
+              title="Categorías"
+              description="Ranking por vendedor, puntajes y comparación por criterios."
+              buttonLabel="Abrir"
+            />
+          </div>
         </Container>
 
-        <Container>
-          <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
-        </Container>
 
-        <LookerEmbed looker_id='misiones' />
+
+        {canSeeAnalytics && (
+          <>
+            <Container>
+              <FullScreenEmbedCard {...mapaMisiones} />
+              <FullScreenEmbedCard {...tableroMisiones} icon={<Table />} />
+            </Container>
+
+            <Container>
+              <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
+            </Container>
+
+            <LookerEmbed looker_id='misiones' />
+          </>
+        )}
 
       </div>
     </RequireAuth>
