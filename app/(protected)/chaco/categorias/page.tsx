@@ -7,7 +7,7 @@ export default function Page() {
   return (
     <CategoriasLayout
       roles={['admin', 'supervisor', 'vendedor']}
-      branches={['corrientes']}
+      branches={['chaco']}
       heroBgUrl="/categorias.webp"
       heroHasShadow
       table={<CategoriasTable />}
