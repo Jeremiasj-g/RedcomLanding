@@ -1,6 +1,7 @@
 import React from 'react'
 import Container from '@/components/Container'
 import { RequireAuth } from '@/components/RouteGuards'
+import CategoriasFreezeDetector from './CategoriasFreezeDetector'
 
 type Props = {
   roles: Array<'admin' | 'supervisor' | 'vendedor'>
@@ -49,6 +50,11 @@ export default function CategoriasLayout({
           {table}
         </div>
       </div>
+
+      <Container>
+        <CategoriasFreezeDetector />
+
+      </Container>
 
       <section className={sectionClassName}>
         <Container className={containerClassName as any}>
