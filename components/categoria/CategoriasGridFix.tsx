@@ -8,7 +8,6 @@ import {
 } from '@/utils/categories';
 import { useCategoriasVendedoresFromPath } from '@/hooks/useCategoriasVendedoresFromPath';
 import { parseFloatSafe, parseIntSafe } from '@/utils/vendors/parsers';
-
 import CategoriaCard from './CategoriaCard';
 import CategoriaDetailsModal from './CategoriaDetailsModal';
 import QuadSpinner from '@/components/ui/QuadSpinner';
@@ -16,8 +15,45 @@ import CategoriasFiltersBar from '@/components/categoria/CategoriasFiltersBar';
 import CategoriasSummaryCards from '@/components/categoria/CategoriasSummaryCards';
 
 import { AnimatePresence, motion } from 'framer-motion';
+
 import { useSearchParams, usePathname } from 'next/navigation';
 import { getBranchKeyFromPath } from '@/utils/branchFromPath';
+
+/** =========================
+ *  Normalización LIVE vs SNAPSHOT
+ *  ========================= */
+function normalizeCategoriaKey(raw: any): string {
+  const v = String(raw ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '_');
+
+  if (v === 'PLAN_DE_MEJORA' || v === 'PLANDEMEJORA') return 'PLAN_DE_MEJORA';
+  if (v === 'JUNIOR') return 'JUNIOR';
+  if (v === 'SEMI_SENIOR' || v === 'SEMISENIOR') return 'SEMI_SENIOR';
+  if (v === 'SENIOR') return 'SENIOR';
+
+  return 'PLAN_DE_MEJORA';
+}
+
+
+function normalizeRowForUI(r: any) {
+  // LIVE: suele traer categoriaKey ya armada.
+  // SNAPSHOT: trae Categoria_alcanzada (SheetDB crudo).
+  const categoriaKey: CategoriaKey =
+    (r?.categoriaKey as CategoriaKey) ??
+    normalizeCategoriaKey(r?.Categoria_alcanzada);
+
+  // Proyección puede venir con mayúsculas/espacios, la dejamos tal cual en la row
+  const proyeccion =
+    r?.Categoria_segun_proyeccion ?? r?.Categoria_segun_proyeccion ?? r?.proyeccion;
+
+  return {
+    ...r,
+    categoriaKey,
+    Categoria_segun_proyeccion: proyeccion,
+  };
+}
 
 export default function CategoriasGrid() {
   // ✅ Live (siempre lo mantenemos)
@@ -71,7 +107,6 @@ export default function CategoriasGrid() {
           throw new Error(json?.error ?? 'No se pudo leer snapshot');
         }
 
-        // payload debería ser array
         const payload = Array.isArray(json?.snapshot?.payload)
           ? json.snapshot.payload
           : [];
@@ -94,17 +129,23 @@ export default function CategoriasGrid() {
   const [categoria, setCategoria] = useState<CategoriaKey | 'ALL'>('ALL');
   const [supervisor, setSupervisor] = useState<string | 'ALL'>('ALL');
 
-  // ✅ Si cambiás de mes/estado snapshot, cerramos modal
+  // ✅ cuando cambias snapshot, cerramos modal por las dudas
   useEffect(() => {
     setSelectedId(null);
   }, [snapshotEnabled, snapshotYear, snapshotMonth]);
 
-  // ✅ Fuente final a renderizar
-  const dataToRender = snapshotEnabled ? (snapshotData ?? []) : live.data;
+  // ✅ Fuente final a renderizar (RAW)
+  const rawToRender = snapshotEnabled ? (snapshotData ?? []) : live.data;
+
+  // ✅ Normalizamos SIEMPRE para que LIVE y SNAPSHOT tengan las mismas keys
+  const dataToRender = useMemo(() => {
+    return (rawToRender ?? []).map(normalizeRowForUI);
+  }, [rawToRender]);
+
   const loadingToRender = snapshotEnabled ? snapshotLoading : live.loading;
   const errorToRender = snapshotEnabled ? snapshotError : live.error;
 
-  // ✅ Validación de ruta
+  // ✅ Validación de ruta (si snapshotEnabled, nos alcanza con branchKey)
   const isBranchValid = snapshotEnabled ? Boolean(branchKey) : live.isBranchValid;
 
   // ✅ selected / modal
@@ -133,10 +174,7 @@ export default function CategoriasGrid() {
     return dataToRender.filter((r: any) => {
       const vendedor = String(r.vendedor ?? '').toLowerCase();
       const sup = String(r.Supervisor ?? '').trim();
-
-      // ✅ si tu data ya trae "categoriaKey", usamos eso; si no, fallback a Categoria_alcanzada
-      const rawCat = (r.categoriaKey ?? r.Categoria_alcanzada ?? 'PLAN_MEJORA') as any;
-      const cat = String(rawCat).trim().toUpperCase().replace(/\s+/g, '_') as CategoriaKey;
+      const cat = r.categoriaKey as CategoriaKey;
 
       const okQuery = !q || vendedor.includes(q);
       const okCat = categoria === 'ALL' || cat === categoria;
@@ -167,7 +205,7 @@ export default function CategoriasGrid() {
   return (
     <>
       {/* ✅ Barra de filtros */}
-      <div className="mt-10">
+      <div className="mt-16">
         <CategoriasFiltersBar
           query={query}
           onQueryChange={setQuery}
@@ -179,7 +217,7 @@ export default function CategoriasGrid() {
         />
       </div>
 
-      {/* ✅ Summary */}
+      {/* ✅ Summary (usa filtered para respetar filtros) */}
       <div className="mt-6">
         <CategoriasSummaryCards rows={filtered} />
       </div>
@@ -192,14 +230,7 @@ export default function CategoriasGrid() {
       >
         <AnimatePresence initial={false}>
           {filtered.map((row: any) => {
-            // ✅ normalizamos categoriaKey para pintar correctamente
-            const rawCat = row.categoriaKey ?? row.Categoria_alcanzada ?? 'PLAN_MEJORA';
-            const normalizedKey = String(rawCat)
-              .trim()
-              .toUpperCase()
-              .replace(/\s+/g, '_') as CategoriaKey;
-
-            const cat = getCategoriaByKey(normalizedKey);
+            const cat = getCategoriaByKey(row.categoriaKey);
 
             const eficiencia = parseFloatSafe(row.eficiencia);
             const cobertura = parseIntSafe(row.cobertura);

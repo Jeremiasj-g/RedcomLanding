@@ -25,7 +25,7 @@ export default function CategoriasLayout({
   heroExtraClassName = "",
   heroHasShadow = true,
   heroBottomOffsetClass = "translate-y-[50%]",
-  sectionClassName = "mt-40 mb-24",
+  sectionClassName = "mt-10 mb-24",
   containerClassName = "",
   table,
   grid,
