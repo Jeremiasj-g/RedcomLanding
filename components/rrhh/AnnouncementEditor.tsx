@@ -1,15 +1,16 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useBranches } from '@/hooks/useBranches';
+import { datetimeLocalToISO, isoToDatetimeLocal } from '@/utils/datetime';
 
 type AnnouncementType = 'news' | 'weekly' | 'birthday' | 'important_alert';
 type Severity = 'info' | 'warning' | 'critical';
 
 type Props = {
-  initial?: any; // si querés editar luego
+  initial?: any; // editar
   onSaved?: () => void;
 };
 
@@ -23,10 +24,13 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
   const [requireAck, setRequireAck] = useState<boolean>(initial?.require_ack ?? false);
   const [pinned, setPinned] = useState<boolean>(initial?.pinned ?? false);
 
+  // ✅ datetime-local correcto (evita corrimiento)
   const [startsAt, setStartsAt] = useState<string>(
-    initial?.starts_at ? initial.starts_at.slice(0, 16) : new Date().toISOString().slice(0, 16)
+    initial?.starts_at ? isoToDatetimeLocal(initial.starts_at) : isoToDatetimeLocal(new Date().toISOString())
   );
-  const [endsAt, setEndsAt] = useState<string>(initial?.ends_at ? initial.ends_at.slice(0, 16) : '');
+  const [endsAt, setEndsAt] = useState<string>(
+    initial?.ends_at ? isoToDatetimeLocal(initial.ends_at) : ''
+  );
 
   const [audAll, setAudAll] = useState<boolean>(initial?.audience?.all ?? true);
   const [audRoles, setAudRoles] = useState<string[]>(initial?.audience?.roles ?? []);
@@ -35,22 +39,32 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
   const [isPublished, setIsPublished] = useState<boolean>(initial?.is_published ?? true);
   const [isActive, setIsActive] = useState<boolean>(initial?.is_active ?? true);
   const [saving, setSaving] = useState(false);
-
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { branches, loading: branchesLoading } = useBranches();
   const [branchSearch, setBranchSearch] = useState('');
+
+  // ✅ Si no es important_alert, no tiene sentido ACK
+  useEffect(() => {
+    if (type !== 'important_alert' && requireAck) setRequireAck(false);
+  }, [type, requireAck]);
+
+  // ✅ Si audAll = true, limpiamos filtros (pro)
+  useEffect(() => {
+    if (audAll) {
+      if (audRoles.length) setAudRoles([]);
+      if (audBranches.length) setAudBranches([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audAll]);
 
   const filteredBranches = useMemo(() => {
     const q = branchSearch.trim().toLowerCase();
     if (!q) return branches;
     return branches.filter(
-      (b) =>
-        b.label.toLowerCase().includes(q) ||
-        b.value.toLowerCase().includes(q)
+      (b) => b.label.toLowerCase().includes(q) || b.value.toLowerCase().includes(q)
     );
   }, [branches, branchSearch]);
-
-
 
   const audience = useMemo(() => {
     if (audAll) return { all: true };
@@ -60,29 +74,47 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
     return out;
   }, [audAll, audRoles, audBranches]);
 
+  const canSave = useMemo(() => {
+    if (!title.trim() || !content.trim()) return false;
+
+    const sISO = datetimeLocalToISO(startsAt);
+    if (!sISO) return false;
+
+    const eISO = datetimeLocalToISO(endsAt);
+    if (eISO && new Date(eISO).getTime() < new Date(sISO).getTime()) return false;
+
+    return true;
+  }, [title, content, startsAt, endsAt]);
+
   const save = async () => {
     setSaving(true);
+    setErrorMsg(null);
+
     try {
+      const startsISO = datetimeLocalToISO(startsAt) ?? new Date().toISOString();
+      const endsISO = datetimeLocalToISO(endsAt);
+
+      if (endsISO && new Date(endsISO).getTime() < new Date(startsISO).getTime()) {
+        setErrorMsg('La fecha "Termina" no puede ser anterior a "Empieza".');
+        return;
+      }
+
       const payload = {
         type,
-        title,
-        content,
+        title: title.trim(),
+        content: content.trim(),
         severity,
         require_ack: type === 'important_alert' ? requireAck : false,
         pinned,
         audience,
-        starts_at: new Date(startsAt).toISOString(),
-        ends_at: endsAt ? new Date(endsAt).toISOString() : null,
+        starts_at: startsISO,
+        ends_at: endsISO,
         is_published: isPublished,
         is_active: isActive,
       };
 
       if (initial?.id) {
-        const { error } = await supabase
-          .from('announcements')
-          .update(payload)
-          .eq('id', initial.id);
-
+        const { error } = await supabase.from('announcements').update(payload).eq('id', initial.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('announcements').insert(payload);
@@ -90,6 +122,9 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
       }
 
       onSaved?.();
+    } catch (e: any) {
+      console.error('[AnnouncementEditor] save error', e);
+      setErrorMsg(e?.message ?? 'Error al guardar.');
     } finally {
       setSaving(false);
     }
@@ -106,12 +141,18 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
         <button
           type="button"
           onClick={save}
-          disabled={saving || !title.trim() || !content.trim()}
+          disabled={saving || !canSave}
           className="rounded-xl px-4 py-2 text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
         >
           {saving ? 'Guardando…' : 'Guardar'}
         </button>
       </div>
+
+      {errorMsg ? (
+        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {errorMsg}
+        </div>
+      ) : null}
 
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div>
@@ -139,6 +180,7 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
             <option value="warning">Warning</option>
             <option value="critical">Critical</option>
           </select>
+
           {type === 'important_alert' ? (
             <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
               <input
@@ -179,6 +221,9 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
             value={startsAt}
             onChange={(e) => setStartsAt(e.target.value)}
           />
+          <div className="mt-1 text-xs text-slate-500">
+            Se interpreta como hora local del navegador.
+          </div>
         </div>
 
         <div>
@@ -221,7 +266,11 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
             <div className="text-sm text-slate-600">A quién le aparece (RLS filtra)</div>
           </div>
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-            <input type="checkbox" checked={audAll} onChange={(e) => setAudAll(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={audAll}
+              onChange={(e) => setAudAll(e.target.checked)}
+            />
             Todos
           </label>
         </div>
@@ -253,6 +302,10 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
                     </button>
                   );
                 })}
+              </div>
+
+              <div className="mt-2 text-xs text-slate-500">
+                Si dejás vacío, se interpreta como “todos los roles”.
               </div>
             </div>
 
@@ -295,9 +348,8 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
                   <button
                     type="button"
                     onClick={() => {
-                      // toggle all visibles
                       const visible = filteredBranches.map((b) => b.value);
-                      const allSelected = visible.every((v) => audBranches.includes(v));
+                      const allSelected = visible.length > 0 && visible.every((v) => audBranches.includes(v));
                       setAudBranches((prev) =>
                         allSelected
                           ? prev.filter((v) => !visible.includes(v))
@@ -306,6 +358,7 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
                     }}
                     className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold hover:bg-slate-50"
                     title="Seleccionar / deseleccionar visibles"
+                    disabled={branchesLoading}
                   >
                     <ChevronsUpDown className="h-4 w-4" />
                     {filteredBranches.length}
@@ -352,7 +405,7 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
                 </div>
 
                 <div className="mt-2 text-xs text-slate-500">
-                  Se guardan como <b>slugs</b> (lowercase) y matchea contra <b>user_branches</b>.
+                  Se guardan como <b>code</b> (lowercase) y matchea contra <b>user_branches</b>.
                   Dejá vacío para “todas”.
                 </div>
               </div>
