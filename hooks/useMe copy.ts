@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 type Me = {
@@ -17,14 +17,11 @@ const normalizeBranches = (arr: string[] | null | undefined) =>
 export function useMe() {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
-  const reqIdRef = useRef(0); // evita condiciones de carrera
 
   const load = async () => {
-    const reqId = ++reqIdRef.current;
     try {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) {
-        if (reqId !== reqIdRef.current) return;
         setMe(null);
         setLoading(false);
         return;
@@ -36,8 +33,6 @@ export function useMe() {
         .select('*')
         .eq('id', auth.user.id)
         .single();
-
-      if (reqId !== reqIdRef.current) return;
 
       if (!vErr && vData) {
         const profile: Me = {
@@ -62,7 +57,7 @@ export function useMe() {
       }
 
       // 2) Fallback: profiles + user_branches
-      const [{ data: p, error: pErr }, { data: ub, error: ubErr }] = await Promise.all([
+      const [{ data: p }, { data: ub }] = await Promise.all([
         supabase
           .from('profiles')
           .select('id,email,full_name,role,is_active')
@@ -71,10 +66,8 @@ export function useMe() {
         supabase.from('user_branches').select('branch').eq('user_id', auth.user.id),
       ]);
 
-      if (reqId !== reqIdRef.current) return;
-
-      if (pErr) {
-        // si no se puede leer perfil, por seguridad cerrar sesión
+      if (!p) {
+        // Si no hay perfil, cerramos sesión por seguridad
         await supabase.auth.signOut();
         setMe(null);
         setLoading(false);
@@ -82,12 +75,12 @@ export function useMe() {
       }
 
       const profile: Me = {
-        id: p!.id,
-        email: p!.email,
-        full_name: p!.full_name,
-        role: p!.role,
-        is_active: p!.is_active,
-        branches: normalizeBranches((ubErr ? [] : (ub ?? []).map(r => String(r.branch))) as string[]),
+        id: p.id,
+        email: p.email,
+        full_name: p.full_name,
+        role: p.role,
+        is_active: p.is_active,
+        branches: normalizeBranches((ub ?? []).map((r: any) => String(r.branch))),
       };
 
       if (profile.is_active === false) {
@@ -100,21 +93,20 @@ export function useMe() {
       setMe(profile);
       setLoading(false);
     } catch {
-      // fallback defensivo
       setMe(null);
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // carga inicial
+    // Carga inicial
     load();
 
-    // reacciona a cambios de sesión
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Reaccionar a cambios de sesión
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         setLoading(true);
-        await load();
+        load();
       } else if (event === 'SIGNED_OUT' || !session) {
         setMe(null);
         setLoading(false);

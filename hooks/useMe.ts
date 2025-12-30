@@ -1,19 +1,44 @@
 'use client';
+
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
-type Me = {
+/* ---------------------------------------------
+ * Roles del sistema
+ * ------------------------------------------- */
+export type UserRole =
+  | 'admin'
+  | 'supervisor'
+  | 'vendedor'
+  | 'rrhh';
+
+/* ---------------------------------------------
+ * Tipo Me
+ * ------------------------------------------- */
+export type Me = {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'admin' | 'user';
+  role: UserRole;
   is_active: boolean;
   branches: string[];
 };
 
-const normalizeBranches = (arr: string[] | null | undefined) =>
-  Array.from(new Set((arr ?? []).map(b => String(b).toLowerCase()))).sort();
+/* ---------------------------------------------
+ * Utils
+ * ------------------------------------------- */
+const normalizeBranches = (arr?: Array<string | null>) =>
+  Array.from(
+    new Set(
+      (arr ?? [])
+        .filter(Boolean)
+        .map(b => String(b).toLowerCase())
+    )
+  ).sort();
 
+/* ---------------------------------------------
+ * Hook principal
+ * ------------------------------------------- */
 export function useMe() {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,13 +46,16 @@ export function useMe() {
   const load = async () => {
     try {
       const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) {
+
+      if (!auth?.user) {
         setMe(null);
         setLoading(false);
         return;
       }
 
-      // 1) Intentar vista
+      /* ---------------------------------------------
+       * 1) Intentar desde la VIEW (camino feliz)
+       * ------------------------------------------- */
       const { data: vData, error: vErr } = await supabase
         .from('v_user_with_branches')
         .select('*')
@@ -39,12 +67,12 @@ export function useMe() {
           id: vData.id,
           email: vData.email,
           full_name: vData.full_name,
-          role: vData.role,
+          role: vData.role as UserRole,
           is_active: vData.is_active,
-          branches: normalizeBranches(vData.branches ?? []),
+          branches: normalizeBranches(vData.branches),
         };
 
-        if (profile.is_active === false) {
+        if (!profile.is_active) {
           await supabase.auth.signOut();
           setMe(null);
           setLoading(false);
@@ -56,18 +84,23 @@ export function useMe() {
         return;
       }
 
-      // 2) Fallback: profiles + user_branches
-      const [{ data: p }, { data: ub }] = await Promise.all([
+      /* ---------------------------------------------
+       * 2) Fallback: profiles + user_branches
+       * ------------------------------------------- */
+      const [{ data: p, error: pErr }, { data: ub }] = await Promise.all([
         supabase
           .from('profiles')
           .select('id,email,full_name,role,is_active')
           .eq('id', auth.user.id)
           .single(),
-        supabase.from('user_branches').select('branch').eq('user_id', auth.user.id),
+        supabase
+          .from('user_branches')
+          .select('branch')
+          .eq('user_id', auth.user.id),
       ]);
 
-      if (!p) {
-        // Si no hay perfil, cerramos sesión por seguridad
+      if (pErr || !p) {
+        // Perfil inconsistente => cerramos sesión
         await supabase.auth.signOut();
         setMe(null);
         setLoading(false);
@@ -78,12 +111,12 @@ export function useMe() {
         id: p.id,
         email: p.email,
         full_name: p.full_name,
-        role: p.role,
+        role: p.role as UserRole,
         is_active: p.is_active,
-        branches: normalizeBranches((ub ?? []).map((r: any) => String(r.branch))),
+        branches: normalizeBranches(ub?.map(r => r.branch)),
       };
 
-      if (profile.is_active === false) {
+      if (!profile.is_active) {
         await supabase.auth.signOut();
         setMe(null);
         setLoading(false);
@@ -92,34 +125,57 @@ export function useMe() {
 
       setMe(profile);
       setLoading(false);
-    } catch {
+    } catch (err) {
+      console.error('[useMe] error:', err);
       setMe(null);
       setLoading(false);
     }
   };
 
+  /* ---------------------------------------------
+   * Lifecycle
+   * ------------------------------------------- */
   useEffect(() => {
-    // Carga inicial
+    // carga inicial
     load();
 
-    // Reaccionar a cambios de sesión
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        setLoading(true);
-        load();
-      } else if (event === 'SIGNED_OUT' || !session) {
-        setMe(null);
-        setLoading(false);
+    // reaccionar a auth changes
+    const { data: sub } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setLoading(true);
+          load();
+        } else if (event === 'SIGNED_OUT' || !session) {
+          setMe(null);
+          setLoading(false);
+        }
       }
-    });
+    );
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
-  const firstName = useMemo(
-    () => (me?.full_name ?? '').split(' ').filter(Boolean)[0] ?? '',
-    [me?.full_name]
-  );
+  /* ---------------------------------------------
+   * Derivados útiles
+   * ------------------------------------------- */
+  const firstName = useMemo(() => {
+    if (!me?.full_name) return '';
+    return me.full_name.split(' ').filter(Boolean)[0] ?? '';
+  }, [me?.full_name]);
 
-  return { me, firstName, loading, refetch: load };
+  const isAdmin = me?.role === 'admin';
+  const isRRHH = me?.role === 'rrhh';
+  const isSupervisor = me?.role === 'supervisor';
+
+  return {
+    me,
+    firstName,
+    loading,
+    isAdmin,
+    isRRHH,
+    isSupervisor,
+    refetch: load,
+  };
 }

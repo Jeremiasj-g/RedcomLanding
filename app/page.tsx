@@ -7,7 +7,18 @@ import Container from '@/components/Container';
 import { homeCategories } from '@/lib/data';
 import Image from 'next/image'; // 👈 Imagen optimizada de Next
 
+import { useMe } from '@/hooks/useMe';
+import { useImportantAlert } from '@/hooks/useImportantAlert';
+import ImportantAlertModal from '@/components/rrhh/ImportantAlertModal';
+
 export default function Home() {
+  const { me } = useMe();
+
+  const {
+    alert,
+    acknowledge, // 👈 ESTA FUNCIÓN VIENE DEL HOOK
+  } = useImportantAlert(me?.id);
+
   const handleScrollToCategories = () => {
     document.getElementById('categories')?.scrollIntoView({
       behavior: 'smooth',
@@ -49,6 +60,15 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
+      <ImportantAlertModal
+        open={!!alert}
+        title={alert?.title ?? ''}
+        content={alert?.content ?? ''}
+        severity={alert?.severity ?? 'info'}
+        requireAck={alert?.require_ack ?? false}
+        onAcknowledge={acknowledge}
+      />
+
       {/* Hero Section con carrusel */}
       <section className="relative">
         <Carousel onCTAClick={handleScrollToCategories} />
