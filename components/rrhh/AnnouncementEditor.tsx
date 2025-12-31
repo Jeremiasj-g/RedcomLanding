@@ -230,8 +230,7 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
       <div className="p-5 sm:p-6 border-b border-slate-200 bg-white">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-lg font-extrabold text-slate-900">Crear / Editar novedad</div>
-            <div className="text-sm text-slate-500">Configuración completa (empresa)</div>
+            <div className="text-2xl font-extrabold text-slate-900">Crear publicación</div>
           </div>
 
           <Button
@@ -306,7 +305,7 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
               className="h-11 rounded-2xl"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ej: 🎉 Cumpleaños de hoy"
+              placeholder="Ej: Cumpleaños del mes"
             />
           </FieldCard>
 

@@ -362,26 +362,10 @@ export default function RRHHPage() {
                   {/* ✅ Split layout: Editor + Checklist + Plantillas */}
                   <div className="grid grid-cols-1 xl:grid-cols-[1.25fr_0.75fr] gap-4">
                     {/* Editor */}
-                    <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                    <div className="relative overflow-hidden rounded-3xl shadow-sm">
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-slate-500/10 via-sky-500/8 to-transparent" />
-                      <div className="relative p-5 sm:p-6">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-extrabold text-slate-800 shadow-sm">
-                              <Sparkles className="h-4 w-4" />
-                              Editor de Novedades (V2)
-                            </div>
-                            <div className="mt-2 text-sm text-slate-500">
-                              Tip: al guardar te llevo automáticamente a “Publicaciones”.
-                            </div>
-                          </div>
-
-                          <Badge className="rounded-xl" variant="secondary">
-                            RRHH
-                          </Badge>
-                        </div>
-
-                        <div className="mt-4">
+                      <div className="relative">
+                        <div>
                           {/* ✅ Si tu AnnouncementEditor acepta initial, esto funciona.
                               Si no lo acepta, no rompe: simplemente no pasa nada.
                               (pero lo más probable es que sí, porque ya lo usás para editar) */}
@@ -404,10 +388,7 @@ export default function RRHHPage() {
                         <div className="p-5 sm:p-6">
                           <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-extrabold text-slate-800">
                             <ListChecks className="h-4 w-4" />
-                            Checklist pro
-                          </div>
-                          <div className="mt-2 text-sm text-slate-500">
-                            Para que quede “premium” en la home:
+                            Checklist
                           </div>
 
                           <div className="mt-4 space-y-3">
@@ -445,13 +426,7 @@ export default function RRHHPage() {
                                 <Wand2 className="h-4 w-4" />
                                 Plantillas rápidas
                               </div>
-                              <div className="mt-2 text-sm text-slate-500">
-                                Un click y te precargo el editor (podés ajustar antes de publicar).
-                              </div>
                             </div>
-                            <Badge variant="secondary" className="rounded-xl">
-                              1 click
-                            </Badge>
                           </div>
 
                           <div className="mt-4 grid grid-cols-1 gap-2">
@@ -496,7 +471,7 @@ export default function RRHHPage() {
 
                           {templateDraft ? (
                             <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
-                              Plantilla aplicada al editor ✅ (podés modificarla antes de publicar)
+                              Plantilla aplicada al editor (podés modificarla antes de publicar)
                             </div>
                           ) : (
                             <div className="mt-3 text-xs text-slate-500">
