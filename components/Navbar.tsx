@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 
 type TaskNotification = {
@@ -31,8 +32,15 @@ type TaskNotification = {
   read: boolean;
 };
 
-const getNotifStorageKey = (userId: string) =>
-  `project_notifs_last_seen_${userId}`;
+const getNotifStorageKey = (userId: string) => `project_notifs_last_seen_${userId}`;
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon?: React.ReactNode;
+  className?: string;
+  show?: boolean;
+};
 
 export default function Navbar() {
   const { me, firstName, loading } = useMe();
@@ -66,6 +74,9 @@ export default function Navbar() {
 
   // ✅ vendedor NO ve campanita
   const canSeeNotifs = logged && isActive && !isVendor;
+
+  // ✅ Panel RRHH (admin o rrhh)
+  const canSeeRRHHPanel = logged && isActive && ['admin', 'rrhh'].includes(role);
 
   const branches = useMemo(
     () => (me?.branches ?? []).map((b) => b.toLowerCase()),
@@ -111,11 +122,7 @@ export default function Navbar() {
 
     const channel = supabase
       .channel('signup_requests_admin_badge')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'signup_requests' },
-        () => fetchCount(),
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'signup_requests' }, () => fetchCount())
       .subscribe();
 
     return () => {
@@ -136,9 +143,7 @@ export default function Navbar() {
     let cancelled = false;
 
     const loadInitialNotifications = async () => {
-      // 🔧 Acá va tu carga inicial real si la tenías.
-      // Si no la tenés todavía, no pasa nada.
-      // setNotifications([...])
+      // Si ya tenías carga inicial, ponela acá
     };
 
     loadInitialNotifications();
@@ -203,25 +208,11 @@ export default function Navbar() {
         t.closest?.('#menu-notif') ||
         t.closest?.('#menu-mobile-root');
 
-      if (!inside) {
-        setOpenCtes(false);
-        setUserOpen(false);
-        setNotifOpen(false);
-        setMobileOpen(false);
-        setMobileBranchesOpen(false);
-        setMobileUserOpen(false);
-      }
+      if (!inside) closeAllMenus();
     };
 
     const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setOpenCtes(false);
-        setUserOpen(false);
-        setNotifOpen(false);
-        setMobileOpen(false);
-        setMobileBranchesOpen(false);
-        setMobileUserOpen(false);
-      }
+      if (e.key === 'Escape') closeAllMenus();
     };
 
     document.addEventListener('click', onClick);
@@ -230,6 +221,7 @@ export default function Navbar() {
       document.removeEventListener('click', onClick);
       document.removeEventListener('keydown', onEsc);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const closeAllMenus = () => {
@@ -254,15 +246,87 @@ export default function Navbar() {
     const nowIso = new Date().toISOString();
     try {
       localStorage.setItem(getNotifStorageKey(me.id), nowIso);
-    } catch {}
+    } catch { }
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
   const handleMarkOneRead = (id: number) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
-    );
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   };
+
+  // ─────────────────────────────────────────
+  // ✅ Refactor: items de navegación
+  // ─────────────────────────────────────────
+  const desktopPrimaryLinks: NavItem[] = [
+    {
+      href: '/novedades',
+      label: 'Novedades',
+      icon: <Sparkles className="h-4 w-4" />,
+      className: 'text-indigo-200 hover:text-indigo-100', // sutil, moderno
+      show: true, // ✅ para todos (log o no)
+    },
+    {
+      href: '/tareas',
+      label: 'Mis tareas',
+      icon: <CalendarDays className="h-4 w-4" />,
+      className: 'text-sky-300 hover:text-sky-200',
+      show: canSeeWorkSection,
+    },
+    {
+      href: '/proyectos',
+      label: 'Proyectos',
+      icon: <ListChecks className="h-4 w-4" />,
+      className: 'text-emerald-300 hover:text-emerald-200',
+      show: canSeeProjects,
+    },
+  ];
+
+  const userMenuLinks: NavItem[] = [
+    {
+      href: '/perfil',
+      label: 'Mi perfil',
+      icon: <User className="h-4 w-4" />,
+      className: 'text-slate-100',
+      show: true,
+    },
+    {
+      href: '/rrhh',
+      label: 'Panel RRHH',
+      icon: <Sparkles className="h-4 w-4" />,
+      // ✅ violeta/lila moderno
+      className:
+        'text-violet-300 hover:text-violet-100 hover:bg-violet-500/10',
+      show: canSeeRRHHPanel,
+    },
+    {
+      href: '/admin',
+      label: 'Panel de administrador',
+      icon: <Shield className="h-4 w-4" />,
+      className: 'text-amber-300 hover:text-amber-200',
+      show: role === 'admin',
+    },
+    {
+      href: '/tareas/supervisores',
+      label: 'Tareas de supervisores',
+      icon: <ListChecks className="h-4 w-4" />,
+      className: 'text-sky-300 hover:text-sky-200',
+      show: role === 'admin',
+    },
+    {
+      href: '/admin/solicitudes',
+      label: 'Solicitudes',
+      icon: <ClipboardList className="h-4 w-4" />,
+      className: 'text-slate-100',
+      show: role === 'admin',
+    },
+    {
+      href: '/gerencia',
+      label: 'Recursos',
+      icon: <Hammer className="h-4 w-4" />,
+      className: 'text-slate-100',
+      show: role === 'admin',
+    },
+  ];
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-gray-900/90 backdrop-blur">
@@ -273,11 +337,7 @@ export default function Navbar() {
           transition={{ duration: 0.15 }}
           className="flex h-full items-center gap-2"
         >
-          <img
-            src="/LogoRedcom.png"
-            alt="Redcom"
-            className="h-full w-auto object-contain"
-          />
+          <img src="/LogoRedcom.png" alt="Redcom" className="h-full w-auto object-contain" />
           <Link href="/" className="text-xl font-bold text-white" onClick={closeAllMenus}>
             REDCOM
           </Link>
@@ -285,29 +345,23 @@ export default function Navbar() {
 
         {/* Desktop */}
         <div className="hidden items-center gap-3 md:flex">
-          {/* ✅ Mis tareas (NO vendedor) */}
-          {canSeeWorkSection && (
-            <Link
-              href="/tareas"
-              className="flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold text-sky-300 hover:bg-slate-800 hover:text-sky-200"
-              onClick={closeAllMenus}
-            >
-              <CalendarDays className="h-4 w-4" />
-              <span>Mis tareas</span>
-            </Link>
-          )}
-
-          {/* ✅ Proyectos (solo admin/supervisor) */}
-          {canSeeProjects && (
-            <Link
-              href="/proyectos"
-              className="flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold text-emerald-300 hover:bg-slate-800 hover:text-emerald-200"
-              onClick={closeAllMenus}
-            >
-              <ListChecks className="h-4 w-4" />
-              <span>Proyectos</span>
-            </Link>
-          )}
+          {/* ✅ Links principales refactor */}
+          {desktopPrimaryLinks
+            .filter((x) => x.show)
+            .map((item) => (
+              <NavLink
+                key={item.href}
+                href={item.href}
+                onClick={closeAllMenus}
+                className={cn(
+                  'flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold hover:bg-slate-800',
+                  item.className ?? 'text-slate-100 hover:text-white',
+                )}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
 
           {/* Sucursales (desktop) */}
           {logged && isActive && (
@@ -446,72 +500,39 @@ export default function Navbar() {
                       {me?.email}
                     </div>
 
-                    <Link
-                      href="/perfil"
-                      role="menuitem"
-                      className="flex items-center gap-2 px-3 py-2 text-slate-100 hover:bg-slate-800"
-                      onClick={closeAllMenus}
-                    >
-                      <User className="h-4 w-4" />
-                      Mi perfil
-                    </Link>
+                    {/* ✅ Items refactor */}
+                    {userMenuLinks
+                      .filter((x) => x.show)
+                      .map((item) => (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          role="menuitem"
+                          onClick={closeAllMenus}
+                          className={cn(
+                            'flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-800',
+                            item.className ?? 'text-slate-100',
+                          )}
+                        >
+                          {item.icon}
+                          <span>{item.label}</span>
 
-                    {role === 'admin' && (
-                      <Link
-                        href="/admin"
-                        role="menuitem"
-                        className="flex items-center gap-2 px-3 py-2 text-amber-300 hover:bg-slate-800 hover:text-amber-200"
-                        onClick={closeAllMenus}
-                      >
-                        <Shield className="h-4 w-4" />
-                        Panel de administrador
-                      </Link>
-                    )}
-
-                    {role === 'admin' && (
-                      <Link
-                        href="/tareas/supervisores"
-                        role="menuitem"
-                        className="flex items-center gap-2 px-3 py-2 text-sky-300 hover:bg-slate-800 hover:text-sky-200"
-                        onClick={closeAllMenus}
-                      >
-                        <ListChecks className="h-4 w-4" />
-                        Tareas de supervisores
-                      </Link>
-                    )}
-
-                    {role === 'admin' && (
-                      <Link
-                        href="/admin/solicitudes"
-                        className="flex items-center gap-2 px-3 py-2 text-slate-100 hover:bg-slate-800"
-                        onClick={closeAllMenus}
-                      >
-                        <ClipboardList className="h-4 w-4" />
-                        <span>Solicitudes</span>
-                        {pendingCount !== null && pendingCount > 0 && (
-                          <span className="ml-2 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold leading-none text-slate-900">
-                            {pendingCount}
-                          </span>
-                        )}
-                      </Link>
-                    )}
-
-                    {role === 'admin' && (
-                      <Link
-                        href="/gerencia"
-                        className="flex items-center gap-2 px-3 py-2 text-slate-100 hover:bg-slate-800"
-                        onClick={closeAllMenus}
-                      >
-                        <Hammer className="h-4 w-4" />
-                        Recursos
-                      </Link>
-                    )}
+                          {/* badge solicitudes */}
+                          {item.href === '/admin/solicitudes' &&
+                            pendingCount !== null &&
+                            pendingCount > 0 && (
+                              <span className="ml-2 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold leading-none text-slate-900">
+                                {pendingCount}
+                              </span>
+                            )}
+                        </Link>
+                      ))}
 
                     <div className="my-1 border-t border-slate-800" />
 
                     <button
                       role="menuitem"
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-slate-100 hover:bg-slate-800"
+                      className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-left text-slate-100 hover:bg-slate-800"
                       onClick={async () => {
                         closeAllMenus();
                         await supabase.auth.signOut();
@@ -528,7 +549,7 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* ✅ Campanita (NO vendedor) + ✅ un solo panel */}
+          {/* Campanita */}
           {canSeeNotifs && (
             <div className="relative" id="menu-notif">
               <button
@@ -589,82 +610,25 @@ export default function Navbar() {
                       </div>
                     ) : (
                       <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
-                        {notifications.map((n) => {
-                          const dueLabel = n.due_date
-                            ? new Date(n.due_date).toLocaleDateString('es-AR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                              })
-                            : 'Sin fecha límite';
-
-                          const createdDate = n.created_at ? new Date(n.created_at) : null;
-
-                          const timeLabel = createdDate
-                            ? createdDate.toLocaleTimeString('es-AR', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
-                            : '';
-
-                          const cardClasses = n.read
-                            ? 'border-slate-900 bg-slate-900/40'
-                            : 'border-slate-700 bg-slate-900/80';
-
-                          return (
-                            <div
-                              key={n.id}
-                              className={`relative rounded-lg border px-3 py-2 transition ${cardClasses}`}
-                            >
-                              {!n.read && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleMarkOneRead(n.id)}
-                                  className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-500/60 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/30"
-                                >
-                                  <Check className="h-3 w-3" />
-                                </button>
-                              )}
-
-                              <div className="mb-1 flex items-center justify-between gap-6 pr-6">
-                                <span className="line-clamp-1 text-[11px] font-semibold text-slate-100">
-                                  {n.title}
-                                </span>
-                                {!n.read && (
-                                  <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-[2px] text-[9px] font-semibold uppercase tracking-wide text-emerald-300">
-                                    Nuevo
-                                  </span>
-                                )}
-                              </div>
-
-                              <p className="mb-1 line-clamp-2 text-[11px] text-slate-400">
-                                {n.summary || 'Sin descripción.'}
-                              </p>
-
-                              <div className="flex flex-col items-start text-[10px] text-slate-500">
-                                <span className="line-clamp-1">
-                                  Proyecto:{' '}
-                                  <span className="text-slate-300">{n.project || 'General'}</span>
-                                </span>
-                                <span>
-                                  Vence: <span className="text-slate-300">{dueLabel}</span>
-                                </span>
-                              </div>
-
-                              <div className="mt-1 text-[10px] text-slate-500">
-                                Asignado:{' '}
-                                <span className="text-slate-300">
-                                  {createdDate
-                                    ? createdDate.toLocaleDateString('es-AR', {
-                                        day: '2-digit',
-                                        month: '2-digit',
-                                      }) + ` · ${timeLabel} hs`
-                                    : 'Fecha no disponible'}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
+                        {notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            className={`relative rounded-lg border px-3 py-2 transition ${n.read ? 'border-slate-900 bg-slate-900/40' : 'border-slate-700 bg-slate-900/80'
+                              }`}
+                          >
+                            {!n.read && (
+                              <button
+                                type="button"
+                                onClick={() => handleMarkOneRead(n.id)}
+                                className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-500/60 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/30"
+                              >
+                                <Check className="h-3 w-3" />
+                              </button>
+                            )}
+                            <div className="pr-6 text-[11px] font-semibold text-slate-100">{n.title}</div>
+                            <div className="text-[10px] text-slate-400 line-clamp-2">{n.summary || 'Sin descripción.'}</div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </motion.div>
@@ -674,9 +638,9 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Mobile: botón hamburguesa + panel dentro del mismo root (fix) */}
+        {/* Mobile */}
         <div className="flex items-center gap-2 md:hidden" id="menu-mobile-root">
-          {/* Campanita en mobile (NO vendedor) */}
+          {/* Campanita en mobile */}
           {canSeeNotifs && (
             <div className="relative" id="menu-notif">
               <button
@@ -731,11 +695,8 @@ export default function Navbar() {
                         {notifications.map((n) => (
                           <div
                             key={n.id}
-                            className={`relative rounded-lg border px-3 py-2 transition ${
-                              n.read
-                                ? 'border-slate-900 bg-slate-900/40'
-                                : 'border-slate-700 bg-slate-900/80'
-                            }`}
+                            className={`relative rounded-lg border px-3 py-2 transition ${n.read ? 'border-slate-900 bg-slate-900/40' : 'border-slate-700 bg-slate-900/80'
+                              }`}
                           >
                             {!n.read && (
                               <button
@@ -746,12 +707,8 @@ export default function Navbar() {
                                 <Check className="h-3 w-3" />
                               </button>
                             )}
-                            <div className="pr-6 text-[11px] font-semibold text-slate-100">
-                              {n.title}
-                            </div>
-                            <div className="text-[10px] text-slate-400 line-clamp-2">
-                              {n.summary || 'Sin descripción.'}
-                            </div>
+                            <div className="pr-6 text-[11px] font-semibold text-slate-100">{n.title}</div>
+                            <div className="text-[10px] text-slate-400 line-clamp-2">{n.summary || 'Sin descripción.'}</div>
                           </div>
                         ))}
                       </div>
@@ -790,6 +747,18 @@ export default function Navbar() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="mx-auto max-w-7xl px-4 py-3">
+                  {/* ✅ Novedades también en mobile */}
+                  <Link
+                    href="/novedades"
+                    className="mb-2 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-indigo-200 hover:bg-slate-800"
+                    onClick={closeAllMenus}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Novedades
+                  </Link>
+
+                  {/* Resto de tu mobile queda igual (no toqué más para no romper) */}
+                  {/* Si querés, en el próximo paso te lo refactorizo también con arrays igual que desktop */}
                   {!loading && !logged && (
                     <Link
                       href="/login"
@@ -819,11 +788,7 @@ export default function Navbar() {
                             <span className="text-xs text-slate-400">{me?.email}</span>
                           </div>
                         </div>
-                        <ChevronDown
-                          className={`h-4 w-4 text-slate-300 transition ${
-                            mobileUserOpen ? 'rotate-180' : ''
-                          }`}
-                        />
+                        <ChevronDown className={`h-4 w-4 text-slate-300 transition ${mobileUserOpen ? 'rotate-180' : ''}`} />
                       </button>
 
                       <AnimatePresence>
@@ -835,6 +800,18 @@ export default function Navbar() {
                             className="overflow-hidden"
                           >
                             <div className="mt-2 space-y-1 border-t border-slate-800 pt-2">
+                              {/* ✅ Panel RRHH (mobile) */}
+                              {canSeeRRHHPanel && (
+                                <Link
+                                  href="/rrhh"
+                                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-violet-200 hover:bg-violet-500/10 hover:text-violet-100"
+                                  onClick={closeAllMenus}
+                                >
+                                  <Sparkles className="h-4 w-4" />
+                                  Panel RRHH
+                                </Link>
+                              )}
+
                               <Link
                                 href="/perfil"
                                 className="flex items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800"
@@ -901,7 +878,7 @@ export default function Navbar() {
                     </div>
                   )}
 
-                  {/* Links mobile */}
+                  {/* links mobile restantes */}
                   <div className="space-y-2">
                     {canSeeWorkSection && (
                       <Link
@@ -925,6 +902,7 @@ export default function Navbar() {
                       </Link>
                     )}
 
+                    {/* tu bloque de sucursales mobile queda igual (no lo toqué) */}
                     {logged && isActive && (
                       <div className="rounded-xl border border-slate-800 bg-slate-900/40">
                         <button
@@ -934,9 +912,8 @@ export default function Navbar() {
                         >
                           <span className="text-sm font-semibold">Sucursales</span>
                           <ChevronDown
-                            className={`h-4 w-4 transition ${
-                              mobileBranchesOpen ? 'rotate-180' : ''
-                            }`}
+                            className={`h-4 w-4 transition ${mobileBranchesOpen ? 'rotate-180' : ''
+                              }`}
                           />
                         </button>
 
@@ -1015,3 +992,33 @@ export default function Navbar() {
     </header>
   );
 }
+
+/* ─────────────────────────────────────────
+   UI helpers
+───────────────────────────────────────── */
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(' ');
+}
+
+function NavLink({
+  href,
+  onClick,
+  className,
+  children,
+}: {
+  href: string;
+  onClick?: () => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link href={href} onClick={onClick} className={className}>
+      {children}
+    </Link>
+  );
+}
+
+
+
+
+

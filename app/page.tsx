@@ -9,15 +9,19 @@ import Image from 'next/image'; // 👈 Imagen optimizada de Next
 
 import { useMe } from '@/hooks/useMe';
 import { useImportantAlert } from '@/hooks/useImportantAlert';
-import ImportantAlertModal from '@/components/rrhh/ImportantAlertModal';
+
+import { ImportantAlertModal } from '@/components/rrhh/ImportantAlertModal';
+import { useImportantAlertsQueue } from '@/hooks/rrhh/useImportantAlertsQueue';
 
 export default function Home() {
   const { me } = useMe();
-
   const {
-    alert,
-    acknowledge, // 👈 ESTA FUNCIÓN VIENE DEL HOOK
-  } = useImportantAlert(me?.id);
+    current: alert,
+    acknowledge,
+    snooze,
+    dismissForever,
+  } = useImportantAlertsQueue();
+
 
   const handleScrollToCategories = () => {
     document.getElementById('categories')?.scrollIntoView({
@@ -59,121 +63,127 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen">
+    <>
       <ImportantAlertModal
         open={!!alert}
         title={alert?.title ?? ''}
         content={alert?.content ?? ''}
-        severity={alert?.severity ?? 'info'}
+        severity={(alert?.severity as any) ?? 'info'}
         requireAck={alert?.require_ack ?? false}
-        onAcknowledge={acknowledge}
+        onAcknowledge={() => alert && acknowledge(alert.id)}
+        onSnooze={() => alert && snooze(alert.id, 3)}
+        onDismissForever={() => alert && dismissForever(alert.id)}
+        onRequestClose={() => alert && snooze(alert.id, 3)} // cerrar = “recordar en 3 min”
       />
+      
+      <div className="min-h-screen">
 
-      {/* Hero Section con carrusel */}
-      <section className="relative">
-        <Carousel onCTAClick={handleScrollToCategories} />
-      </section>
+        {/* Hero Section con carrusel */}
+        <section className="relative">
+          <Carousel onCTAClick={handleScrollToCategories} />
+        </section>
 
-      {/* Sección de categorías */}
-      <section id="categories" className="py-16 bg-gray-50">
-        <Container>
-          {/* Título + subtítulo animado */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl md:text-5xl font-[900] text-gray-900 mb-4 tracking-tight">
-              Seleccionar sucursal
-            </h2>
+        {/* Sección de categorías */}
+        <section id="categories" className="py-16 bg-gray-50">
+          <Container>
+            {/* Título + subtítulo animado */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+              className="text-center mb-12"
+            >
+              <h2 className="text-3xl md:text-5xl font-[900] text-gray-900 mb-4 tracking-tight">
+                Seleccionar sucursal
+              </h2>
 
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Más de 13 años distribuyendo productos de calidad en toda la región
-            </p>
-          </motion.div>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                Más de 13 años distribuyendo productos de calidad en toda la región
+              </p>
+            </motion.div>
 
-          {/* Layout dividido: imagen izquierda, cards derecha */}
-          <div className="flex flex-col lg:flex-row items-start h-max">
-            {/* Columna izquierda: imagen */}
-            <div className="flex flex-col lg:items-center lg:justify-center w-full h-full lg:w-1/2 lg:h-full">
-              <div className="relative w-full h-full aspect-square rounded-3xl overflow-hidden">
-                <Image
-                  src="/seleccionar-ilustration.png"
-                  alt="Ilustración de sucursales"
-                  fill
-                  className="object-contain drop-shadow-2xl"
-                />
+            {/* Layout dividido: imagen izquierda, cards derecha */}
+            <div className="flex flex-col lg:flex-row items-start h-max">
+              {/* Columna izquierda: imagen */}
+              <div className="flex flex-col lg:items-center lg:justify-center w-full h-full lg:w-1/2 lg:h-full">
+                <div className="relative w-full h-full aspect-square rounded-3xl overflow-hidden">
+                  <Image
+                    src="/seleccionar-ilustration.png"
+                    alt="Ilustración de sucursales"
+                    fill
+                    className="object-contain drop-shadow-2xl"
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Columna derecha: grid de cards */}
-            <div className="w-full lg:w-1/2">
-              <div
-                className="
+              {/* Columna derecha: grid de cards */}
+              <div className="w-full lg:w-1/2">
+                <div
+                  className="
     grid 
     md:grid-cols-2       /* tablet: 2 columnas */
     lg:grid-cols-6       /* desktop: 6 columnas para controlar spans */
     gap-6
   "
-              >
-                {homeCategories.map((category, index) => {
-                  const gradient = cardGradients[index % cardGradients.length];
+                >
+                  {homeCategories.map((category, index) => {
+                    const gradient = cardGradients[index % cardGradients.length];
 
-                  // BENTO PATRÓN CORREGIDO
-                  let spanClasses = "";
+                    // BENTO PATRÓN CORREGIDO
+                    let spanClasses = "";
 
-                  switch (index % 5) {
-                    case 0: // fila 1 - col 1
-                      spanClasses = "lg:col-span-3"; // 50%
-                      break;
+                    switch (index % 5) {
+                      case 0: // fila 1 - col 1
+                        spanClasses = "lg:col-span-3"; // 50%
+                        break;
 
-                    case 1: // fila 1 - col 2
-                      spanClasses = "lg:col-span-3"; // 50%
-                      break;
+                      case 1: // fila 1 - col 2
+                        spanClasses = "lg:col-span-3"; // 50%
+                        break;
 
-                    case 2: // fila 2 - card completa
-                      spanClasses = "lg:col-span-6"; // 100%
-                      break;
+                      case 2: // fila 2 - card completa
+                        spanClasses = "lg:col-span-6"; // 100%
+                        break;
 
-                    case 3: // fila 3 - col 1
-                      spanClasses = "lg:col-span-3"; // 50%
-                      break;
+                      case 3: // fila 3 - col 1
+                        spanClasses = "lg:col-span-3"; // 50%
+                        break;
 
-                    case 4: // fila 3 - col 2
-                      spanClasses = "lg:col-span-3"; // 50%
-                      break;
-                  }
+                      case 4: // fila 3 - col 2
+                        spanClasses = "lg:col-span-3"; // 50%
+                        break;
+                    }
 
-                  return (
-                    <motion.div
-                      key={category.id}
-                      initial={{ opacity: 0, y: 30 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      transition={{
-                        duration: 0.5,
-                        delay: index * 0.1,
-                      }}
-                      viewport={{ once: true }}
-                      className={spanClasses}
-                    >
-                      <Card
-                        {...category}
-                        gradientFrom={gradient.from}
-                        gradientVia={gradient.via}
-                        gradientTo={gradient.to}
-                        borderColor={gradient.border}
-                      />
-                    </motion.div>
-                  );
-                })}
+                    return (
+                      <motion.div
+                        key={category.id}
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: 0.5,
+                          delay: index * 0.1,
+                        }}
+                        viewport={{ once: true }}
+                        className={spanClasses}
+                      >
+                        <Card
+                          {...category}
+                          gradientFrom={gradient.from}
+                          gradientVia={gradient.via}
+                          gradientTo={gradient.to}
+                          borderColor={gradient.border}
+                        />
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
               </div>
-
             </div>
-          </div>
-        </Container>
-      </section>
-    </div>
+          </Container>
+        </section>
+      </div>
+    </>
   );
 }

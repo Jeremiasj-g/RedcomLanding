@@ -7,8 +7,6 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
 
-import { useImportantAlert } from '@/hooks/useImportantAlert';
-import ImportantAlertModal from '@/components/rrhh/ImportantAlertModal';
 
 export default function AppHome() {
   const router = useRouter();
@@ -43,10 +41,6 @@ export default function AppHome() {
   );
 
 
-  const {
-    alert,
-    acknowledge, // 👈 ESTA FUNCIÓN VIENE DEL HOOK
-  } = useImportantAlert(me?.id);
 
   const handleScrollToCategories = () => {
     document.getElementById('categories')?.scrollIntoView({
@@ -58,16 +52,6 @@ export default function AppHome() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] grid place-items-center bg-gradient-to-br from-[#fff5f5] via-white to-[#fff0f0]">
-        <ImportantAlertModal
-          open={!!alert}
-          title={alert?.title ?? ''}
-          content={alert?.content ?? ''}
-          severity={alert?.severity ?? 'info'}
-          requireAck={alert?.require_ack ?? false}
-          onAcknowledge={acknowledge}
-        />
-
-
         <div className="flex flex-col items-center gap-5">
           {/* Logo circular Redcom */}
           <div className="relative">

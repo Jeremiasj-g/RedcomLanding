@@ -2,19 +2,86 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronsUpDown, Calendar as CalendarIcon, X } from 'lucide-react';
 import { useBranches } from '@/hooks/useBranches';
 import { datetimeLocalToISO, isoToDatetimeLocal } from '@/utils/datetime';
+
+// shadcn/ui
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 
 type AnnouncementType = 'news' | 'weekly' | 'birthday' | 'important_alert';
 type Severity = 'info' | 'warning' | 'critical';
 
 type Props = {
-  initial?: any; // editar
+  initial?: any; // editar / plantilla
   onSaved?: () => void;
 };
 
 const ROLES = ['admin', 'supervisor', 'vendedor', 'rrhh'] as const;
+
+const TYPE_OPTIONS: { value: AnnouncementType; label: string; hint: string }[] = [
+  { value: 'news', label: 'Noticia', hint: 'Comunicado general / novedades' },
+  { value: 'weekly', label: 'Semanal', hint: 'Resumen o recordatorios de la semana' },
+  { value: 'birthday', label: 'Cumpleaños', hint: 'Festejos / saludo del día' },
+  { value: 'important_alert', label: 'Alerta importante (popup)', hint: 'Se muestra como popup en home' },
+];
+
+const SEVERITY_OPTIONS: { value: Severity; label: string }[] = [
+  { value: 'info', label: 'Info' },
+  { value: 'warning', label: 'Warning' },
+  { value: 'critical', label: 'Critical' },
+];
+
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(' ');
+}
+
+function pad2(n: number) {
+  return String(n).padStart(2, '0');
+}
+
+function parseDTLocal(dt: string): { date: Date | null; hour: string; minute: string } {
+  if (!dt) return { date: null, hour: '09', minute: '00' };
+  const [dPart, tPart] = dt.split('T');
+  if (!dPart || !tPart) return { date: null, hour: '09', minute: '00' };
+  const [y, m, d] = dPart.split('-').map(Number);
+  const [hh, mm] = tPart.split(':').map(Number);
+  const date = new Date(y, (m ?? 1) - 1, d ?? 1);
+  return { date, hour: pad2(hh ?? 0), minute: pad2(mm ?? 0) };
+}
+
+function buildDTLocal(date: Date | null, hour: string, minute: string) {
+  if (!date) return '';
+  const y = date.getFullYear();
+  const m = pad2(date.getMonth() + 1);
+  const d = pad2(date.getDate());
+  const hh = pad2(Number(hour || '0'));
+  const mm = pad2(Number(minute || '0'));
+  return `${y}-${m}-${d}T${hh}:${mm}`;
+}
 
 export function AnnouncementEditor({ initial, onSaved }: Props) {
   const [type, setType] = useState<AnnouncementType>(initial?.type ?? 'news');
@@ -24,9 +91,10 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
   const [requireAck, setRequireAck] = useState<boolean>(initial?.require_ack ?? false);
   const [pinned, setPinned] = useState<boolean>(initial?.pinned ?? false);
 
-  // ✅ datetime-local correcto (evita corrimiento)
   const [startsAt, setStartsAt] = useState<string>(
-    initial?.starts_at ? isoToDatetimeLocal(initial.starts_at) : isoToDatetimeLocal(new Date().toISOString())
+    initial?.starts_at
+      ? isoToDatetimeLocal(initial.starts_at)
+      : isoToDatetimeLocal(new Date().toISOString())
   );
   const [endsAt, setEndsAt] = useState<string>(
     initial?.ends_at ? isoToDatetimeLocal(initial.ends_at) : ''
@@ -42,7 +110,32 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { branches, loading: branchesLoading } = useBranches();
-  const [branchSearch, setBranchSearch] = useState('');
+
+  // ✅ Cuando cambia initial (plantilla / edición), refresca form
+  useEffect(() => {
+    setType(initial?.type ?? 'news');
+    setTitle(initial?.title ?? '');
+    setContent(initial?.content ?? '');
+    setSeverity(initial?.severity ?? 'info');
+    setRequireAck(Boolean(initial?.require_ack ?? false));
+    setPinned(Boolean(initial?.pinned ?? false));
+
+    setStartsAt(
+      initial?.starts_at
+        ? isoToDatetimeLocal(initial.starts_at)
+        : isoToDatetimeLocal(new Date().toISOString())
+    );
+    setEndsAt(initial?.ends_at ? isoToDatetimeLocal(initial.ends_at) : '');
+
+    setAudAll(Boolean(initial?.audience?.all ?? true));
+    setAudRoles(initial?.audience?.roles ?? []);
+    setAudBranches(initial?.audience?.branches ?? []);
+
+    setIsPublished(Boolean(initial?.is_published ?? true));
+    setIsActive(Boolean(initial?.is_active ?? true));
+    setErrorMsg(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial?.id, JSON.stringify(initial ?? {})]);
 
   // ✅ Si no es important_alert, no tiene sentido ACK
   useEffect(() => {
@@ -57,14 +150,6 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audAll]);
-
-  const filteredBranches = useMemo(() => {
-    const q = branchSearch.trim().toLowerCase();
-    if (!q) return branches;
-    return branches.filter(
-      (b) => b.label.toLowerCase().includes(q) || b.value.toLowerCase().includes(q)
-    );
-  }, [branches, branchSearch]);
 
   const audience = useMemo(() => {
     if (audAll) return { all: true };
@@ -130,289 +215,551 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
     }
   };
 
+  const startDT = useMemo(() => parseDTLocal(startsAt), [startsAt]);
+  const endDT = useMemo(() => parseDTLocal(endsAt), [endsAt]);
+
+  const hours = useMemo(() => Array.from({ length: 24 }).map((_, i) => pad2(i)), []);
+  const minutes = useMemo(
+    () => ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'],
+    []
+  );
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-lg font-extrabold text-slate-900">Crear / Editar novedad</div>
-          <div className="text-sm text-slate-500">Configuración completa (empresa)</div>
-        </div>
-
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving || !canSave}
-          className="rounded-xl px-4 py-2 text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
-        >
-          {saving ? 'Guardando…' : 'Guardar'}
-        </button>
-      </div>
-
-      {errorMsg ? (
-        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMsg}
-        </div>
-      ) : null}
-
-      <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs font-semibold text-slate-600">Tipo</label>
-          <select
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
-            value={type}
-            onChange={(e) => setType(e.target.value as AnnouncementType)}
-          >
-            <option value="news">Noticia</option>
-            <option value="weekly">Semanal</option>
-            <option value="birthday">Cumpleaños</option>
-            <option value="important_alert">Alerta importante (popup)</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold text-slate-600">Severidad</label>
-          <select
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
-            value={severity}
-            onChange={(e) => setSeverity(e.target.value as Severity)}
-          >
-            <option value="info">Info</option>
-            <option value="warning">Warning</option>
-            <option value="critical">Critical</option>
-          </select>
-
-          {type === 'important_alert' ? (
-            <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={requireAck}
-                onChange={(e) => setRequireAck(e.target.checked)}
-              />
-              Requiere “Entendido” (ACK obligatorio)
-            </label>
-          ) : null}
-        </div>
-
-        <div className="lg:col-span-2">
-          <label className="text-xs font-semibold text-slate-600">Título</label>
-          <input
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Ej: Aviso importante de fin de año…"
-          />
-        </div>
-
-        <div className="lg:col-span-2">
-          <label className="text-xs font-semibold text-slate-600">Contenido</label>
-          <textarea
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 min-h-[140px]"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Texto detallado…"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold text-slate-600">Empieza</label>
-          <input
-            type="datetime-local"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
-            value={startsAt}
-            onChange={(e) => setStartsAt(e.target.value)}
-          />
-          <div className="mt-1 text-xs text-slate-500">
-            Se interpreta como hora local del navegador.
-          </div>
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold text-slate-600">Termina (opcional)</label>
-          <input
-            type="datetime-local"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
-            value={endsAt}
-            onChange={(e) => setEndsAt(e.target.value)}
-          />
-        </div>
-
-        <div className="lg:col-span-2 flex flex-wrap gap-6">
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
-            Fijar arriba (pinned)
-          </label>
-
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={isPublished}
-              onChange={(e) => setIsPublished(e.target.checked)}
-            />
-            Publicado
-          </label>
-
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-            Activo
-          </label>
-        </div>
-      </div>
-
-      {/* Audience */}
-      <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <div className="flex items-start justify-between gap-3">
+    <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      {/* Header (simplificado) */}
+      <div className="p-5 sm:p-6 border-b border-slate-200 bg-white">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="font-extrabold text-slate-900">Audiencia</div>
-            <div className="text-sm text-slate-600">A quién le aparece (RLS filtra)</div>
+            <div className="text-lg font-extrabold text-slate-900">Crear / Editar novedad</div>
+            <div className="text-sm text-slate-500">Configuración completa (empresa)</div>
           </div>
-          <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-            <input
-              type="checkbox"
-              checked={audAll}
-              onChange={(e) => setAudAll(e.target.checked)}
-            />
-            Todos
-          </label>
+
+          <Button
+            type="button"
+            onClick={save}
+            disabled={saving || !canSave}
+            className="rounded-2xl"
+          >
+            {saving ? 'Guardando…' : 'Guardar'}
+          </Button>
         </div>
 
-        {!audAll ? (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <div className="text-xs font-semibold text-slate-600">Roles</div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {ROLES.map((r) => {
-                  const active = audRoles.includes(r);
-                  return (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() =>
-                        setAudRoles((prev) =>
-                          active ? prev.filter((x) => x !== r) : [...prev, r]
-                        )
-                      }
-                      className={[
-                        'px-3 py-1.5 rounded-xl text-xs font-bold border transition',
-                        active
-                          ? 'bg-slate-900 text-white border-slate-900'
-                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300',
-                      ].join(' ')}
-                    >
-                      {r.toUpperCase()}
-                    </button>
-                  );
-                })}
+        {errorMsg ? (
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {errorMsg}
+          </div>
+        ) : null}
+      </div>
+
+      {/* Body */}
+      <div className="p-5 sm:p-6 space-y-5">
+        {/* Tipo / Severidad */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <FieldCard title="Tipo">
+            <Select value={type} onValueChange={(v) => setType(v as AnnouncementType)}>
+              <SelectTrigger className="h-11 rounded-2xl">
+                <SelectValue placeholder="Seleccionar tipo…" />
+              </SelectTrigger>
+              <SelectContent>
+                {TYPE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <div className="flex flex-col">
+                      <span className="font-semibold">{opt.label}</span>
+                      <span className="text-xs text-slate-500">{opt.hint}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FieldCard>
+
+          <FieldCard title="Severidad">
+            <Select value={severity} onValueChange={(v) => setSeverity(v as Severity)}>
+              <SelectTrigger className="h-11 rounded-2xl">
+                <SelectValue placeholder="Seleccionar severidad…" />
+              </SelectTrigger>
+              <SelectContent>
+                {SEVERITY_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {type === 'important_alert' ? (
+              <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-extrabold text-slate-900">ACK obligatorio</div>
+                  <div className="text-xs text-slate-500">Requiere “Entendido” para cerrar</div>
+                </div>
+                <Checkbox checked={requireAck} onCheckedChange={(v) => setRequireAck(Boolean(v))} />
+              </div>
+            ) : null}
+          </FieldCard>
+        </div>
+
+        {/* Título / Contenido */}
+        <div className="grid grid-cols-1 gap-4">
+          <FieldCard title="Título">
+            <Input
+              className="h-11 rounded-2xl"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ej: 🎉 Cumpleaños de hoy"
+            />
+          </FieldCard>
+
+          <FieldCard title="Contenido">
+            <Textarea
+              className="min-h-[160px] rounded-2xl"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Texto detallado…"
+            />
+          </FieldCard>
+        </div>
+
+        {/* Fechas */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <DateTimePro
+            label="Empieza"
+            date={startDT.date}
+            hour={startDT.hour}
+            minute={startDT.minute}
+            hours={hours}
+            minutes={minutes}
+            onChange={(d, h, m) => setStartsAt(buildDTLocal(d, h, m))}
+            helper="Se interpreta como hora local del navegador."
+          />
+
+          <DateTimePro
+            label="Termina (opcional)"
+            date={endDT.date}
+            hour={endDT.hour}
+            minute={endDT.minute}
+            hours={hours}
+            minutes={minutes}
+            onChange={(d, h, m) => setEndsAt(d ? buildDTLocal(d, h, m) : '')}
+            optional
+          />
+        </div>
+
+        {/* Flags pro */}
+        <FieldCard title="Opciones" subtitle="Visibilidad y estado">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <NiceCheck label="Fijar arriba (pinned)" checked={pinned} onChange={setPinned} />
+            <NiceCheck label="Publicado" checked={isPublished} onChange={setIsPublished} />
+            <NiceCheck label="Activo" checked={isActive} onChange={setIsActive} />
+            <div className={cn(
+              'rounded-2xl border border-slate-200 px-3 py-3 flex items-center justify-between',
+              type !== 'important_alert' && 'opacity-60'
+            )}>
+              <div>
+                <div className="text-sm font-extrabold text-slate-900">ACK</div>
+                <div className="text-xs text-slate-500">Solo popup</div>
+              </div>
+              <Checkbox
+                checked={requireAck}
+                onCheckedChange={(v) => setRequireAck(Boolean(v))}
+                disabled={type !== 'important_alert'}
+              />
+            </div>
+          </div>
+        </FieldCard>
+
+        {/* Audience */}
+        <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="p-4 sm:p-5 bg-slate-50 border-b border-slate-200">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="font-extrabold text-slate-900">Audiencia</div>
+                <div className="text-sm text-slate-600">A quién le aparece (RLS filtra)</div>
               </div>
 
-              <div className="mt-2 text-xs text-slate-500">
-                Si dejás vacío, se interpreta como “todos los roles”.
+              {/* ✅ Toggle “Todos” */}
+              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                <Switch checked={audAll} onCheckedChange={(v) => setAudAll(v)} />
+                <span className="text-sm font-semibold text-slate-800">Todos</span>
               </div>
             </div>
+          </div>
 
-            <div>
-              <div className="text-xs font-semibold text-slate-600">Sucursales (branches)</div>
-
-              {/* Chips seleccionados */}
-              <div className="mt-2 flex flex-wrap gap-2">
-                {audBranches.length === 0 ? (
-                  <span className="text-xs text-slate-500">Sin filtro (todas)</span>
-                ) : (
-                  audBranches.map((v) => {
-                    const found = branches.find((b) => b.value === v);
+          {/* ✅ Solo si audAll = false, aparece el bloque completo */}
+          {!audAll ? (
+            <div className="p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Roles */}
+              <div className="rounded-2xl border border-slate-200 p-4 bg-white">
+                <div className="text-xs font-extrabold text-slate-700">Roles</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {ROLES.map((r) => {
+                    const active = audRoles.includes(r);
                     return (
                       <button
-                        key={v}
+                        key={r}
                         type="button"
-                        onClick={() => setAudBranches((prev) => prev.filter((x) => x !== v))}
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50"
-                        title="Quitar"
+                        onClick={() =>
+                          setAudRoles((prev) =>
+                            active ? prev.filter((x) => x !== r) : [...prev, r]
+                          )
+                        }
+                        className={cn(
+                          'px-3 py-2 rounded-2xl border text-xs font-extrabold transition',
+                          active
+                            ? 'bg-slate-900 text-white border-slate-900'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                        )}
                       >
-                        {found?.label ?? v}
-                        <span className="text-slate-400">×</span>
+                        {r.toUpperCase()}
                       </button>
                     );
-                  })
-                )}
-              </div>
-
-              {/* Selector */}
-              <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <input
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                    placeholder={branchesLoading ? 'Cargando sucursales…' : 'Buscar sucursal…'}
-                    value={branchSearch}
-                    onChange={(e) => setBranchSearch(e.target.value)}
-                    disabled={branchesLoading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const visible = filteredBranches.map((b) => b.value);
-                      const allSelected = visible.length > 0 && visible.every((v) => audBranches.includes(v));
-                      setAudBranches((prev) =>
-                        allSelected
-                          ? prev.filter((v) => !visible.includes(v))
-                          : Array.from(new Set([...prev, ...visible]))
-                      );
-                    }}
-                    className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold hover:bg-slate-50"
-                    title="Seleccionar / deseleccionar visibles"
-                    disabled={branchesLoading}
-                  >
-                    <ChevronsUpDown className="h-4 w-4" />
-                    {filteredBranches.length}
-                  </button>
+                  })}
                 </div>
 
-                <div className="mt-3 max-h-48 overflow-auto rounded-xl border border-slate-100">
-                  {filteredBranches.length === 0 ? (
-                    <div className="p-3 text-sm text-slate-600">No hay resultados.</div>
+                <div className="mt-3 text-xs text-slate-500">
+                  Si dejás vacío, se interpreta como “todos los roles”.
+                </div>
+              </div>
+
+              {/* Branches */}
+              <div className="rounded-2xl border border-slate-200 p-4 bg-white">
+                <div className="text-xs font-extrabold text-slate-700">Sucursales (branches)</div>
+
+                {/* Chips seleccionados */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {audBranches.length === 0 ? (
+                    <span className="text-xs text-slate-500">Sin filtro (todas)</span>
                   ) : (
-                    filteredBranches.map((b) => {
-                      const selected = audBranches.includes(b.value);
+                    audBranches.map((v) => {
+                      const found = branches.find((b) => b.value === v);
                       return (
                         <button
-                          key={b.id}
+                          key={v}
                           type="button"
-                          onClick={() =>
-                            setAudBranches((prev) =>
-                              selected ? prev.filter((x) => x !== b.value) : [...prev, b.value]
-                            )
-                          }
-                          className={[
-                            'w-full flex items-center justify-between px-3 py-2 text-sm text-left hover:bg-slate-50',
-                            selected ? 'bg-slate-50' : '',
-                          ].join(' ')}
+                          onClick={() => setAudBranches((prev) => prev.filter((x) => x !== v))}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                          title="Quitar"
                         >
-                          <div>
-                            <div className="font-semibold text-slate-900">{b.label}</div>
-                            <div className="text-xs text-slate-500">{b.value}</div>
-                          </div>
-                          {selected ? (
-                            <span className="inline-flex items-center justify-center h-7 w-7 rounded-xl bg-slate-900 text-white">
-                              <Check className="h-4 w-4" />
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center justify-center h-7 w-7 rounded-xl border border-slate-200 text-slate-400">
-                              <Check className="h-4 w-4 opacity-0" />
-                            </span>
-                          )}
+                          {found?.label ?? v}
+                          <span className="text-slate-400">×</span>
                         </button>
                       );
                     })
                   )}
                 </div>
 
-                <div className="mt-2 text-xs text-slate-500">
-                  Se guardan como <b>code</b> (lowercase) y matchea contra <b>user_branches</b>.
+                <div className="mt-3">
+                  <BranchesMultiSelect
+                    loading={branchesLoading}
+                    options={branches}
+                    value={audBranches}
+                    onChange={setAudBranches}
+                  />
+                </div>
+
+                <div className="mt-3 text-xs text-slate-500">
                   Dejá vacío para “todas”.
                 </div>
               </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-2xl"
+            onClick={() => {
+              setType('news');
+              setTitle('');
+              setContent('');
+              setSeverity('info');
+              setRequireAck(false);
+              setPinned(false);
+              setStartsAt(isoToDatetimeLocal(new Date().toISOString()));
+              setEndsAt('');
+              setAudAll(true);
+              setAudRoles([]);
+              setAudBranches([]);
+              setIsPublished(true);
+              setIsActive(true);
+              setErrorMsg(null);
+            }}
+          >
+            Limpiar
+          </Button>
+
+          <Button type="button" className="rounded-2xl" onClick={save} disabled={saving || !canSave}>
+            {saving ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </div>
       </div>
     </div>
+  );
+}
+
+/* ---------------- UI helpers ---------------- */
+
+function FieldCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div>
+        <div className="text-xs font-extrabold text-slate-700">{title}</div>
+        {subtitle ? <div className="mt-1 text-xs text-slate-500">{subtitle}</div> : null}
+      </div>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
+function NiceCheck({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 px-3 py-3 flex items-center justify-between">
+      <div className="text-sm font-extrabold text-slate-900">{label}</div>
+      <Checkbox checked={checked} onCheckedChange={(v) => onChange(Boolean(v))} />
+    </div>
+  );
+}
+
+function DateTimePro({
+  label,
+  date,
+  hour,
+  minute,
+  hours,
+  minutes,
+  onChange,
+  optional,
+  helper,
+}: {
+  label: string;
+  date: Date | null;
+  hour: string;
+  minute: string;
+  hours: string[];
+  minutes: string[];
+  onChange: (d: Date | null, h: string, m: string) => void;
+  optional?: boolean;
+  helper?: string;
+}) {
+  const display = useMemo(() => {
+    if (!date) return optional ? 'Sin fecha' : 'Seleccionar…';
+    return `${date.toLocaleDateString()} ${hour}:${minute}`;
+  }, [date, hour, minute, optional]);
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-extrabold text-slate-700">{label}</Label>
+        {optional ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-8 px-2 rounded-xl text-xs"
+            onClick={() => onChange(null, hour, minute)}
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpiar
+          </Button>
+        ) : null}
+      </div>
+
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              'mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-left text-sm font-semibold text-slate-800',
+              'shadow-sm hover:bg-slate-50 transition flex items-center justify-between'
+            )}
+          >
+            <span className="truncate">{display}</span>
+            <CalendarIcon className="h-4 w-4 text-slate-500" />
+          </button>
+        </PopoverTrigger>
+
+        <PopoverContent className="p-0 w-[380px]" align="start">
+          <div className="p-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+            <div className="text-xs font-extrabold text-slate-700">Fecha y hora</div>
+          </div>
+
+          <div className="p-3">
+            <Calendar
+              mode="single"
+              selected={date ?? undefined}
+              onSelect={(d) => onChange(d ?? null, hour, minute)}
+              initialFocus
+            />
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <TimeCombo label="Hora" value={hour} options={hours} onChange={(h) => onChange(date, h, minute)} />
+              <TimeCombo label="Min" value={minute} options={minutes} onChange={(m) => onChange(date, hour, m)} />
+            </div>
+
+            {helper ? <div className="mt-2 text-xs text-slate-500">{helper}</div> : null}
+          </div>
+
+          <div className="p-3 border-t border-slate-200 flex justify-end bg-white">
+            <Button type="button" className="rounded-2xl">Listo</Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function TimeCombo({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+      <div className="text-[11px] font-extrabold text-slate-700">{label}</div>
+
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              'mt-2 h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-left text-sm font-semibold text-slate-800',
+              'shadow-sm hover:bg-slate-50 transition flex items-center justify-between'
+            )}
+          >
+            <span className="truncate">{value}</span>
+            <ChevronsUpDown className="h-4 w-4 text-slate-500" />
+          </button>
+        </PopoverTrigger>
+
+        <PopoverContent className="p-0 w-[190px]" align="start">
+          <Command>
+            <CommandInput placeholder={`Buscar ${label.toLowerCase()}…`} />
+            <CommandList className="max-h-[220px]">
+              <CommandEmpty>Sin resultados.</CommandEmpty>
+              <CommandGroup>
+                {options.map((opt) => (
+                  <CommandItem
+                    key={opt}
+                    value={opt}
+                    onSelect={() => {
+                      onChange(opt);
+                      setOpen(false);
+                    }}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="font-semibold">{opt}</span>
+                    {opt === value ? <Check className="h-4 w-4" /> : null}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function BranchesMultiSelect({
+  options,
+  value,
+  onChange,
+  loading,
+}: {
+  options: Array<{ id: string; label: string; value: string }>;
+  value: string[];
+  onChange: (v: string[]) => void;
+  loading?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const label = value.length === 0 ? 'Sin filtro (todas)' : `${value.length} seleccionadas`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            'h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-left text-sm font-semibold text-slate-800',
+            'shadow-sm hover:bg-slate-50 transition flex items-center justify-between'
+          )}
+        >
+          <span className="truncate">{loading ? 'Cargando sucursales…' : label}</span>
+          <ChevronsUpDown className="h-4 w-4 text-slate-500" />
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent className="p-0 w-[360px]" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar sucursal…" />
+          <CommandList className="max-h-[260px]">
+            <CommandEmpty>Sin resultados.</CommandEmpty>
+            <CommandGroup>
+              {options.map((b) => {
+                const selected = value.includes(b.value);
+                return (
+                  <CommandItem
+                    key={b.id}
+                    value={`${b.label} ${b.value}`}
+                    onSelect={() => {
+                      onChange(selected ? value.filter((x) => x !== b.value) : [...value, b.value]);
+                    }}
+                    className="flex items-center justify-between"
+                  >
+                    <div>
+                      <div className="font-semibold">{b.label}</div>
+                      <div className="text-xs text-slate-500">{b.value}</div>
+                    </div>
+                    {selected ? (
+                      <span className="inline-flex items-center justify-center h-7 w-7 rounded-xl bg-slate-900 text-white">
+                        <Check className="h-4 w-4" />
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center justify-center h-7 w-7 rounded-xl border border-slate-200 text-slate-400" />
+                    )}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+
+        <div className="p-3 border-t border-slate-200 flex items-center justify-between bg-white">
+          <Button type="button" variant="outline" className="rounded-2xl" onClick={() => onChange([])}>
+            Limpiar
+          </Button>
+          <Button type="button" className="rounded-2xl" onClick={() => setOpen(false)}>
+            Listo
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
