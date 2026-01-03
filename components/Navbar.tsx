@@ -750,7 +750,7 @@ export default function Navbar() {
                   {/* ✅ Novedades también en mobile */}
                   <Link
                     href="/novedades"
-                    className="mb-2 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-indigo-200 hover:bg-slate-800"
+                    className="mb-2 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-violet-200 hover:bg-violet-500/10 hover:text-violet-100"
                     onClick={closeAllMenus}
                   >
                     <Sparkles className="h-4 w-4" />

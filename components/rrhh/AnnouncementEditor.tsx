@@ -225,7 +225,7 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
   );
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-3xl border border-slate-300 bg-white shadow-sm overflow-hidden">
       {/* Header (simplificado) */}
       <div className="p-5 sm:p-6 border-b border-slate-200 bg-white">
         <div className="flex items-start justify-between gap-4">
@@ -368,7 +368,7 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
         </FieldCard>
 
         {/* Audience */}
-        <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="rounded-3xl border border-slate-300 bg-white shadow-sm overflow-hidden">
           <div className="p-4 sm:p-5 bg-slate-50 border-b border-slate-200">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -512,7 +512,7 @@ function FieldCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-slate-300 bg-white p-4">
       <div>
         <div className="text-xs font-extrabold text-slate-700">{title}</div>
         {subtitle ? <div className="mt-1 text-xs text-slate-500">{subtitle}</div> : null}
@@ -566,7 +566,7 @@ function DateTimePro({
   }, [date, hour, minute, optional]);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-slate-300 bg-white p-4">
       <div className="flex items-center justify-between">
         <Label className="text-xs font-extrabold text-slate-700">{label}</Label>
         {optional ? (

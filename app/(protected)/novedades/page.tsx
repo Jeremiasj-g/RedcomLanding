@@ -1,12 +1,22 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PartyPopper, Newspaper, CalendarDays, Sparkles, Pin } from 'lucide-react';
+import {
+  PartyPopper,
+  Newspaper,
+  CalendarDays,
+  Sparkles,
+  Pin,
+  Info,
+  AlertTriangle,
+  ShieldAlert,
+} from 'lucide-react';
 
 type TypeFilter = 'all' | 'news' | 'weekly' | 'birthday';
+type Severity = 'info' | 'warning' | 'critical';
 
 const tabs: { key: TypeFilter; label: string; icon: React.ReactNode }[] = [
   { key: 'all', label: 'Todas', icon: <Sparkles className="h-4 w-4" /> },
@@ -25,6 +35,49 @@ function formatDate(value: string) {
   } catch {
     return value;
   }
+}
+
+function normalizeSeverity(v?: string | null): Severity {
+  const s = String(v || 'info').toLowerCase();
+  if (s === 'critical') return 'critical';
+  if (s === 'warning') return 'warning';
+  return 'info';
+}
+
+/** ✅ Severidad -> SOLO barra superior + chip (sin afectar fondo) */
+function severityMeta(v?: string | null) {
+  const s = normalizeSeverity(v);
+
+  if (s === 'critical') {
+    return {
+      key: 'critical' as const,
+      label: 'Crítico',
+      icon: <ShieldAlert className="h-3.5 w-3.5" />,
+      topBar: 'bg-red-500/70',
+      chip: 'bg-white/80 text-red-700 border-red-200/70',
+      dot: 'bg-red-500',
+    };
+  }
+
+  if (s === 'warning') {
+    return {
+      key: 'warning' as const,
+      label: 'Atención',
+      icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      topBar: 'bg-amber-400/70',
+      chip: 'bg-white/80 text-amber-800 border-amber-200/70',
+      dot: 'bg-amber-400',
+    };
+  }
+
+  return {
+    key: 'info' as const,
+    label: 'Info',
+    icon: <Info className="h-3.5 w-3.5" />,
+    topBar: 'bg-sky-500/70',
+    chip: 'bg-white/80 text-sky-700 border-sky-200/70',
+    dot: 'bg-sky-500',
+  };
 }
 
 function typeMeta(type: string) {
@@ -86,13 +139,15 @@ export default function NovedadesPage() {
   const [tab, setTab] = useState<TypeFilter>('all');
   const [loading, setLoading] = useState(true);
 
+  const birthdayCardRef = useRef<HTMLDivElement | null>(null);
+
   const load = async () => {
     setLoading(true);
 
     const { data, error } = await supabase
       .from('announcements')
       .select('id,type,title,content,severity,pinned,created_at')
-      .neq('type', 'important_alert') // la alerta va por popup en home
+      .neq('type', 'important_alert')
       .order('pinned', { ascending: false })
       .order('created_at', { ascending: false });
 
@@ -116,14 +171,13 @@ export default function NovedadesPage() {
     });
 
     const b = byQuery.filter((x) => String(x.type).toLowerCase() === 'birthday');
-
     const nonBirthday = byQuery.filter((x) => String(x.type).toLowerCase() !== 'birthday');
 
     const filteredRest =
       tab === 'all'
         ? nonBirthday
         : tab === 'birthday'
-          ? [] // los cumpleaños se muestran arriba, no abajo
+          ? []
           : nonBirthday.filter((x) => String(x.type).toLowerCase() === tab);
 
     const c = {
@@ -135,6 +189,61 @@ export default function NovedadesPage() {
 
     return { birthdays: b, rest: filteredRest, counts: c };
   }, [items, q, tab]);
+
+  // Confetti (cumple)
+  useEffect(() => {
+    if (birthdays.length === 0) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const mod = await import('canvas-confetti');
+      if (cancelled) return;
+
+      const confetti = mod.default;
+
+      const fire = (originX: number) => {
+        confetti({
+          particleCount: 80,
+          startVelocity: 55,
+          spread: 75,
+          ticks: 230,
+          gravity: 1.15,
+          scalar: 1,
+          origin: { x: originX, y: 1 },
+          colors: ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#32ADE6', '#007AFF', '#AF52DE', '#FF2D55'],
+        });
+
+        confetti({
+          particleCount: 40,
+          startVelocity: 38,
+          spread: 95,
+          ticks: 190,
+          gravity: 1.05,
+          scalar: 0.9,
+          origin: { x: originX, y: 1 },
+        });
+      };
+
+      const rect = birthdayCardRef.current?.getBoundingClientRect();
+      if (!rect) {
+        fire(0.08);
+        fire(0.92);
+        return;
+      }
+
+      const leftX = (rect.left + 24) / window.innerWidth;
+      const rightX = (rect.right - 24) / window.innerWidth;
+      const clamp = (n: number) => Math.max(0, Math.min(1, n));
+
+      fire(clamp(leftX));
+      fire(clamp(rightX));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [birthdays.length]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white">
@@ -177,9 +286,7 @@ export default function NovedadesPage() {
                 onClick={() => setTab(t.key)}
                 className={cn(
                   'inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition',
-                  active
-                    ? 'bg-slate-900 text-white shadow'
-                    : 'text-slate-700 hover:bg-slate-100'
+                  active ? 'bg-slate-900 text-white shadow' : 'text-slate-700 hover:bg-slate-100'
                 )}
               >
                 {t.icon}
@@ -197,7 +304,7 @@ export default function NovedadesPage() {
           })}
         </div>
 
-        {/* Cumpleaños (sección superior destacada) */}
+        {/* Cumpleaños */}
         <AnimatePresence initial={false}>
           {birthdays.length > 0 && (
             <motion.section
@@ -207,17 +314,28 @@ export default function NovedadesPage() {
               exit={{ opacity: 0, y: 10 }}
               className="mt-8"
             >
-              <div className="relative overflow-hidden rounded-3xl border border-pink-200/60 bg-white shadow-sm">
-                {/* Glow */}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-pink-500/10 via-fuchsia-500/10 to-transparent" />
-                <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-pink-400/15 blur-3xl" />
-                <div className="pointer-events-none absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-fuchsia-400/15 blur-3xl" />
+              <div
+                ref={birthdayCardRef}
+                className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-sm backdrop-blur-xl"
+              >
+                <div className="pointer-events-none absolute inset-0">
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/10 to-white/30" />
+
+                  <div className="absolute -top-24 -left-24 h-64 w-64 rounded-full bg-pink-400 blur-[80px]" />
+                  <div className="absolute top-10 left-1/3 h-56 w-56 rounded-full bg-fuchsia-400 blur-[110px]" />
+                  <div className="absolute -top-20 right-10 h-72 w-72 rounded-full bg-indigo-400 blur-[110px]" />
+
+                  <div className="absolute bottom-15 left-10 h-72 w-72 rounded-full bg-sky-400 blur-[110px]" />
+                  <div className="absolute -bottom-28 right-1/3 h-80 w-80 rounded-full bg-emerald-400 blur-[110px]" />
+                  <div className="absolute bottom-2 -right-24 h-72 w-72 rounded-full bg-amber-300 blur-[110px]" />
+
+                  <div className="absolute inset-0 ring-1 ring-white/60" />
+                </div>
 
                 <div className="relative p-5 sm:p-6">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:justify-between">
-                    {/* Avatar + Title */}
                     <div className="flex items-start gap-4">
-                      <div className="relative h-16 w-16 sm:h-28 sm:w-28 overflow-hidden rounded-2xl ring-1 ring-pink-200/70 bg-white shadow-sm">
+                      <div className="relative h-16 w-16 sm:h-28 sm:w-28 overflow-hidden rounded-2xl ring-1 ring-white/60 bg-white/70 shadow-2xl backdrop-blur">
                         <Image
                           src="/redcom_avatar_fest.png"
                           alt="Redcom avatar fest"
@@ -229,15 +347,15 @@ export default function NovedadesPage() {
                       </div>
 
                       <div className="min-w-0">
-                        <div className="inline-flex items-center gap-2 rounded-xl border border-pink-200/60 bg-pink-50 px-3 py-1 text-xs font-extrabold text-pink-700">
-                          <PartyPopper className="h-4 w-4" />
+                        <div className="inline-flex items-center gap-2 rounded-xl border border-white/60 bg-white/60 px-3 py-1 text-xs font-extrabold text-slate-900 shadow-sm backdrop-blur">
+                          <PartyPopper className="h-4 w-4 text-pink-600" />
                           RRHH · CUMPLEAÑOS
                         </div>
 
                         <h2 className="mt-2 text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
                           ¡Celebremos los cumpleañitos!
                         </h2>
-                        <p className="mt-1 text-sm text-slate-600">
+                        <p className="mt-1 text-sm text-slate-700">
                           {birthdays.length === 1
                             ? 'Hay 1 publicación de cumpleaños.'
                             : `Hay ${birthdays.length} publicaciones de cumpleaños.`}
@@ -245,16 +363,14 @@ export default function NovedadesPage() {
                       </div>
                     </div>
 
-                    {/* Mini hint */}
                     <div className="lg:text-right">
-                      <div className="text-xs font-semibold text-slate-500">Actualizado</div>
-                      <div className="mt-1 text-sm font-bold text-slate-800">
+                      <div className="text-xs font-semibold text-slate-600">Actualizado</div>
+                      <div className="mt-1 text-sm font-bold text-slate-900">
                         {formatDate(birthdays[0].created_at)}
                       </div>
                     </div>
                   </div>
 
-                  {/* Birthday cards (al lado del avatar en desktop) */}
                   <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-3">
                     <AnimatePresence initial={false}>
                       {birthdays.slice(0, 4).map((it) => (
@@ -264,33 +380,32 @@ export default function NovedadesPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 10 }}
-                          className="group relative overflow-hidden rounded-2xl border border-pink-200/60 bg-white p-4 shadow-sm"
+                          className={cn(
+                            'group relative overflow-hidden rounded-2xl border border-white/60',
+                            'bg-white/70 p-4 shadow-2xl backdrop-blur-xl',
+                            'transition hover:bg-white/80'
+                          )}
                         >
-                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-pink-500/8 via-fuchsia-500/6 to-transparent opacity-70" />
                           <div className="relative">
                             <div className="flex items-center justify-between gap-3">
                               <div className="inline-flex items-center gap-2">
                                 <span className="h-2 w-2 rounded-full bg-pink-500" />
-                                <span className="text-xs font-extrabold tracking-wide text-pink-700">
+                                <span className="text-xs font-extrabold tracking-wide text-slate-900">
                                   CUMPLEAÑOS
                                 </span>
                                 {it.pinned ? (
-                                  <span className="ml-1 inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-extrabold text-white">
+                                  <span className="ml-1 inline-flex items-center gap-1 rounded-lg bg-slate-900/90 px-2 py-1 text-[11px] font-extrabold text-white">
                                     <Pin className="h-3.5 w-3.5" />
-                                    PINNED
+                                    FIJADO
                                   </span>
                                 ) : null}
                               </div>
 
-                              <div className="text-xs text-slate-500">{formatDate(it.created_at)}</div>
+                              <div className="text-xs text-slate-600">{formatDate(it.created_at)}</div>
                             </div>
 
-                            <div className="mt-2 text-base font-extrabold text-slate-900">
-                              {it.title}
-                            </div>
-                            <div className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">
-                              {it.content}
-                            </div>
+                            <div className="mt-2 text-base font-extrabold text-slate-900">{it.title}</div>
+                            <div className="mt-1 text-sm text-slate-800 whitespace-pre-wrap">{it.content}</div>
                           </div>
                         </motion.div>
                       ))}
@@ -298,7 +413,7 @@ export default function NovedadesPage() {
                   </div>
 
                   {birthdays.length > 4 ? (
-                    <div className="mt-3 text-xs text-slate-500">
+                    <div className="mt-3 text-xs text-slate-700">
                       Mostrando 4 de {birthdays.length}. Usá el buscador para encontrar el resto.
                     </div>
                   ) : null}
@@ -308,7 +423,7 @@ export default function NovedadesPage() {
           )}
         </AnimatePresence>
 
-        {/* Otras novedades (sección inferior) */}
+        {/* Otras novedades */}
         <div className="mt-8">
           <div className="flex items-center justify-between">
             <div>
@@ -326,10 +441,7 @@ export default function NovedadesPage() {
           {loading ? (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
-                >
+                <div key={i} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="h-4 w-28 rounded bg-slate-100" />
                   <div className="mt-3 h-5 w-3/4 rounded bg-slate-100" />
                   <div className="mt-3 h-3 w-full rounded bg-slate-100" />
@@ -339,13 +451,12 @@ export default function NovedadesPage() {
             </div>
           ) : (
             <>
-              <motion.div
-                layout
-                className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-              >
+              <motion.div layout className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <AnimatePresence initial={false}>
                   {rest.map((it) => {
                     const meta = typeMeta(it.type);
+                    const sev = severityMeta(it.severity);
+
                     return (
                       <motion.article
                         key={it.id}
@@ -354,15 +465,25 @@ export default function NovedadesPage() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
                         className={cn(
-                          'group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm',
+                          'group relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm',
                           'transition hover:shadow-md'
                         )}
                       >
-                        {/* Glow */}
-                        <div className={cn('pointer-events-none absolute inset-0 bg-gradient-to-br', meta.glow)} />
-                        <div className={cn('pointer-events-none absolute inset-0 ring-1', meta.ring)} />
+                        {/* Glow / ring ABAJO */}
+                        <div className={cn('pointer-events-none absolute inset-0 z-0 bg-gradient-to-br', meta.glow)} />
+                        <div className={cn('pointer-events-none absolute inset-0 z-0 ring-1', meta.ring)} />
 
-                        <div className="relative">
+                        {/* ✅ Borde superior ARRIBA de todo */}
+                        <div className={cn('pointer-events-none absolute left-0 right-0 top-0 z-20 h-1.5', sev.topBar)} />
+
+                        {/* ✅ SOLO borde superior por severidad */}
+                        {/* <div className={cn('absolute left-0 right-0 top-0 h-[100px]', sev.topBar)} /> */}
+
+                        {/* ✅ Glow SOLO por tipo (como ya venías usando) */}
+                        {/* <div className={cn('pointer-events-none absolute inset-0 bg-gradient-to-br', meta.glow)} />
+                        <div className={cn('pointer-events-none absolute inset-0 ring-1', meta.ring)} /> */}
+
+                        <div className="relative p-5">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex flex-wrap items-center gap-2">
                               {it.pinned ? (
@@ -381,6 +502,19 @@ export default function NovedadesPage() {
                                 <span className={cn('h-2 w-2 rounded-full', meta.dot)} />
                                 {meta.icon}
                                 {meta.label}
+                              </span>
+
+                              {/* ✅ Chip sutil de severidad (NO tiñe fondo) */}
+                              <span
+                                className={cn(
+                                  'inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-[11px] font-extrabold backdrop-blur',
+                                  sev.chip
+                                )}
+                                title={`Severidad: ${sev.label}`}
+                              >
+                                <span className={cn('h-2 w-2 rounded-full', sev.dot)} />
+                                {sev.icon}
+                                {sev.label}
                               </span>
                             </div>
 

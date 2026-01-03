@@ -37,15 +37,15 @@ type ViewTab = 'publicar' | 'publicaciones';
 const QUICK_TEMPLATES = [
   {
     key: 'birthday',
-    title: 'Cumpleaños del día',
-    icon: <Heart className="h-4 w-4" />,
+    title: 'Cumpleaños del mes',
+    icon: <Heart className="h-4 w-4 text-pink-600" />,
     hint: 'Post rápido para festejar en la home',
     payload: {
       type: 'birthday',
       severity: 'info',
-      title: '🎉 Cumpleaños de hoy',
+      title: 'Cumpleaños del mes',
       content:
-        '¡Feliz cumple! 🎂\n\n• Nombre Apellido\n• Nombre Apellido\n\nQue tengan un gran día 🙌',
+        'Celebramos los cumpleaños del mes:\n\n• Nombre Apellido\n• Nombre Apellido\n\n¡Que tengan un excelente día!',
       pinned: true,
       require_ack: false,
     },
@@ -53,13 +53,14 @@ const QUICK_TEMPLATES = [
   {
     key: 'weekly',
     title: 'Resumen semanal',
-    icon: <CalendarDays className="h-4 w-4" />,
-    hint: 'Ideal para objetivos / recordatorios',
+    icon: <CalendarDays className="h-4 w-4 text-indigo-600" />,
+    hint: 'Ideal para objetivos, recordatorios y foco semanal',
     payload: {
       type: 'weekly',
       severity: 'info',
-      title: '📌 Resumen semanal',
-      content: 'Esta semana:\n\n• Punto 1\n• Punto 2\n• Punto 3\n\nGracias a todos 🙌',
+      title: 'Resumen semanal',
+      content:
+        'Durante esta semana:\n\n• Punto 1\n• Punto 2\n• Punto 3\n\nGracias por el compromiso de todos.',
       pinned: false,
       require_ack: false,
     },
@@ -67,13 +68,14 @@ const QUICK_TEMPLATES = [
   {
     key: 'news',
     title: 'Noticia interna',
-    icon: <Newspaper className="h-4 w-4" />,
-    hint: 'Comunicado general',
+    icon: <Newspaper className="h-4 w-4 text-emerald-600" />,
+    hint: 'Comunicado general para toda la organización',
     payload: {
       type: 'news',
       severity: 'success',
-      title: '📰 Novedad',
-      content: 'Compartimos la siguiente novedad:\n\n—\n\nGracias.',
+      title: 'Comunicado interno',
+      content:
+        'Compartimos la siguiente novedad:\n\n—\n\nAnte cualquier duda, comunicarse con RRHH.',
       pinned: false,
       require_ack: false,
     },
@@ -81,13 +83,14 @@ const QUICK_TEMPLATES = [
   {
     key: 'warning',
     title: 'Aviso importante',
-    icon: <AlertTriangle className="h-4 w-4" />,
-    hint: 'Cuando hay impacto operativo',
+    icon: <AlertTriangle className="h-4 w-4 text-amber-600" />,
+    hint: 'Usar cuando hay impacto operativo o cambios relevantes',
     payload: {
       type: 'news',
       severity: 'warning',
-      title: '⚠️ Aviso importante',
-      content: 'Atención:\n\n• Qué cambia\n• Desde cuándo\n• A quién afecta\n\nGracias.',
+      title: 'Aviso importante',
+      content:
+        'Se informa lo siguiente:\n\n• Qué cambia\n• Desde cuándo\n• A quién afecta\n\nPor favor, leer atentamente.',
       pinned: true,
       require_ack: true,
     },
