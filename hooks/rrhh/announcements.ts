@@ -5,11 +5,13 @@ import { supabase } from '@/lib/supabaseClient';
 export type AnnouncementType = 'news' | 'weekly' | 'birthday' | 'important_alert';
 export type Severity = 'info' | 'warning' | 'critical';
 
-export type Audience = {
-  all?: boolean;
-  roles?: string[];
-  branches?: string[];
-} | null;
+export type Audience =
+  | {
+      all?: boolean;
+      roles?: string[];
+      branches?: string[];
+    }
+  | null;
 
 export type Announcement = {
   id: string;
@@ -29,7 +31,7 @@ export type Announcement = {
 };
 
 export type AnnouncementMetric = {
-  id: string; // puede ser el id del announcement (ideal)
+  id: string; // view puede devolver announcement_id o id
   type: AnnouncementType;
   title: string;
   created_at: string;
@@ -44,10 +46,10 @@ export type AnnouncementMetric = {
   seen_count: number;
   ack_count: number;
 
-  // ✅ para el modal de audiencia
+  // ✅ para el modal “Audiencia”
   audience?: Audience;
 
-  // si tu view lo trae, lo respetamos (no molesta)
+  // si tu view lo trae
   announcement_id?: string;
 };
 
@@ -55,8 +57,12 @@ function uniq(arr: string[]) {
   return Array.from(new Set(arr));
 }
 
+function getRealAnnouncementId(r: any) {
+  return String(r?.announcement_id ?? r?.id ?? '').trim();
+}
+
+/** ✅ Métricas + merge de audience (para UI de RRHH) */
 export async function rrhhFetchAnnouncementsMetrics() {
-  // 1) métricas como siempre (no tocamos nada)
   const { data: metrics, error } = await supabase
     .from('v_announcement_metrics')
     .select('*')
@@ -67,19 +73,12 @@ export async function rrhhFetchAnnouncementsMetrics() {
   const rows = ((metrics ?? []) as any[]) as AnnouncementMetric[];
   if (rows.length === 0) return [];
 
-  // 2) detectar el id real del announcement (algunas views usan announcement_id)
-  const ids = uniq(
-    rows
-      .map((r: any) => String(r.announcement_id ?? r.id ?? '').trim())
-      .filter(Boolean)
-  );
+  // ids reales del announcement
+  const ids = uniq(rows.map(getRealAnnouncementId).filter(Boolean));
 
-  if (ids.length === 0) {
-    // no hay ids para buscar audience -> devolvemos métricas sin audience
-    return rows;
-  }
+  if (ids.length === 0) return rows;
 
-  // 3) traemos audience desde announcements
+  // traemos audience desde announcements (solo lo necesario)
   const { data: audRows, error: audErr } = await supabase
     .from('announcements')
     .select('id,audience')
@@ -92,19 +91,23 @@ export async function rrhhFetchAnnouncementsMetrics() {
     audMap.set(String(r.id), (r.audience ?? null) as Audience);
   });
 
-  // 4) merge al shape que tu UI espera
-  const merged = rows.map((r: any) => {
-    const realId = String(r.announcement_id ?? r.id);
+  // merge
+  return rows.map((r: any) => {
+    const realId = getRealAnnouncementId(r);
     return {
       ...r,
-      // para UI: siempre en root
       audience: audMap.get(realId) ?? null,
-      // aseguramos que id siga siendo el id del announcement si tu view usa announcement_id
-      id: String(r.id ?? realId),
+      // mantenemos id tal cual la view, pero realId queda para el que lo necesite
+      // (si en tu UI querés SIEMPRE el id real, podés reemplazar id: realId)
     } as AnnouncementMetric;
   });
+}
 
-  return merged;
+/** ✅ NUEVO: trae el anuncio completo para edición (content, audience, etc.) */
+export async function rrhhFetchAnnouncementById(id: string) {
+  const { data, error } = await supabase.from('announcements').select('*').eq('id', id).single();
+  if (error) throw error;
+  return data as Announcement;
 }
 
 export async function rrhhUpdateAnnouncement(id: string, patch: Partial<Announcement>) {

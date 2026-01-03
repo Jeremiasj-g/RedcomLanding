@@ -34,7 +34,7 @@ export default function Obera() {
 
   return (
 
-    <RequireAuth roles={['admin', 'supervisor', 'vendedor']} branches={['obera']}>
+    <RequireAuth roles={['admin', 'supervisor', 'vendedor', 'rrhh']} branches={['obera']}>
       <div className="min-h-screen">
         <PageHeader
           title="Oberá"

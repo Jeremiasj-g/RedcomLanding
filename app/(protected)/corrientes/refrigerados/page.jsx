@@ -38,7 +38,7 @@ export default function CorrientesRefrigerados() {
 
   return (
 
-    <RequireAuth roles={['admin', 'supervisor', 'vendedor']} branches={['refrigerados']}>
+    <RequireAuth roles={['admin', 'supervisor', 'vendedor', 'rrhh']} branches={['refrigerados']}>
 
       <div className="min-h-screen">
         <PageHeader
