@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { RequireAuth } from '@/components/RouteGuards';
-import { AnnouncementEditor } from '@/components/rrhh/AnnouncementEditor';
+import { AnnouncementEditor } from '@/components/rrhh/announcements/AnnouncementEditor';
 import RRHHAnnouncementsPublicaciones from '@/components/rrhh/RRHHAnnouncementsPublicaciones';
 
 import {

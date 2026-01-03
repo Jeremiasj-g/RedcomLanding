@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AnnouncementEditor } from '@/components/rrhh/AnnouncementEditor';
+import { AnnouncementEditor } from '@/components/rrhh/AnnouncementEditorV1';
 
 import {
   rrhhArchiveAnnouncement,
@@ -28,6 +28,7 @@ import {
   X,
   ChevronsUpDown,
   Check,
+  Users2, // ✅ NEW
 } from 'lucide-react';
 
 // shadcn/ui
@@ -88,6 +89,10 @@ export default function RRHHAnnouncementsPublicaciones({
   const [readsFor, setReadsFor] = useState<AnnouncementMetric | null>(null);
   const [reads, setReads] = useState<any[]>([]);
   const [readsLoading, setReadsLoading] = useState(false);
+
+  // ✅ NEW: audience modal
+  const [audienceOpen, setAudienceOpen] = useState(false);
+  const [audienceFor, setAudienceFor] = useState<AnnouncementMetric | null>(null);
 
   // pagination
   const [page, setPage] = useState(1);
@@ -210,7 +215,6 @@ export default function RRHHAnnouncementsPublicaciones({
     setReadsOpen(true);
     setReadsLoading(true);
     try {
-      // Si tu hook espera number, cambiá a Number(it.id)
       const data = await rrhhFetchReads(it.id);
       setReads(data);
     } finally {
@@ -218,8 +222,13 @@ export default function RRHHAnnouncementsPublicaciones({
     }
   };
 
+  // ✅ NEW
+  const openAudience = (it: AnnouncementMetric) => {
+    setAudienceFor(it);
+    setAudienceOpen(true);
+  };
+
   const toggleActive = async (it: AnnouncementMetric) => {
-    // Si tu hook espera number, cambiá a Number(it.id)
     await rrhhUpdateAnnouncement(it.id, { is_active: !it.is_active });
     await onReload();
   };
@@ -257,7 +266,6 @@ export default function RRHHAnnouncementsPublicaciones({
 
     setBulkDeleting(true);
     try {
-      // Si rrhhDeleteAnnouncement espera number -> rrhhDeleteAnnouncement(Number(id))
       await Promise.all(Array.from(selectedIds).map((id) => rrhhDeleteAnnouncement(id)));
       clearSelection();
       await onReload();
@@ -563,6 +571,9 @@ export default function RRHHAnnouncementsPublicaciones({
                           <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white px-1.5 py-1 shadow-sm">
                             <IconButton label="Editar" onClick={() => setEditing(it)} icon={<Pencil className="h-4 w-4" />} />
 
+                            {/* ✅ NEW: Audiencia */}
+                            <IconButton label="Audiencia" onClick={() => openAudience(it)} icon={<Users2 className="h-4 w-4" />} />
+
                             <IconButton
                               label={it.is_active ? 'Desactivar' : 'Activar'}
                               onClick={() => toggleActive(it)}
@@ -690,6 +701,33 @@ export default function RRHHAnnouncementsPublicaciones({
                   ))
                 )}
               </div>
+            </div>
+          </Modal>
+        ) : null}
+      </AnimatePresence>
+
+      {/* ✅ NEW: Audience modal */}
+      <AnimatePresence>
+        {audienceOpen ? (
+          <Modal
+            onClose={() => setAudienceOpen(false)}
+            title={`Audiencia — ${audienceFor?.title ?? ''}`}
+          >
+            <div className="text-xs text-slate-500 mb-3">
+              A quién le aparece esta publicación (según <span className="font-semibold">audience</span>).
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              {renderAudience((audienceFor as any)?.audience)}
+            </div>
+
+            <Separator className="my-4" />
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="text-xs font-extrabold text-slate-700">JSON (debug)</div>
+              <pre className="mt-2 text-[12px] leading-relaxed text-slate-700 overflow-auto">
+                {JSON.stringify((audienceFor as any)?.audience ?? null, null, 2)}
+              </pre>
             </div>
           </Modal>
         ) : null}
@@ -845,6 +883,89 @@ function fmt(v?: string | null) {
   } catch {
     return String(v);
   }
+}
+
+// ✅ NEW helper: render audience
+function renderAudience(audience: any) {
+  const a = audience ?? null;
+
+  if (!a) {
+    return (
+      <div className="text-sm text-slate-700">
+        <div className="font-extrabold text-slate-900">No disponible</div>
+        <div className="mt-1 text-xs text-slate-500">
+          Este item no trae <span className="font-semibold">audience</span> en la lista. Si querés verlo siempre,
+          incluí <span className="font-semibold">audience</span> en el select del hook que arma <code>items</code>.
+        </div>
+      </div>
+    );
+  }
+
+  const all = Boolean(a.all ?? true);
+  const roles: string[] = Array.isArray(a.roles) ? a.roles : [];
+  const branches: string[] = Array.isArray(a.branches) ? a.branches : [];
+
+  if (all) {
+    return (
+      <div>
+        <div className="text-sm font-extrabold text-slate-900">Todos los usuarios</div>
+        <div className="mt-1 text-xs text-slate-500">No hay filtros por rol ni sucursal.</div>
+      </div>
+    );
+  }
+
+  const hasRoles = roles.length > 0;
+  const hasBranches = branches.length > 0;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="text-xs font-extrabold text-slate-700">Modo</div>
+        <div className="mt-1 text-sm font-extrabold text-slate-900">Audiencia segmentada</div>
+        <div className="mt-1 text-xs text-slate-500">
+          Para ver esta publicación, el usuario debe cumplir los filtros configurados.
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+          <div className="text-xs font-extrabold text-slate-700">Roles</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {!hasRoles ? (
+              <span className="text-xs text-slate-500">Sin filtro (todos los roles)</span>
+            ) : (
+              roles.map((r) => (
+                <span
+                  key={r}
+                  className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-extrabold text-slate-800"
+                >
+                  {String(r).toUpperCase()}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+          <div className="text-xs font-extrabold text-slate-700">Sucursales</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {!hasBranches ? (
+              <span className="text-xs text-slate-500">Sin filtro (todas las sucursales)</span>
+            ) : (
+              branches.map((b) => (
+                <span
+                  key={b}
+                  className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-800"
+                >
+                  {String(b)}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Modal({

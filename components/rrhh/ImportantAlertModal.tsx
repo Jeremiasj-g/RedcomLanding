@@ -22,13 +22,7 @@ export type ImportantAlertModalProps = {
 
 const uiBySeverity: Record<
   Severity,
-  {
-    badge: string;
-    ring: string;
-    glow: string;
-    iconWrap: string;
-    accentText: string;
-  }
+  { badge: string; ring: string; glow: string; iconWrap: string; accentText: string }
 > = {
   info: {
     badge: 'bg-sky-500/10 text-sky-200 border-sky-500/25',
@@ -70,32 +64,33 @@ export function ImportantAlertModal({
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-[999] flex items-center justify-center px-4 sm:px-6"
+          className="fixed inset-0 z-[10] flex items-center justify-center px-4 sm:px-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          {/* Overlay + blur */}
-          <motion.button
-            type="button"
-            aria-label="Cerrar"
+          {/* ✅ Overlay (NO button) + evita tapar portales */}
+          <motion.div
+            aria-hidden="true"
             className="absolute inset-0 bg-black/55 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            // importante: que el overlay no se “suba” arriba de los portales
+            style={{ zIndex: 0 }}
             onClick={() => {
               if (requireAck) return;
               onRequestClose?.();
             }}
           />
 
-          {/* Modal */}
+          {/* ✅ Modal arriba del overlay */}
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-label="Alerta importante"
             className={[
-              'relative w-full max-w-2xl overflow-hidden rounded-3xl',
+              'relative z-[1] w-full max-w-2xl overflow-hidden rounded-3xl',
               'border border-white/10 bg-gray-800 text-slate-100 shadow-2xl',
               'backdrop-blur-xl',
               ui.ring,
@@ -104,6 +99,8 @@ export function ImportantAlertModal({
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 14, opacity: 0, scale: 0.985 }}
             transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+            // evita que clicks adentro “cierren” por bubbling accidental
+            onClick={(e) => e.stopPropagation()}
           >
             {/* decorative glow */}
             <div className="pointer-events-none absolute -top-24 left-1/2 h-56 w-[680px] -translate-x-1/2 rounded-full blur-3xl opacity-70">
@@ -207,12 +204,13 @@ export function ImportantAlertModal({
 
               {!requireAck ? (
                 <div className="mt-3 text-[11px] text-slate-400">
-                  Tip: si cerrás con la <span className={ui.accentText}>X</span> o el fondo, se comporta como
-                  “Recordar”.
+                  Tip: si cerrás con la <span className={ui.accentText}>X</span> o el fondo, se comporta
+                  como “Recordar”.
                 </div>
               ) : (
                 <div className="mt-3 text-[11px] text-slate-400">
-                  Esta alerta requiere confirmación. Presioná <span className="text-white font-semibold">Entendido</span>.
+                  Esta alerta requiere confirmación. Presioná{' '}
+                  <span className="text-white font-semibold">Entendido</span>.
                 </div>
               )}
             </div>

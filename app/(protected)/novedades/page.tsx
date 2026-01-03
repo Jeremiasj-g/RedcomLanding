@@ -131,7 +131,16 @@ type Announcement = {
   severity?: string | null;
   pinned?: boolean | null;
   created_at: string;
+
+  // ✅ necesarios para expiración
+  starts_at?: string | null;
+  ends_at?: string | null;
+
+  // ✅ flags (por si los usás)
+  is_active?: boolean | null;
+  is_published?: boolean | null;
 };
+
 
 export default function NovedadesPage() {
   const [items, setItems] = useState<Announcement[]>([]);
@@ -146,7 +155,7 @@ export default function NovedadesPage() {
 
     const { data, error } = await supabase
       .from('announcements')
-      .select('id,type,title,content,severity,pinned,created_at')
+      .select('id,type,title,content,severity,pinned,created_at,starts_at,ends_at,is_active,is_published')
       .neq('type', 'important_alert')
       .order('pinned', { ascending: false })
       .order('created_at', { ascending: false });
@@ -159,10 +168,30 @@ export default function NovedadesPage() {
     load();
   }, []);
 
+  // ✅ Tick para que expire solo sin refetch
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000); // cada 30s
+    return () => clearInterval(id);
+  }, []);
+
   const { birthdays, rest, counts } = useMemo(() => {
     const query = q.trim().toLowerCase();
 
-    const byQuery = items.filter((x) => {
+    // ✅ 1) Filtrar por vigencia (expira solo)
+    const timeVisible = items.filter((a) => {
+      const isActive = a.is_active ?? true;
+      const isPublished = a.is_published ?? true;
+
+      const starts = a.starts_at ? new Date(a.starts_at).getTime() : 0;
+      const ends = a.ends_at ? new Date(a.ends_at).getTime() : Infinity;
+
+      return isActive && isPublished && starts <= now && now < ends;
+    });
+
+    // ✅ 2) Buscar sobre lo que está vigente
+    const byQuery = timeVisible.filter((x) => {
       if (!query) return true;
       return (
         String(x.title ?? '').toLowerCase().includes(query) ||
@@ -180,15 +209,16 @@ export default function NovedadesPage() {
           ? []
           : nonBirthday.filter((x) => String(x.type).toLowerCase() === tab);
 
+    // ✅ counts deberían reflejar visibles (no items crudos)
     const c = {
-      all: items.length,
-      news: items.filter((x) => String(x.type).toLowerCase() === 'news').length,
-      weekly: items.filter((x) => String(x.type).toLowerCase() === 'weekly').length,
-      birthday: items.filter((x) => String(x.type).toLowerCase() === 'birthday').length,
+      all: timeVisible.length,
+      news: timeVisible.filter((x) => String(x.type).toLowerCase() === 'news').length,
+      weekly: timeVisible.filter((x) => String(x.type).toLowerCase() === 'weekly').length,
+      birthday: timeVisible.filter((x) => String(x.type).toLowerCase() === 'birthday').length,
     };
 
     return { birthdays: b, rest: filteredRest, counts: c };
-  }, [items, q, tab]);
+  }, [items, q, tab, now]); // ✅ importante agregar now
 
   // Confetti (cumple)
   useEffect(() => {
@@ -326,7 +356,7 @@ export default function NovedadesPage() {
                   <div className="absolute -top-20 right-10 h-72 w-72 rounded-full bg-indigo-400 blur-[110px]" />
 
                   <div className="absolute bottom-15 left-10 h-72 w-72 rounded-full bg-sky-400 blur-[110px]" />
-                  <div className="absolute -bottom-28 right-1/3 h-80 w-80 rounded-full bg-emerald-400 blur-[110px]" />
+                  <div className="absolute -bottom-28 right-1/3 h-80 w-80 rounded-full bg-emerald-100 blur-[110px]" />
                   <div className="absolute bottom-2 -right-24 h-72 w-72 rounded-full bg-amber-300 blur-[110px]" />
 
                   <div className="absolute inset-0 ring-1 ring-white/60" />
@@ -465,7 +495,7 @@ export default function NovedadesPage() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
                         className={cn(
-                          'group relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm',
+                          'group relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl',
                           'transition hover:shadow-md'
                         )}
                       >
