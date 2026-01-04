@@ -13,7 +13,7 @@ import {
   DateRangeSelector,
   type DateRangeState,
   getInitialDateRange,
-} from './supervisores/DateRangeSelector';
+} from './panel-tareas/DateRangeSelector';
 
 import MyTasksBoard from './MyTasksBoard';
 

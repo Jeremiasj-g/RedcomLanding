@@ -306,8 +306,8 @@ export default function Navbar() {
       show: role === 'admin',
     },
     {
-      href: '/tareas/supervisores',
-      label: 'Tareas de supervisores',
+      href: '/tareas/panel-tareas',
+      label: 'Panel de tareas',
       icon: <ListChecks className="h-4 w-4" />,
       className: 'text-sky-300 hover:text-sky-200',
       show: role === 'admin',

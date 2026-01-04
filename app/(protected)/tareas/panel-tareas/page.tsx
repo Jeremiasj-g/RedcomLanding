@@ -73,7 +73,7 @@ async function fetchTaskOwnerRoleOptions(): Promise<RoleOption[]> {
   }
 }
 
-export default function SupervisorTasksPage() {
+export default function PanelTasksPage() {
   const { me, loading: loadingMe } = useMe();
 
   const [rangeState, setRangeState] = useState<DateRangeState>(() =>
