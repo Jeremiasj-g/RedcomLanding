@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, StickyNote, Trash2, CheckCircle2 } from 'lucide-react';
 import { fetchTaskItems, createTaskItem, toggleTaskItem, deleteTaskItem } from '@/lib/tasks';
 
@@ -37,6 +37,8 @@ type Props = {
   editable: boolean;
   /** para cambiar textos según contexto */
   variant: Variant;
+  /** callback para avisar cuando el checklist queda 100% completo (o deja de estarlo) */
+  onAllDoneChange?: (allDone: boolean, stats: { done: number; total: number }) => void;
 };
 
 export default function TaskChecklistSection({
@@ -44,6 +46,7 @@ export default function TaskChecklistSection({
   notes,
   editable,
   variant,
+  onAllDoneChange,
 }: Props) {
   const [items, setItems] = useState<TaskItem[]>([]);
   const [newItem, setNewItem] = useState('');
@@ -51,6 +54,19 @@ export default function TaskChecklistSection({
   const [savingItem, setSavingItem] = useState(false);
 
   const { title, subtitle, tip } = TEXTS[variant];
+  const lastAllDoneRef = useRef<boolean | null>(null);
+
+  const doneCount = items.filter((i) => i.is_done).length;
+  const totalCount = items.length;
+  const allDone = totalCount > 0 && doneCount === totalCount;
+
+  useEffect(() => {
+    if (!onAllDoneChange) return;
+    // evitamos spamear el callback: solo cuando cambia el estado allDone
+    if (lastAllDoneRef.current === allDone) return;
+    lastAllDoneRef.current = allDone;
+    onAllDoneChange(allDone, { done: doneCount, total: totalCount });
+  }, [allDone, doneCount, totalCount, onAllDoneChange]);
 
   useEffect(() => {
     let cancelled = false;

@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
  * ------------------------------------------- */
 export type UserRole =
   | 'admin'
+  | 'jdv'
   | 'supervisor'
   | 'vendedor'
   | 'rrhh';
@@ -166,6 +167,7 @@ export function useMe() {
   }, [me?.full_name]);
 
   const isAdmin = me?.role === 'admin';
+  const isJDV = me?.role === 'jdv';
   const isRRHH = me?.role === 'rrhh';
   const isSupervisor = me?.role === 'supervisor';
 
@@ -174,6 +176,7 @@ export function useMe() {
     firstName,
     loading,
     isAdmin,
+    isJDV,
     isRRHH,
     isSupervisor,
     refetch: load,

@@ -80,7 +80,7 @@ export async function upsertTaskWorkspace(params: {
 }
 /* ---------------------------------------------- */
 
-export type AppRole = 'admin' | 'supervisor' | 'vendedor' | string;
+export type AppRole = 'admin' | 'jdv' | 'supervisor' | 'vendedor' | string;
 
 export type ProjectTaskStatus =
   | 'not_started'
@@ -157,27 +157,44 @@ function mapTasksWithAssignees(
  * Fetch de supervisores
  * ──────────────────────────────────────────── */
 
-export type SupervisorOption = {
+export type AssigneeOption = {
   id: string;
   full_name: string | null;
   email: string | null;
+  role: string | null;
 };
 
-export async function fetchSupervisors(): Promise<SupervisorOption[]> {
+/**
+ * Devuelve opciones elegibles para asignar como responsables.
+ * - Admin: supervisores + JDV
+ * - JDV (y otros): solo supervisores
+ */
+export async function fetchEligibleAssignees(
+  viewerRole: string,
+): Promise<AssigneeOption[]> {
+  const roles = viewerRole === 'admin' ? ['supervisor', 'jdv'] : ['supervisor'];
+
   const { data, error } = await supabase
     .from('profiles')
     .select('id, full_name, email, role, is_active')
-    .eq('role', 'supervisor')
+    .in('role', roles)
     .eq('is_active', true)
+    .order('role', { ascending: true })
     .order('full_name', { ascending: true });
 
   if (error) throw error;
 
-  return (data ?? []).map((p) => ({
+  return (data ?? []).map((p: any) => ({
     id: p.id as string,
-    full_name: (p as any).full_name ?? null,
-    email: (p as any).email ?? null,
+    full_name: p.full_name ?? null,
+    email: p.email ?? null,
+    role: p.role ?? null,
   }));
+}
+
+// Compat (por si hay imports viejos)
+export async function fetchSupervisors(): Promise<AssigneeOption[]> {
+  return fetchEligibleAssignees('supervisor');
 }
 
 /* ─────────────────────────────────────────────
@@ -196,7 +213,7 @@ export async function fetchProjectTasksForUser(
 ): Promise<ProjectTaskWithAssignees[]> {
   let taskRows: ProjectTaskRow[] = [];
 
-  if (role === 'admin') {
+  if (role === 'admin' || role === 'jdv') {
     // Admin ve todo
     const { data, error } = await supabase
       .from('project_tasks')

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Filter, Search, ChevronDown, X, Users2 } from 'lucide-react';
-import type { SupervisorOption } from '@/lib/projectTasks';
+import type { AssigneeOption } from '@/lib/projectTasks';
 
 export type ProjectTaskFiltersState = {
   search: string;
@@ -24,7 +24,7 @@ type Stats = {
 };
 
 type Props = {
-  supervisors?: SupervisorOption[];
+  supervisors?: AssigneeOption[];
   value?: ProjectTaskFiltersState;
   stats?: Stats; // 👈 ahora opcional
   onChange: (next: ProjectTaskFiltersState) => void;

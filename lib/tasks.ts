@@ -106,15 +106,21 @@ export async function fetchMyTasksByRange(
 export async function fetchSupervisorTasksByRange(params: {
   from: string;
   to: string;
+  ownerRoles?: string[]; // roles del dueño (supervisor/jdv/admin/...)
   branch?: string; // sucursal en minúsculas
   status?: TaskStatus;
 }) {
-  const { from, to, branch, status } = params;
+  const { from, to, branch, status, ownerRoles } = params;
+
+  // Por compatibilidad: si no pasan roles, mantenemos el comportamiento anterior.
+  const roles = Array.isArray(ownerRoles) && ownerRoles.length > 0
+    ? ownerRoles
+    : ['supervisor'];
 
   let query = supabase
     .from('tasks_with_owner')
     .select('*')
-    .eq('owner_role', 'supervisor')
+    .in('owner_role', roles)
     .gte('scheduled_at', from)
     .lt('scheduled_at', to)
     .order('scheduled_at', { ascending: true });

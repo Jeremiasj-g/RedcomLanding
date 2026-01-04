@@ -4,6 +4,8 @@ import type { TaskStatus } from '@/lib/tasks';
 type StatusFilter = 'all' | TaskStatus;
 type ViewMode = 'table' | 'grid';
 
+type RoleOption = { value: string; label: string };
+
 type Props = {
   branchFilter: 'all' | string;
   onBranchFilterChange: (value: 'all' | string) => void;
@@ -18,6 +20,11 @@ type Props = {
   viewMode: ViewMode;
   onViewModeChange: (value: ViewMode) => void;
   isAdmin: boolean;
+
+  // ✅ Nuevo (solo admin): filtrar por tipo de usuario que “posee” la tarea
+  ownerRoleFilter: 'all' | string;
+  onOwnerRoleFilterChange: (value: 'all' | string) => void;
+  ownerRoleOptions: RoleOption[];
 };
 
 export default function FiltersBar({
@@ -34,6 +41,10 @@ export default function FiltersBar({
   viewMode,
   onViewModeChange,
   isAdmin,
+
+  ownerRoleFilter,
+  onOwnerRoleFilterChange,
+  ownerRoleOptions,
 }: Props) {
   return (
     <section className="rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-md shadow-slate-950/40">
@@ -72,7 +83,13 @@ export default function FiltersBar({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,2fr)]">
+      <div
+        className={`grid gap-3 ${
+          isAdmin
+            ? 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,2fr)]'
+            : 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,2fr)]'
+        }`}
+      >
         {/* Sucursal */}
         <div className="flex flex-col gap-1 text-xs text-slate-300">
           <span>Sucursal</span>
@@ -112,9 +129,30 @@ export default function FiltersBar({
           </select>
         </div>
 
-        {/* Supervisor */}
+        {/* Tipo de usuario (solo admin) */}
+        {isAdmin && (
+          <div className="flex flex-col gap-1 text-xs text-slate-300">
+            <span>Tipo de usuario</span>
+            <select
+              value={ownerRoleFilter}
+              onChange={(e) =>
+                onOwnerRoleFilterChange(e.target.value as 'all' | string)
+              }
+              className="rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            >
+              <option value="all">Todos</option>
+              {ownerRoleOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Responsable */}
         <div className="flex flex-col gap-1 text-xs text-slate-300">
-          <span>Supervisor</span>
+          <span>Responsable</span>
           <select
             value={supervisorFilter}
             onChange={(e) =>

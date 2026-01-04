@@ -20,7 +20,7 @@ import {
   fetchTaskWorkspace,
   upsertTaskWorkspace,
   type ProjectTaskWithAssignees,
-  type SupervisorOption,
+  type AssigneeOption,
   type ProjectTaskStatus,
   type ProjectTaskPriority,
   type ProjectTaskWorkspaceTodo,
@@ -58,8 +58,8 @@ const quillFormats = [
 
 type Props = {
   task: ProjectTaskWithAssignees;
-  supervisors: SupervisorOption[];
-  currentUserRole: string; // 'admin' | 'supervisor' | ...
+  supervisors: AssigneeOption[];
+  currentUserRole: string; // 'admin' | 'jdv' | 'supervisor' | ...
   currentUserId: string | null;
   onClose: () => void;
   onUpdated: (t: ProjectTaskWithAssignees) => void;
@@ -183,7 +183,7 @@ export default function ProjectTaskDrawer({
   onClose,
   onUpdated,
 }: Props) {
-  const isAdmin = currentUserRole === 'admin';
+  const canManage = currentUserRole === 'admin' || currentUserRole === 'jdv';
 
   // ───── FICHA IZQUIERDA ────────────────────────────────
   const [title, setTitle] = useState('');
@@ -377,10 +377,10 @@ export default function ProjectTaskDrawer({
     [currentUserId, selectedAssignees],
   );
 
-  const canEditWorkspace = !isLocked && (isAdmin || isAssignee);
+  const canEditWorkspace = !isLocked && (canManage || isAssignee);
 
   const toggleAssignee = (id: string) => {
-    if (isLocked || !isAdmin) return;
+    if (isLocked || !canManage) return;
     setSelectedAssignees((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
@@ -422,7 +422,7 @@ export default function ProjectTaskDrawer({
       });
 
       let finalAssignees = task.assignees;
-      if (isAdmin && !isLocked) {
+      if (canManage && !isLocked) {
         await setTaskAssignees(task.id, selectedAssignees);
 
         const mapById = new Map(supervisors.map((s) => [s.id, s]));
@@ -639,9 +639,9 @@ export default function ProjectTaskDrawer({
                 <div className="relative flex-1">
                   <button
                     type="button"
-                    disabled={isLocked || !isAdmin}
+                    disabled={isLocked || !canManage}
                     onClick={() => {
-                      if (isLocked || !isAdmin) return;
+                      if (isLocked || !canManage) return;
                       setAssigneesMenuOpen((o) => !o);
                     }}
                     className={`flex w-full items-start px-3 py-1.5 text-left text-[11px] text-gray-100 ${INPUT_BASE}`}

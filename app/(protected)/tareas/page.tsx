@@ -26,7 +26,7 @@ export default function TareasPage() {
 
   if (loadingMe && !me) {
     return (
-      <RequireAuth roles={['admin', 'supervisor']}>
+      <RequireAuth roles={['admin', 'supervisor', 'jdv']}>
         <div className="grid min-h-[80vh] place-items-center">
           <DualSpinner size={60} thickness={4} />
         </div>
@@ -35,7 +35,7 @@ export default function TareasPage() {
   }
 
   return (
-    <RequireAuth roles={['admin', 'supervisor']}>
+    <RequireAuth roles={['admin', 'supervisor', 'jdv']}>
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-12">
         {/* Header */}
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

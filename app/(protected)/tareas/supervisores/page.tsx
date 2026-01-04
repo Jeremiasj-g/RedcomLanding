@@ -12,6 +12,7 @@ import { addDays } from 'date-fns';
 import { useMe } from '@/hooks/useMe';
 import DualSpinner from '@/components/ui/DualSpinner';
 import TaskChecklistSection from '../TaskChecklistSection';
+import { supabase } from '@/lib/supabaseClient';
 
 import {
   DateRangeSelector,
@@ -28,6 +29,50 @@ import TaskDetailsModal from './TaskDetailsModal';
 type StatusFilter = 'all' | TaskStatus;
 type ViewMode = 'table' | 'grid';
 
+type RoleOption = { value: string; label: string };
+
+function prettyRoleLabel(v: string) {
+  const raw = (v ?? '').trim();
+  if (!raw) return '—';
+  if (raw.toLowerCase() === 'rrhh') return 'RRHH';
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+async function fetchTaskOwnerRoleOptions(): Promise<RoleOption[]> {
+  // ✅ Fuente oficial: public.user_types (code, name)
+  // Para esta vista solo nos interesan los roles que pueden “tener tareas”: supervisor, jdv, admin
+  const allow = new Set(['supervisor', 'jdv', 'admin']);
+
+  try {
+    const { data, error } = await supabase
+      .from('user_types')
+      .select('code,name')
+      .order('id', { ascending: true });
+
+    if (error || !Array.isArray(data)) return [];
+
+    const opts = data
+      .map((r: any) => ({
+        value: String(r.code ?? '').trim().toLowerCase(),
+        label: String(r.name ?? '').trim(),
+      }))
+      .filter((x) => x.value && allow.has(x.value))
+      .map((x) => ({
+        value: x.value,
+        label: x.label || prettyRoleLabel(x.value),
+      }));
+
+    // de-dupe
+    const seen = new Set<string>();
+    return opts.filter((o) => (seen.has(o.value) ? false : (seen.add(o.value), true)));
+  } catch {
+    return [];
+  }
+}
+
 export default function SupervisorTasksPage() {
   const { me, loading: loadingMe } = useMe();
 
@@ -43,6 +88,11 @@ export default function SupervisorTasksPage() {
     useState<'all' | string>('all');
   const [search, setSearch] = useState('');
 
+  // ✅ Nuevo (solo admin): filtrar por tipo de usuario que “posee” la tarea (supervisor/jdv/admin)
+  const isAdmin = me?.role === 'admin';
+  const [ownerRoleFilter, setOwnerRoleFilter] = useState<'all' | string>('supervisor');
+  const [ownerRoleOptions, setOwnerRoleOptions] = useState<RoleOption[]>([]);
+
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const [tasks, setTasks] = useState<TaskWithOwner[]>([]);
@@ -50,17 +100,48 @@ export default function SupervisorTasksPage() {
 
   const [selectedTask, setSelectedTask] = useState<TaskWithOwner | null>(null);
 
-  // 1) Cargar tareas por rango / sucursal / estado
+  // Cargar opciones de roles (solo admin) desde user_types
+  useEffect(() => {
+    let cancelled = false;
+    if (!isAdmin) return;
+
+    (async () => {
+      const opts = await fetchTaskOwnerRoleOptions();
+      if (cancelled) return;
+      setOwnerRoleOptions(opts);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
+
+  // 1) Cargar tareas por rango / sucursal / estado / rol dueño
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
+
+        // Esperar a tener el usuario (evita requests innecesarios)
+        if (!me) return;
+
         const fromISO = range.from.toISOString();
         const toISO = range.to.toISOString();
+
+        // JDV: siempre ve tareas de supervisores (filtros iguales a hoy)
+        // Admin: puede ver supervisor / jdv / admin (con dropdown)
+        const adminAllRoles = ownerRoleOptions.length
+          ? ownerRoleOptions.map((o) => o.value)
+          : ['supervisor', 'jdv', 'admin'];
+
+        const ownerRoles = me.role === 'admin'
+          ? (ownerRoleFilter === 'all' ? adminAllRoles : [String(ownerRoleFilter)])
+          : ['supervisor'];
 
         const data = await fetchSupervisorTasksByRange({
           from: fromISO,
           to: toISO,
+          ownerRoles,
           branch: branchFilter === 'all' ? undefined : branchFilter,
           status: statusFilter === 'all' ? undefined : statusFilter,
         });
@@ -74,7 +155,7 @@ export default function SupervisorTasksPage() {
     };
 
     load();
-  }, [range.from, range.to, branchFilter, statusFilter]);
+  }, [range.from, range.to, branchFilter, statusFilter, ownerRoleFilter, ownerRoleOptions]);
 
   // 2) Filtrado por sucursales permitidas (admin)
   const tasksFilteredByRole = useMemo(() => {
@@ -196,7 +277,7 @@ export default function SupervisorTasksPage() {
 
   if (loadingMe && !me) {
     return (
-      <RequireAuth roles={['admin']}>
+      <RequireAuth roles={['admin', 'jdv']}>
         <div className="grid min-h-[80vh] place-items-center">
           <DualSpinner size={60} thickness={4} />
         </div>
@@ -205,7 +286,7 @@ export default function SupervisorTasksPage() {
   }
 
   return (
-    <RequireAuth roles={['admin']}>
+    <RequireAuth roles={['admin', 'jdv']}>
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-12">
         {/* Header */}
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -239,7 +320,10 @@ export default function SupervisorTasksPage() {
           supervisorsFromData={supervisorsFromData}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          isAdmin={me?.role === 'admin'}
+          isAdmin={isAdmin}
+          ownerRoleFilter={ownerRoleFilter}
+          onOwnerRoleFilterChange={setOwnerRoleFilter}
+          ownerRoleOptions={ownerRoleOptions}
         />
 
         {/* Vista de tareas */}

@@ -13,14 +13,14 @@ import {
 
 import {
   fetchProjectTasksForUser,
-  fetchSupervisors,
+  fetchEligibleAssignees,
   createProjectTask,
   updateProjectTask,
   setTaskAssignees,
   type ProjectTaskWithAssignees,
   type ProjectTaskStatus,
   type ProjectTaskPriority,
-  type SupervisorOption,
+  type AssigneeOption,
 } from '@/lib/projectTasks';
 import { RequireAuth } from '@/components/RouteGuards';
 import { useMe } from '@/hooks/useMe';
@@ -154,13 +154,13 @@ export default function ProyectosPage() {
   const { me, loading: loadingMe } = useMe();
 
   const [tasks, setTasks] = useState<ProjectTaskWithAssignees[]>([]);
-  const [supervisors, setSupervisors] = useState<SupervisorOption[]>([]);
+  const [supervisors, setSupervisors] = useState<AssigneeOption[]>([]);
   const [selectedTask, setSelectedTask] =
     useState<ProjectTaskWithAssignees | null>(null);
 
   const [loading, setLoading] = useState(true);
 
-  // creación rápida (solo admin)
+  // creación rápida (admin + JDV)
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newSummary, setNewSummary] = useState('');
@@ -193,6 +193,7 @@ export default function ProyectosPage() {
   const [page, setPage] = useState(1);
 
   const isAdmin = me?.role === 'admin';
+  const canManage = isAdmin || me?.role === 'jdv';
 
   const closeAllPopovers = () => {
     setStatusOpenFor(null);
@@ -211,7 +212,7 @@ export default function ProyectosPage() {
         setLoading(true);
         const [tasksData, supervisorsData] = await Promise.all([
           fetchProjectTasksForUser(me.id, me.role),
-          fetchSupervisors(),
+          fetchEligibleAssignees(me.role),
         ]);
         setTasks(tasksData);
         setSupervisors(supervisorsData);
@@ -250,7 +251,7 @@ export default function ProyectosPage() {
   // 1b) Hidratar responsables con nombres/emails
   // ─────────────────────────────────────────
   const supervisorById = useMemo(() => {
-    const map = new Map<string, SupervisorOption>();
+    const map = new Map<string, AssigneeOption>();
     supervisors.forEach((s) => {
       map.set(s.id, s);
     });
@@ -357,7 +358,7 @@ export default function ProyectosPage() {
   // 2) Crear tarea nueva (solo admin)
   // ─────────────────────────────────────────
   const handleCreate = async () => {
-    if (!isAdmin) return;
+    if (!canManage) return;
     if (!me) return;
     if (!newTitle.trim()) return;
 
@@ -446,7 +447,7 @@ export default function ProyectosPage() {
     task: ProjectTaskWithAssignees,
     userId: string,
   ) => {
-    if (!isAdmin) return;
+    if (!canManage) return;
     if ((task as any).is_locked) return;
 
     const currentIds = new Set(task.assignees.map((a) => a.user_id));
@@ -464,7 +465,7 @@ export default function ProyectosPage() {
           user_id: id,
           full_name: sup?.full_name ?? null,
           email: sup?.email ?? null,
-          role: 'supervisor' as const,
+          role: (sup?.role ?? null) as any,
         };
       });
 
@@ -485,7 +486,7 @@ export default function ProyectosPage() {
 
   // Cerrar tarea
   const handleCloseTask = async (task: ProjectTaskWithAssignees) => {
-    if (!isAdmin) return;
+    if (!canManage) return;
     if ((task as any).is_locked) return;
 
     try {
@@ -507,7 +508,7 @@ export default function ProyectosPage() {
 
   // Eliminar tarea
   const handleDeleteTask = async (task: ProjectTaskWithAssignees) => {
-    if (!isAdmin) return;
+    if (!canManage) return;
     const ok = window.confirm(
       `¿Seguro que querés eliminar la tarea "${task.title}"? Esta acción no se puede deshacer.`,
     );
@@ -588,7 +589,7 @@ export default function ProyectosPage() {
           </div>
 
           {/* Fila creación rápida */}
-          {isAdmin && (
+          {canManage && (
             <div
               className={`${TABLE_GRID_COLS} border-b border-slate-800 bg-slate-900/80 px-4 py-2 text-xs text-slate-100`}
             >
@@ -689,7 +690,7 @@ export default function ProyectosPage() {
                   const isPriorityOpen =
                     priorityOpenFor === task.id && !isLocked;
                   const isAssigneesOpen =
-                    isAdmin && assigneesOpenFor === task.id && !isLocked;
+                    canManage && assigneesOpenFor === task.id && !isLocked;
 
                   return (
                     <motion.div
@@ -894,7 +895,7 @@ export default function ProyectosPage() {
                           })
                         )}
 
-                        {isAdmin && (
+                        {canManage && (
                           <div className="ml-auto flex items-center gap-1">
                             <button
                               type="button"
@@ -917,31 +918,35 @@ export default function ProyectosPage() {
                               )}
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCloseTask(task);
-                              }}
-                              disabled={isLocked}
-                              className={`inline-flex items-center rounded-full border border-amber-600/60 bg-amber-900/40 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-800/70 ${isLocked ? 'cursor-not-allowed opacity-60' : ''
-                                }`}
-                            >
-                              <Ban className="mr-1 h-3 w-3" />
-                              Cerrar
-                            </button>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCloseTask(task);
+                                }}
+                                disabled={isLocked}
+                                className={`inline-flex items-center rounded-full border border-amber-600/60 bg-amber-900/40 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-800/70 ${isLocked ? 'cursor-not-allowed opacity-60' : ''
+                                  }`}
+                              >
+                                <Ban className="mr-1 h-3 w-3" />
+                                Cerrar
+                              </button>
+                            )}
 
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteTask(task);
-                              }}
-                              className="inline-flex items-center rounded-full border border-rose-700/70 bg-rose-900/50 px-2 py-0.5 text-[10px] text-rose-200 hover:bg-rose-800/80"
-                            >
-                              <Trash2 className="mr-1 h-3 w-3" />
-                              Eliminar
-                            </button>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTask(task);
+                                }}
+                                className="inline-flex items-center rounded-full border border-rose-700/70 bg-rose-900/50 px-2 py-0.5 text-[10px] text-rose-200 hover:bg-rose-800/80"
+                              >
+                                <Trash2 className="mr-1 h-3 w-3" />
+                                Eliminar
+                              </button>
+                            )}
                           </div>
                         )}
 

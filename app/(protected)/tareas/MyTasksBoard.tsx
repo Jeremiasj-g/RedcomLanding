@@ -270,6 +270,29 @@ export default function MyTasksBoard({ userId, range }: Props) {
     }
   };
 
+
+  const handleChecklistAllDone = async (taskId: number, allDone: boolean) => {
+    // Solo auto-marcar como completada cuando el checklist queda 100% (transición detectada en el hijo)
+    if (!allDone) return;
+
+    const current =
+      tasks.find((t) => t.id === taskId) ?? (selectedTask?.id === taskId ? selectedTask : null);
+
+    if (!current) return;
+    if (current.status === 'done') return;
+
+    try {
+      setChangingStatus(taskId);
+      const updated = await updateTaskStatus(taskId, 'done');
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+      setSelectedTask((prev) => (prev && prev.id === taskId ? updated : prev));
+    } catch (err) {
+      console.error('Error auto-updating status from checklist', err);
+    } finally {
+      setChangingStatus(null);
+    }
+  };
+
   const handleSaveNotes = async (task: Task) => {
     const notes = notesDraft[task.id] ?? task.notes ?? '';
     try {
@@ -902,6 +925,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
                 notes={selectedTask.notes ?? null}
                 editable={true}
                 variant="owner"
+                onAllDoneChange={(allDone) => handleChecklistAllDone(selectedTask.id, allDone)}
               />
             </motion.div>
           </motion.div>

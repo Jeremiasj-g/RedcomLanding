@@ -4,7 +4,7 @@ import { useAuth } from '../app/auth/AuthProvider'; // ajustá el path si hace f
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 
-type RoleCode = 'admin' | 'supervisor' | 'vendedor' | 'rrhh';
+type RoleCode = 'admin' | 'supervisor' | 'vendedor' | 'rrhh' | 'jdv';
 
 type RequireAuthProps = {
   children: React.ReactNode;
