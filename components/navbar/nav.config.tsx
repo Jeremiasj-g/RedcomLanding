@@ -136,6 +136,16 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         // ✅ color original
         className: 'text-emerald-300 hover:text-emerald-200',
       },
+      {
+        id: 'foco',
+        label: 'Focos',
+        href: '/focos',
+        icon: <ListChecks className="h-4 w-4" />,
+        enabledWhen: (ctx) => mustBeLoggedActive(ctx),
+        enabledReason: () => '',
+        // ✅ color original
+        className: 'text-red-300 hover:text-red-200',
+      },
     ],
   },
 
@@ -174,6 +184,16 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         enabledReason: () => 'Solo Admin',
         // ✅ color original admin panel
         className: 'text-amber-300 hover:text-amber-200',
+      },
+      {
+        id: 'panel-focos',
+        label: 'Panel de focos',
+        href: '/focos/panel',
+        icon: <Shield className="h-4 w-4" />,
+        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && roleIn(['admin','supervisor'])(ctx),
+        enabledReason: () => 'Solo Admin / Supervisor',
+        // ✅ color original admin panel
+        className: 'text-red-300 hover:text-red-200',
       },
     ],
   },
