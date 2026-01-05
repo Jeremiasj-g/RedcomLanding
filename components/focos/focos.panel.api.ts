@@ -40,6 +40,40 @@ export type CompletionUserRow = {
   branch_name: string | null;
 };
 
+export async function updateFoco(input: {
+  focoId: string;
+  title: string;
+  content: string;
+  severity: FocoSeverity;
+  type: FocoType;
+  targetBranchIds: number[];
+}) {
+  const { focoId, targetBranchIds, ...patch } = input;
+
+  // 1) update focos
+  const { error: upErr } = await supabase
+    .from('focos')
+    .update({
+      title: patch.title.trim(),
+      content: patch.content.trim(),
+      severity: patch.severity,
+      type: patch.type,
+    })
+    .eq('id', focoId);
+
+  if (upErr) throw upErr;
+
+  // 2) targets: estrategia simple -> borrar y reinsertar
+  const { error: delErr } = await supabase.from('foco_targets').delete().eq('foco_id', focoId);
+  if (delErr) throw delErr;
+
+  const payload = (targetBranchIds ?? []).map((bid) => ({ foco_id: focoId, branch_id: bid }));
+  if (payload.length) {
+    const { error: insErr } = await supabase.from('foco_targets').insert(payload);
+    if (insErr) throw insErr;
+  }
+}
+
 export async function getFocoPanelList(opts?: {
   onlyActive?: boolean;
   q?: string;
@@ -157,4 +191,21 @@ export async function duplicateFoco(focoId: string) {
   }
 
   return newId;
+}
+
+export async function deleteFoco(focoId: string) {
+  const { error } = await supabase.from('focos').delete().eq('id', focoId);
+  if (error) throw error;
+}
+
+export async function deleteFocos(ids: string[]) {
+  if (!ids.length) return;
+  const { error } = await supabase.from('focos').delete().in('id', ids);
+  if (error) throw error;
+}
+
+export async function deleteAllFocos() {
+  // OJO: esto borra TODO (focos + cascades por FK)
+  const { error } = await supabase.from('focos').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  if (error) throw error;
 }

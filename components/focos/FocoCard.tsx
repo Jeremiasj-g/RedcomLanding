@@ -35,11 +35,11 @@ export default function FocoCard({
   return (
     <Card
       className={[
-        'rounded-2xl border p-4 transition',
+        'rounded-2xl border p-6 transition',
         showCheck && completed ? 'border-emerald-200 bg-emerald-50' : 'bg-white',
       ].join(' ')}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col items-start justify-between gap-8">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Badge className={sevBadgeClass(foco.severity)}>
@@ -58,7 +58,7 @@ export default function FocoCard({
             )}
           </div>
 
-          <h3 className="mt-2 truncate text-base font-semibold">{foco.title}</h3>
+          <h3 className="mt-4 truncate text-base font-semibold">{foco.title}</h3>
 
           {Array.isArray(foco.targets) && foco.targets.length ? (
             <div className="mt-2 flex flex-wrap gap-2">
@@ -72,6 +72,10 @@ export default function FocoCard({
               ) : null}
             </div>
           ) : null}
+        </div>
+
+        <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+          {foco.content}
         </div>
 
         {showCheck ? (
@@ -101,9 +105,7 @@ export default function FocoCard({
         ) : null}
       </div>
 
-      <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-        {foco.content}
-      </div>
+
     </Card>
   );
 }
