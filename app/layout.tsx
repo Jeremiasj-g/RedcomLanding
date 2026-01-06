@@ -5,7 +5,7 @@ import Navbar from '@/components/navbar/Navbar';
 import Footer from '@/components/Footer';
 import FloatingTelegramButton from '@/components/Icons/FloatingTelegramButton';
 import AuthProvider from '@/app/auth/AuthProvider';
-import { Head } from 'next/document';
+
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -36,7 +36,7 @@ export default function RootLayout({
           <Navbar />
           <main>{children}</main>
           {/* Botón flotante de Telegram */}
-          <FloatingTelegramButton />
+          {/* <FloatingTelegramButton /> */}
           <Footer />
         </body>
       </AuthProvider>

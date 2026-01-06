@@ -4,17 +4,44 @@ import { supabase } from '@/lib/supabaseClient';
 import type { FocoRow } from './focos.types';
 
 export async function getFocosForMe(opts?: { onlyActive?: boolean }) {
-  const q = supabase
-    .from('focos_with_stats')
-    .select('*')
+  let q = supabase
+    .from('focos')
+    .select(
+      `
+      id,
+      title,
+      content,
+      severity,
+      type,
+      is_active,
+      created_at,
+      updated_at,
+      start_at,
+      end_at,
+      foco_targets (
+        branch_id,
+        branches ( name )
+      )
+    `
+    )
     .order('start_at', { ascending: false });
 
-  if (opts?.onlyActive) q.eq('is_active', true);
+  if (opts?.onlyActive) q = q.eq('is_active', true);
 
   const { data, error } = await q;
   if (error) throw error;
 
-  return (data ?? []) as FocoRow[];
+  // Normalizamos "targets" al formato que usa tu UI (branch_id + branch_name)
+  const normalized =
+    (data ?? []).map((f: any) => ({
+      ...f,
+      targets: (f.foco_targets ?? []).map((t: any) => ({
+        branch_id: t.branch_id,
+        branch_name: t.branches?.name ?? '—',
+      })),
+    })) ?? [];
+
+  return normalized as any; // si querés, lo tipamos bien con tu FocoRow
 }
 
 export async function getMyFocoCompletions(userId: string, focoIds: string[]) {

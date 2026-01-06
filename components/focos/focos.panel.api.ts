@@ -40,6 +40,24 @@ export type CompletionUserRow = {
   branch_name: string | null;
 };
 
+export type TargetUserRow = {
+  foco_id: string;
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  branch_name: string | null;
+};
+
+export async function getFocoTargetUsers(focoId: string): Promise<TargetUserRow[]> {
+  const { data, error } = await supabase
+    .from('foco_target_users') // 👈 view recomendada
+    .select('*')
+    .eq('foco_id', focoId);
+
+  if (error) throw error;
+  return (data || []) as TargetUserRow[];
+}
+
 export async function updateFoco(input: {
   focoId: string;
   title: string;

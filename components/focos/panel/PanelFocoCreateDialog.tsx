@@ -30,6 +30,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '
 import { updateFoco } from '@/components/focos/focos.panel.api';
 import dynamic from 'next/dynamic';
 
+// ✅ ESTE ES EL FIX: usamos el mismo multiselect que te funcionaba antes
+import BranchesMultiSelect, { type Branch } from '@/components/focos/BranchesMultiSelect';
+
 /**
  * ✅ IMPORTANTE:
  * Reemplazá este import por el editor que usás en "proyectos".
@@ -42,8 +45,6 @@ import dynamic from 'next/dynamic';
  */
 // import MiniWord from '@/components/proyectos/MiniWord';
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
-
-type Branch = { id: number; name: string };
 
 type Severity = 'info' | 'warning' | 'critical';
 type FocoType = 'foco' | 'critico' | 'promo' | 'capacitacion';
@@ -87,25 +88,24 @@ const templates: Template[] = [
       title: 'PROMO VIGENTE',
       type: 'promo',
       severity: 'info',
-      content:
-        [
-          'PRODUCTO PARA SACAR HOY',
-          '',
-          'DESCUENTO',
-          '',
-          'COD:_____ - ____________________________ __/__',
-          '(____ UNID) - __% DESC $_____',
-          '',
-          'COD:_____ - ____________________________ __/__',
-          '(____ UNID) - __% DESC $_____',
-          '',
-          'COD:_____ - ____________________________ __/__',
-          '(____ UNID) - __% DESC $_____',
-          '',
-          'NOTA / ACCION',
-          '- Priorizar ofrecimiento a clientes clave',
-          '- Reforzar exhibicion / POP',
-        ].join('\n'),
+      content: [
+        'PRODUCTO PARA SACAR HOY',
+        '',
+        'DESCUENTO',
+        '',
+        'COD:_____ - ____________________________ __/__',
+        '(____ UNID) - __% DESC $_____',
+        '',
+        'COD:_____ - ____________________________ __/__',
+        '(____ UNID) - __% DESC $_____',
+        '',
+        'COD:_____ - ____________________________ __/__',
+        '(____ UNID) - __% DESC $_____',
+        '',
+        'NOTA / ACCION',
+        '- Priorizar ofrecimiento a clientes clave',
+        '- Reforzar exhibicion / POP',
+      ].join('\n'),
     },
   },
   {
@@ -122,24 +122,23 @@ const templates: Template[] = [
       title: 'FOCO DEL DIA',
       type: 'foco',
       severity: 'info',
-      content:
-        [
-          'FOCO DEL DIA __/__/____',
-          '',
-          'OBJETIVO',
-          '- ____________________________',
-          '',
-          'ACCIONES',
-          '1) ____________________________',
-          '2) ____________________________',
-          '',
-          'LISTA (SI APLICA)',
-          '1) COD:_____ - ____________________ __/__ - __% DESC $_____',
-          '2) COD:_____ - ____________________ __/__ - __% DESC $_____',
-          '',
-          'RESULTADO ESPERADO',
-          '- ____________________________',
-        ].join('\n'),
+      content: [
+        'FOCO DEL DIA __/__/____',
+        '',
+        'OBJETIVO',
+        '- ____________________________',
+        '',
+        'ACCIONES',
+        '1) ____________________________',
+        '2) ____________________________',
+        '',
+        'LISTA (SI APLICA)',
+        '1) COD:_____ - ____________________ __/__ - __% DESC $_____',
+        '2) COD:_____ - ____________________ __/__ - __% DESC $_____',
+        '',
+        'RESULTADO ESPERADO',
+        '- ____________________________',
+      ].join('\n'),
     },
   },
   {
@@ -156,18 +155,17 @@ const templates: Template[] = [
       title: 'FOCO DE COBERTURA',
       type: 'foco',
       severity: 'info',
-      content:
-        [
-          'FOCO DE COBERTURA __/__/____',
-          '',
-          'METAS',
-          '- __ CLIENTES DE _____________',
-          '- __ CLIENTES DE _____________',
-          '- __ CLIENTES DE _____________',
-          '',
-          'NOTA',
-          '- Registrar avance y dejar seguimiento',
-        ].join('\n'),
+      content: [
+        'FOCO DE COBERTURA __/__/____',
+        '',
+        'METAS',
+        '- __ CLIENTES DE _____________',
+        '- __ CLIENTES DE _____________',
+        '- __ CLIENTES DE _____________',
+        '',
+        'NOTA',
+        '- Registrar avance y dejar seguimiento',
+      ].join('\n'),
     },
   },
   {
@@ -184,23 +182,22 @@ const templates: Template[] = [
       title: 'CAPACITACION',
       type: 'capacitacion',
       severity: 'info',
-      content:
-        [
-          'CAPACITACION',
-          '',
-          'TEMA',
-          '- ____________________________',
-          '',
-          'OBJETIVO',
-          '- ____________________________',
-          '',
-          'MATERIAL',
-          '- Link / PDF / Looker: ____________________________',
-          '',
-          'CUANDO',
-          '- Dia: __/__/____',
-          '- Hora: __:__',
-        ].join('\n'),
+      content: [
+        'CAPACITACION',
+        '',
+        'TEMA',
+        '- ____________________________',
+        '',
+        'OBJETIVO',
+        '- ____________________________',
+        '',
+        'MATERIAL',
+        '- Link / PDF / Looker: ____________________________',
+        '',
+        'CUANDO',
+        '- Dia: __/__/____',
+        '- Hora: __:__',
+      ].join('\n'),
     },
   },
   {
@@ -217,26 +214,25 @@ const templates: Template[] = [
       title: 'CRITICO OPERATIVO',
       type: 'critico',
       severity: 'critical',
-      content:
-        [
-          'CRITICO OPERATIVO',
-          '',
-          'PROBLEMA',
-          '- ____________________________',
-          '',
-          'IMPACTO',
-          '- ____________________________',
-          '',
-          'ACCION INMEDIATA',
-          '1) ____________________________',
-          '2) ____________________________',
-          '',
-          'RESPONSABLE',
-          '- ____________________________',
-          '',
-          'SEGUIMIENTO',
-          '- ETA: ________________________',
-        ].join('\n'),
+      content: [
+        'CRITICO OPERATIVO',
+        '',
+        'PROBLEMA',
+        '- ____________________________',
+        '',
+        'IMPACTO',
+        '- ____________________________',
+        '',
+        'ACCION INMEDIATA',
+        '1) ____________________________',
+        '2) ____________________________',
+        '',
+        'RESPONSABLE',
+        '- ____________________________',
+        '',
+        'SEGUIMIENTO',
+        '- ETA: ________________________',
+      ].join('\n'),
     },
   },
   {
@@ -253,20 +249,19 @@ const templates: Template[] = [
       title: 'LIMPIAR HOY',
       type: 'foco',
       severity: 'warning',
-      content:
-        [
-          'LIMPIAR HOY __/__/____',
-          '',
-          'APARTIR __% DESCUENTO',
-          '',
-          '(__) COD:_____ - ____________________________ __/__',
-          '(__) COD:_____ - ____________________________ __/__',
-          '(__) COD:_____ - ____________________________ __/__',
-          '',
-          'FOCO DEL DIA __/__/____',
-          '- __ CLIENTES _____________',
-          '- __ CLIENTES _____________',
-        ].join('\n'),
+      content: [
+        'LIMPIAR HOY __/__/____',
+        '',
+        'APARTIR __% DESCUENTO',
+        '',
+        '(__) COD:_____ - ____________________________ __/__',
+        '(__) COD:_____ - ____________________________ __/__',
+        '(__) COD:_____ - ____________________________ __/__',
+        '',
+        'FOCO DEL DIA __/__/____',
+        '- __ CLIENTES _____________',
+        '- __ CLIENTES _____________',
+      ].join('\n'),
     },
   },
 ];
@@ -554,73 +549,19 @@ export default function PanelFocoUpsertDialog({
                 />
               </div>
 
-
               <div className="mt-2 text-xs text-slate-500">
                 Tip: podés usar negrita, listas y links para que sea más legible.
               </div>
             </div>
 
-            {/* targets */}
+            {/* ✅ targets (FIXED como el viejo: BranchesMultiSelect) */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Sucursales destino</label>
-
-              <Popover open={targetsOpen} onOpenChange={setTargetsOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
-                    {targetBranchIds.length === 0
-                      ? 'Seleccionar sucursales…'
-                      : `${targetBranchIds.length} seleccionadas`}
-                    <ChevronsUpDown className="h-4 w-4 opacity-60" />
-                  </Button>
-                </PopoverTrigger>
-
-                <PopoverContent
-                  className="w-[--radix-popover-trigger-width] p-0"
-                  align="start"
-                  onOpenAutoFocus={(e) => e.preventDefault()}
-                  onCloseAutoFocus={(e) => e.preventDefault()}
-                >
-                  <Command>
-                    <CommandInput placeholder="Buscar sucursal…" />
-                    <CommandEmpty>No se encontró.</CommandEmpty>
-
-                    <CommandGroup>
-                      {branches.map((b) => {
-                        const selected = targetBranchIds.includes(b.id);
-                        return (
-                          <CommandItem
-                            key={b.id}
-                            onMouseDown={(e) => e.preventDefault()}
-                            onSelect={() => {
-                              setTargetBranchIds((prev) =>
-                                prev.includes(b.id)
-                                  ? prev.filter((x) => x !== b.id)
-                                  : [...prev, b.id]
-                              );
-                            }}
-                          >
-                            <span className="mr-2 inline-flex h-4 w-4 items-center justify-center rounded border">
-                              {selected ? <Check className="h-3 w-3" /> : null}
-                            </span>
-                            <span>{b.name}</span>
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-
-              <div className="flex flex-wrap gap-2">
-                {selectedLabels.slice(0, 8).map((name) => (
-                  <Badge key={name} variant="outline">
-                    {name}
-                  </Badge>
-                ))}
-                {selectedLabels.length > 8 ? (
-                  <Badge variant="secondary">+{selectedLabels.length - 8} más</Badge>
-                ) : null}
-              </div>
+              <BranchesMultiSelect
+                branches={branches}
+                valueIds={targetBranchIds}
+                onChangeIds={setTargetBranchIds}
+                labelWhenEmpty="Sin filtro (todas)"
+              />
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">

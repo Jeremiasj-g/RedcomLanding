@@ -14,6 +14,7 @@ import {
   markFocoCompleted,
   unmarkFocoCompleted,
 } from '@/components/focos/focos.api';
+import { supabase } from '@/lib/supabaseClient';
 
 type FocoTypeFilter = 'all' | 'foco' | 'critico' | 'promo' | 'capacitacion';
 type FocoStatusFilter = 'all' | 'pending' | 'done';
@@ -104,6 +105,13 @@ export default function FocosFeed() {
   }, [focos, typeFilter, isVendedor, statusFilter, completedSet]);
 
   async function toggleCompleted(focoId: string) {
+    const { data, error } = await supabase
+      .from('focos')
+      .select('id,title')
+      .eq('is_active', true);
+
+    console.log({ data, error });
+
     if (!me?.id) return;
 
     setBusyId(focoId);
@@ -138,6 +146,7 @@ export default function FocosFeed() {
       setBusyId(null);
     }
   }
+
 
   return (
     <RequireAuth>
