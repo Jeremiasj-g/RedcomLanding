@@ -121,7 +121,7 @@ function FocoRow({
   const disabled = busyId === r.id;
 
   return (
-    <div className="grid grid-cols-12 gap-3 py-4 items-center">
+    <div className="grid grid-cols-12 py-4 items-center">
       {/* checkbox fila (solo admin) */}
       <div className="col-span-1">
         {isAdmin ? (
@@ -146,19 +146,19 @@ function FocoRow({
       </div>
 
       {/* Tipo */}
-      <div className="col-span-2">
+      <div className="col-span-1">
         <Badge variant="outline" className={typeBadgeClass(r.type)}>
           {r.type}
         </Badge>
       </div>
 
       {/* Severidad */}
-      <div className="col-span-2">
+      <div className="col-span-1">
         <Badge className={severityBadgeClass(r.severity)}>{r.severity}</Badge>
       </div>
 
       {/* Cumplimiento */}
-      <div className="col-span-2 space-y-2">
+      <div className="col-span-3 space-y-2">
         <div className="flex items-center justify-between text-xs text-slate-600">
           <span>
             {r.completed_count} / {r.target_users_count}
@@ -169,7 +169,7 @@ function FocoRow({
       </div>
 
       {/* Acciones */}
-      <div className="col-span-2 flex justify-end gap-2">
+      <div className="col-span-3 flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={() => onView(r)} disabled={disabled} title="Ver detalle">
           <Eye className="h-4 w-4" />
         </Button>
@@ -338,10 +338,10 @@ export default function PanelFocosTable({
                 ) : null}
               </div>
               <div className="col-span-3">Título</div>
-              <div className="col-span-2">Tipo</div>
-              <div className="col-span-2">Severidad</div>
-              <div className="col-span-2">Cumplimiento</div>
-              <div className="col-span-2 text-right">Acciones</div>
+              <div className="col-span-1">Tipo</div>
+              <div className="col-span-1">Severidad</div>
+              <div className="col-span-3">Cumplimiento</div>
+              <div className="col-span-3 text-right">Acciones</div>
             </div>
 
             {/* Sección activos */}

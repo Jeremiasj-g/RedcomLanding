@@ -26,8 +26,6 @@ export default function FocosFeed() {
 
   const [onlyActive, setOnlyActive] = React.useState(true);
   const [typeFilter, setTypeFilter] = React.useState<FocoTypeFilter>('all');
-
-  // A
   const [statusFilter, setStatusFilter] = React.useState<FocoStatusFilter>('all');
 
   const [focos, setFocos] = React.useState<any[]>([]);
@@ -41,6 +39,7 @@ export default function FocosFeed() {
 
   const load = React.useCallback(async () => {
     if (!me?.id) return;
+
     setLoading(true);
     setErr(null);
 
@@ -52,9 +51,14 @@ export default function FocosFeed() {
 
       setFocos(fs);
 
-      const focoIds = fs.map((f: any) => f.id);
-      const mySet = await getMyFocoCompletions(me.id, focoIds);
-      setCompletedSet(mySet);
+      // completions (solo si hay focos)
+      const focoIds = (fs ?? []).map((f: any) => f.id);
+      if (focoIds.length > 0) {
+        const mySet = await getMyFocoCompletions(me.id, focoIds);
+        setCompletedSet(mySet);
+      } else {
+        setCompletedSet(new Set());
+      }
     } catch (e: any) {
       console.error('[FOCOS] load error', e);
       setErr(e?.message ?? 'No se pudieron cargar los focos.');
@@ -67,31 +71,28 @@ export default function FocosFeed() {
     load();
   }, [load]);
 
-  // C: KPIs (si no es vendedor, pending/done = 0 por diseño)
+  // KPIs (si no es vendedor, pending/done = 0 por diseño)
   const kpis = React.useMemo(() => {
     const total = focos.length;
 
-    if (!isVendedor) {
-      return { total, pending: 0, done: 0 };
-    }
+    if (!isVendedor) return { total, pending: 0, done: 0 };
 
     let done = 0;
     for (const f of focos) {
       if (completedSet.has(f.id)) done++;
     }
     const pending = Math.max(0, total - done);
+
     return { total, pending, done };
   }, [focos, completedSet, isVendedor]);
 
   const filteredFocos = React.useMemo(() => {
     let arr = focos;
 
-    // filtro tipo
     if (typeFilter !== 'all') {
       arr = arr.filter((f: any) => f.type === typeFilter);
     }
 
-    // filtro estado (solo vendedor)
     if (isVendedor && statusFilter !== 'all') {
       arr =
         statusFilter === 'done'
@@ -115,9 +116,15 @@ export default function FocosFeed() {
           userId: me.id,
           branchId: selectedBranchId ?? null,
         });
-        setCompletedSet((prev) => new Set(prev).add(focoId));
+
+        setCompletedSet((prev) => {
+          const n = new Set(prev);
+          n.add(focoId);
+          return n;
+        });
       } else {
         await unmarkFocoCompleted({ focoId });
+
         setCompletedSet((prev) => {
           const n = new Set(prev);
           n.delete(focoId);
@@ -150,17 +157,19 @@ export default function FocosFeed() {
         />
 
         {err ? (
-          <div className="rounded-2xl border bg-white p-4">
-            <p className="font-medium">No se pudieron cargar los focos.</p>
-            <p className="text-sm text-muted-foreground">
-              Revisá la consola y confirmá que las views y los permisos estén bien.
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="font-extrabold text-slate-900">No se pudieron cargar los focos.</p>
+            <p className="text-sm text-slate-600">
+              Revisá consola y confirmá que las views/permisos estén bien.
             </p>
-            <p className="mt-2 text-xs text-muted-foreground">{err}</p>
+            <p className="mt-2 text-xs text-slate-500">{err}</p>
           </div>
         ) : loading ? (
-          <div className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">Cargando focos…</div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+            Cargando focos…
+          </div>
         ) : filteredFocos.length === 0 ? (
-          <div className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
             No hay focos para mostrar con el filtro actual.
           </div>
         ) : (
