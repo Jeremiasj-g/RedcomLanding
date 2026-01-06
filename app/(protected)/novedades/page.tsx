@@ -212,10 +212,14 @@ function HtmlContent({
     <div className={cn(clamp ? 'line-clamp-6' : '', className)}>
       <div
         className={cn(
-          // “prose” light sin depender de typography plugin
-          '[&>p]:my-2 [&>ul]:my-2 [&>ol]:my-2 [&>ul]:pl-5 [&>ol]:pl-5 [&>li]:my-1',
-          '[&>h1]:text-lg [&>h1]:font-extrabold [&>h2]:text-base [&>h2]:font-extrabold',
-          '[&>a]:underline [&>a]:font-semibold'
+          '[&_p]:my-1',
+
+          '[&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-10',
+          '[&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-10',
+
+          '[&_li]:my-1',
+
+          '[&_a]:underline [&_a]:font-semibold'
         )}
         dangerouslySetInnerHTML={{ __html: safe }}
       />

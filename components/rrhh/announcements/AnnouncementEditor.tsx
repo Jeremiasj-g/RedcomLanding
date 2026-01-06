@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 
 import { supabase } from '@/lib/supabaseClient';
@@ -22,10 +22,8 @@ import { AudienceCard } from './ui/AudienceCard';
 import { makeHours, makeMinutes } from './utils/datetimeLocal';
 import { ROLES, TYPE_OPTIONS, SEVERITY_OPTIONS, type AnnouncementType, type Severity } from './types';
 
-// ✅ Import del CSS (ok en client component)
 import 'react-quill/dist/quill.snow.css';
 
-// ✅ ReactQuill sin SSR (esto arregla Vercel)
 const ReactQuill = dynamic(() => import('react-quill'), {
   ssr: false,
   loading: () => (
@@ -61,12 +59,93 @@ const quillFormats = [
   'link',
 ];
 
+/* ---------------- helpers ---------------- */
+function looksLikeHtml(value?: string | null) {
+  const s = String(value ?? '').trim();
+  if (!s) return false;
+  return /<\/?[a-z][\s\S]*>/i.test(s);
+}
+
+function escapeHtml(str: string) {
+  return str
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function templateTextToHtml(input: string) {
+  const text = (input ?? '').trim();
+  if (!text) return '';
+
+  if (looksLikeHtml(text)) return text;
+
+  const lines = text.split('\n');
+  const hasBullets = lines.some((l) => l.trim().startsWith('•'));
+
+  if (hasBullets) {
+    const htmlParts: string[] = [];
+    let inList = false;
+
+    for (const raw of lines) {
+      const line = raw.trim();
+
+      if (!line) {
+        if (inList) {
+          htmlParts.push('</ul>');
+          inList = false;
+        }
+        htmlParts.push('<p><br /></p>');
+        continue;
+      }
+
+      if (line.startsWith('•')) {
+        if (!inList) {
+          htmlParts.push('<ul>');
+          inList = true;
+        }
+        htmlParts.push(`<li>${escapeHtml(line.replace(/^•\s?/, ''))}</li>`);
+      } else {
+        if (inList) {
+          htmlParts.push('</ul>');
+          inList = false;
+        }
+        htmlParts.push(`<p>${escapeHtml(line)}</p>`);
+      }
+    }
+
+    if (inList) htmlParts.push('</ul>');
+    return htmlParts.join('');
+  }
+
+  // Sin bullets: párrafos por doble salto
+  const paragraphs = text.split('\n\n').map((p) => p.replace(/\n/g, '<br />'));
+  return paragraphs
+    .map((p) => `<p>${escapeHtml(p).replace(/&lt;br \/&gt;/g, '<br />')}</p>`)
+    .join('');
+}
+
 export function AnnouncementEditor({ initial, onSaved }: Props) {
   const { branches, loading: branchesLoading } = useBranches();
   const { state, set, audience, canSave, reset, dispatch } = useAnnouncementForm(initial);
 
   const hours = useMemo(() => makeHours(), []);
   const minutes = useMemo(() => makeMinutes(), []);
+
+  // ✅ Normaliza contenido cuando entra en modo edición (o cambia initial)
+  useEffect(() => {
+    const incoming = String(initial?.content ?? '');
+    if (!incoming) return;
+
+    const normalized = templateTextToHtml(incoming);
+
+    // Evitar loops: solo set si cambió
+    if (String(state.content ?? '') !== normalized) {
+      set('content', normalized);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial?.id]); // importante: solo re-hidratar cuando cambia la publicación
 
   const save = async () => {
     dispatch({ type: 'hydrate', payload: { saving: true, errorMsg: null } });
@@ -114,7 +193,6 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
       dispatch({ type: 'set', key: 'saving', value: false });
     }
   };
-
 
   return (
     <div className="rounded-3xl border border-slate-300 bg-white shadow-sm overflow-hidden">
@@ -202,55 +280,53 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
                 formats={quillFormats}
                 placeholder="Texto detallado…"
                 className="
-                            [&_.ql-toolbar]:border-0
-                            [&_.ql-toolbar]:border-b
-                            [&_.ql-toolbar]:border-slate-200
-                            [&_.ql-toolbar]:bg-slate-50
-                            [&_.ql-toolbar_.ql-formats]:mr-2
+                  [&_.ql-toolbar]:border-0
+                  [&_.ql-toolbar]:border-b
+                  [&_.ql-toolbar]:border-slate-200
+                  [&_.ql-toolbar]:bg-slate-50
+                  [&_.ql-toolbar_.ql-formats]:mr-2
 
-                            [&_.ql-toolbar_button]:h-6
-                            [&_.ql-toolbar_button]:w-6
-                            [&_.ql-toolbar_button]:rounded-lg
-                            [&_.ql-toolbar_button:hover]:bg-slate-100
-                            [&_.ql-toolbar_button.ql-active]:bg-slate-200
+                  [&_.ql-toolbar_button]:h-6
+                  [&_.ql-toolbar_button]:w-6
+                  [&_.ql-toolbar_button]:rounded-lg
+                  [&_.ql-toolbar_button:hover]:bg-slate-100
+                  [&_.ql-toolbar_button.ql-active]:bg-slate-200
 
-                            [&_.ql-toolbar_.ql-picker]:h-8
-                            [&_.ql-toolbar_.ql-picker]:rounded-lg
-                            [&_.ql-toolbar_.ql-picker:hover]:bg-slate-100
-                            [&_.ql-toolbar_.ql-picker-label]:text-slate-700
-                            [&_.ql-toolbar_.ql-picker-options]:rounded-xl
-                            [&_.ql-toolbar_.ql-picker-options]:border
-                            [&_.ql-toolbar_.ql-picker-options]:border-slate-200
-                            [&_.ql-toolbar_.ql-picker-options]:bg-white
-                            [&_.ql-toolbar_.ql-picker-item]:text-slate-700
+                  [&_.ql-toolbar_.ql-picker]:h-8
+                  [&_.ql-toolbar_.ql-picker]:rounded-lg
+                  [&_.ql-toolbar_.ql-picker:hover]:bg-slate-100
+                  [&_.ql-toolbar_.ql-picker-label]:text-slate-700
+                  [&_.ql-toolbar_.ql-picker-options]:rounded-xl
+                  [&_.ql-toolbar_.ql-picker-options]:border
+                  [&_.ql-toolbar_.ql-picker-options]:border-slate-200
+                  [&_.ql-toolbar_.ql-picker-options]:bg-white
+                  [&_.ql-toolbar_.ql-picker-item]:text-slate-700
 
-                            [&_.ql-container]:border-0
-                            [&_.ql-container]:shadow-none
-                            [&_.ql-container]:bg-white
+                  [&_.ql-container]:border-0
+                  [&_.ql-container]:shadow-none
+                  [&_.ql-container]:bg-white
 
-                            [&_.ql-editor]:h-[240px]
-                            [&_.ql-editor]:p-3
-                            [&_.ql-editor]:text-sm
-                            [&_.ql-editor]:leading-relaxed
-                            [&_.ql-editor]:text-slate-900
-                            [&_.ql-editor]:outline-none
+                  [&_.ql-editor]:h-[240px]
+                  [&_.ql-editor]:p-3
+                  [&_.ql-editor]:text-sm
+                  [&_.ql-editor]:leading-relaxed
+                  [&_.ql-editor]:text-slate-900
+                  [&_.ql-editor]:outline-none
 
-                            [&_.ql-editor_ol]:pl-6
-                            [&_.ql-editor_ul]:pl-6
-                            [&_.ql-editor_a]:text-sky-700
-                            [&_.ql-editor_a]:underline
+                  [&_.ql-editor_ol]:pl-6
+                  [&_.ql-editor_ul]:pl-6
+                  [&_.ql-editor_a]:text-sky-700
+                  [&_.ql-editor_a]:underline
 
-                            [&_.ql-editor::-webkit-scrollbar]:w-2
-                            [&_.ql-editor::-webkit-scrollbar-thumb]:bg-slate-200
-                            [&_.ql-editor::-webkit-scrollbar-thumb]:rounded-full
-                            [&_.ql-editor::-webkit-scrollbar-track]:bg-transparent
-                          "
+                  [&_.ql-editor::-webkit-scrollbar]:w-2
+                  [&_.ql-editor::-webkit-scrollbar-thumb]:bg-slate-200
+                  [&_.ql-editor::-webkit-scrollbar-thumb]:rounded-full
+                  [&_.ql-editor::-webkit-scrollbar-track]:bg-transparent
+                "
               />
             </div>
 
-            <div className="mt-2 text-xs text-slate-500">
-              Tip: podés usar títulos, listas y links.
-            </div>
+            <div className="mt-2 text-xs text-slate-500">Tip: podés usar títulos, listas y links.</div>
           </FieldCard>
         </div>
 

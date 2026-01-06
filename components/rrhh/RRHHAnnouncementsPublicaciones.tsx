@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AnnouncementEditor } from '@/components/rrhh/AnnouncementEditorV1';
+import { AnnouncementEditor } from '@/components/rrhh/announcements/AnnouncementEditor';
 
 import {
   rrhhArchiveAnnouncement,
@@ -662,7 +662,7 @@ export default function RRHHAnnouncementsPublicaciones({
         </div>
       </div>
 
-      {/* ✅ MODAL EDITAR (ESTO TE FALTABA) */}
+      {/* ✅ MODAL EDITAR */}
       <AnimatePresence>
         {editing ? (
           <Modal onClose={() => setEditing(null)} title="Editar publicación">
