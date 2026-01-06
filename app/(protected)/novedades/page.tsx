@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
-import DOMPurify from 'isomorphic-dompurify';
+/* import DOMPurify from 'isomorphic-dompurify'; */
 
 import {
   PartyPopper,
@@ -148,7 +148,7 @@ function looksLikeHtml(value?: string | null) {
   return /<\/?[a-z][\s\S]*>/i.test(s);
 }
 
-function sanitizeHtml(html: string) {
+/* function sanitizeHtml(html: string) {
   // Permitimos tags típicos de Quill. Bloqueamos scripts/inline events.
   return DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
@@ -173,7 +173,7 @@ function sanitizeHtml(html: string) {
     ],
     ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
   });
-}
+} */
 
 function HtmlContent({
   content,
@@ -195,7 +195,18 @@ function HtmlContent({
     );
   }
 
-  const safe = sanitizeHtml(content);
+  function sanitizeHtmlLight(html: string) {
+    // remove scripts
+    let out = html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
+    // remove inline handlers on*
+    out = out.replace(/\son\w+="[^"]*"/gi, '');
+    out = out.replace(/\son\w+='[^']*'/gi, '');
+    // remove javascript: urls
+    out = out.replace(/href\s*=\s*["']\s*javascript:[^"']*["']/gi, 'href="#"');
+    return out;
+  }
+
+  const safe = sanitizeHtmlLight(content);
 
   return (
     <div className={cn(clamp ? 'line-clamp-6' : '', className)}>
@@ -211,6 +222,7 @@ function HtmlContent({
     </div>
   );
 }
+
 
 /* ---------------- Page ---------------- */
 export default function NovedadesPage() {
