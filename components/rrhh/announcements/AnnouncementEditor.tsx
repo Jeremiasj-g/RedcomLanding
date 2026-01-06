@@ -7,7 +7,6 @@ import { datetimeLocalToISO } from '@/utils/datetime';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -21,10 +20,37 @@ import { AudienceCard } from './ui/AudienceCard';
 import { makeHours, makeMinutes } from './utils/datetimeLocal';
 import { ROLES, TYPE_OPTIONS, SEVERITY_OPTIONS, type AnnouncementType, type Severity } from './types';
 
+// ✅ Mini word (ReactQuill)
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+
 type Props = {
   initial?: any;
   onSaved?: () => void;
 };
+
+const quillModules = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ align: [] }],
+    ['link'],
+    ['clean'],
+  ],
+};
+
+const quillFormats = [
+  'header',
+  'bold',
+  'italic',
+  'underline',
+  'strike',
+  'list',
+  'bullet',
+  'align',
+  'link',
+];
 
 export function AnnouncementEditor({ initial, onSaved }: Props) {
   const { branches, loading: branchesLoading } = useBranches();
@@ -49,10 +75,11 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
         return;
       }
 
+      // ✅ Guardamos HTML tal cual (como en Focos)
       const payload = {
         type: state.type,
         title: state.title.trim(),
-        content: state.content.trim(),
+        content: (state.content ?? '').trim(),
         severity: state.severity,
         require_ack: state.type === 'important_alert' ? state.requireAck : false,
         pinned: state.pinned,
@@ -156,13 +183,66 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
             />
           </FieldCard>
 
+          {/* ✅ Mini Word */}
           <FieldCard title="Contenido">
-            <Textarea
-              className="min-h-[160px] rounded-2xl"
-              value={state.content}
-              onChange={(e) => set('content', e.target.value)}
-              placeholder="Texto detallado…"
-            />
+            <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
+              <ReactQuill
+                theme="snow"
+                value={state.content ?? ''}
+                onChange={(html) => set('content', html)}
+                modules={quillModules}
+                formats={quillFormats}
+                placeholder="Texto detallado…"
+                className="
+                            [&_.ql-toolbar]:border-0
+                            [&_.ql-toolbar]:border-b
+                            [&_.ql-toolbar]:border-slate-200
+                            [&_.ql-toolbar]:bg-slate-50
+                            [&_.ql-toolbar_.ql-formats]:mr-2
+
+                            [&_.ql-toolbar_button]:h-6
+                            [&_.ql-toolbar_button]:w-6
+                            [&_.ql-toolbar_button]:rounded-lg
+                            [&_.ql-toolbar_button:hover]:bg-slate-100
+                            [&_.ql-toolbar_button.ql-active]:bg-slate-200
+
+                            [&_.ql-toolbar_.ql-picker]:h-8
+                            [&_.ql-toolbar_.ql-picker]:rounded-lg
+                            [&_.ql-toolbar_.ql-picker:hover]:bg-slate-100
+                            [&_.ql-toolbar_.ql-picker-label]:text-slate-700
+                            [&_.ql-toolbar_.ql-picker-options]:rounded-xl
+                            [&_.ql-toolbar_.ql-picker-options]:border
+                            [&_.ql-toolbar_.ql-picker-options]:border-slate-200
+                            [&_.ql-toolbar_.ql-picker-options]:bg-white
+                            [&_.ql-toolbar_.ql-picker-item]:text-slate-700
+
+                            [&_.ql-container]:border-0
+                            [&_.ql-container]:shadow-none
+                            [&_.ql-container]:bg-white
+
+                            [&_.ql-editor]:h-[240px]
+                            [&_.ql-editor]:p-3
+                            [&_.ql-editor]:text-sm
+                            [&_.ql-editor]:leading-relaxed
+                            [&_.ql-editor]:text-slate-900
+                            [&_.ql-editor]:outline-none
+
+                            [&_.ql-editor_ol]:pl-6
+                            [&_.ql-editor_ul]:pl-6
+                            [&_.ql-editor_a]:text-sky-700
+                            [&_.ql-editor_a]:underline
+
+                            [&_.ql-editor::-webkit-scrollbar]:w-2
+                            [&_.ql-editor::-webkit-scrollbar-thumb]:bg-slate-200
+                            [&_.ql-editor::-webkit-scrollbar-thumb]:rounded-full
+                            [&_.ql-editor::-webkit-scrollbar-track]:bg-transparent
+                          "
+              />
+            </div>
+
+            <div className="mt-2 text-xs text-slate-500">
+              Tip: podés usar títulos, listas y links. (Se muestra igual en vendedor)
+            </div>
           </FieldCard>
         </div>
 
