@@ -120,6 +120,70 @@ export default function RRHHPage() {
   const countActivos = useMemo(() => items.filter((x) => !x.archived_at).length, [items]);
   const countArchivados = useMemo(() => items.filter((x) => !!x.archived_at).length, [items]);
 
+  function templateTextToHtml(input: string) {
+    const text = (input ?? '').trim();
+    if (!text) return '';
+
+    // Si ya parece HTML, no tocamos nada
+    if (/<[a-z][\s\S]*>/i.test(text)) return text;
+
+    // Convierte líneas en HTML básico con <br>
+    // y respeta bullets tipo "• " (opcionalmente los transforma a <ul>)
+    const lines = text.split('\n');
+
+    // Si detecta bullets "• " arma <ul>
+    const hasBullets = lines.some((l) => l.trim().startsWith('•'));
+    if (hasBullets) {
+      const htmlParts: string[] = [];
+      let inList = false;
+
+      for (const raw of lines) {
+        const line = raw.trim();
+
+        if (!line) {
+          // línea vacía = separador -> corta lista si estaba abierta
+          if (inList) {
+            htmlParts.push('</ul>');
+            inList = false;
+          }
+          htmlParts.push('<p><br /></p>');
+          continue;
+        }
+
+        if (line.startsWith('•')) {
+          if (!inList) {
+            htmlParts.push('<ul>');
+            inList = true;
+          }
+          htmlParts.push(`<li>${escapeHtml(line.replace(/^•\s?/, ''))}</li>`);
+        } else {
+          if (inList) {
+            htmlParts.push('</ul>');
+            inList = false;
+          }
+          htmlParts.push(`<p>${escapeHtml(line)}</p>`);
+        }
+      }
+
+      if (inList) htmlParts.push('</ul>');
+      return htmlParts.join('');
+    }
+
+    // Sin bullets: convierte párrafos y saltos
+    const paragraphs = text.split('\n\n').map((p) => p.replace(/\n/g, '<br />'));
+    return paragraphs.map((p) => `<p>${escapeHtml(p).replace(/&lt;br \/&gt;/g, '<br />')}</p>`).join('');
+  }
+
+  function escapeHtml(str: string) {
+    return str
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+
   return (
     <RequireAuth roles={['rrhh', 'admin']}>
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white">
@@ -261,7 +325,10 @@ export default function RRHHPage() {
                                 key={t.key}
                                 type="button"
                                 onClick={() => {
-                                  setTemplateDraft({ ...t.payload });
+                                  setTemplateDraft({
+                                    ...t.payload,
+                                    content: templateTextToHtml(String((t.payload as any).content ?? '')),
+                                  });
                                   setViewTab('publicar');
                                 }}
                                 className={cn(

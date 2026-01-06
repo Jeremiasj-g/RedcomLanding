@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
+import DOMPurify from 'isomorphic-dompurify';
+
 import {
   PartyPopper,
   Newspaper,
@@ -132,16 +134,85 @@ type Announcement = {
   pinned?: boolean | null;
   created_at: string;
 
-  // ✅ necesarios para expiración
   starts_at?: string | null;
   ends_at?: string | null;
 
-  // ✅ flags (por si los usás)
   is_active?: boolean | null;
   is_published?: boolean | null;
 };
 
+/* ---------------- HTML helpers ---------------- */
+function looksLikeHtml(value?: string | null) {
+  const s = String(value ?? '').trim();
+  if (!s) return false;
+  return /<\/?[a-z][\s\S]*>/i.test(s);
+}
 
+function sanitizeHtml(html: string) {
+  // Permitimos tags típicos de Quill. Bloqueamos scripts/inline events.
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    ALLOWED_TAGS: [
+      'p',
+      'br',
+      'strong',
+      'b',
+      'em',
+      'i',
+      'u',
+      's',
+      'span',
+      'a',
+      'ul',
+      'ol',
+      'li',
+      'h1',
+      'h2',
+      'h3',
+      'blockquote',
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+  });
+}
+
+function HtmlContent({
+  content,
+  clamp,
+  className,
+}: {
+  content: string;
+  clamp?: boolean;
+  className?: string;
+}) {
+  const isHtml = looksLikeHtml(content);
+
+  if (!isHtml) {
+    // ✅ fallback: texto plano viejo
+    return (
+      <div className={cn('whitespace-pre-wrap', className)}>
+        {content}
+      </div>
+    );
+  }
+
+  const safe = sanitizeHtml(content);
+
+  return (
+    <div className={cn(clamp ? 'line-clamp-6' : '', className)}>
+      <div
+        className={cn(
+          // “prose” light sin depender de typography plugin
+          '[&>p]:my-2 [&>ul]:my-2 [&>ol]:my-2 [&>ul]:pl-5 [&>ol]:pl-5 [&>li]:my-1',
+          '[&>h1]:text-lg [&>h1]:font-extrabold [&>h2]:text-base [&>h2]:font-extrabold',
+          '[&>a]:underline [&>a]:font-semibold'
+        )}
+        dangerouslySetInnerHTML={{ __html: safe }}
+      />
+    </div>
+  );
+}
+
+/* ---------------- Page ---------------- */
 export default function NovedadesPage() {
   const [items, setItems] = useState<Announcement[]>([]);
   const [q, setQ] = useState('');
@@ -172,14 +243,14 @@ export default function NovedadesPage() {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000); // cada 30s
+    const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
 
   const { birthdays, rest, counts } = useMemo(() => {
     const query = q.trim().toLowerCase();
 
-    // ✅ 1) Filtrar por vigencia (expira solo)
+    // ✅ 1) Filtrar por vigencia
     const timeVisible = items.filter((a) => {
       const isActive = a.is_active ?? true;
       const isPublished = a.is_published ?? true;
@@ -190,7 +261,7 @@ export default function NovedadesPage() {
       return isActive && isPublished && starts <= now && now < ends;
     });
 
-    // ✅ 2) Buscar sobre lo que está vigente
+    // ✅ 2) Buscar sobre lo vigente
     const byQuery = timeVisible.filter((x) => {
       if (!query) return true;
       return (
@@ -209,7 +280,6 @@ export default function NovedadesPage() {
           ? []
           : nonBirthday.filter((x) => String(x.type).toLowerCase() === tab);
 
-    // ✅ counts deberían reflejar visibles (no items crudos)
     const c = {
       all: timeVisible.length,
       news: timeVisible.filter((x) => String(x.type).toLowerCase() === 'news').length,
@@ -218,7 +288,7 @@ export default function NovedadesPage() {
     };
 
     return { birthdays: b, rest: filteredRest, counts: c };
-  }, [items, q, tab, now]); // ✅ importante agregar now
+  }, [items, q, tab, now]);
 
   // Confetti (cumple)
   useEffect(() => {
@@ -350,15 +420,12 @@ export default function NovedadesPage() {
               >
                 <div className="pointer-events-none absolute inset-0">
                   <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/10 to-white/30" />
-
                   <div className="absolute -top-24 -left-24 h-64 w-64 rounded-full bg-pink-400 blur-[80px]" />
                   <div className="absolute top-10 left-1/3 h-56 w-56 rounded-full bg-fuchsia-400 blur-[110px]" />
                   <div className="absolute -top-20 right-10 h-72 w-72 rounded-full bg-indigo-400 blur-[110px]" />
-
                   <div className="absolute bottom-15 left-10 h-72 w-72 rounded-full bg-sky-400 blur-[110px]" />
                   <div className="absolute -bottom-28 right-1/3 h-80 w-80 rounded-full bg-emerald-100 blur-[110px]" />
                   <div className="absolute bottom-2 -right-24 h-72 w-72 rounded-full bg-amber-300 blur-[110px]" />
-
                   <div className="absolute inset-0 ring-1 ring-white/60" />
                 </div>
 
@@ -435,7 +502,9 @@ export default function NovedadesPage() {
                             </div>
 
                             <div className="mt-2 text-base font-extrabold text-slate-900">{it.title}</div>
-                            <div className="mt-1 text-sm text-slate-800 whitespace-pre-wrap">{it.content}</div>
+
+                            {/* ✅ contenido: HTML o texto */}
+                            <HtmlContent content={it.content} className="mt-1 text-sm text-slate-800" />
                           </div>
                         </motion.div>
                       ))}
@@ -499,19 +568,9 @@ export default function NovedadesPage() {
                           'transition hover:shadow-md'
                         )}
                       >
-                        {/* Glow / ring ABAJO */}
                         <div className={cn('pointer-events-none absolute inset-0 z-0 bg-gradient-to-br', meta.glow)} />
                         <div className={cn('pointer-events-none absolute inset-0 z-0 ring-1', meta.ring)} />
-
-                        {/* ✅ Borde superior ARRIBA de todo */}
                         <div className={cn('pointer-events-none absolute left-0 right-0 top-0 z-20 h-1.5', sev.topBar)} />
-
-                        {/* ✅ SOLO borde superior por severidad */}
-                        {/* <div className={cn('absolute left-0 right-0 top-0 h-[100px]', sev.topBar)} /> */}
-
-                        {/* ✅ Glow SOLO por tipo (como ya venías usando) */}
-                        {/* <div className={cn('pointer-events-none absolute inset-0 bg-gradient-to-br', meta.glow)} />
-                        <div className={cn('pointer-events-none absolute inset-0 ring-1', meta.ring)} /> */}
 
                         <div className="relative p-5">
                           <div className="flex items-start justify-between gap-3">
@@ -534,7 +593,6 @@ export default function NovedadesPage() {
                                 {meta.label}
                               </span>
 
-                              {/* ✅ Chip sutil de severidad (NO tiñe fondo) */}
                               <span
                                 className={cn(
                                   'inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-[11px] font-extrabold backdrop-blur',
@@ -555,9 +613,12 @@ export default function NovedadesPage() {
                             {it.title}
                           </div>
 
-                          <div className="mt-2 text-sm text-slate-700 whitespace-pre-wrap line-clamp-6">
-                            {it.content}
-                          </div>
+                          {/* ✅ contenido: HTML o texto + clamp */}
+                          <HtmlContent
+                            content={it.content}
+                            clamp
+                            className="mt-2 text-sm text-slate-700"
+                          />
                         </div>
                       </motion.article>
                     );

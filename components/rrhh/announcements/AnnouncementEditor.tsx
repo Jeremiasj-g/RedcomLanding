@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import dynamic from 'next/dynamic';
+
 import { supabase } from '@/lib/supabaseClient';
 import { useBranches } from '@/hooks/useBranches';
 import { datetimeLocalToISO } from '@/utils/datetime';
@@ -20,9 +22,16 @@ import { AudienceCard } from './ui/AudienceCard';
 import { makeHours, makeMinutes } from './utils/datetimeLocal';
 import { ROLES, TYPE_OPTIONS, SEVERITY_OPTIONS, type AnnouncementType, type Severity } from './types';
 
-// ✅ Mini word (ReactQuill)
-import ReactQuill from 'react-quill';
+// ✅ Import del CSS (ok en client component)
 import 'react-quill/dist/quill.snow.css';
+
+// ✅ ReactQuill sin SSR (esto arregla Vercel)
+const ReactQuill = dynamic(() => import('react-quill'), {
+  ssr: false,
+  loading: () => (
+    <div className="min-h-[160px] rounded-2xl border border-slate-200 bg-slate-50 animate-pulse" />
+  ),
+});
 
 type Props = {
   initial?: any;
@@ -75,11 +84,10 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
         return;
       }
 
-      // ✅ Guardamos HTML tal cual (como en Focos)
       const payload = {
         type: state.type,
         title: state.title.trim(),
-        content: (state.content ?? '').trim(),
+        content: (state.content ?? '').trim(), // ✅ HTML
         severity: state.severity,
         require_ack: state.type === 'important_alert' ? state.requireAck : false,
         pinned: state.pinned,
@@ -183,13 +191,12 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
             />
           </FieldCard>
 
-          {/* ✅ Mini Word */}
-          <FieldCard title="Contenido">
+          <FieldCard title="Contenido" subtitle="Texto enriquecido (se guarda en HTML)">
             <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
               <ReactQuill
                 theme="snow"
                 value={state.content ?? ''}
-                onChange={(html) => set('content', html)}
+                onChange={(html: string) => set('content', html)}
                 modules={quillModules}
                 formats={quillFormats}
                 placeholder="Texto detallado…"
@@ -241,7 +248,7 @@ export function AnnouncementEditor({ initial, onSaved }: Props) {
             </div>
 
             <div className="mt-2 text-xs text-slate-500">
-              Tip: podés usar títulos, listas y links. (Se muestra igual en vendedor)
+              Tip: podés usar títulos, listas y links.
             </div>
           </FieldCard>
         </div>
