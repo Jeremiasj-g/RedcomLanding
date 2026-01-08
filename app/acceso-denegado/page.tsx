@@ -72,7 +72,7 @@ export default function AccesoDenegadoPage() {
           </div>
 
           {/* Avatar grande “saliendo” desde abajo */}
-          <div className="pointer-events-none absolute inset-x-0 md:bottom-[-18%] flex justify-center">
+          <div className="pointer-events-none inset-x-0 flex justify-center">
             <div className="relative w-[min(920px,92vw)]">
               <Image
                 src="/stop_avatar.png"
@@ -80,7 +80,7 @@ export default function AccesoDenegadoPage() {
                 width={1400}
                 height={1000}
                 priority
-                className="h-[400px] md:h-[900px] object-contain drop-shadow-[0_40px_50px_rgba(2,6,23,0.18)]"
+                className="h-[400px] md:h-[700px] object-contain drop-shadow-[0_40px_50px_rgba(2,6,23,0.18)]"
               />
             </div>
           </div>

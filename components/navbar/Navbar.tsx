@@ -12,6 +12,7 @@ import {
   Hammer,
   User,
   Check,
+  BadgeCheck,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,26 @@ type TaskNotification = {
 };
 
 const getNotifStorageKey = (userId: string) => `project_notifs_last_seen_${userId}`;
+
+/* ---------------- helpers rol -> label ---------------- */
+function roleLabel(role: string) {
+  const r = String(role || '').toLowerCase();
+  if (r === 'admin') return 'Administrador';
+  if (r === 'jdv') return 'JDV';
+  if (r === 'supervisor') return 'Supervisor';
+  if (r === 'rrhh') return 'RRHH';
+  return 'Vendedor';
+}
+
+function roleChipClass(role: string) {
+  const r = String(role || '').toLowerCase();
+  // base estilo: borde + fondo sutil como en perfil
+  if (r === 'admin') return 'border-amber-300/40 bg-amber-500/10 text-amber-200';
+  if (r === 'jdv') return 'border-indigo-300/40 bg-indigo-500/10 text-indigo-200';
+  if (r === 'supervisor') return 'border-emerald-300/40 bg-emerald-500/10 text-emerald-200';
+  if (r === 'rrhh') return 'border-pink-300/40 bg-pink-500/10 text-pink-200';
+  return 'border-slate-300/30 bg-white/5 text-slate-200';
+}
 
 export default function Navbar() {
   const { me, loading } = useMe();
@@ -64,7 +85,6 @@ export default function Navbar() {
   const fullName = useMemo(() => {
     const n = (me?.full_name ?? '').trim();
     if (n) return n;
-    // fallback si no existe full_name
     return (me?.email ?? '').split('@')[0] ?? 'Usuario';
   }, [me?.full_name, me?.email]);
 
@@ -144,8 +164,6 @@ export default function Navbar() {
 
     const loadInitialNotifications = async () => {
       try {
-        // ✅ Si querés carga inicial real, acá podés fetch de asignaciones recientes.
-        // Hoy lo dejás vacío para evitar requests extra, como ya lo venías haciendo.
         const _lastSeen = localStorage.getItem(getNotifStorageKey(me.id));
         void _lastSeen;
       } catch {
@@ -281,10 +299,27 @@ export default function Navbar() {
             </>
           )}
 
-          {/* Saludo (nombre completo) */}
+          {/* ✅ Saludo + chip de rol */}
           {logged && (
-            <div className="hidden items-center rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm text-slate-200 lg:flex">
-              Hola, <b className="ml-1 text-slate-50">{fullName}</b>
+            <div className="hidden items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm text-slate-200 lg:flex">
+              <span>
+                Hola, <b className="ml-1 text-slate-50">{fullName}</b>
+              </span>
+
+              {/* divider */}
+              <span className="mx-1 h-4 w-px bg-white/10" />
+
+              {/* chip rol (como perfil) */}
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-extrabold',
+                  roleChipClass(role),
+                )}
+                title={`Rol: ${roleLabel(role)}`}
+              >
+                <BadgeCheck className="h-4 w-4" />
+                {roleLabel(role)}
+              </span>
             </div>
           )}
 
@@ -354,9 +389,7 @@ export default function Navbar() {
                             key={n.id}
                             className={cn(
                               'relative rounded-xl border px-3 py-2 transition',
-                              n.read
-                                ? 'border-slate-900 bg-slate-900/40'
-                                : 'border-slate-700 bg-slate-900/80',
+                              n.read ? 'border-slate-900 bg-slate-900/40' : 'border-slate-700 bg-slate-900/80',
                             )}
                           >
                             {!n.read && (
@@ -383,7 +416,7 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* Perfil: icono (no iniciales) */}
+          {/* Perfil */}
           {logged && (
             <Link
               href="/perfil"
@@ -422,12 +455,7 @@ export default function Navbar() {
         </div>
 
         {/* Drawer */}
-        <SidebarDrawer
-          open={drawerOpen}
-          onOpenChange={setDrawerOpen}
-          sections={navSections}
-          title="Navegación"
-        />
+        <SidebarDrawer open={drawerOpen} onOpenChange={setDrawerOpen} sections={navSections} title="Navegación" />
       </nav>
     </header>
   );
