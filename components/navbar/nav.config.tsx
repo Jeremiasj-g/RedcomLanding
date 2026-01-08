@@ -190,7 +190,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Panel de focos',
         href: '/focos/panel',
         icon: <Shield className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && roleIn(['admin','supervisor'])(ctx),
+        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && roleIn(['admin','supervisor', 'jdv'])(ctx),
         enabledReason: () => 'Solo Admin / Supervisor',
         // ✅ color original admin panel
         className: 'text-red-300 hover:text-red-200',
