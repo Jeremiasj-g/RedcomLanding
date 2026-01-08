@@ -37,7 +37,7 @@ export default function Chaco() {
 
   return (
 
-    <RequireAuth roles={['admin', 'supervisor', 'vendedor']} branches={['chaco']}>
+    <RequireAuth roles={['admin', 'supervisor', 'jdv' ,'vendedor', 'rrhh']} branches={['chaco']}>
 
       <div className="min-h-screen">
         <PageHeader

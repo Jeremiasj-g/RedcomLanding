@@ -6,7 +6,7 @@ import CategoriasLayout from '@/components/categoria/CategoriasLayout'
 export default function Page() {
   return (
     <CategoriasLayout
-      roles={['admin', 'supervisor', 'vendedor', 'rrhh']}
+      roles={['admin', 'supervisor', 'jdv' ,'vendedor', 'rrhh']}
       branches={['corrientes']}
       heroBgUrl="/categorias.webp"
       heroHasShadow

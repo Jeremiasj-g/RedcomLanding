@@ -1,73 +1,92 @@
 'use client';
 
 import Link from 'next/link';
-import { ShieldAlert, ArrowLeft, Home } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowLeft, Home, ShieldAlert } from 'lucide-react';
+
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(' ');
+}
 
 export default function AccesoDenegadoPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 flex items-center justify-center px-4">
-      <div className="max-w-lg w-full">
-        {/* Card */}
-        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-          {/* Glow */}
-          <div className="pointer-events-none absolute -top-32 -right-32 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-white via-slate-50 to-slate-100">
+      {/* Decor suave */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-rose-300/30 blur-[90px]" />
+        <div className="absolute -top-44 -right-44 h-[560px] w-[560px] rounded-full bg-indigo-300/28 blur-[110px]" />
+        <div className="absolute top-1/2 left-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300/22 blur-[120px]" />
+        <div className="absolute inset-0 opacity-[0.06] [background-image:radial-gradient(circle_at_1px_1px,rgba(15,23,42,0.35)_1px,transparent_0)] [background-size:26px_26px]" />
+      </div>
 
-          <div className="relative p-8 sm:p-10">
-            {/* Icono */}
-            <div className="mb-4 inline-flex items-center justify-center rounded-2xl bg-red-50 px-3 py-2 text-red-600">
-              <ShieldAlert className="h-5 w-5 mr-2" />
-              <span className="text-xs font-semibold tracking-wide uppercase">
-                Acceso restringido
-              </span>
-            </div>
+      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-4">
+        {/* Top nav */}
+        <div className="pt-8 sm:pt-10 flex items-center justify-between">
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 text-xs font-extrabold text-slate-900 shadow-sm backdrop-blur">
+            <ShieldAlert className="h-4 w-4 text-rose-600" />
+            Acceso restringido
+          </div>
 
-            {/* Título */}
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
-              No tenés permisos para ver esta sección
-            </h1>
+          <div className="flex gap-2">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-extrabold text-white shadow-sm transition hover:bg-slate-800 active:scale-[0.98]"
+            >
+              <Home className="h-4 w-4" />
+              Inicio
+            </Link>
 
-            {/* Texto */}
-            <p className="text-sm sm:text-base text-slate-600 mb-6">
-              Tu usuario está autenticado, pero tu rol o sucursal no tienen acceso
-              al recurso que intentás abrir. Si creés que se trata de un error,
-              contactá a un administrador del sistema.
-            </p>
-
-            {/* Info compacta del motivo */}
-            <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs sm:text-sm text-slate-600">
-              <ul className="list-disc list-inside space-y-1">
-                <li>Ruta protegida por rol (admin / supervisor / vendedor).</li>
-                <li>También puede requerir una sucursal específica.</li>
-              </ul>
-            </div>
-
-            {/* Botones */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link
-                href="/"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-[0.98]"
-              >
-                <Home className="h-4 w-4" />
-                Volver al inicio
-              </Link>
-
-              <button
-                type="button"
-                onClick={() => window.history.back()}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50 active:scale-[0.98]"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Volver a la página anterior
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => window.history.back()}
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-50 active:scale-[0.98]"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Volver
+            </button>
           </div>
         </div>
 
-        {/* Pie pequeño */}
-        <p className="mt-4 text-center text-xs text-slate-400">
-          Si necesitás permisos adicionales, hablá con el administrador de RedcomWeb.
-        </p>
+        {/* Hero */}
+        <main className="relative flex-1">
+          {/* Texto superior centrado */}
+          <div className="mx-auto mt-12 sm:mt-16 max-w-4xl text-center">
+            <h1 className="text-[34px] leading-[1.05] sm:text-[54px] font-black tracking-tight text-slate-900">
+              ACCESO DENEGADO
+            </h1>
+
+            <p className="mt-4 text-sm sm:text-base text-slate-600">
+              Tu sesión es válida, pero tu <span className="font-semibold text-slate-800">rol</span> o{' '}
+              <span className="font-semibold text-slate-800">sucursal</span> no habilitan esta sección.
+              Si creés que es un error, pedí acceso a un administrador.
+            </p>
+
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              <span className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-extrabold text-slate-700 shadow-sm backdrop-blur">
+                Protegido por rol
+              </span>
+              <span className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-extrabold text-slate-700 shadow-sm backdrop-blur">
+                Puede requerir sucursal
+              </span>
+            </div>
+          </div>
+
+          {/* Avatar grande “saliendo” desde abajo */}
+          <div className="pointer-events-none absolute inset-x-0 md:bottom-[-18%] flex justify-center">
+            <div className="relative w-[min(920px,92vw)]">
+              <Image
+                src="/stop_avatar.png"
+                alt="Acceso denegado"
+                width={1400}
+                height={1000}
+                priority
+                className="h-[400px] md:h-[900px] object-contain drop-shadow-[0_40px_50px_rgba(2,6,23,0.18)]"
+              />
+            </div>
+          </div>
+
+        </main>
+
       </div>
     </div>
   );

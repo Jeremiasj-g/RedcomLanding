@@ -4,7 +4,7 @@ import { RequireAuth } from '@/components/RouteGuards'
 import CategoriasFreezeDetector from './CategoriasFreezeDetector'
 
 type Props = {
-  roles: Array<'admin' | 'supervisor' | 'vendedor' | 'rrhh' >
+  roles: Array<'admin' | 'supervisor' | 'vendedor' | 'rrhh' | 'jdv' >
   branches: string[]
   heroBgUrl?: string
   heroHeightClass?: string

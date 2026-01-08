@@ -35,7 +35,7 @@ export default function Misiones() {
 
   return (
 
-    <RequireAuth roles={['admin', 'supervisor', 'vendedor', 'rrhh']} branches={['misiones']}>
+    <RequireAuth roles={['admin', 'supervisor', 'jdv' ,'vendedor', 'rrhh']} branches={['misiones']}>
       <div className="min-h-screen">
         <PageHeader
           title="Misiones"

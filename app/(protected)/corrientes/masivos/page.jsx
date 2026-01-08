@@ -33,7 +33,7 @@ export default function CorrientesMasivos() {
   
   return (
     <RequireAuth
-      roles={['admin', 'supervisor', 'vendedor', 'rrhh']}
+      roles={['admin', 'supervisor', 'jdv' ,'vendedor', 'rrhh']}
       branches={['corrientes']}
     >
       <div className="min-h-screen">
