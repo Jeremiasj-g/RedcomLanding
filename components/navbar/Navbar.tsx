@@ -19,6 +19,8 @@ import { cn } from '@/lib/utils';
 import SidebarDrawer from './SidebarDrawer';
 import { getNavModel } from './getNavModel';
 
+import { Skeleton } from '@/components/ui/skeleton';
+
 type TaskNotification = {
   id: number;
   title: string;
@@ -43,12 +45,43 @@ function roleLabel(role: string) {
 
 function roleChipClass(role: string) {
   const r = String(role || '').toLowerCase();
-  // base estilo: borde + fondo sutil como en perfil
   if (r === 'admin') return 'border-amber-300/40 bg-amber-500/10 text-amber-200';
   if (r === 'jdv') return 'border-indigo-300/40 bg-indigo-500/10 text-indigo-200';
   if (r === 'supervisor') return 'border-emerald-300/40 bg-emerald-500/10 text-emerald-200';
   if (r === 'rrhh') return 'border-pink-300/40 bg-pink-500/10 text-pink-200';
   return 'border-slate-300/30 bg-white/5 text-slate-200';
+}
+
+/* ---------------- UI: Skeleton (simple) ---------------- */
+/* function NavSkeletonSimple() {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="hidden lg:flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2">
+        <Skeleton className="h-4 w-40 rounded-md bg-slate-800/60" />
+        <span className="mx-1 h-4 w-px bg-white/10" />
+        <Skeleton className="h-7 w-24 rounded-full bg-slate-800/55" />
+      </div>
+
+      
+      <Skeleton className="h-10 w-10 rounded-full bg-slate-800/60" />
+      <Skeleton className="h-10 w-10 rounded-full bg-slate-800/60" />
+    </div>
+  );
+} */
+
+  function NavSkeletonPills() {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="hidden lg:flex items-center gap-2">
+        <Skeleton className="h-9 w-36 rounded-full bg-gray-500/60" />
+        <Skeleton className="h-9 w-44 rounded-full bg-gray-500/60" />
+      </div>
+      
+      <Skeleton className="h-10 w-10 rounded-full bg-gray-500/60" />
+      <Skeleton className="h-10 w-10 rounded-full bg-gray-500/60" />
+      <Skeleton className="h-10 w-10 rounded-full bg-gray-500/60" />
+    </div>
+  );
 }
 
 export default function Navbar() {
@@ -87,6 +120,9 @@ export default function Navbar() {
     if (n) return n;
     return (me?.email ?? '').split('@')[0] ?? 'Usuario';
   }, [me?.full_name, me?.email]);
+
+  // ✅ no parpadea al volver a la pestaña
+  const showSkeleton = loading && !me;
 
   // ─────────────────────────────────────────
   // Cerrar dropdowns por click fuera / ESC
@@ -269,193 +305,204 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* Right: saludo + acciones */}
+        {/* Right */}
         <div className="flex items-center gap-2">
-          {/* Admin quick links en header */}
-          {logged && isActive && isAdmin && (
+          {showSkeleton ? (
+            <NavSkeletonPills />
+          ) : (
             <>
-              <Link
-                href="/admin/solicitudes"
-                className={cn(
-                  'relative hidden items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800 md:inline-flex',
-                )}
-              >
-                <ClipboardList className="h-4 w-4" />
-                Solicitudes
-                {pendingCount !== null && pendingCount > 0 && (
-                  <span className="ml-1 inline-flex min-w-[1.6rem] items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold leading-none text-slate-900">
-                    {pendingCount > 99 ? '99+' : pendingCount}
-                  </span>
-                )}
-              </Link>
-
-              <Link
-                href="/gerencia"
-                className="hidden items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800 md:inline-flex"
-              >
-                <Hammer className="h-4 w-4" />
-                Recursos
-              </Link>
-            </>
-          )}
-
-          {/* ✅ Saludo + chip de rol */}
-          {logged && (
-            <div className="hidden items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm text-slate-200 lg:flex">
-              <span>
-                Hola, <b className="ml-1 text-slate-50">{fullName}</b>
-              </span>
-
-              {/* divider */}
-              <span className="mx-1 h-4 w-px bg-white/10" />
-
-              {/* chip rol (como perfil) */}
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-extrabold',
-                  roleChipClass(role),
-                )}
-                title={`Rol: ${roleLabel(role)}`}
-              >
-                <BadgeCheck className="h-4 w-4" />
-                {roleLabel(role)}
-              </span>
-            </div>
-          )}
-
-          {/* Campanita (abre dropdown) */}
-          {canSeeNotifs && (
-            <div className="relative" id="menu-notif" ref={notifRef}>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setNotifOpen((v) => !v);
-                }}
-                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800"
-                aria-label="Notificaciones"
-              >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -right-1 -top-1 inline-flex min-h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-slate-50">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-
-              <AnimatePresence>
-                {notifOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                    transition={{ duration: 0.16 }}
-                    className="absolute right-0 mt-2 w-[360px] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/95 backdrop-blur p-2 text-xs text-slate-100 shadow-2xl"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="mb-1 flex items-center justify-between gap-4 px-2 pb-1">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                        Proyectos asignados
-                      </span>
-
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={handleMarkAllRead}
-                          disabled={notifications.length === 0 || unreadCount === 0}
-                          className="text-[10px] text-slate-100 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Marcar todo
-                        </button>
-
-                        <Link
-                          href="/proyectos"
-                          className="text-[11px] text-emerald-300 hover:text-emerald-200"
-                          onClick={() => setNotifOpen(false)}
-                        >
-                          Ver todo
-                        </Link>
-                      </div>
-                    </div>
-
-                    {notifications.length === 0 ? (
-                      <div className="px-2 py-3 text-[11px] text-slate-500">
-                        No tenés proyectos asignados por ahora.
-                      </div>
-                    ) : (
-                      <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
-                        {notifications.map((n) => (
-                          <div
-                            key={n.id}
-                            className={cn(
-                              'relative rounded-xl border px-3 py-2 transition',
-                              n.read ? 'border-slate-900 bg-slate-900/40' : 'border-slate-700 bg-slate-900/80',
-                            )}
-                          >
-                            {!n.read && (
-                              <button
-                                type="button"
-                                onClick={() => handleMarkOneRead(n.id)}
-                                className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-500/60 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/30"
-                                aria-label="Marcar como leída"
-                              >
-                                <Check className="h-3 w-3" />
-                              </button>
-                            )}
-                            <div className="pr-6 text-[11px] font-semibold text-slate-100">{n.title}</div>
-                            <div className="text-[10px] text-slate-400 line-clamp-2">
-                              {n.summary || 'Sin descripción.'}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+              {/* Admin quick links */}
+              {logged && isActive && isAdmin && (
+                <>
+                  <Link
+                    href="/admin/solicitudes"
+                    className={cn(
+                      'relative hidden items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800 md:inline-flex',
                     )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                    Solicitudes
+                    {pendingCount !== null && pendingCount > 0 && (
+                      <span className="ml-1 inline-flex min-w-[1.6rem] items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold leading-none text-slate-900">
+                        {pendingCount > 99 ? '99+' : pendingCount}
+                      </span>
+                    )}
+                  </Link>
 
-          {/* Perfil */}
-          {logged && (
-            <Link
-              href="/perfil"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800"
-              aria-label="Ir a perfil"
-              title="Perfil"
-            >
-              <User className="h-5 w-5" />
-            </Link>
-          )}
+                  <Link
+                    href="/gerencia"
+                    className="hidden items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800 md:inline-flex"
+                  >
+                    <Hammer className="h-4 w-4" />
+                    Recursos
+                  </Link>
+                </>
+              )}
 
-          {/* Logout */}
-          {logged && (
-            <button
-              type="button"
-              onClick={async () => {
-                await supabase.auth.signOut();
-                window.location.replace('/login');
-              }}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800"
-              aria-label="Cerrar sesión"
-              title="Salir"
-            >
-              <LogOut className="h-5 w-5" />
-            </button>
-          )}
+              {/* Saludo + rol */}
+              {logged && (
+                <div className="hidden items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm text-slate-200 lg:flex">
+                  <span>
+                    Hola, <b className="ml-1 text-slate-50">{fullName}</b>
+                  </span>
 
-          {!loading && !logged && (
-            <Link
-              href="/login"
-              className="rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800"
-            >
-              Ingresar
-            </Link>
+                  <span className="mx-1 h-4 w-px bg-white/10" />
+
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-extrabold',
+                      roleChipClass(role),
+                    )}
+                    title={`Rol: ${roleLabel(role)}`}
+                  >
+                    <BadgeCheck className="h-4 w-4" />
+                    {roleLabel(role)}
+                  </span>
+                </div>
+              )}
+
+              {/* Campanita */}
+              {canSeeNotifs && (
+                <div className="relative" id="menu-notif" ref={notifRef}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setNotifOpen((v) => !v);
+                    }}
+                    className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800"
+                    aria-label="Notificaciones"
+                  >
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -right-1 -top-1 inline-flex min-h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-slate-50">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <AnimatePresence>
+                    {notifOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                        transition={{ duration: 0.16 }}
+                        className="absolute right-0 mt-2 w-[360px] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/95 backdrop-blur p-2 text-xs text-slate-100 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="mb-1 flex items-center justify-between gap-4 px-2 pb-1">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                            Proyectos asignados
+                          </span>
+
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={handleMarkAllRead}
+                              disabled={notifications.length === 0 || unreadCount === 0}
+                              className="text-[10px] text-slate-100 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              Marcar todo
+                            </button>
+
+                            <Link
+                              href="/proyectos"
+                              className="text-[11px] text-emerald-300 hover:text-emerald-200"
+                              onClick={() => setNotifOpen(false)}
+                            >
+                              Ver todo
+                            </Link>
+                          </div>
+                        </div>
+
+                        {notifications.length === 0 ? (
+                          <div className="px-2 py-3 text-[11px] text-slate-500">
+                            No tenés proyectos asignados por ahora.
+                          </div>
+                        ) : (
+                          <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+                            {notifications.map((n) => (
+                              <div
+                                key={n.id}
+                                className={cn(
+                                  'relative rounded-xl border px-3 py-2 transition',
+                                  n.read
+                                    ? 'border-slate-900 bg-slate-900/40'
+                                    : 'border-slate-700 bg-slate-900/80',
+                                )}
+                              >
+                                {!n.read && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMarkOneRead(n.id)}
+                                    className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-500/60 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/30"
+                                    aria-label="Marcar como leída"
+                                  >
+                                    <Check className="h-3 w-3" />
+                                  </button>
+                                )}
+                                <div className="pr-6 text-[11px] font-semibold text-slate-100">{n.title}</div>
+                                <div className="text-[10px] text-slate-400 line-clamp-2">
+                                  {n.summary || 'Sin descripción.'}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
+              {/* Perfil */}
+              {logged && (
+                <Link
+                  href="/perfil"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800"
+                  aria-label="Ir a perfil"
+                  title="Perfil"
+                >
+                  <User className="h-5 w-5" />
+                </Link>
+              )}
+
+              {/* Logout */}
+              {logged && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    window.location.replace('/login');
+                  }}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800"
+                  aria-label="Cerrar sesión"
+                  title="Salir"
+                >
+                  <LogOut className="h-5 w-5" />
+                </button>
+              )}
+
+              {!logged && (
+                <Link
+                  href="/login"
+                  className="rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800"
+                >
+                  Ingresar
+                </Link>
+              )}
+            </>
           )}
         </div>
 
         {/* Drawer */}
-        <SidebarDrawer open={drawerOpen} onOpenChange={setDrawerOpen} sections={navSections} title="Navegación" />
+        <SidebarDrawer
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          sections={navSections}
+          title="Navegación"
+        />
       </nav>
     </header>
   );
