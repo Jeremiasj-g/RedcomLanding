@@ -1,11 +1,11 @@
 export default function LookerEmbed({looker_id}) {
 
   const LOOKER_LINKS = {
-    masivos: 'https://lookerstudio.google.com/embed/reporting/ad82bc6b-d9d2-4c2e-b5a7-b761ecbdf7f3/page/zlJiF',
+    masivos: 'https://lookerstudio.google.com/embed/reporting/b37f7c00-c237-404d-9cc3-34c568658ee6/page/zWgkF',
     refrigerados: 'https://lookerstudio.google.com/embed/reporting/c5ac5605-9848-4fa9-9433-0afa6cfc867c/page/p_f38jghr7xd',
     chaco: 'https://lookerstudio.google.com/embed/reporting/95f84fe1-d5b8-4b6d-b877-fe5c4015c135/page/3eLiF',
     misiones: 'https://lookerstudio.google.com/embed/reporting/535423b7-c192-49b3-a2bf-a1d03f070110/page/iSnkF',
-    obera: 'https://lookerstudio.google.com/embed/reporting/fbf85486-68a1-4cf8-8b7f-7fa52a2adcc8/page/aUKiF',
+    obera: 'https://lookerstudio.google.com/embed/reporting/02da7063-7bb9-4398-b53a-da040bc4355e/page/p1nkF',
     gerencia: 'https://lookerstudio.google.com/embed/reporting/cef0180a-7960-4a53-9866-f390ec75f579/page/yLQfF'
   }
 
