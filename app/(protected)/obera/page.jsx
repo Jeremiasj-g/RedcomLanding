@@ -18,6 +18,7 @@ export default function Obera() {
 
   // const mapaMisiones = urls.mapas[3].misiones
   const tableroObera = urls.tableros[5].obera
+  const mapaObera = urls.mapas[4].obera
 
   const { me } = useMe();
   const role = me?.role ?? 'vendedor';
@@ -67,6 +68,7 @@ export default function Obera() {
         {canSeeAnalytics && (
           <>
             <Container>
+              <FullScreenEmbedCard {...mapaObera} />
               <FullScreenEmbedCard {...tableroObera} icon={<Table />} />
             </Container>
 
