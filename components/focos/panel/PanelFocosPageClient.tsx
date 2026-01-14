@@ -256,13 +256,13 @@ export default function PanelFocosPageClient() {
           </div>
 
           {/* Tabla */}
-          <PanelFocosTable
+          {<PanelFocosTable
             loading={loading}
             error={err}
             rows={rows}
             busyId={busyId}
             onlyActive={onlyActive}
-            isAdmin={isAdmin}
+
             selectedIds={selectedIds}
             onChangeSelectedIds={setSelectedIds}
             onDeleteSelected={onDeleteSelected}
@@ -273,7 +273,7 @@ export default function PanelFocosPageClient() {
             onClose={onClose}
             onReopen={onReopen}
             onDeleteOne={onDeleteOne}
-          />
+          />}
         </div>
 
         {/* Dialog Create/Edit */}

@@ -6,7 +6,7 @@ export default function LookerEmbed({looker_id}) {
     chaco: 'https://lookerstudio.google.com/embed/reporting/95f84fe1-d5b8-4b6d-b877-fe5c4015c135/page/3eLiF',
     misiones: 'https://lookerstudio.google.com/embed/reporting/535423b7-c192-49b3-a2bf-a1d03f070110/page/iSnkF',
     obera: 'https://lookerstudio.google.com/embed/reporting/02da7063-7bb9-4398-b53a-da040bc4355e/page/p1nkF',
-    gerencia: 'https://lookerstudio.google.com/embed/reporting/cef0180a-7960-4a53-9866-f390ec75f579/page/yLQfF'
+    gerencia: 'https://lookerstudio.google.com/embed/reporting/27614a4d-463e-485f-a9c6-b229948be202/page/OzFlF'
   }
 
 
