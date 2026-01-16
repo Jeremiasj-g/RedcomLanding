@@ -56,7 +56,9 @@ export default function PanelFocosPageClient() {
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
 
   const { me } = useMe();
-  const isAdmin = me?.role === 'admin';
+  // Quien llega a esta página ya pasó el gate de permisos (RequireAuth).
+  // De todas formas dejamos el flag por seguridad/futuro.
+  const canManage = ['admin', 'jdv', 'supervisor'].includes(me?.role ?? '');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -157,7 +159,7 @@ export default function PanelFocosPageClient() {
   }
 
   async function onDeleteOne(row: PanelFocoRow) {
-    if (!isAdmin) return;
+    if (!canManage) return;
 
     if (!confirm(`¿Eliminar el foco "${row.title}"? Esta acción no se puede deshacer.`)) return;
 
@@ -174,7 +176,7 @@ export default function PanelFocosPageClient() {
   }
 
   async function onDeleteSelected() {
-    if (!isAdmin) return;
+    if (!canManage) return;
 
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
@@ -195,7 +197,7 @@ export default function PanelFocosPageClient() {
   }
 
   async function onDeleteAll() {
-    if (!isAdmin) return;
+    if (!canManage) return;
 
     const ok = prompt('Escribí ELIMINAR para confirmar que querés borrar TODOS los focos:');
     if (ok !== 'ELIMINAR') return;
