@@ -48,14 +48,6 @@ function useStableCallback<T extends (...args: any[]) => any>(fn: T) {
   return React.useCallback((...args: Parameters<T>) => ref.current(...args), []);
 }
 
-/**
- * ✅ Carousel casero (Tailwind only)
- * - Flechas
- * - Progressbar tipo "progress"
- * - Dots
- * - Swipe touch + drag mouse
- * - ✅ IMAGEN MÁS GRANDE EN MOBILE: usamos object-cover + altura fija por breakpoint
- */
 function AssetCarousel({
   images,
   accent = '#7a1f2b',
@@ -83,6 +75,7 @@ function AssetCarousel({
   const prev = useStableCallback(() => go(index - 1));
   const next = useStableCallback(() => go(index + 1));
 
+  // ✅ teclado solo si hay más de 1 imagen (y útil en desktop)
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (count <= 1) return;
@@ -155,21 +148,32 @@ function AssetCarousel({
         >
           {images.map((img, i) => (
             <div key={`${img.url}_${i}`} className="w-full shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={img.url}
-                alt={img.label ?? `Imagen ${i + 1}`}
-                className={[
-                  'block w-full',
-                  // ✅ MÁS GRANDE EN MOBILE sm:h-[420px] md:h-[460px]
-                  'h-auto sm:h-[520px]',
-                  // ✅ llena el contenedor (impacto visual)
-                  'object-contain',
-                  'mx-auto',
-                ].join(' ')}
-                loading="lazy"
-                draggable={false}
-              />
+              {/* ✅ SLIDE: fondo blurred (solo desktop) + foreground contain */}
+              <div className="relative w-full">
+                {/* fondo (rellena laterales) */}
+                <div className="pointer-events-none absolute inset-0 hidden sm:block">
+                  <img
+                    src={img.url}
+                    alt=""
+                    aria-hidden="true"
+                    className="h-full w-full object-cover blur-2xl scale-125 opacity-70"
+                    loading="lazy"
+                    draggable={false}
+                  />
+                  <div className="absolute inset-0 bg-white/20" />
+                </div>
+
+                {/* foreground */}
+                <div className="relative">
+                  <img
+                    src={img.url}
+                    alt={img.label ?? `Imagen ${i + 1}`}
+                    className={['block w-full', 'h-auto sm:h-[520px]', 'object-contain', 'mx-auto'].join(' ')}
+                    loading="lazy"
+                    draggable={false}
+                  />
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -177,16 +181,18 @@ function AssetCarousel({
         {/* Controls */}
         {count > 1 ? (
           <>
+            {/* ✅ Flechas: SOLO desktop (sm+) */}
             <button
               type="button"
               onClick={prev}
               disabled={!canPrev}
               aria-label="Anterior"
               className={[
+                'hidden sm:flex', // ✅ oculto en mobile
                 'absolute left-3 top-1/2 -translate-y-1/2',
                 'h-10 w-10 rounded-full border bg-white/85 backdrop-blur',
                 'shadow-sm transition',
-                'flex items-center justify-center',
+                'items-center justify-center',
                 canPrev ? 'hover:bg-white' : 'opacity-40 cursor-not-allowed',
               ].join(' ')}
               style={{ borderColor: 'rgba(122,31,43,0.22)' }}
@@ -200,10 +206,11 @@ function AssetCarousel({
               disabled={!canNext}
               aria-label="Siguiente"
               className={[
+                'hidden sm:flex', // ✅ oculto en mobile
                 'absolute right-3 top-1/2 -translate-y-1/2',
                 'h-10 w-10 rounded-full border bg-white/85 backdrop-blur',
                 'shadow-sm transition',
-                'flex items-center justify-center',
+                'items-center justify-center',
                 canNext ? 'hover:bg-white' : 'opacity-40 cursor-not-allowed',
               ].join(' ')}
               style={{ borderColor: 'rgba(122,31,43,0.22)' }}
@@ -221,7 +228,7 @@ function AssetCarousel({
               </div>
             </div>
 
-            {/* Dots */}
+            {/* Dots (clicables, no tapan info) */}
             <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-1.5">
               {images.map((_, i) => (
                 <button
@@ -272,7 +279,7 @@ export default function FocoCard({
   return (
     <Card
       className={[
-        'w-full rounded-2xl border p-6 transition',
+        'w-full rounded-2xl border p-6 transition shadow-2xl',
         showCheck && completed ? 'border-emerald-200 bg-emerald-50' : 'bg-white',
       ].join(' ')}
     >

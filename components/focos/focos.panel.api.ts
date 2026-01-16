@@ -1,9 +1,11 @@
 'use client';
 
 import { supabase } from '@/lib/supabaseClient';
+import imageCompression from 'browser-image-compression';
 
 export type FocoSeverity = 'info' | 'warning' | 'critical';
 export type FocoType = 'foco' | 'critico' | 'promo' | 'capacitacion';
+
 
 export type PanelFocoRow = {
   id: string;
@@ -319,4 +321,75 @@ export async function deleteFocos(ids: string[]) {
 export async function deleteAllFocos() {
   const { error } = await supabase.from('focos').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   if (error) throw error;
+}
+
+
+
+/**
+ * Comprime solo si pesa más de 1MB.
+ * - convierte a webp
+ * - limita lado mayor (1600px)
+ * - objetivo ~0.8MB
+ */
+export async function compressIfNeeded(file: File) {
+  if (!file.type.startsWith('image/')) return file;
+  if (file.size <= 1_000_000) return file;
+
+  const compressed = await imageCompression(file, {
+    maxSizeMB: 0.8,
+    maxWidthOrHeight: 1600,
+    useWebWorker: true,
+    fileType: 'image/webp',
+    initialQuality: 0.82,
+  });
+
+  return new File([compressed], file.name.replace(/\.\w+$/, '.webp'), {
+    type: 'image/webp',
+  });
+}
+
+type UploadAssetInput = {
+  focoId: string;
+  userId: string;
+  files: File[];
+  bucket?: string; // default: 'foco-assets'
+};
+
+export async function uploadFocoImages({ focoId, userId, files, bucket = 'foco-assets' }: UploadAssetInput) {
+  const uploaded: { url: string; label?: string | null }[] = [];
+
+  for (const original of files) {
+    // ✅ compress (opción B)
+    const file = await compressIfNeeded(original);
+
+    const ext = (file.name.split('.').pop() || 'webp').toLowerCase();
+    const safeName = `focos/${focoId}/${crypto.randomUUID()}.${ext}`;
+
+    const { error: upErr } = await supabase.storage.from(bucket).upload(safeName, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type,
+    });
+
+    if (upErr) throw upErr;
+
+    const { data: pub } = supabase.storage.from(bucket).getPublicUrl(safeName);
+    const publicUrl = pub?.publicUrl;
+    if (!publicUrl) throw new Error('No se pudo obtener publicUrl del asset.');
+
+    // ✅ registra en foco_assets
+    const { error: dbErr } = await supabase.from('foco_assets').insert({
+      foco_id: focoId,
+      kind: 'image',
+      url: publicUrl,
+      label: original.name,
+      created_by: userId,
+    });
+
+    if (dbErr) throw dbErr;
+
+    uploaded.push({ url: publicUrl, label: original.name });
+  }
+
+  return uploaded;
 }

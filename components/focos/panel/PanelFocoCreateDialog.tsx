@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -57,7 +57,7 @@ type Template = {
     title: string;
     type: FocoType;
     severity: FocoSeverity;
-    content: string; // texto plano hoy
+    content: string;
   };
   tip?: string;
 };
@@ -226,9 +226,60 @@ function isHtmlEmpty(html: string) {
 const MAX_FILES = 5;
 const MAX_MB = 6;
 
+// ✅ compresión “opción B”
+const COMPRESS_IF_OVER_MB = 1; // si pesa más de 1MB -> webp
+const WEBP_QUALITY = 0.82; // 0..1
+const MAX_DIMENSION = 1800; // downscale suave para promos
+
 function formatBytes(bytes: number) {
   const mb = bytes / (1024 * 1024);
   return `${mb.toFixed(2)} MB`;
+}
+
+async function fileToImageBitmap(file: File): Promise<ImageBitmap> {
+  // createImageBitmap es rápido y evita <img/> + onload
+  return await createImageBitmap(file);
+}
+
+function scaleToFit(w: number, h: number, maxDim: number) {
+  const maxSide = Math.max(w, h);
+  if (maxSide <= maxDim) return { w, h };
+  const ratio = maxDim / maxSide;
+  return { w: Math.round(w * ratio), h: Math.round(h * ratio) };
+}
+
+async function compressImageToWebp(file: File): Promise<File> {
+  const bmp = await fileToImageBitmap(file);
+  const { w, h } = scaleToFit(bmp.width, bmp.height, MAX_DIMENSION);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return file;
+
+  ctx.drawImage(bmp, 0, 0, w, h);
+
+  const blob: Blob | null = await new Promise((resolve) => {
+    canvas.toBlob((b) => resolve(b), 'image/webp', WEBP_QUALITY);
+  });
+
+  if (!blob) return file;
+
+  const newName = file.name.replace(/\.[^.]+$/, '') + '.webp';
+  return new File([blob], newName, { type: 'image/webp' });
+}
+
+type FileItem = {
+  id: string;
+  original: File;
+  file: File; // puede ser el comprimido
+  previewUrl: string;
+};
+
+function makeId() {
+  return Math.random().toString(16).slice(2) + Date.now().toString(16);
 }
 
 export default function PanelFocoUpsertDialog({
@@ -259,10 +310,9 @@ export default function PanelFocoUpsertDialog({
   const [targetBranchIds, setTargetBranchIds] = React.useState<number[]>([]);
   const [lastTip, setLastTip] = React.useState<string | null>(null);
 
-  // assets UI state
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const [files, setFiles] = React.useState<File[]>([]);
-  const [labelsByName, setLabelsByName] = React.useState<Record<string, string>>({});
+  const [items, setItems] = React.useState<FileItem[]>([]);
+  const [labelsById, setLabelsById] = React.useState<Record<string, string>>({});
 
   React.useEffect(() => {
     if (!open) return;
@@ -302,11 +352,15 @@ export default function PanelFocoUpsertDialog({
       }
 
       // reset assets
-      setFiles([]);
-      setLabelsByName({});
+      setItems((prev) => {
+        prev.forEach((it) => URL.revokeObjectURL(it.previewUrl));
+        return [];
+      });
+      setLabelsById({});
       setUploadingAssets(false);
       setLastTip(null);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, me?.id, mode, initial]);
 
   function reset() {
@@ -317,8 +371,11 @@ export default function PanelFocoUpsertDialog({
     setTargetBranchIds(branches.map((b) => b.id));
     setLastTip(null);
 
-    setFiles([]);
-    setLabelsByName({});
+    setItems((prev) => {
+      prev.forEach((it) => URL.revokeObjectURL(it.previewUrl));
+      return [];
+    });
+    setLabelsById({});
     setUploadingAssets(false);
   }
 
@@ -334,35 +391,62 @@ export default function PanelFocoUpsertDialog({
     fileInputRef.current?.click();
   }
 
-  function addFiles(next: File[]) {
-    const clean: File[] = [];
-    for (const f of next) {
-      if (!f.type?.startsWith('image/')) continue;
-      if (f.size > MAX_MB * 1024 * 1024) continue;
-      clean.push(f);
+  async function addFiles(next: File[]) {
+    // filtro básico
+    const onlyImages = next.filter((f) => f.type?.startsWith('image/'));
+
+    // recorta por cantidad
+    const remaining = Math.max(0, MAX_FILES - items.length);
+    const sliced = onlyImages.slice(0, remaining);
+
+    // valida peso “hard limit”
+    const maxBytes = MAX_MB * 1024 * 1024;
+    const valid = sliced.filter((f) => f.size <= maxBytes);
+
+    // compresión opcional (webp)
+    const processed: FileItem[] = [];
+    for (const f of valid) {
+      let outFile = f;
+
+      const mb = f.size / (1024 * 1024);
+      if (mb > COMPRESS_IF_OVER_MB) {
+        try {
+          outFile = await compressImageToWebp(f);
+        } catch (e) {
+          console.warn('[FOCOS] compress failed, using original', e);
+          outFile = f;
+        }
+      }
+
+      const id = makeId();
+      processed.push({
+        id,
+        original: f,
+        file: outFile,
+        previewUrl: URL.createObjectURL(outFile),
+      });
     }
 
-    const merged = [...files, ...clean].slice(0, MAX_FILES);
-
-    const uniq: File[] = [];
-    const seen = new Set<string>();
-    for (const f of merged) {
-      const key = `${f.name}_${f.size}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      uniq.push(f);
-    }
-    setFiles(uniq);
+    setItems((prev) => [...prev, ...processed]);
   }
 
-  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const list = Array.from(e.target.files ?? []);
-    addFiles(list);
+    await addFiles(list);
     e.target.value = '';
   }
 
-  function removeFile(idx: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  function removeItem(id: string) {
+    setItems((prev) => {
+      const it = prev.find((x) => x.id === id);
+      if (it) URL.revokeObjectURL(it.previewUrl);
+      return prev.filter((x) => x.id !== id);
+    });
+    setLabelsById((prev) => {
+      const n = { ...prev };
+      delete n[id];
+      return n;
+    });
   }
 
   async function save() {
@@ -385,7 +469,6 @@ export default function PanelFocoUpsertDialog({
         });
       } else {
         if (!focoId) throw new Error('Falta focoId para editar.');
-
         await updateFoco({
           focoId,
           title,
@@ -396,27 +479,29 @@ export default function PanelFocoUpsertDialog({
         });
       }
 
-      // ✅ assets (no rompe el guardado del foco si falla)
-      if (files.length > 0 && focoId) {
+      // assets best-effort
+      if (items.length > 0 && focoId) {
         setUploadingAssets(true);
         try {
           await uploadFocoAssets({
             focoId,
             createdBy: me.id,
-            items: files.map((f) => ({
-              file: f,
-              label: (labelsByName[f.name] ?? '').trim() || null,
-              kind: 'image', // 👈 ajustá si tu enum usa otro valor
+            items: items.map((it) => ({
+              file: it.file,
+              label: (labelsById[it.id] ?? '').trim() || null,
+              kind: 'image',
             })),
           });
 
-          setFiles([]);
-          setLabelsByName({});
+          // limpiar previews
+          setItems((prev) => {
+            prev.forEach((it) => URL.revokeObjectURL(it.previewUrl));
+            return [];
+          });
+          setLabelsById({});
         } catch (e: any) {
           console.error('[FOCOS] upload assets error', e);
-          alert(
-            `El foco se guardó, pero no se pudieron subir las imágenes: ${e?.message ?? 'Error desconocido'}`
-          );
+          alert(`El foco se guardó, pero no se pudieron subir las imágenes: ${e?.message ?? 'Error desconocido'}`);
         } finally {
           setUploadingAssets(false);
         }
@@ -434,281 +519,337 @@ export default function PanelFocoUpsertDialog({
   }
 
   const disableSave =
-    loading ||
-    uploadingAssets ||
-    !title.trim() ||
-    isHtmlEmpty(contentHtml) ||
-    targetBranchIds.length === 0;
+    loading || uploadingAssets || !title.trim() || isHtmlEmpty(contentHtml) || targetBranchIds.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {mode === 'edit' ? <Pencil className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-            {mode === 'edit' ? 'Editar foco' : 'Crear foco'}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-          {/* LEFT */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <Input
-                placeholder="Título (ej: FOCO DEL DÍA)"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-
-              <Select value={severity} onValueChange={(v) => setSeverity(v as any)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Severidad" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="info">Info</SelectItem>
-                  <SelectItem value="warning">Atención</SelectItem>
-                  <SelectItem value="critical">Crítico</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={type} onValueChange={(v) => setType(v as any)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="foco">Foco</SelectItem>
-                  <SelectItem value="critico">Crítico</SelectItem>
-                  <SelectItem value="promo">Promo</SelectItem>
-                  <SelectItem value="capacitacion">Capacitación</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground">
-                <CalendarDays className="h-4 w-4" />
-                Vigencia: por ahora “hasta nuevo aviso”
+      <DialogContent
+        className={[
+          // ✅ responsive real (ancho + alto)
+          'w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)]',
+          'max-w-6xl',
+          'max-h-[92vh]',
+          // ✅ el scroll lo maneja el body interno
+          'overflow-hidden',
+          // ✅ padding lo ponemos adentro
+          'p-0',
+        ].join(' ')}
+      >
+        {/* ✅ Layout interno con header sticky + body scroll + footer sticky */}
+        <div className="flex max-h-[92vh] flex-col">
+          {/* Header sticky */}
+          <div className="sticky top-0 z-10 border-b bg-white/95 backdrop-blur">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+              <div className="flex items-center gap-2 text-base font-semibold">
+                {mode === 'edit' ? <Pencil className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                {mode === 'edit' ? 'Editar foco' : 'Crear foco'}
               </div>
-            </div>
-
-            {/* ✅ Contenido: ReactQuill como tu versión anterior */}
-            <div>
-              <label className="text-sm font-medium">Contenido</label>
-
-              <div className="mt-2 rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                <ReactQuill
-                  theme="snow"
-                  value={contentHtml}
-                  onChange={setContentHtml}
-                  className="
-                    [&_.ql-toolbar]:border-0
-                    [&_.ql-toolbar]:border-b
-                    [&_.ql-toolbar]:border-slate-200
-                    [&_.ql-toolbar]:bg-slate-50
-                    [&_.ql-toolbar_.ql-formats]:mr-2
-
-                    [&_.ql-toolbar_button]:h-6
-                    [&_.ql-toolbar_button]:w-6
-                    [&_.ql-toolbar_button]:rounded-lg
-                    [&_.ql-toolbar_button:hover]:bg-slate-100
-                    [&_.ql-toolbar_button.ql-active]:bg-slate-200
-
-                    [&_.ql-toolbar_.ql-picker]:h-8
-                    [&_.ql-toolbar_.ql-picker]:rounded-lg
-                    [&_.ql-toolbar_.ql-picker:hover]:bg-slate-100
-                    [&_.ql-toolbar_.ql-picker-label]:text-slate-700
-                    [&_.ql-toolbar_.ql-picker-options]:rounded-xl
-                    [&_.ql-toolbar_.ql-picker-options]:border
-                    [&_.ql-toolbar_.ql-picker-options]:border-slate-200
-                    [&_.ql-toolbar_.ql-picker-options]:bg-white
-                    [&_.ql-toolbar_.ql-picker-item]:text-slate-700
-
-                    [&_.ql-container]:border-0
-                    [&_.ql-container]:shadow-none
-                    [&_.ql-container]:bg-white
-
-                    [&_.ql-editor]:h-[240px]
-                    [&_.ql-editor]:p-3
-                    [&_.ql-editor]:text-sm
-                    [&_.ql-editor]:leading-relaxed
-                    [&_.ql-editor]:text-slate-900
-                    [&_.ql-editor]:outline-none
-
-                    [&_.ql-editor_ol]:pl-6
-                    [&_.ql-editor_ul]:pl-6
-                    [&_.ql-editor_a]:text-sky-700
-                    [&_.ql-editor_a]:underline
-
-                    [&_.ql-editor::-webkit-scrollbar]:w-2
-                    [&_.ql-editor::-webkit-scrollbar-thumb]:bg-slate-200
-                    [&_.ql-editor::-webkit-scrollbar-thumb]:rounded-full
-                    [&_.ql-editor::-webkit-scrollbar-track]:bg-transparent
-                  "
-                />
-              </div>
-
-              <div className="mt-2 text-xs text-slate-500">
-                Tip: podés usar negrita, listas y links para que sea más legible.
-              </div>
-            </div>
-
-            {/* ✅ Importar imágenes (UI) */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-800">
-                    <ImageIcon className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <div className="text-sm font-extrabold text-slate-900">Imágenes</div>
-                    <div className="text-xs text-slate-600">
-                      Adjuntá hasta {MAX_FILES} imágenes (máx {MAX_MB}MB c/u). Se suben al guardar.
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={onFileChange}
-                    className="hidden"
-                  />
-                  <Button type="button" variant="outline" onClick={pickFiles} disabled={uploadingAssets}>
-                    <UploadCloud className="h-4 w-4 mr-2" />
-                    Importar
-                  </Button>
-                </div>
-              </div>
-
-              {files.length > 0 ? (
-                <div className="mt-3 grid gap-2">
-                  {files.map((f, idx) => (
-                    <div
-                      key={`${f.name}_${f.size}`}
-                      className="flex items-center gap-3 rounded-xl border border-slate-200 p-2"
-                    >
-                      <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={URL.createObjectURL(f)}
-                          alt={f.name}
-                          className="h-full w-full object-cover"
-                          onLoad={(e) => {
-                            const img = e.currentTarget;
-                            const url = img.src;
-                            setTimeout(() => URL.revokeObjectURL(url), 1500);
-                          }}
-                        />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-slate-900">{f.name}</div>
-                        <div className="text-xs text-slate-600">{formatBytes(f.size)}</div>
-
-                        <div className="mt-1">
-                          <Input
-                            placeholder="Etiqueta opcional (ej: afiche, promo, lista...)"
-                            value={labelsByName[f.name] ?? ''}
-                            onChange={(e) =>
-                              setLabelsByName((prev) => ({
-                                ...prev,
-                                [f.name]: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeFile(idx)} title="Quitar">
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                  Podés subir imágenes de <span className="font-semibold">promos, listados, material</span> o capturas.
-                </div>
-              )}
-            </div>
-
-            {/* ✅ targets */}
-            <div className="space-y-2">
-              <BranchesMultiSelect
-                branches={branches}
-                valueIds={targetBranchIds}
-                onChangeIds={setTargetBranchIds}
-                labelWhenEmpty="Sin filtro (todas)"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading || uploadingAssets}>
-                Cancelar
-              </Button>
-              <Button onClick={save} disabled={disableSave}>
-                {uploadingAssets ? 'Subiendo imágenes…' : loading ? 'Guardando…' : mode === 'edit' ? 'Guardar cambios' : 'Publicar foco'}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => onOpenChange(false)}
+                disabled={loading || uploadingAssets}
+                title="Cerrar"
+              >
+                <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
-          {/* RIGHT: templates */}
-          <div className="lg:col-span-2">
-            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <div className="p-4 bg-slate-50 border-b border-slate-200">
-                <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-extrabold text-slate-900 shadow-sm">
-                  <Sparkles className="h-4 w-4" />
-                  Plantillas rápidas
+          {/* Body scroll */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+              {/* LEFT */}
+              <div className="lg:col-span-2 space-y-4">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input
+                    placeholder="Título (ej: FOCO DEL DÍA)"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+
+                  <Select value={severity} onValueChange={(v) => setSeverity(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Severidad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="info">Info</SelectItem>
+                      <SelectItem value="warning">Atención</SelectItem>
+                      <SelectItem value="critical">Crítico</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={type} onValueChange={(v) => setType(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="foco">Foco</SelectItem>
+                      <SelectItem value="critico">Crítico</SelectItem>
+                      <SelectItem value="promo">Promo</SelectItem>
+                      <SelectItem value="capacitacion">Capacitación</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground">
+                    <CalendarDays className="h-4 w-4" />
+                    Vigencia: por ahora “hasta nuevo aviso”
+                  </div>
                 </div>
-                <div className="mt-2 text-sm text-slate-600">Un clic y queda armado. Después ajustás detalles.</div>
-              </div>
 
-              <div className="p-3">
-                <div className="grid grid-cols-2 gap-2">
-                  {templates.map((t) => (
-                    <button
-                      key={t.key}
-                      type="button"
-                      onClick={() => applyTemplate(t)}
-                      className={[
-                        'w-full rounded-2xl border border-slate-200 bg-white p-3 text-left',
-                        'hover:bg-slate-50 transition shadow-sm',
-                        'relative overflow-hidden',
-                        'min-h-[96px]',
-                      ].join(' ')}
-                      title="Aplicar plantilla"
-                    >
-                      <span className="absolute right-2 top-2 rounded-2xl border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-extrabold text-slate-700">
-                        {t.tag}
+                {/* ReactQuill (tu versión anterior) */}
+                <div>
+                  <label className="text-sm font-medium">Contenido</label>
+
+                  <div className="mt-2 rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                    <ReactQuill
+                      theme="snow"
+                      value={contentHtml}
+                      onChange={setContentHtml}
+                      className="
+                        [&_.ql-toolbar]:border-0
+                        [&_.ql-toolbar]:border-b
+                        [&_.ql-toolbar]:border-slate-200
+                        [&_.ql-toolbar]:bg-slate-50
+                        [&_.ql-toolbar_.ql-formats]:mr-2
+
+                        [&_.ql-toolbar_button]:h-6
+                        [&_.ql-toolbar_button]:w-6
+                        [&_.ql-toolbar_button]:rounded-lg
+                        [&_.ql-toolbar_button:hover]:bg-slate-100
+                        [&_.ql-toolbar_button.ql-active]:bg-slate-200
+
+                        [&_.ql-toolbar_.ql-picker]:h-8
+                        [&_.ql-toolbar_.ql-picker]:rounded-lg
+                        [&_.ql-toolbar_.ql-picker:hover]:bg-slate-100
+                        [&_.ql-toolbar_.ql-picker-label]:text-slate-700
+                        [&_.ql-toolbar_.ql-picker-options]:rounded-xl
+                        [&_.ql-toolbar_.ql-picker-options]:border
+                        [&_.ql-toolbar_.ql-picker-options]:border-slate-200
+                        [&_.ql-toolbar_.ql-picker-options]:bg-white
+                        [&_.ql-toolbar_.ql-picker-item]:text-slate-700
+
+                        [&_.ql-container]:border-0
+                        [&_.ql-container]:shadow-none
+                        [&_.ql-container]:bg-white
+
+                        [&_.ql-editor]:h-[220px]
+                        sm:[&_.ql-editor]:h-[240px]
+                        [&_.ql-editor]:p-3
+                        [&_.ql-editor]:text-sm
+                        [&_.ql-editor]:leading-relaxed
+                        [&_.ql-editor]:text-slate-900
+                        [&_.ql-editor]:outline-none
+
+                        [&_.ql-editor_ol]:pl-6
+                        [&_.ql-editor_ul]:pl-6
+                        [&_.ql-editor_a]:text-sky-700
+                        [&_.ql-editor_a]:underline
+
+                        [&_.ql-editor::-webkit-scrollbar]:w-2
+                        [&_.ql-editor::-webkit-scrollbar-thumb]:bg-slate-200
+                        [&_.ql-editor::-webkit-scrollbar-thumb]:rounded-full
+                        [&_.ql-editor::-webkit-scrollbar-track]:bg-transparent
+                      "
+                    />
+                  </div>
+
+                  <div className="mt-2 text-xs text-slate-500">
+                    Tip: podés usar negrita, listas y links para que sea más legible.
+                  </div>
+                </div>
+
+                {/* Importar imágenes */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-800">
+                        <ImageIcon className="h-4 w-4" />
                       </span>
-
-                      <div className="flex items-start gap-3 pr-14">
-                        <div className="shrink-0">
-                          <div className="scale-[0.85] origin-top-left">{t.icon}</div>
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="font-extrabold text-slate-900 text-sm leading-5 line-clamp-2">{t.title}</div>
-                          <div className="mt-1 text-xs text-slate-600 leading-4 line-clamp-1">{t.desc}</div>
+                      <div>
+                        <div className="text-sm font-extrabold text-slate-900">Imágenes</div>
+                        <div className="text-xs text-slate-600">
+                          Hasta {MAX_FILES} imágenes (máx {MAX_MB}MB c/u). Si pesan más de {COMPRESS_IF_OVER_MB}MB, se
+                          comprimen a WebP automáticamente.
                         </div>
                       </div>
-                    </button>
-                  ))}
-                </div>
+                    </div>
 
-                <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                  {lastTip ? (
-                    <>
-                      <span className="font-extrabold">Tip:</span> {lastTip}
-                    </>
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={onFileChange}
+                        className="hidden"
+                      />
+                      <Button type="button" variant="outline" onClick={pickFiles} disabled={uploadingAssets}>
+                        <UploadCloud className="h-4 w-4 mr-2" />
+                        Importar
+                      </Button>
+                    </div>
+                  </div>
+
+                  {items.length > 0 ? (
+                    <div className="mt-3 rounded-xl border border-slate-200">
+                      {/* ✅ scroll interno si se llena */}
+                      <div className="max-h-[260px] overflow-y-auto p-2 space-y-2">
+                        {items.map((it, idx) => (
+                          <div
+                            key={it.id}
+                            className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-2"
+                          >
+                            <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={it.previewUrl}
+                                alt={it.file.name}
+                                className="h-full w-full object-cover"
+                                draggable={false}
+                              />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-semibold text-slate-900">{it.file.name}</div>
+                              <div className="text-xs text-slate-600">
+                                {formatBytes(it.file.size)}
+                                {it.file.type === 'image/webp' && it.original.type !== 'image/webp' ? (
+                                  <span className="ml-2 rounded-full border px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                                    comprimida
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              <div className="mt-1">
+                                <Input
+                                  placeholder="Etiqueta opcional (ej: afiche, promo, lista...)"
+                                  value={labelsById[it.id] ?? ''}
+                                  onChange={(e) =>
+                                    setLabelsById((prev) => ({
+                                      ...prev,
+                                      [it.id]: e.target.value,
+                                    }))
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeItem(it.id)}
+                              title="Quitar"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="border-t bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                        {items.length}/{MAX_FILES} seleccionadas
+                      </div>
+                    </div>
                   ) : (
-                    <>
-                      Tip: usá <span className="font-semibold">Crítico + Warning</span> cuando afecte la operación.
-                    </>
+                    <div className="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                      Podés subir imágenes de <span className="font-semibold">promos, listados, material</span> o
+                      capturas.
+                    </div>
                   )}
                 </div>
+
+                {/* targets */}
+                <div className="space-y-2">
+                  <BranchesMultiSelect
+                    branches={branches}
+                    valueIds={targetBranchIds}
+                    onChangeIds={setTargetBranchIds}
+                    labelWhenEmpty="Sin filtro (todas)"
+                  />
+                </div>
               </div>
+
+              {/* RIGHT: templates */}
+              <div className="lg:col-span-2">
+                <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                  <div className="p-4 bg-slate-50 border-b border-slate-200">
+                    <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-extrabold text-slate-900 shadow-sm">
+                      <Sparkles className="h-4 w-4" />
+                      Plantillas rápidas
+                    </div>
+                    <div className="mt-2 text-sm text-slate-600">Un clic y queda armado. Después ajustás detalles.</div>
+                  </div>
+
+                  <div className="p-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {templates.map((t) => (
+                        <button
+                          key={t.key}
+                          type="button"
+                          onClick={() => applyTemplate(t)}
+                          className={[
+                            'w-full rounded-2xl border border-slate-200 bg-white p-3 text-left',
+                            'hover:bg-slate-50 transition shadow-sm',
+                            'relative overflow-hidden',
+                            'min-h-[92px]',
+                          ].join(' ')}
+                          title="Aplicar plantilla"
+                        >
+                          <span className="absolute right-2 top-2 rounded-2xl border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-extrabold text-slate-700">
+                            {t.tag}
+                          </span>
+
+                          <div className="flex items-start gap-3 pr-14">
+                            <div className="shrink-0">
+                              <div className="scale-[0.85] origin-top-left">{t.icon}</div>
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="font-extrabold text-slate-900 text-sm leading-5 line-clamp-2">
+                                {t.title}
+                              </div>
+                              <div className="mt-1 text-xs text-slate-600 leading-4 line-clamp-1">{t.desc}</div>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                      {lastTip ? (
+                        <>
+                          <span className="font-extrabold">Tip:</span> {lastTip}
+                        </>
+                      ) : (
+                        <>
+                          Tip: usá <span className="font-semibold">Crítico + Warning</span> cuando afecte la operación.
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer sticky */}
+          <div className="sticky bottom-0 z-10 border-t bg-white/95 backdrop-blur">
+            <div className="flex items-center justify-end gap-2 px-4 py-3 sm:px-6">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading || uploadingAssets}>
+                Cancelar
+              </Button>
+              <Button onClick={save} disabled={disableSave}>
+                {uploadingAssets
+                  ? 'Subiendo imágenes…'
+                  : loading
+                    ? 'Guardando…'
+                    : mode === 'edit'
+                      ? 'Guardar cambios'
+                      : 'Publicar foco'}
+              </Button>
             </div>
           </div>
         </div>
