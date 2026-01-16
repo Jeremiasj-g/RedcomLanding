@@ -44,6 +44,9 @@ export default function FocoCard({
 }) {
   const html = sanitizeHtmlBasic(foco.content ?? '');
 
+  const canShowCompletedButton =
+    foco.type === 'foco' || foco.type === 'critico';
+
   return (
     <Card
       className={[
@@ -111,7 +114,7 @@ export default function FocoCard({
           dangerouslySetInnerHTML={{ __html: html }}
         />
 
-        {showCheck ? (
+        {showCheck && canShowCompletedButton ? (
           <Button
             variant={completed ? 'secondary' : 'default'}
             onClick={onToggleCompleted}
