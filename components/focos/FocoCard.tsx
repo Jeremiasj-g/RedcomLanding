@@ -4,7 +4,15 @@ import * as React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CheckCircle2, Loader2, ShieldAlert, Info, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  CheckCircle2,
+  Loader2,
+  ShieldAlert,
+  Info,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import type { FocoRow } from './focos.types';
 
 function sevIcon(sev: string) {
@@ -40,6 +48,14 @@ function useStableCallback<T extends (...args: any[]) => any>(fn: T) {
   return React.useCallback((...args: Parameters<T>) => ref.current(...args), []);
 }
 
+/**
+ * ✅ Carousel casero (Tailwind only)
+ * - Flechas
+ * - Progressbar tipo "progress"
+ * - Dots
+ * - Swipe touch + drag mouse
+ * - ✅ IMAGEN MÁS GRANDE EN MOBILE: usamos object-cover + altura fija por breakpoint
+ */
 function AssetCarousel({
   images,
   accent = '#7a1f2b',
@@ -50,20 +66,18 @@ function AssetCarousel({
   const count = images.length;
   const [index, setIndex] = React.useState(0);
 
-  // drag state
   const trackRef = React.useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = React.useState(false);
   const dragStartX = React.useRef(0);
   const dragDeltaX = React.useRef(0);
   const trackWidth = React.useRef(1);
 
-  // keep index valid if images change
   React.useEffect(() => {
     setIndex((i) => clamp(i, 0, Math.max(0, count - 1)));
   }, [count]);
 
   const go = useStableCallback((next: number) => {
-    setIndex((prev) => clamp(next, 0, count - 1));
+    setIndex(() => clamp(next, 0, count - 1));
   });
 
   const prev = useStableCallback(() => go(index - 1));
@@ -91,7 +105,6 @@ function AssetCarousel({
     if (!dragging) return;
     dragDeltaX.current = clientX - dragStartX.current;
 
-    // translate while dragging (no state re-render heavy)
     const el = trackRef.current;
     if (!el) return;
     const base = -index * trackWidth.current;
@@ -106,7 +119,6 @@ function AssetCarousel({
     const threshold = Math.min(120, trackWidth.current * 0.18);
     const dx = dragDeltaX.current;
 
-    // decide slide
     if (dx > threshold) go(index - 1);
     else if (dx < -threshold) go(index + 1);
     else go(index);
@@ -114,7 +126,6 @@ function AssetCarousel({
     dragDeltaX.current = 0;
   };
 
-  // apply transform on index change
   React.useEffect(() => {
     const el = trackRef.current;
     if (!el) return;
@@ -128,13 +139,8 @@ function AssetCarousel({
   const canNext = index < count - 1;
 
   return (
-    <div className="w-full">
-      <div
-        className={[
-          'relative w-full overflow-hidden rounded-2xl border bg-slate-50',
-          'select-none',
-        ].join(' ')}
-      >
+    <div className="w-full -mt-2">
+      <div className="relative w-full overflow-hidden rounded-2xl border bg-slate-50 select-none">
         {/* Track */}
         <div
           ref={trackRef}
@@ -154,8 +160,11 @@ function AssetCarousel({
                 src={img.url}
                 alt={img.label ?? `Imagen ${i + 1}`}
                 className={[
-                  'block w-full h-auto object-contain',
-                  'max-h-[260px] sm:max-h-[360px] md:max-h-[440px]',
+                  'block w-full',
+                  // ✅ MÁS GRANDE EN MOBILE sm:h-[420px] md:h-[460px]
+                  'h-auto sm:h-[520px]',
+                  // ✅ llena el contenedor (impacto visual)
+                  'object-contain',
                   'mx-auto',
                 ].join(' ')}
                 loading="lazy"
@@ -212,7 +221,7 @@ function AssetCarousel({
               </div>
             </div>
 
-            {/* Dots (sutil) */}
+            {/* Dots */}
             <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-1.5">
               {images.map((_, i) => (
                 <button
@@ -267,7 +276,7 @@ export default function FocoCard({
         showCheck && completed ? 'border-emerald-200 bg-emerald-50' : 'bg-white',
       ].join(' ')}
     >
-      <div className="flex w-full flex-col items-start justify-between gap-8">
+      <div className="flex w-full flex-col items-start justify-between gap-6">
         <div className="min-w-0 w-full">
           <div className="flex flex-wrap items-center gap-2">
             <Badge className={sevBadgeClass(foco.severity)}>
@@ -302,7 +311,7 @@ export default function FocoCard({
           ) : null}
         </div>
 
-        {/* ✅ Swiper casero */}
+        {/* ✅ Carousel casero */}
         {images.length > 0 ? <AssetCarousel images={images} /> : null}
 
         {/* ✅ contenido HTML */}
@@ -330,7 +339,7 @@ export default function FocoCard({
             variant={completed ? 'secondary' : 'default'}
             onClick={onToggleCompleted}
             disabled={busy || !foco.is_active}
-            className={['shrink-0', !completed ? 'bg-[#7a1f2b] hover:bg-[#6a1b26] text-white' : ''].join(' ')}
+            className={['shrink-0', !completed ? 'bg-[#2a2a2a] hover:bg-[#212121] text-white' : ''].join(' ')}
           >
             {busy ? (
               <span className="inline-flex items-center gap-2">
