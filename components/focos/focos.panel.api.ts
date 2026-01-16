@@ -92,6 +92,114 @@ export async function updateFoco(input: {
   }
 }
 
+/**
+ * ✅ CREATE (focos + foco_targets)
+ * Devuelve focoId
+ */
+export async function createFoco(input: {
+  title: string;
+  content: string;
+  severity: FocoSeverity;
+  type: FocoType;
+  targetBranchIds: number[];
+}) {
+  const { title, content, severity, type, targetBranchIds } = input;
+
+  const { data: foco, error: focoErr } = await supabase
+    .from('focos')
+    .insert({
+      title: title.trim(),
+      content: content, // ya viene html
+      severity,
+      type,
+    })
+    .select('id')
+    .single();
+
+  if (focoErr) throw focoErr;
+  if (!foco?.id) throw new Error('No se devolvió el id del foco.');
+
+  const focoId = foco.id as string;
+
+  const payloadTargets = (targetBranchIds ?? []).map((bid) => ({
+    foco_id: focoId,
+    branch_id: bid,
+  }));
+
+  if (payloadTargets.length) {
+    const { error: targetsErr } = await supabase.from('foco_targets').insert(payloadTargets);
+    if (targetsErr) throw targetsErr;
+  }
+
+  return focoId;
+}
+
+// -------------------------
+// ✅ Assets (Storage + foco_assets)
+// -------------------------
+export const FOCOS_BUCKET = 'foco-assets'; // 👈 si tu bucket se llama distinto, cambialo acá
+
+export type UploadFocoAssetItem = {
+  file: File;
+  label?: string | null;
+  // kind: ajustalo si tu enum no tiene 'image'
+  kind?: string; // default 'image'
+};
+
+function safeExt(file: File) {
+  const name = file.name || '';
+  const dot = name.lastIndexOf('.');
+  if (dot === -1) return '';
+  return name.slice(dot).toLowerCase();
+}
+
+/**
+ * Sube N archivos a Storage y registra filas en foco_assets.
+ * OJO: asume bucket existente.
+ */
+export async function uploadFocoAssets(input: {
+  focoId: string;
+  createdBy: string;
+  items: UploadFocoAssetItem[];
+}) {
+  const { focoId, createdBy, items } = input;
+
+  if (!items?.length) return;
+
+  for (const it of items) {
+    const file = it.file;
+    const ext = safeExt(file) || '.png';
+    const objectName = `${crypto.randomUUID()}${ext}`;
+    const storagePath = `focos/${focoId}/${objectName}`;
+
+    const { error: upErr } = await supabase.storage.from(FOCOS_BUCKET).upload(storagePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || undefined,
+    });
+
+    if (upErr) throw upErr;
+
+    // Si el bucket es público, esto devuelve url directa.
+    // Si es privado, igual devuelve algo pero te conviene luego signed urls para mostrar (lo vemos en el próximo paso).
+    const { data: pub } = supabase.storage.from(FOCOS_BUCKET).getPublicUrl(storagePath);
+    const url = pub?.publicUrl || storagePath;
+
+    const kind = (it.kind ?? 'image') as any; // 👈 ajustá si tu enum no usa 'image'
+    const label = (it.label ?? '').trim() || null;
+
+    const { error: assetErr } = await supabase.from('foco_assets').insert({
+      foco_id: focoId,
+      kind,
+      url,
+      label,
+      created_by: createdBy,
+    });
+
+    if (assetErr) throw assetErr;
+  }
+}
+
 export async function getFocoPanelList(opts?: {
   onlyActive?: boolean;
   q?: string;
@@ -110,11 +218,9 @@ export async function getFocoPanelList(opts?: {
   if (type !== 'all') query = query.eq('type', type);
 
   if (q) {
-    // iLike en título/contenido
     query = query.or(`title.ilike.%${q}%,content.ilike.%${q}%`);
   }
 
-  // orden: activos arriba y más nuevos
   const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -142,16 +248,12 @@ export async function closeFoco(focoId: string) {
 }
 
 export async function reopenFoco(focoId: string) {
-  const { error } = await supabase
-    .from('focos')
-    .update({ is_active: true, archived_at: null })
-    .eq('id', focoId);
+  const { error } = await supabase.from('focos').update({ is_active: true, archived_at: null }).eq('id', focoId);
 
   if (error) throw error;
 }
 
 export async function duplicateFoco(focoId: string) {
-  // 1) Traer foco base
   const { data: base, error: baseErr } = await supabase
     .from('focos')
     .select('title,content,severity,type,start_at,end_at')
@@ -161,17 +263,11 @@ export async function duplicateFoco(focoId: string) {
   if (baseErr) throw baseErr;
   if (!base) throw new Error('No se encontró el foco a duplicar.');
 
-  // 2) Traer targets
-  const { data: targets, error: tErr } = await supabase
-    .from('foco_targets')
-    .select('branch_id')
-    .eq('foco_id', focoId);
-
+  const { data: targets, error: tErr } = await supabase.from('foco_targets').select('branch_id').eq('foco_id', focoId);
   if (tErr) throw tErr;
 
   const branchIds = (targets ?? []).map((t: any) => t.branch_id).filter(Boolean);
 
-  // 3) Insert foco nuevo
   const nowIso = new Date().toISOString();
   const newTitle =
     (base.title?.toUpperCase().includes('COPIA') ? base.title : `COPIA - ${base.title}`) ?? 'COPIA - FOCO';
@@ -196,13 +292,11 @@ export async function duplicateFoco(focoId: string) {
 
   const newId = inserted.id as string;
 
-  // 4) Insert targets del nuevo foco
   if (branchIds.length > 0) {
     const payload = branchIds.map((bid) => ({ foco_id: newId, branch_id: bid }));
     const { error: targetsInsErr } = await supabase.from('foco_targets').insert(payload);
 
     if (targetsInsErr) {
-      // rollback best-effort
       await supabase.from('focos').delete().eq('id', newId);
       throw targetsInsErr;
     }
@@ -223,7 +317,6 @@ export async function deleteFocos(ids: string[]) {
 }
 
 export async function deleteAllFocos() {
-  // OJO: esto borra TODO (focos + cascades por FK)
   const { error } = await supabase.from('focos').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   if (error) throw error;
 }

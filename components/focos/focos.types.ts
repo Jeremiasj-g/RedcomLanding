@@ -6,6 +6,16 @@ export type FocoTarget = {
   branch_name: string;
 };
 
+export type FocoAsset = {
+  id: number;
+  foco_id: string;
+  kind: string;
+  url: string;
+  label: string | null;
+  created_by: string;
+  created_at: string;
+};
+
 export type FocoRow = {
   id: string;
   title: string;
@@ -25,4 +35,7 @@ export type FocoRow = {
   target_users_count: number;
   completed_count: number;
   completion_rate: number;
+
+  // ✅ NUEVO
+  assets: FocoAsset[];
 };

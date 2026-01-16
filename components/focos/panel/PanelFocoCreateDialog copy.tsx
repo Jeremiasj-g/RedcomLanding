@@ -1,17 +1,19 @@
 'use client';
 
 import * as React from 'react';
-import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   CalendarDays,
+  Check,
+  ChevronsUpDown,
   Pencil,
   Sparkles,
   AlertTriangle,
@@ -20,29 +22,38 @@ import {
   Trash,
   Target,
   ClipboardCheck,
-  Image as ImageIcon,
-  X,
-  UploadCloud,
 } from 'lucide-react';
 
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
+
+import { updateFoco } from '@/components/focos/focos.panel.api';
+import dynamic from 'next/dynamic';
+
+// ✅ ESTE ES EL FIX: usamos el mismo multiselect que te funcionaba antes
 import BranchesMultiSelect, { type Branch } from '@/components/focos/BranchesMultiSelect';
 
-import {
-  createFoco,
-  updateFoco,
-  uploadFocoAssets,
-  type FocoSeverity,
-  type FocoType,
-} from '@/components/focos/focos.panel.api';
-
-import 'react-quill/dist/quill.snow.css';
+/**
+ * ✅ IMPORTANTE:
+ * Reemplazá este import por el editor que usás en "proyectos".
+ *
+ * OPCIÓN A (componente controlado):
+ *   import MiniWord from '@/components/proyectos/MiniWord';
+ *
+ * OPCIÓN B (tiptap wrapper):
+ *   import RichTextEditor from '@/components/proyectos/RichTextEditor';
+ */
+// import MiniWord from '@/components/proyectos/MiniWord';
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+
+type Severity = 'info' | 'warning' | 'critical';
+type FocoType = 'foco' | 'critico' | 'promo' | 'capacitacion';
 
 export type FocoUpsertInitial = {
   focoId: string;
   title: string;
   content: string;
-  severity: FocoSeverity;
+  severity: Severity;
   type: FocoType;
   targetBranchIds: number[];
 };
@@ -56,7 +67,7 @@ type Template = {
   payload: {
     title: string;
     type: FocoType;
-    severity: FocoSeverity;
+    severity: Severity;
     content: string; // texto plano hoy
   };
   tip?: string;
@@ -81,6 +92,9 @@ const templates: Template[] = [
         'PRODUCTO PARA SACAR HOY',
         '',
         'DESCUENTO',
+        '',
+        'COD:_____ - ____________________________ __/__',
+        '(____ UNID) - __% DESC $_____',
         '',
         'COD:_____ - ____________________________ __/__',
         '(____ UNID) - __% DESC $_____',
@@ -121,13 +135,16 @@ const templates: Template[] = [
         'LISTA (SI APLICA)',
         '1) COD:_____ - ____________________ __/__ - __% DESC $_____',
         '2) COD:_____ - ____________________ __/__ - __% DESC $_____',
+        '',
+        'RESULTADO ESPERADO',
+        '- ____________________________',
       ].join('\n'),
     },
   },
   {
     key: 'coverage',
     title: 'Foco de cobertura',
-    desc: 'Metas por clientes / categorias',
+    desc: 'Metas por clientes / categorias (muy usado en tus ejemplos)',
     tag: 'COVERAGE',
     icon: (
       <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
@@ -138,7 +155,17 @@ const templates: Template[] = [
       title: 'FOCO DE COBERTURA',
       type: 'foco',
       severity: 'info',
-      content: ['FOCO DE COBERTURA __/__/____', '', 'METAS', '- __ CLIENTES DE _____________'].join('\n'),
+      content: [
+        'FOCO DE COBERTURA __/__/____',
+        '',
+        'METAS',
+        '- __ CLIENTES DE _____________',
+        '- __ CLIENTES DE _____________',
+        '- __ CLIENTES DE _____________',
+        '',
+        'NOTA',
+        '- Registrar avance y dejar seguimiento',
+      ].join('\n'),
     },
   },
   {
@@ -155,13 +182,28 @@ const templates: Template[] = [
       title: 'CAPACITACION',
       type: 'capacitacion',
       severity: 'info',
-      content: ['CAPACITACION', '', 'TEMA', '- ____________________________', '', 'MATERIAL', '- Link: _______'].join('\n'),
+      content: [
+        'CAPACITACION',
+        '',
+        'TEMA',
+        '- ____________________________',
+        '',
+        'OBJETIVO',
+        '- ____________________________',
+        '',
+        'MATERIAL',
+        '- Link / PDF / Looker: ____________________________',
+        '',
+        'CUANDO',
+        '- Dia: __/__/____',
+        '- Hora: __:__',
+      ].join('\n'),
     },
   },
   {
     key: 'critical-op',
     title: 'Crítico operativo',
-    desc: 'Incidente real / instrucción firme',
+    desc: 'Incidente real / bloqueo / instrucción firme',
     tag: 'CRITICAL',
     icon: (
       <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-red-200 bg-red-50 text-red-700">
@@ -172,13 +214,31 @@ const templates: Template[] = [
       title: 'CRITICO OPERATIVO',
       type: 'critico',
       severity: 'critical',
-      content: ['CRITICO OPERATIVO', '', 'PROBLEMA', '- ____________________________', '', 'ACCION', '1) ________'].join('\n'),
+      content: [
+        'CRITICO OPERATIVO',
+        '',
+        'PROBLEMA',
+        '- ____________________________',
+        '',
+        'IMPACTO',
+        '- ____________________________',
+        '',
+        'ACCION INMEDIATA',
+        '1) ____________________________',
+        '2) ____________________________',
+        '',
+        'RESPONSABLE',
+        '- ____________________________',
+        '',
+        'SEGUIMIENTO',
+        '- ETA: ________________________',
+      ].join('\n'),
     },
   },
   {
     key: 'cleaning',
     title: 'Limpieza / Orden',
-    desc: 'Plantilla “LIMPIAR HOY”',
+    desc: 'Plantilla tipo “LIMPIAR HOY” + lista de items',
     tag: 'ORDER',
     icon: (
       <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-800">
@@ -189,7 +249,19 @@ const templates: Template[] = [
       title: 'LIMPIAR HOY',
       type: 'foco',
       severity: 'warning',
-      content: ['LIMPIAR HOY __/__/____', '', '(__) COD:_____ - ____________________________ __/__'].join('\n'),
+      content: [
+        'LIMPIAR HOY __/__/____',
+        '',
+        'APARTIR __% DESCUENTO',
+        '',
+        '(__) COD:_____ - ____________________________ __/__',
+        '(__) COD:_____ - ____________________________ __/__',
+        '(__) COD:_____ - ____________________________ __/__',
+        '',
+        'FOCO DEL DIA __/__/____',
+        '- __ CLIENTES _____________',
+        '- __ CLIENTES _____________',
+      ].join('\n'),
     },
   },
 ];
@@ -203,16 +275,22 @@ function escapeHtml(s: string) {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
 }
+
+/** Convierte texto plano con saltos de línea a HTML simple */
 function plainToHtml(plain: string) {
   const safe = escapeHtml(plain ?? '');
   return safe.replaceAll('\n', '<br/>');
 }
+
+/** Si NO parece HTML, lo convertimos a HTML (para compat con focos viejos) */
 function ensureHtml(maybeHtml: string) {
   const v = (maybeHtml ?? '').trim();
   if (!v) return '';
   const looksHtml = /<\/?[a-z][\s\S]*>/i.test(v) || v.includes('<br');
   return looksHtml ? v : plainToHtml(v);
 }
+
+/** Para validación: si el HTML está vacío (solo espacios / <br>) */
 function isHtmlEmpty(html: string) {
   const v = (html ?? '')
     .replaceAll(/<br\s*\/?>/gi, '\n')
@@ -220,15 +298,6 @@ function isHtmlEmpty(html: string) {
     .replaceAll('&nbsp;', ' ')
     .trim();
   return v.length === 0;
-}
-
-// ---------- assets helpers ----------
-const MAX_FILES = 5;
-const MAX_MB = 6;
-
-function formatBytes(bytes: number) {
-  const mb = bytes / (1024 * 1024);
-  return `${mb.toFixed(2)} MB`;
 }
 
 export default function PanelFocoUpsertDialog({
@@ -248,21 +317,17 @@ export default function PanelFocoUpsertDialog({
   const { me } = useMe();
 
   const [loading, setLoading] = React.useState(false);
-  const [uploadingAssets, setUploadingAssets] = React.useState(false);
 
   const [title, setTitle] = React.useState('');
-  const [contentHtml, setContentHtml] = React.useState('');
-  const [severity, setSeverity] = React.useState<FocoSeverity>('info');
+  const [contentHtml, setContentHtml] = React.useState(''); // ✅ ahora HTML
+  const [severity, setSeverity] = React.useState<Severity>('info');
   const [type, setType] = React.useState<FocoType>('foco');
 
   const [branches, setBranches] = React.useState<Branch[]>([]);
   const [targetBranchIds, setTargetBranchIds] = React.useState<number[]>([]);
-  const [lastTip, setLastTip] = React.useState<string | null>(null);
+  const [targetsOpen, setTargetsOpen] = React.useState(false);
 
-  // assets UI state
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const [files, setFiles] = React.useState<File[]>([]);
-  const [labelsByName, setLabelsByName] = React.useState<Record<string, string>>({});
+  const [lastTip, setLastTip] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -300,12 +365,6 @@ export default function PanelFocoUpsertDialog({
         setType('foco');
         setTargetBranchIds(list.map((b) => b.id));
       }
-
-      // reset assets
-      setFiles([]);
-      setLabelsByName({});
-      setUploadingAssets(false);
-      setLastTip(null);
     })();
   }, [open, me?.id, mode, initial]);
 
@@ -316,53 +375,14 @@ export default function PanelFocoUpsertDialog({
     setType('foco');
     setTargetBranchIds(branches.map((b) => b.id));
     setLastTip(null);
-
-    setFiles([]);
-    setLabelsByName({});
-    setUploadingAssets(false);
   }
 
   function applyTemplate(t: Template) {
     setTitle(t.payload.title);
     setType(t.payload.type);
     setSeverity(t.payload.severity);
-    setContentHtml(plainToHtml(t.payload.content));
+    setContentHtml(plainToHtml(t.payload.content)); // ✅ plantilla (texto) -> html
     setLastTip(t.tip ?? null);
-  }
-
-  function pickFiles() {
-    fileInputRef.current?.click();
-  }
-
-  function addFiles(next: File[]) {
-    const clean: File[] = [];
-    for (const f of next) {
-      if (!f.type?.startsWith('image/')) continue;
-      if (f.size > MAX_MB * 1024 * 1024) continue;
-      clean.push(f);
-    }
-
-    const merged = [...files, ...clean].slice(0, MAX_FILES);
-
-    const uniq: File[] = [];
-    const seen = new Set<string>();
-    for (const f of merged) {
-      const key = `${f.name}_${f.size}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      uniq.push(f);
-    }
-    setFiles(uniq);
-  }
-
-  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const list = Array.from(e.target.files ?? []);
-    addFiles(list);
-    e.target.value = '';
-  }
-
-  function removeFile(idx: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function save() {
@@ -373,53 +393,39 @@ export default function PanelFocoUpsertDialog({
 
     setLoading(true);
     try {
-      let focoId = initial?.focoId;
-
       if (mode === 'create') {
-        focoId = await createFoco({
-          title: title.trim(),
-          content: contentHtml,
-          severity,
-          type,
-          targetBranchIds,
-        });
+        const { data: foco, error: focoErr } = await supabase
+          .from('focos')
+          .insert({
+            title: title.trim(),
+            content: contentHtml, // ✅ guardamos HTML
+            severity,
+            type,
+          })
+          .select('id')
+          .single();
+
+        if (focoErr) throw focoErr;
+        if (!foco?.id) throw new Error('No se devolvió el id del foco.');
+
+        const payloadTargets = targetBranchIds.map((bid) => ({
+          foco_id: foco.id,
+          branch_id: bid,
+        }));
+
+        const { error: targetsErr } = await supabase.from('foco_targets').insert(payloadTargets);
+        if (targetsErr) throw targetsErr;
       } else {
-        if (!focoId) throw new Error('Falta focoId para editar.');
+        if (!initial?.focoId) throw new Error('Falta focoId para editar.');
 
         await updateFoco({
-          focoId,
+          focoId: initial.focoId,
           title,
-          content: contentHtml,
+          content: contentHtml, // ✅ HTML
           severity,
           type,
           targetBranchIds,
         });
-      }
-
-      // ✅ assets (no rompe el guardado del foco si falla)
-      if (files.length > 0 && focoId) {
-        setUploadingAssets(true);
-        try {
-          await uploadFocoAssets({
-            focoId,
-            createdBy: me.id,
-            items: files.map((f) => ({
-              file: f,
-              label: (labelsByName[f.name] ?? '').trim() || null,
-              kind: 'image', // 👈 ajustá si tu enum usa otro valor
-            })),
-          });
-
-          setFiles([]);
-          setLabelsByName({});
-        } catch (e: any) {
-          console.error('[FOCOS] upload assets error', e);
-          alert(
-            `El foco se guardó, pero no se pudieron subir las imágenes: ${e?.message ?? 'Error desconocido'}`
-          );
-        } finally {
-          setUploadingAssets(false);
-        }
       }
 
       onSaved?.();
@@ -433,12 +439,10 @@ export default function PanelFocoUpsertDialog({
     }
   }
 
-  const disableSave =
-    loading ||
-    uploadingAssets ||
-    !title.trim() ||
-    isHtmlEmpty(contentHtml) ||
-    targetBranchIds.length === 0;
+  const selectedLabels = React.useMemo(() => {
+    const map = new Map(branches.map((b) => [b.id, b.name]));
+    return targetBranchIds.map((id) => map.get(id)).filter(Boolean) as string[];
+  }, [branches, targetBranchIds]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -489,7 +493,7 @@ export default function PanelFocoUpsertDialog({
               </div>
             </div>
 
-            {/* ✅ Contenido: ReactQuill como tu versión anterior */}
+            {/* ✅ Contenido: Mini Word */}
             <div>
               <label className="text-sm font-medium">Contenido</label>
 
@@ -499,49 +503,49 @@ export default function PanelFocoUpsertDialog({
                   value={contentHtml}
                   onChange={setContentHtml}
                   className="
-                    [&_.ql-toolbar]:border-0
-                    [&_.ql-toolbar]:border-b
-                    [&_.ql-toolbar]:border-slate-200
-                    [&_.ql-toolbar]:bg-slate-50
-                    [&_.ql-toolbar_.ql-formats]:mr-2
+                            [&_.ql-toolbar]:border-0
+                            [&_.ql-toolbar]:border-b
+                            [&_.ql-toolbar]:border-slate-200
+                            [&_.ql-toolbar]:bg-slate-50
+                            [&_.ql-toolbar_.ql-formats]:mr-2
 
-                    [&_.ql-toolbar_button]:h-6
-                    [&_.ql-toolbar_button]:w-6
-                    [&_.ql-toolbar_button]:rounded-lg
-                    [&_.ql-toolbar_button:hover]:bg-slate-100
-                    [&_.ql-toolbar_button.ql-active]:bg-slate-200
+                            [&_.ql-toolbar_button]:h-6
+                            [&_.ql-toolbar_button]:w-6
+                            [&_.ql-toolbar_button]:rounded-lg
+                            [&_.ql-toolbar_button:hover]:bg-slate-100
+                            [&_.ql-toolbar_button.ql-active]:bg-slate-200
 
-                    [&_.ql-toolbar_.ql-picker]:h-8
-                    [&_.ql-toolbar_.ql-picker]:rounded-lg
-                    [&_.ql-toolbar_.ql-picker:hover]:bg-slate-100
-                    [&_.ql-toolbar_.ql-picker-label]:text-slate-700
-                    [&_.ql-toolbar_.ql-picker-options]:rounded-xl
-                    [&_.ql-toolbar_.ql-picker-options]:border
-                    [&_.ql-toolbar_.ql-picker-options]:border-slate-200
-                    [&_.ql-toolbar_.ql-picker-options]:bg-white
-                    [&_.ql-toolbar_.ql-picker-item]:text-slate-700
+                            [&_.ql-toolbar_.ql-picker]:h-8
+                            [&_.ql-toolbar_.ql-picker]:rounded-lg
+                            [&_.ql-toolbar_.ql-picker:hover]:bg-slate-100
+                            [&_.ql-toolbar_.ql-picker-label]:text-slate-700
+                            [&_.ql-toolbar_.ql-picker-options]:rounded-xl
+                            [&_.ql-toolbar_.ql-picker-options]:border
+                            [&_.ql-toolbar_.ql-picker-options]:border-slate-200
+                            [&_.ql-toolbar_.ql-picker-options]:bg-white
+                            [&_.ql-toolbar_.ql-picker-item]:text-slate-700
 
-                    [&_.ql-container]:border-0
-                    [&_.ql-container]:shadow-none
-                    [&_.ql-container]:bg-white
+                            [&_.ql-container]:border-0
+                            [&_.ql-container]:shadow-none
+                            [&_.ql-container]:bg-white
 
-                    [&_.ql-editor]:h-[240px]
-                    [&_.ql-editor]:p-3
-                    [&_.ql-editor]:text-sm
-                    [&_.ql-editor]:leading-relaxed
-                    [&_.ql-editor]:text-slate-900
-                    [&_.ql-editor]:outline-none
+                            [&_.ql-editor]:h-[240px]
+                            [&_.ql-editor]:p-3
+                            [&_.ql-editor]:text-sm
+                            [&_.ql-editor]:leading-relaxed
+                            [&_.ql-editor]:text-slate-900
+                            [&_.ql-editor]:outline-none
 
-                    [&_.ql-editor_ol]:pl-6
-                    [&_.ql-editor_ul]:pl-6
-                    [&_.ql-editor_a]:text-sky-700
-                    [&_.ql-editor_a]:underline
+                            [&_.ql-editor_ol]:pl-6
+                            [&_.ql-editor_ul]:pl-6
+                            [&_.ql-editor_a]:text-sky-700
+                            [&_.ql-editor_a]:underline
 
-                    [&_.ql-editor::-webkit-scrollbar]:w-2
-                    [&_.ql-editor::-webkit-scrollbar-thumb]:bg-slate-200
-                    [&_.ql-editor::-webkit-scrollbar-thumb]:rounded-full
-                    [&_.ql-editor::-webkit-scrollbar-track]:bg-transparent
-                  "
+                            [&_.ql-editor::-webkit-scrollbar]:w-2
+                            [&_.ql-editor::-webkit-scrollbar-thumb]:bg-slate-200
+                            [&_.ql-editor::-webkit-scrollbar-thumb]:rounded-full
+                            [&_.ql-editor::-webkit-scrollbar-track]:bg-transparent
+                          "
                 />
               </div>
 
@@ -550,90 +554,7 @@ export default function PanelFocoUpsertDialog({
               </div>
             </div>
 
-            {/* ✅ Importar imágenes (UI) */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-800">
-                    <ImageIcon className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <div className="text-sm font-extrabold text-slate-900">Imágenes</div>
-                    <div className="text-xs text-slate-600">
-                      Adjuntá hasta {MAX_FILES} imágenes (máx {MAX_MB}MB c/u). Se suben al guardar.
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={onFileChange}
-                    className="hidden"
-                  />
-                  <Button type="button" variant="outline" onClick={pickFiles} disabled={uploadingAssets}>
-                    <UploadCloud className="h-4 w-4 mr-2" />
-                    Importar
-                  </Button>
-                </div>
-              </div>
-
-              {files.length > 0 ? (
-                <div className="mt-3 grid gap-2">
-                  {files.map((f, idx) => (
-                    <div
-                      key={`${f.name}_${f.size}`}
-                      className="flex items-center gap-3 rounded-xl border border-slate-200 p-2"
-                    >
-                      <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={URL.createObjectURL(f)}
-                          alt={f.name}
-                          className="h-full w-full object-cover"
-                          onLoad={(e) => {
-                            const img = e.currentTarget;
-                            const url = img.src;
-                            setTimeout(() => URL.revokeObjectURL(url), 1500);
-                          }}
-                        />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-slate-900">{f.name}</div>
-                        <div className="text-xs text-slate-600">{formatBytes(f.size)}</div>
-
-                        <div className="mt-1">
-                          <Input
-                            placeholder="Etiqueta opcional (ej: afiche, promo, lista...)"
-                            value={labelsByName[f.name] ?? ''}
-                            onChange={(e) =>
-                              setLabelsByName((prev) => ({
-                                ...prev,
-                                [f.name]: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeFile(idx)} title="Quitar">
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                  Podés subir imágenes de <span className="font-semibold">promos, listados, material</span> o capturas.
-                </div>
-              )}
-            </div>
-
-            {/* ✅ targets */}
+            {/* ✅ targets (FIXED como el viejo: BranchesMultiSelect) */}
             <div className="space-y-2">
               <BranchesMultiSelect
                 branches={branches}
@@ -644,11 +565,14 @@ export default function PanelFocoUpsertDialog({
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading || uploadingAssets}>
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
                 Cancelar
               </Button>
-              <Button onClick={save} disabled={disableSave}>
-                {uploadingAssets ? 'Subiendo imágenes…' : loading ? 'Guardando…' : mode === 'edit' ? 'Guardar cambios' : 'Publicar foco'}
+              <Button
+                onClick={save}
+                disabled={loading || !title.trim() || isHtmlEmpty(contentHtml) || targetBranchIds.length === 0}
+              >
+                {loading ? 'Guardando…' : mode === 'edit' ? 'Guardar cambios' : 'Publicar foco'}
               </Button>
             </div>
           </div>
@@ -661,7 +585,9 @@ export default function PanelFocoUpsertDialog({
                   <Sparkles className="h-4 w-4" />
                   Plantillas rápidas
                 </div>
-                <div className="mt-2 text-sm text-slate-600">Un clic y queda armado. Después ajustás detalles.</div>
+                <div className="mt-2 text-sm text-slate-600">
+                  Un clic y queda armado. Después ajustás detalles.
+                </div>
               </div>
 
               <div className="p-3">
@@ -689,8 +615,12 @@ export default function PanelFocoUpsertDialog({
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="font-extrabold text-slate-900 text-sm leading-5 line-clamp-2">{t.title}</div>
-                          <div className="mt-1 text-xs text-slate-600 leading-4 line-clamp-1">{t.desc}</div>
+                          <div className="font-extrabold text-slate-900 text-sm leading-5 line-clamp-2">
+                            {t.title}
+                          </div>
+                          <div className="mt-1 text-xs text-slate-600 leading-4 line-clamp-1">
+                            {t.desc}
+                          </div>
                         </div>
                       </div>
                     </button>

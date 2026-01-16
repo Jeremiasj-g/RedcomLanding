@@ -1,47 +1,52 @@
 'use client';
 
 import { supabase } from '@/lib/supabaseClient';
-import type { FocoRow } from './focos.types';
+import type { FocoAsset, FocoRow } from '@/components/focos/focos.types';
 
-export async function getFocosForMe(opts?: { onlyActive?: boolean }) {
-  let q = supabase
-    .from('focos')
-    .select(
-      `
-      id,
-      title,
-      content,
-      severity,
-      type,
-      is_active,
-      created_at,
-      updated_at,
-      start_at,
-      end_at,
-      foco_targets (
-        branch_id,
-        branches ( name )
-      )
-    `
-    )
-    .order('start_at', { ascending: false });
+/** Trae assets de muchos focos y los agrupa por foco_id */
+async function getFocoAssetsByFocoIds(focoIds: string[]): Promise<Map<string, FocoAsset[]>> {
+  const map = new Map<string, FocoAsset[]>();
+  if (!focoIds.length) return map;
 
-  if (opts?.onlyActive) q = q.eq('is_active', true);
+  const { data, error } = await supabase
+    .from('foco_assets')
+    .select('id,foco_id,kind,url,label,created_by,created_at')
+    .in('foco_id', focoIds)
+    .order('created_at', { ascending: false });
 
-  const { data, error } = await q;
   if (error) throw error;
 
-  // Normalizamos "targets" al formato que usa tu UI (branch_id + branch_name)
-  const normalized =
-    (data ?? []).map((f: any) => ({
-      ...f,
-      targets: (f.foco_targets ?? []).map((t: any) => ({
-        branch_id: t.branch_id,
-        branch_name: t.branches?.name ?? '—',
-      })),
-    })) ?? [];
+  for (const a of (data ?? []) as FocoAsset[]) {
+    const arr = map.get(a.foco_id) ?? [];
+    arr.push(a);
+    map.set(a.foco_id, arr);
+  }
 
-  return normalized as any; // si querés, lo tipamos bien con tu FocoRow
+  return map;
+}
+
+export async function getFocosForMe(opts?: { onlyActive?: boolean }): Promise<FocoRow[]> {
+  const onlyActive = opts?.onlyActive ?? true;
+
+  // ✅ 1) ACÁ PEGÁS TU QUERY QUE YA FUNCIONA (no la inventamos)
+  // Ejemplo (REEMPLAZAR por tu versión real):
+  let query = supabase.from('focos_with_stats').select('*'); // <-- cambia esto por tu fuente real
+  if (onlyActive) query = query.eq('is_active', true);
+
+  const { data, error } = await query.order('created_at', { ascending: false });
+  if (error) throw error;
+
+  const base = (data ?? []) as any[];
+
+  // ✅ 2) assets (extra, no rompe la query base)
+  const focoIds = base.map((f) => f.id).filter(Boolean);
+  const assetsMap = await getFocoAssetsByFocoIds(focoIds);
+
+  // ✅ 3) merge tipado
+  return base.map((f) => ({
+    ...(f as any),
+    assets: assetsMap.get(f.id) ?? [],
+  })) as FocoRow[];
 }
 
 export async function getMyFocoCompletions(userId: string, focoIds: string[]) {

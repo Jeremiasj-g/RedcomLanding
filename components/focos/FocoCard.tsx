@@ -7,6 +7,13 @@ import { Card } from '@/components/ui/card';
 import { CheckCircle2, Loader2, ShieldAlert, Info, AlertTriangle } from 'lucide-react';
 import type { FocoRow } from './focos.types';
 
+// ✅ Swiper (como el demo oficial: progressbar + navigation)
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Pagination, Navigation } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/pagination';
+import 'swiper/css/navigation';
+
 function sevIcon(sev: string) {
   if (sev === 'critical') return <ShieldAlert className="h-4 w-4" />;
   if (sev === 'warning') return <AlertTriangle className="h-4 w-4" />;
@@ -24,7 +31,6 @@ function sanitizeHtmlBasic(html: string) {
   let out = html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
   out = out.replace(/\son\w+="[^"]*"/gi, '');
   out = out.replace(/\son\w+='[^']*'/gi, '');
-  // asegura links seguros
   out = out.replace(/<a\s/gi, '<a target="_blank" rel="noopener noreferrer" ');
   return out;
 }
@@ -43,9 +49,11 @@ export default function FocoCard({
   onToggleCompleted: () => void;
 }) {
   const html = sanitizeHtmlBasic(foco.content ?? '');
+  const canShowCompletedButton = foco.type === 'foco' || foco.type === 'critico';
 
-  const canShowCompletedButton =
-    foco.type === 'foco' || foco.type === 'critico';
+  const images = React.useMemo(() => {
+    return (foco.assets ?? []).filter((a) => (a.kind ?? 'image') === 'image' && !!a.url);
+  }, [foco.assets]);
 
   return (
     <Card
@@ -55,7 +63,7 @@ export default function FocoCard({
       ].join(' ')}
     >
       <div className="flex flex-col items-start justify-between gap-8">
-        <div className="min-w-0">
+        <div className="min-w-0 w-full">
           <div className="flex flex-wrap items-center gap-2">
             <Badge className={sevBadgeClass(foco.severity)}>
               <span className="mr-1 inline-flex items-center gap-1">
@@ -89,26 +97,52 @@ export default function FocoCard({
           ) : null}
         </div>
 
+        {/* ✅ Swiper arriba del HTML (como demo oficial: progressbar + navigation) */}
+        {images.length > 0 ? (
+          <div className="w-full">
+            <div className="overflow-hidden rounded-2xl border bg-slate-50">
+              <Swiper
+                pagination={{ type: 'progressbar' }}
+                navigation
+                modules={[Pagination, Navigation]}
+                className="focoSwiper"
+              >
+                {images.map((img, i) => (
+                  <SwiperSlide key={`${img.url}_${i}`} className="focoSwiperSlide">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.url}
+                      alt={img.label ?? `Imagen ${i + 1}`}
+                      className="focoSwiperImg"
+                      loading="lazy"
+                    />
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            </div>
+
+            {/* caption simple (opcional) */}
+            {images[0]?.label ? (
+              <div className="mt-2 text-xs text-muted-foreground">{images[0].label}</div>
+            ) : null}
+          </div>
+        ) : null}
+
         {/* ✅ contenido HTML con listas bien renderizadas */}
         <div
           className={[
             'w-full text-sm leading-relaxed text-foreground/90',
-            // spacing de bloques típicos de Quill
             '[&>p]:my-2',
             '[&>h1]:my-2 [&>h1]:text-base [&>h1]:font-semibold',
             '[&>h2]:my-2 [&>h2]:text-base [&>h2]:font-semibold',
             '[&>h3]:my-2 [&>h3]:text-sm [&>h3]:font-semibold',
-            // ✅ listas: bullets + indent (clave para tu problema)
             '[&>ul]:my-2 [&>ul]:pl-6 [&>ul]:list-disc',
             '[&>ol]:my-2 [&>ol]:pl-6 [&>ol]:list-decimal',
             '[&>ul>li]:my-1',
             '[&>ol>li]:my-1',
-            // si Quill mete listas anidadas, también se ven bien
             '[&_ul]:pl-6 [&_ul]:list-disc',
             '[&_ol]:pl-6 [&_ol]:list-decimal',
-            // links
             '[& a]:text-sky-700 [& a]:underline',
-            // strong
             '[& strong]:font-semibold',
           ].join(' ')}
           dangerouslySetInnerHTML={{ __html: html }}
@@ -119,7 +153,7 @@ export default function FocoCard({
             variant={completed ? 'secondary' : 'default'}
             onClick={onToggleCompleted}
             disabled={busy || !foco.is_active}
-            className="shrink-0"
+            className={['shrink-0', !completed ? 'bg-[#2a2a2a] hover:bg-[#212121] text-white' : ''].join(' ')}
           >
             {busy ? (
               <span className="inline-flex items-center gap-2">
@@ -143,3 +177,4 @@ export default function FocoCard({
     </Card>
   );
 }
+

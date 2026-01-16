@@ -231,6 +231,50 @@ html {
   /* segundo pulso desfasado */
 }
 
+
+/*   .focoSwiper {
+    width: 100%;
+    height: auto;
+  }
+
+  .focoSwiper .swiper-slide {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #f8fafc;
+  }
+
+  .focoSwiper .swiper-slide img {
+    width: 100%;
+    height: auto;
+    max-height: 520px;
+    object-fit: contain;
+  }
+
+  .focoSwiper .swiper-pagination-progressbar {
+    background: rgba(122, 31, 43, 0.2);
+    height: 6px;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .focoSwiper .swiper-pagination-progressbar-fill {
+    background: #7a1f2b;
+    border-radius: 999px;
+  }
+
+  .focoSwiper .swiper-button-next,
+  .focoSwiper .swiper-button-prev {
+    color: #7a1f2b;
+  }
+
+  .focoSwiper .swiper-button-next:hover,
+  .focoSwiper .swiper-button-prev:hover {
+    color: #5e1721;
+  }
+ */
+
+
 @keyframes tg-pulse {
   0% {
     transform: scale(1);
