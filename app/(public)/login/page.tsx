@@ -172,7 +172,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-[100dvh] bg-slate-50 flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-5xl rounded-3xl bg-white shadow-xl ring-1 ring-black/5 overflow-hidden">
+      <div className="w-full max-w-5xl rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Columna izquierda: Form */}
           <div className="p-8 md:p-12">
@@ -279,26 +279,33 @@ export default function LoginPage() {
           </div>
 
           {/* Columna derecha: Ilustración / CTA */}
-          <div className="relative hidden md:block">
-            <div className="absolute inset-0 bg-[#A81C18]" />
-            <div className="relative h-full w-full p-10 text-red-50">
-              <h2 className="text-2xl font-bold leading-tight">
-                Gestioná tu equipo y operaciones sin esfuerzo.
+          <div className="relative hidden md:flex flex-col justify-center gap-32 p-12 bg-gradient-to-br from-[#A81C18] to-[#7d1512] text-white">
+            <div className="relative z-10">
+
+              <h2 className="text-4xl font-extrabold leading-[1.1] mb-6">
+                Gestioná tu equipo y operaciones
+                sin esfuerzo.
+                {/* Optimiza la gestión <br /> de tu red logística. */}
               </h2>
-              <p className="mt-2 text-red-100/90">
+              <p className="text-red-100/80 text-lg max-w-sm leading-relaxed">
                 Accedé a tu panel para monitorear tus sucursales y procesos.
               </p>
-              <div className="mt-8 rounded-2xl bg-white/10 p-4 ring-1 ring-white/20 backdrop-blur">
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="h-24 rounded-xl bg-white/20" />
-                  <div className="h-24 rounded-xl bg-white/20" />
-                  <div className="h-24 rounded-xl bg-white/20" />
-                  <div className="col-span-3 h-32 rounded-xl bg-white/20" />
-                </div>
-              </div>
-              <div className="absolute bottom-0 right-0 h-[45%] w-[45%] border rounded-full bg-gray-50 blur-[120px]" />
-              <div className="absolute top-0 left-2 h-[250px] w-[250px] border rounded-full bg-gray-50 blur-[120px]" />
             </div>
+
+            <div className="relative z-10 grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                <p className="text-2xl font-bold">98%</p>
+                <p className="text-xs text-red-200 uppercase tracking-wider">Éxito</p>
+              </div>
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                <p className="text-2xl font-bold">+4</p>
+                <p className="text-xs text-red-200 uppercase tracking-wider">Sucursales</p>
+              </div>
+            </div>
+
+            {/* Círculos decorativos de fondo */}
+            <div className="absolute top-[-10%] right-[-10%] w-80 h-80 bg-white/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-[-5%] left-[-5%] w-60 h-60 bg-black/20 rounded-full blur-3xl" />
           </div>
         </div>
       </div>
@@ -338,8 +345,8 @@ export default function LoginPage() {
                         type="button"
                         onClick={() => togglePick(b.name)}
                         className={`rounded-full border px-3 py-1 text-sm capitalize ${active
-                            ? 'bg-emerald-100 border-emerald-300'
-                            : 'hover:bg-slate-50'
+                          ? 'bg-emerald-100 border-emerald-300'
+                          : 'hover:bg-slate-50'
                           }`}
                       >
                         {b.name}

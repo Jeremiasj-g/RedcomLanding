@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 
+import { supabase } from '@/lib/supabaseClient';
+
 import type { PanelFocoRow } from '@/components/focos/focos.panel.api';
 import {
   getFocoCompletionsUsers,
@@ -43,10 +45,211 @@ function sanitizeHtmlBasic(html: string) {
   let out = html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
   out = out.replace(/\son\w+="[^"]*"/gi, '');
   out = out.replace(/\son\w+='[^']*'/gi, '');
-  // fuerza target blank
   out = out.replace(/<a\s/gi, '<a target="_blank" rel="noopener noreferrer" ');
   return out;
 }
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function useStableCallback<T extends (...args: any[]) => any>(fn: T) {
+  const ref = React.useRef(fn);
+  React.useEffect(() => {
+    ref.current = fn;
+  }, [fn]);
+  return React.useCallback((...args: Parameters<T>) => ref.current(...args), []);
+}
+
+/**
+ * Carousel casero
+ * - swipe touch + drag mouse
+ * - blur background solo desktop (sm+)
+ * - sin flechas en mobile (solo swipe)
+ * - dots + progressbar
+ */
+function AssetCarousel({
+  images,
+  accent = '#7a1f2b',
+}: {
+  images: { url: string; label?: string | null }[];
+  accent?: string;
+}) {
+  const count = images.length;
+  const [index, setIndex] = React.useState(0);
+
+  const trackRef = React.useRef<HTMLDivElement | null>(null);
+  const [dragging, setDragging] = React.useState(false);
+  const dragStartX = React.useRef(0);
+  const dragDeltaX = React.useRef(0);
+  const trackWidth = React.useRef(1);
+
+  React.useEffect(() => {
+    setIndex((i) => clamp(i, 0, Math.max(0, count - 1)));
+  }, [count]);
+
+  const go = useStableCallback((next: number) => {
+    setIndex(() => clamp(next, 0, count - 1));
+  });
+
+  // teclado solo desktop (igual no molesta)
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (count <= 1) return;
+      if (e.key === 'ArrowLeft') go(index - 1);
+      if (e.key === 'ArrowRight') go(index + 1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [count, go, index]);
+
+  const beginDrag = (clientX: number) => {
+    if (count <= 1) return;
+    setDragging(true);
+    dragStartX.current = clientX;
+    dragDeltaX.current = 0;
+    trackWidth.current = trackRef.current?.clientWidth || 1;
+  };
+
+  const moveDrag = (clientX: number) => {
+    if (!dragging) return;
+    dragDeltaX.current = clientX - dragStartX.current;
+
+    const el = trackRef.current;
+    if (!el) return;
+    const base = -index * trackWidth.current;
+    el.style.transition = 'none';
+    el.style.transform = `translate3d(${base + dragDeltaX.current}px,0,0)`;
+  };
+
+  const endDrag = () => {
+    if (!dragging) return;
+    setDragging(false);
+
+    const threshold = Math.min(120, trackWidth.current * 0.18);
+    const dx = dragDeltaX.current;
+
+    if (dx > threshold) go(index - 1);
+    else if (dx < -threshold) go(index + 1);
+    else go(index);
+
+    dragDeltaX.current = 0;
+  };
+
+  React.useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const w = el.clientWidth || 1;
+    trackWidth.current = w;
+    el.style.transition = dragging ? 'none' : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)';
+    el.style.transform = `translate3d(${-index * w}px,0,0)`;
+  }, [index, dragging, count]);
+
+  if (count === 0) return null;
+
+  return (
+    <div className="w-full">
+      <div className="relative w-full overflow-hidden rounded-2xl border bg-slate-50 select-none">
+        {/* Track */}
+        <div
+          ref={trackRef}
+          className="flex w-full"
+          onMouseDown={(e) => beginDrag(e.clientX)}
+          onMouseMove={(e) => moveDrag(e.clientX)}
+          onMouseUp={endDrag}
+          onMouseLeave={endDrag}
+          onTouchStart={(e) => beginDrag(e.touches[0].clientX)}
+          onTouchMove={(e) => moveDrag(e.touches[0].clientX)}
+          onTouchEnd={endDrag}
+        >
+          {images.map((img, i) => (
+            <div key={`${img.url}_${i}`} className="w-full shrink-0">
+              {/* Slide: blur bg (desktop) + foreground contain */}
+              <div className="relative w-full">
+                {/* fondo blur (solo desktop) */}
+                <div className="pointer-events-none absolute inset-0 hidden sm:block">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img.url}
+                    alt=""
+                    aria-hidden="true"
+                    className="h-full w-full object-cover blur-2xl scale-125 opacity-70"
+                    loading="lazy"
+                    draggable={false}
+                  />
+                  <div className="absolute inset-0 bg-white/20" />
+                </div>
+
+                {/* foreground */}
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img.url}
+                    alt={img.label ?? `Imagen ${i + 1}`}
+                    className={[
+                      'block w-full',
+                      'h-auto sm:h-[520px]',
+                      'object-contain',
+                      'mx-auto',
+                    ].join(' ')}
+                    loading="lazy"
+                    draggable={false}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {count > 1 ? (
+          <>
+            {/* Progressbar */}
+            <div className="absolute left-0 right-0 top-0">
+              <div className="h-[6px] w-full" style={{ background: 'rgba(122,31,43,0.15)' }}>
+                <div
+                  className="h-full transition-[width] duration-300 ease-out"
+                  style={{ width: `${((index + 1) / count) * 100}%`, background: accent }}
+                />
+              </div>
+            </div>
+
+            {/* Dots (no tapan info) */}
+            <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-1.5">
+              {images.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => go(i)}
+                  aria-label={`Ir a imagen ${i + 1}`}
+                  className={[
+                    'h-1.5 rounded-full transition-all',
+                    i === index ? 'w-6' : 'w-2',
+                  ].join(' ')}
+                  style={{
+                    background: i === index ? accent : 'rgba(122,31,43,0.30)',
+                  }}
+                />
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
+
+      {images[index]?.label ? (
+        <div className="mt-2 text-xs text-muted-foreground">{images[index]?.label}</div>
+      ) : null}
+    </div>
+  );
+}
+
+type FocoAssetRow = {
+  id: number;
+  foco_id: string;
+  kind: string;
+  url: string;
+  label: string | null;
+  created_at: string;
+};
 
 export default function PanelFocoDetailsSheet({
   open,
@@ -64,6 +267,11 @@ export default function PanelFocoDetailsSheet({
   const [targetsLoading, setTargetsLoading] = React.useState(false);
   const [targetsErr, setTargetsErr] = React.useState<string | null>(null);
   const [targetsUsers, setTargetsUsers] = React.useState<TargetUserRow[] | null>(null);
+
+  // ✅ assets
+  const [assetsLoading, setAssetsLoading] = React.useState(false);
+  const [assetsErr, setAssetsErr] = React.useState<string | null>(null);
+  const [assets, setAssets] = React.useState<FocoAssetRow[]>([]);
 
   React.useEffect(() => {
     if (!open || !foco?.id) return;
@@ -96,6 +304,34 @@ export default function PanelFocoDetailsSheet({
       .finally(() => setTargetsLoading(false));
   }, [open, foco?.id]);
 
+  // ✅ cargar assets desde tabla foco_assets
+  React.useEffect(() => {
+    if (!open || !foco?.id) return;
+
+    setAssetsLoading(true);
+    setAssetsErr(null);
+    setAssets([]);
+
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('foco_assets')
+          .select('id,foco_id,kind,url,label,created_at')
+          .eq('foco_id', foco.id)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        setAssets((data as any) || []);
+      } catch (e: any) {
+        console.error('[FOCOS] foco_assets load error', e);
+        setAssetsErr(e?.message ?? 'No se pudieron cargar las imágenes.');
+        setAssets([]);
+      } finally {
+        setAssetsLoading(false);
+      }
+    })();
+  }, [open, foco?.id]);
+
   const targets = foco?.targets ?? [];
 
   const rate = Math.max(0, Math.min(100, Number(foco?.completion_rate ?? 0)));
@@ -116,9 +352,14 @@ export default function PanelFocoDetailsSheet({
 
   const contentHtml = React.useMemo(() => sanitizeHtmlBasic(String(foco?.content ?? '')), [foco?.content]);
 
+  const images = React.useMemo(() => {
+    return (assets || [])
+      .filter((a) => (a.kind ?? 'image') === 'image' && !!a.url)
+      .map((a) => ({ url: a.url, label: a.label }));
+  }, [assets]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      {/* ✅ Alto fijo + layout interno */}
       <SheetContent side="right" className="w-full sm:max-w-2xl h-dvh p-0">
         {/* Header fijo */}
         <SheetHeader className="px-6 py-5 border-b bg-white">
@@ -160,6 +401,21 @@ export default function PanelFocoDetailsSheet({
                 </div>
 
                 <div className="text-lg font-semibold">{foco.title}</div>
+
+                {/* ✅ IMÁGENES */}
+                {assetsLoading ? (
+                  <div className="flex items-center gap-2 rounded-xl border bg-white p-3 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Cargando imágenes…
+                  </div>
+                ) : assetsErr ? (
+                  <div className="rounded-xl border bg-white p-3 text-sm">
+                    <div className="font-semibold">No se pudieron cargar imágenes.</div>
+                    <div className="text-xs text-muted-foreground">{assetsErr}</div>
+                  </div>
+                ) : images.length > 0 ? (
+                  <AssetCarousel images={images} />
+                ) : null}
 
                 <div className="rounded-xl border bg-muted/20 p-3">
                   <div
@@ -240,9 +496,10 @@ export default function PanelFocoDetailsSheet({
                     variant="outline"
                     size="sm"
                     onClick={() => {
+                      console.log('[FOCOS] foco_assets', assets);
                       console.log('[FOCOS] foco_completion_users', rows);
                       console.log('[FOCOS] foco_target_users', targetsUsers);
-                      alert('Listo. Mirá la consola (rows / targetsUsers).');
+                      alert('Listo. Mirá la consola (assets / rows / targetsUsers).');
                     }}
                   >
                     <ExternalLink className="mr-2 h-4 w-4" />
