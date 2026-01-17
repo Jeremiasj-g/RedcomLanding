@@ -203,3 +203,15 @@ export async function deleteTask(id: number) {
   const { error } = await supabase.from('tasks').delete().eq('id', id);
   if (error) throw error;
 }
+
+export async function updateTaskScheduledAt(taskId: number, scheduled_at: string) {
+  const { data, error } = await supabase
+    .from('tasks')
+    .update({ scheduled_at })
+    .eq('id', taskId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}

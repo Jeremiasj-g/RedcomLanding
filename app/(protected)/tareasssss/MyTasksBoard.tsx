@@ -46,17 +46,6 @@ function BoardInner({ userId, range }: Props) {
         range={range}
         loading={loading}
         onSelectTask={(t) => setSelectedTask(t)}
-
-        // ✅ props que necesita TaskCard (evita BRIEF_STATUS undefined)
-        BRIEF_STATUS={actions.BRIEF_STATUS}
-        changingStatusId={actions.changingStatusId}
-        savingNotesId={actions.savingNotesId}
-        deletingId={actions.deletingId}
-        onToggleStatus={actions.toggleStatus}
-        onSaveNotes={actions.saveNotes}
-        onDelete={actions.removeTask}
-        onDeleteDay={actions.removeDay}
-        deletingDayKey={actions.deletingDayKey}
       />
 
       <TaskDetailModal
