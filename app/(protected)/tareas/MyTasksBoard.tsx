@@ -1,7 +1,6 @@
 'use client';
 
 import 'react-day-picker/dist/style.css';
-
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -14,6 +13,7 @@ import {
   Copy,
   Clock3,
 } from 'lucide-react';
+
 import {
   fetchMyTasksByRange,
   createTask,
@@ -23,11 +23,13 @@ import {
   fetchTaskItems,
   Task,
 } from '@/lib/tasks';
-import { addDays } from 'date-fns';
+
+import { addDays, format, parseISO, set as setDateFns } from 'date-fns';
 import { es } from 'date-fns/locale';
+
 import TaskChecklistSection from './TaskChecklistSection';
 import TaskChecklistIndicator from './TaskChecklistIndicator';
-import { DayPicker, type DateRange, type Modifiers } from 'react-day-picker';
+import { DayPicker, type DateRange } from 'react-day-picker';
 
 type TaskItem = {
   id: number;
@@ -46,24 +48,28 @@ const BRIEF_STATUS: Record<Task['status'], string> = {
 
 type Props = {
   userId: string;
-  range: {
-    from: Date;
-    to: Date;
-  };
+  range: { from: Date; to: Date };
 };
+
+function toYMD(d: Date) {
+  return format(d, 'yyyy-MM-dd');
+}
+
+function buildISOFromLocal(dateYMD: string, timeHHmm: string) {
+  const [hh, mm] = timeHHmm.split(':').map((n) => Number(n));
+  const base = parseISO(`${dateYMD}T00:00:00`); // local
+  const withTime = setDateFns(base, { hours: hh || 0, minutes: mm || 0, seconds: 0, milliseconds: 0 });
+  return withTime.toISOString(); // guardar UTC pero respetando el local elegido
+}
 
 export default function MyTasksBoard({ userId, range }: Props) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [creating, setCreating] = useState(false);
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    time: '09:00',
-  });
+  const [newTask, setNewTask] = useState({ title: '', description: '', time: '09:00' });
 
-  // rango de fechas para crear varias tareas (DayPicker)
+  // rango de fechas para crear varias tareas (DayPicker) - SOLO NUEVA TAREA
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
     return { from: today, to: today };
@@ -72,6 +78,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
 
   // selector de hora para nueva tarea
   const [timePickerOpen, setTimePickerOpen] = useState(false);
+
   const timeOptions = useMemo(
     () =>
       Array.from({ length: 24 * 2 }, (_, i) => {
@@ -89,9 +96,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
 
   // duplicar tarea
   const [duplicateOpenFor, setDuplicateOpenFor] = useState<number | null>(null);
-  const [duplicateDraft, setDuplicateDraft] = useState<
-    Record<number, { date: string; time: string }>
-  >({});
+  const [duplicateDraft, setDuplicateDraft] = useState<Record<number, { date: string; time: string }>>({});
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
 
   // popovers de duplicado (calendar + hora)
@@ -104,7 +109,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
   // tarea seleccionada para la modal
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  // 👇 NUEVO: mapa de tareas que tienen checklist
+  // mapa de tareas que tienen checklist
   const [tasksWithChecklist, setTasksWithChecklist] = useState<Record<number, boolean>>({});
 
   // días del rango seleccionado (semana / mes / multi-semana)
@@ -112,7 +117,6 @@ export default function MyTasksBoard({ userId, range }: Props) {
     const days: Date[] = [];
     let current = new Date(range.from);
     const end = new Date(range.to);
-
     while (current <= end) {
       days.push(new Date(current));
       current = addDays(current, 1);
@@ -129,7 +133,6 @@ export default function MyTasksBoard({ userId, range }: Props) {
         setLoading(true);
         const fromISO = range.from.toISOString();
         const toISO = range.to.toISOString();
-
         const data = await fetchMyTasksByRange(fromISO, toISO, userId);
         setTasks(data);
       } catch (err) {
@@ -142,7 +145,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
     load();
   }, [range.from, range.to, userId]);
 
-  // 👇 detectar qué tareas tienen checklist
+  // detectar qué tareas tienen checklist
   useEffect(() => {
     if (!tasks.length) return;
 
@@ -159,7 +162,6 @@ export default function MyTasksBoard({ userId, range }: Props) {
             return [task.id, items.length > 0] as const;
           }),
         );
-
         if (cancelled) return;
 
         setTasksWithChecklist((prev) => ({
@@ -172,7 +174,6 @@ export default function MyTasksBoard({ userId, range }: Props) {
     };
 
     loadChecklistFlags();
-
     return () => {
       cancelled = true;
     };
@@ -196,7 +197,10 @@ export default function MyTasksBoard({ userId, range }: Props) {
   const rangeLabel = useMemo(() => {
     if (!dateRange?.from) return 'Seleccionar días';
     const fmt = (d: Date) =>
-      d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+      d.toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: 'short',
+      });
     if (!dateRange.to) return fmt(dateRange.from);
     return `${fmt(dateRange.from)} – ${fmt(dateRange.to)}`;
   }, [dateRange]);
@@ -210,18 +214,17 @@ export default function MyTasksBoard({ userId, range }: Props) {
 
     const fromDate = dateRange.from;
     const toDate = dateRange.to ?? dateRange.from;
-
     const from = fromDate <= toDate ? fromDate : toDate;
     const to = fromDate <= toDate ? toDate : fromDate;
 
     const createdTasks: Task[] = [];
     try {
       setCreating(true);
-      let current = new Date(from);
 
+      let current = new Date(from);
       while (current <= to) {
-        const dateStr = current.toISOString().slice(0, 10);
-        const dateTimeISO = new Date(`${dateStr}T${newTask.time}:00`).toISOString();
+        const dateStr = toYMD(current);
+        const dateTimeISO = buildISOFromLocal(dateStr, newTask.time);
 
         const created = await createTask({
           title: newTask.title.trim(),
@@ -234,12 +237,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
       }
 
       setTasks((prev) => [...prev, ...createdTasks]);
-
-      setNewTask((prev) => ({
-        ...prev,
-        title: '',
-        description: '',
-      }));
+      setNewTask((prev) => ({ ...prev, title: '', description: '' }));
     } catch (err) {
       console.error('Error creating tasks', err);
     } finally {
@@ -270,14 +268,11 @@ export default function MyTasksBoard({ userId, range }: Props) {
     }
   };
 
-
   const handleChecklistAllDone = async (taskId: number, allDone: boolean) => {
-    // Solo auto-marcar como completada cuando el checklist queda 100% (transición detectada en el hijo)
     if (!allDone) return;
 
     const current =
       tasks.find((t) => t.id === taskId) ?? (selectedTask?.id === taskId ? selectedTask : null);
-
     if (!current) return;
     if (current.status === 'done') return;
 
@@ -348,12 +343,14 @@ export default function MyTasksBoard({ userId, range }: Props) {
   // preparar valores por defecto de duplicado
   const openDuplicateForTask = (task: Task) => {
     const original = new Date(task.scheduled_at);
-    const date = original.toISOString().slice(0, 10);
-    const time = original.toTimeString().slice(0, 5); // hh:mm
+    const date = format(original, 'yyyy-MM-dd');
+    const time = format(original, 'HH:mm');
+
     setDuplicateDraft((prev) => ({
       ...prev,
       [task.id]: { date, time },
     }));
+
     setDuplicateOpenFor((current) => (current === task.id ? null : task.id));
     setDupCalendarOpenFor(null);
     setDupTimePickerOpenFor(null);
@@ -365,12 +362,15 @@ export default function MyTasksBoard({ userId, range }: Props) {
 
     try {
       setDuplicatingId(task.id);
-      const dateTimeISO = new Date(`${draft.date}T${draft.time}:00`).toISOString();
+
+      const dateTimeISO = buildISOFromLocal(draft.date, draft.time);
+
       const created = await createTask({
         title: task.title,
         description: task.description ?? undefined,
         scheduled_at: dateTimeISO,
       });
+
       setTasks((prev) => [...prev, created]);
       setDuplicateOpenFor(null);
       setDupCalendarOpenFor(null);
@@ -396,8 +396,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
       {/* Nueva tarea */}
       <section className="relative rounded-2xl border border-slate-800/80 bg-gray-900/95 p-4 shadow-lg shadow-slate-950/40">
         <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-200">
-          <Plus className="h-4 w-4 text-emerald-400" />
-          Nueva tarea
+          <Plus className="h-4 w-4 text-emerald-400" /> Nueva tarea
         </div>
 
         <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_minmax(0,3.4fr)_auto]">
@@ -468,6 +467,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
                         Hoy
                       </button>
                     </div>
+
                     <button
                       type="button"
                       onClick={() => setCalendarOpen(false)}
@@ -499,6 +499,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
                   <div className="mb-1 flex items-center justify-between text-[10px] text-slate-400">
                     <span>Seleccionar hora</span>
                   </div>
+
                   <div className="max-h-52 space-y-1 overflow-y-auto pr-1">
                     {timeOptions.map((t) => (
                       <button
@@ -508,10 +509,11 @@ export default function MyTasksBoard({ userId, range }: Props) {
                           setNewTask((prev) => ({ ...prev, time: t }));
                           setTimePickerOpen(false);
                         }}
-                        className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] ${newTask.time === t
-                          ? 'bg-sky-500 text-slate-950'
-                          : 'text-slate-100 hover:bg-slate-800'
-                          }`}
+                        className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] ${
+                          newTask.time === t
+                            ? 'bg-sky-500 text-slate-950'
+                            : 'text-slate-100 hover:bg-slate-800'
+                        }`}
                       >
                         <span>{t}</span>
                         {newTask.time === t && (
@@ -532,13 +534,11 @@ export default function MyTasksBoard({ userId, range }: Props) {
           >
             {creating ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creando...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creando...
               </>
             ) : (
               <>
-                <Plus className="mr-2 h-4 w-4" />
-                Agregar
+                <Plus className="mr-2 h-4 w-4" /> Agregar
               </>
             )}
           </button>
@@ -554,19 +554,21 @@ export default function MyTasksBoard({ userId, range }: Props) {
         {daysInRange.map((day) => {
           const key = day.toISOString().slice(0, 10);
           const list = tasksByDay[key] || [];
+
           const label = day.toLocaleDateString('es-AR', {
             weekday: 'short',
             day: '2-digit',
             month: 'short',
           });
-          const isToday =
-            new Date().toISOString().slice(0, 10) === day.toISOString().slice(0, 10);
+
+          const isToday = new Date().toISOString().slice(0, 10) === day.toISOString().slice(0, 10);
 
           return (
             <div
               key={key}
-              className={`group flex min-h-[180px] flex-col rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-lg shadow-slate-950/40 ${isToday ? 'ring-1 ring-sky-500/60' : ''
-                }`}
+              className={`group flex min-h-[180px] flex-col rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-lg shadow-slate-950/40 ${
+                isToday ? 'ring-1 ring-sky-500/60' : ''
+              }`}
             >
               <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-300">
                 <span className="uppercase tracking-wide">{label.replace('.', '')}</span>
@@ -580,8 +582,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
               <div className="flex-1 space-y-2">
                 {loading && list.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-xs text-slate-500">
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                    Cargando...
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Cargando...
                   </div>
                 ) : list.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-[11px] text-gray-400">
@@ -591,11 +592,13 @@ export default function MyTasksBoard({ userId, range }: Props) {
                   <AnimatePresence initial={false}>
                     {list.map((task) => {
                       const dup = duplicateDraft[task.id];
-                      const dupDate =
-                        dup?.date && !Number.isNaN(new Date(dup.date).getTime())
-                          ? new Date(dup.date)
+
+                      const dupDateObj =
+                        dup?.date && !Number.isNaN(new Date(`${dup.date}T00:00:00`).getTime())
+                          ? new Date(`${dup.date}T00:00:00`)
                           : new Date(task.scheduled_at);
-                      const dupTime = dup?.time ?? '09:00';
+
+                      const dupTime = dup?.time ?? format(new Date(task.scheduled_at), 'HH:mm');
 
                       return (
                         <motion.div
@@ -614,14 +617,15 @@ export default function MyTasksBoard({ userId, range }: Props) {
                                 handleToggleStatus(task);
                               }}
                               disabled={changingStatus === task.id}
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${task.status === 'done'
-                                ? 'bg-emerald-500/15 text-emerald-300'
-                                : task.status === 'in_progress'
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                task.status === 'done'
+                                  ? 'bg-emerald-500/15 text-emerald-300'
+                                  : task.status === 'in_progress'
                                   ? 'bg-sky-500/15 text-sky-300'
                                   : task.status === 'cancelled'
-                                    ? 'bg-rose-500/15 text-rose-300'
-                                    : 'bg-slate-700/60 text-slate-200'
-                                }`}
+                                  ? 'bg-rose-500/15 text-rose-300'
+                                  : 'bg-slate-700/60 text-slate-200'
+                              }`}
                             >
                               {changingStatus === task.id ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -643,6 +647,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
                           </div>
 
                           <div className="text-[11px] font-medium leading-tight">{task.title}</div>
+
                           {task.description && (
                             <div className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">
                               {task.description}
@@ -714,7 +719,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
                                     className="flex w-full items-center justify-between rounded-xl border border-slate-700/70 bg-gray-700/70 px-3 py-1.5 text-left text-[11px] text-slate-100 hover:border-sky-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                                   >
                                     <span className="truncate">
-                                      {dupDate.toLocaleDateString('es-AR', {
+                                      {dupDateObj.toLocaleDateString('es-AR', {
                                         day: '2-digit',
                                         month: 'short',
                                         year: 'numeric',
@@ -726,9 +731,18 @@ export default function MyTasksBoard({ userId, range }: Props) {
                                   {dupCalendarOpenFor === task.id && (
                                     <div className="absolute z-50 mt-2 w-max max-w-[90vw] rounded-2xl border border-slate-800 bg-slate-950/95 p-3 text-[11px] text-slate-100 shadow-xl shadow-slate-950/60">
                                       <DayPicker
-                                        mode="range"
-                                        selected={dateRange}
-                                        onSelect={setDateRange}
+                                        mode="single"
+                                        selected={dupDateObj}
+                                        onSelect={(d) => {
+                                          if (!d) return;
+                                          setDuplicateDraft((prev) => ({
+                                            ...prev,
+                                            [task.id]: {
+                                              date: toYMD(d),
+                                              time: prev[task.id]?.time ?? dupTime,
+                                            },
+                                          }));
+                                        }}
                                         locale={es}
                                         weekStartsOn={1}
                                         numberOfMonths={1}
@@ -736,12 +750,10 @@ export default function MyTasksBoard({ userId, range }: Props) {
                                         pagedNavigation
                                         modifiersClassNames={{
                                           selected: 'bg-sky-500 text-slate-950',
-                                          range_start: 'bg-sky-500 text-slate-950 rounded-l-full',
-                                          range_end: 'bg-sky-500 text-slate-950 rounded-r-full',
-                                          range_middle: 'bg-sky-500/25 text-slate-50',
                                           today: 'border border-sky-400',
                                         }}
                                       />
+
                                       <div className="mt-2 flex justify-end">
                                         <button
                                           type="button"
@@ -774,6 +786,7 @@ export default function MyTasksBoard({ userId, range }: Props) {
                                       <div className="mb-1 flex items-center justify-between text-[10px] text-slate-400">
                                         <span>Seleccionar hora</span>
                                       </div>
+
                                       <div className="max-h-52 space-y-1 overflow-y-auto pr-1">
                                         {timeOptions.map((t) => (
                                           <button
@@ -783,16 +796,17 @@ export default function MyTasksBoard({ userId, range }: Props) {
                                               setDuplicateDraft((prev) => ({
                                                 ...prev,
                                                 [task.id]: {
-                                                  ...(prev[task.id] ?? { date: dupDate.toISOString().slice(0, 10) }),
+                                                  date: prev[task.id]?.date ?? toYMD(dupDateObj),
                                                   time: t,
                                                 },
                                               }));
                                               setDupTimePickerOpenFor(null);
                                             }}
-                                            className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] ${dupTime === t
-                                              ? 'bg-sky-500 text-slate-950'
-                                              : 'text-slate-100 hover:bg-slate-800'
-                                              }`}
+                                            className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] ${
+                                              dupTime === t
+                                                ? 'bg-sky-500 text-slate-950'
+                                                : 'text-slate-100 hover:bg-slate-800'
+                                            }`}
                                           >
                                             <span>{t}</span>
                                             {dupTime === t && (
@@ -815,13 +829,11 @@ export default function MyTasksBoard({ userId, range }: Props) {
                                 >
                                   {duplicatingId === task.id ? (
                                     <>
-                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                      Duplicando...
+                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Duplicando...
                                     </>
                                   ) : (
                                     <>
-                                      <Copy className="mr-1 h-3 w-3" />
-                                      Duplicar
+                                      <Copy className="mr-1 h-3 w-3" /> Duplicar
                                     </>
                                   )}
                                 </button>
@@ -906,7 +918,6 @@ export default function MyTasksBoard({ userId, range }: Props) {
                   </div>
 
                   <h2 className="pt-6 text-lg font-semibold leading-tight">{selectedTask.title}</h2>
-
                   {selectedTask.description && (
                     <p className="text-xs text-slate-400">{selectedTask.description}</p>
                   )}
