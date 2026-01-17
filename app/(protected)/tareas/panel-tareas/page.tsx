@@ -75,6 +75,7 @@ async function fetchTaskOwnerRoleOptions(): Promise<RoleOption[]> {
 
 export default function PanelTasksPage() {
   const { me, loading: loadingMe } = useMe();
+  const isJDV = (me?.role ?? '').toLowerCase() === 'jdv';
 
   const [rangeState, setRangeState] = useState<DateRangeState>(() =>
     getInitialDateRange(),
@@ -94,11 +95,59 @@ export default function PanelTasksPage() {
   const [ownerRoleOptions, setOwnerRoleOptions] = useState<RoleOption[]>([]);
 
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [didAutoPickBranch, setDidAutoPickBranch] = useState(false);
 
+  // ✅ Fallback de sucursales (para JDV / roles que a veces quedan sin opciones en el combo)
+  // Si por RLS o joins el fetch de tareas vuelve vacío, igual mostramos las sucursales del usuario
+  // consultando user_branches -> branches.
+  const [branchesFallback, setBranchesFallback] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!open || !me?.id) return;
+
+    // Solo lo usamos como fallback (especialmente útil para JDV)
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_branches')
+          .select('branch_id, branches:branches(name)')
+          .eq('user_id', me.id);
+
+        if (error) throw error;
+
+        const list = (data || [])
+          .map((r: any) => r?.branches?.name)
+          .filter(Boolean);
+
+        // únicos + orden estable
+        const uniq = Array.from(new Set(list));
+        setBranchesFallback(uniq);
+      } catch (e) {
+        console.warn('[TASKS] branches fallback error', e);
+        setBranchesFallback([]);
+      }
+    })();
+  }, [open, me?.id]);
+
+  // ✅ Auto-selección de sucursal para JDV si el combo queda vacío y el usuario está en "all".
+  // Esto fuerza un fetch por sucursal (algunas vistas/RLS no devuelven nada cuando branch = null).
   const [tasks, setTasks] = useState<TaskWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [selectedTask, setSelectedTask] = useState<TaskWithOwner | null>(null);
+  
+  useEffect(() => {
+    if (!isJDV) return;
+    if (didAutoPickBranch) return;
+    if (branchFilter !== 'all') return;
+    if (!branchesFallback.length) return;
+
+    // Importante: no pisamos cuando ya hay datos. Solo si está vacío.
+    if (tasks.length > 0) return;
+
+    setBranchFilter(branchesFallback[0]);
+    setDidAutoPickBranch(true);
+  }, [isJDV, didAutoPickBranch, branchFilter, branchesFallback, tasks.length]);
+
 
   // Cargar opciones de roles (solo admin) desde user_types
   useEffect(() => {
@@ -190,8 +239,16 @@ export default function PanelTasksPage() {
       });
     }
 
+    // ✅ Si el fetch de tareas vino vacío pero pudimos cargar sucursales del usuario,
+    // mostramos igual esas opciones (evita que el combo quede solo en "Todas las sucursales").
+    if (set.size === 0 && Array.isArray(branchesFallback) && branchesFallback.length > 0) {
+      for (const b of branchesFallback) {
+        if (b) set.add(String(b).toLowerCase());
+      }
+    }
+
     return Array.from(set).sort();
-  }, [tasksFilteredByRole, me]);
+  }, [tasksFilteredByRole, me, branchesFallback]);
 
   // 4) Opciones supervisor
   const supervisorsFromData = useMemo(() => {
