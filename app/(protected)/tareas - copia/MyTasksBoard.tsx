@@ -46,6 +46,15 @@ function BoardInner({ userId, range }: Props) {
         range={range}
         loading={loading}
         onSelectTask={(t) => setSelectedTask(t)}
+        BRIEF_STATUS={BRIEF_STATUS}
+        changingStatusId={changingStatus}
+        savingNotesId={savingNotes}
+        deletingId={deletingId}
+        onToggleStatus={handleToggleStatus}
+        onSaveNotes={handleSaveNotes}
+        onDelete={handleDelete}
+        onDeleteDay={handleDeleteDay}
+        deletingDayKey={deletingDayKey}
       />
 
       <TaskDetailModal
