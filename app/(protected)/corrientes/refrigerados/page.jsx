@@ -105,10 +105,16 @@ export default function CorrientesRefrigerados() {
             </section>
 
             <Container>
-              <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
+              <SectionDivider title='Dashboard de ventas BULTOS' icon={<IconAnalytics />} />
             </Container>
 
             <LookerEmbed looker_id='refrigerados' />
+            
+            <Container>
+              <SectionDivider title='Dashboard de ventas KILOS' icon={<IconAnalytics />} />
+            </Container>
+            
+            <LookerEmbed looker_id='refrigeradosKilos' />
           </>
         )}
 
