@@ -57,6 +57,7 @@ type Computed = {
 
   horasRutaStr: string;
   horasRutaSec: number;
+  mix: number;
 };
 
 export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props) {
@@ -251,7 +252,8 @@ function CompareColumn({ cat, computed }: { cat: CategoriaConfig; computed: Comp
     puntosCobertura +
     puntosVolumen +
     puntosPop +
-    puntosExhib;
+    puntosExhib +
+    puntosMix;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -293,6 +295,12 @@ function CompareColumn({ cat, computed }: { cat: CategoriaConfig; computed: Comp
           req={`${cat.exhibicion}%`}
           got={`${computed.exhib.toFixed(2)}%`}
           earned={puntosExhib}
+        />
+        <RowCompare
+          label="Mix"
+          req={`${(cat as any).mix}%`}
+          got={`${computed.mix.toFixed(2)}%`}
+          earned={puntosMix}
         />
       </div>
     </div>

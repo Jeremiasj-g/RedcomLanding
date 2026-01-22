@@ -22,6 +22,7 @@ export type CategoriaConfig = {
   volumen: number;
   pop: number;
   exhibicion: number;
+  mix: number;
   total: number;
 
   // UI
@@ -115,6 +116,7 @@ export const PUNTOS = {
   VOLUMEN: 15,
   POP: 5,
   EXHIBICION: 5,
+  MIX: 15
 };
 
 export const CATEGORIA_COLORS = {
@@ -154,6 +156,7 @@ export const CATEGORIAS: CategoriaConfig[] = [
     volumen: 7,
     pop: 79.99,
     exhibicion: 69.99,
+    mix: 84,
     total: 62.75,
     color: CATEGORIA_COLORS.SENIOR,
   },
@@ -170,6 +173,7 @@ export const CATEGORIAS: CategoriaConfig[] = [
     volumen: 6,
     pop: 74.99,
     exhibicion: 59.99,
+    mix: 69,
     total: 62.75,
     color: CATEGORIA_COLORS.SEMI_SENIOR,
   },
@@ -186,6 +190,7 @@ export const CATEGORIAS: CategoriaConfig[] = [
     volumen: 5,
     pop: 69.99,
     exhibicion: 49.99,
+    mix: 49,
     total: 62.75,
     color: CATEGORIA_COLORS.JUNIOR,
   },
@@ -204,6 +209,7 @@ export const PLAN_MEJORA: CategoriaConfig = {
   volumen: 0,
   pop: 0,
   exhibicion: 0,
+  mix: 0,
   total: 0,
   color: CATEGORIA_COLORS.PLAN_MEJORA,
 };

@@ -42,6 +42,7 @@ type Computed = {
 
   horasRutaStr: string;
   horasRutaSec: number;
+  mix: number;
 };
 
 // ✅ Tipo real de cada categoria del array
@@ -75,6 +76,9 @@ export default function CategoriaDetailsModal({
       efectividad: parseFloatSafe((row as any).efectividad),
       pop: parseFloatSafe((row as any)['%_POP']),
       exhib: parseFloatSafe((row as any)['%_Exhibición']),
+      mix: parseFloatSafe(
+        (row as any).mix ?? (row as any).Mix ?? (row as any)['%_Mix'] ?? (row as any)['% Mix']
+      ),
       cobertura: parseIntSafe((row as any).cobertura),
       volumen: parseIntSafe((row as any).volumen),
       cumpleHorario: parseBoolTF((row as any).cumple_horario_ruta),
@@ -248,13 +252,17 @@ function CompareColumn({ cat, computed }: { cat: Categoria; computed: Computed }
   const puntosExhib =
     computed.exhib >= (cat as any).exhibicion ? PUNTOS.EXHIBICION : 0;
 
+  const puntosMix =
+    computed.mix >= (cat as any).mix ? (PUNTOS as any).MIX ?? 0 : 0;
+
   const puntosAlcanzados =
     puntosFacturacion +
     puntosEficiencia +
     puntosCobertura +
     puntosVolumen +
     puntosPop +
-    puntosExhib;
+    puntosExhib +
+    puntosMix;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -311,6 +319,12 @@ function CompareColumn({ cat, computed }: { cat: Categoria; computed: Computed }
           req={`${(cat as any).exhibicion}%`}
           got={`${computed.exhib.toFixed(2)}%`}
           earned={puntosExhib}
+        />
+        <RowCompare
+          label="Mix"
+          req={`${(cat as any).mix}%`}
+          got={`${computed.mix.toFixed(2)}%`}
+          earned={puntosMix}
         />
       </div>
     </div>
