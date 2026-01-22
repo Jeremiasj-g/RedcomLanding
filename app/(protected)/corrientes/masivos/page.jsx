@@ -26,7 +26,7 @@ export default function CorrientesMasivos() {
   );
 
   const PERMISSIONS = {
-    analytics: ['admin', 'supervisor'],
+    analytics: ['admin', 'supervisor', 'jdv'],
   };
 
   const canSeeAnalytics = PERMISSIONS.analytics.includes(role);

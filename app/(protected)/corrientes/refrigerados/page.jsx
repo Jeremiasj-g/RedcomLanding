@@ -19,6 +19,7 @@ import { useMe } from '@/hooks/useMe';
 export default function CorrientesRefrigerados() {
 
   const refrigeradosTablero = urls.tableros[1].refrigerados
+  const mapaTablero = urls.mapas[5].refrigerados
 
   const { me } = useMe();
   const role = me?.role ?? 'vendedor';
@@ -31,7 +32,7 @@ export default function CorrientesRefrigerados() {
   );
 
   const PERMISSIONS = {
-    analytics: ['admin', 'supervisor'],
+    analytics: ['admin', 'supervisor', 'jdv'],
   };
 
   const canSeeAnalytics = PERMISSIONS.analytics.includes(role);
@@ -75,6 +76,7 @@ export default function CorrientesRefrigerados() {
           <>
             <Container>
               <FullScreenEmbedCard {...refrigeradosTablero} icon={<Table />} />
+              <FullScreenEmbedCard {...mapaTablero} />
             </Container>
 
             <Container>
