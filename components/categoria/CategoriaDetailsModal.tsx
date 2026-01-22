@@ -12,11 +12,7 @@ import {
 } from '@/utils/categories';
 
 import type { VendedorCategoriaRow } from '@/hooks/useCategoriasVendedores';
-import {
-  parseBoolTF,
-  parseFloatSafe,
-  parseIntSafe,
-} from '@/utils/vendors/parsers';
+import { parseBoolTF, parseFloatSafe, parseIntSafe } from '@/utils/vendors/parsers';
 import { hmsToSeconds } from '@/utils/vendors/time';
 
 type Props = {
@@ -48,11 +44,7 @@ type Computed = {
 // ✅ Tipo real de cada categoria del array
 type Categoria = (typeof CATEGORIAS)[number];
 
-export default function CategoriaDetailsModal({
-  open,
-  onOpenChange,
-  row,
-}: Props) {
+export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>('comparacion');
 
   useEffect(() => {
@@ -62,14 +54,11 @@ export default function CategoriaDetailsModal({
   const computed = useMemo<Computed | null>(() => {
     if (!row) return null;
 
-    // ✅ LIVE vs SNAPSHOT (BD)
     const categoriaAlcanzadaKey = normalizeCategoriaKey(
       (row as any).categoriaKey ?? (row as any).Categoria_alcanzada
     );
 
-    const proyeccionKey = normalizeCategoriaKey(
-      (row as any).Categoria_segun_proyeccion
-    );
+    const proyeccionKey = normalizeCategoriaKey((row as any).Categoria_segun_proyeccion);
 
     return {
       eficiencia: parseFloatSafe((row as any).eficiencia),
@@ -77,7 +66,10 @@ export default function CategoriaDetailsModal({
       pop: parseFloatSafe((row as any)['%_POP']),
       exhib: parseFloatSafe((row as any)['%_Exhibición']),
       mix: parseFloatSafe(
-        (row as any).mix ?? (row as any).Mix ?? (row as any)['%_Mix'] ?? (row as any)['% Mix']
+        (row as any).mix ??
+          (row as any).Mix ??
+          (row as any)['%_Mix'] ??
+          (row as any)['% Mix']
       ),
       cobertura: parseIntSafe((row as any).cobertura),
       volumen: parseIntSafe((row as any).volumen),
@@ -88,9 +80,7 @@ export default function CategoriaDetailsModal({
       proyeccionKey,
 
       horasRutaStr: String((row as any).horas_promedio_ruta ?? ''),
-      horasRutaSec: hmsToSeconds(
-        String((row as any).horas_promedio_ruta ?? '0:00:00')
-      ),
+      horasRutaSec: hmsToSeconds(String((row as any).horas_promedio_ruta ?? '0:00:00')),
     };
   }, [row]);
 
@@ -99,17 +89,13 @@ export default function CategoriaDetailsModal({
   const alcanzada = getCategoriaByKey(computed.categoriaAlcanzadaKey);
 
   const baseReq = getCategoriaByKey('JUNIOR'); // tiene 5:20:00 y 89
-  const okHorario =
-    computed.horasRutaSec >= hmsToSeconds(baseReq.horas_ruta_min);
+  const okHorario = computed.horasRutaSec >= hmsToSeconds(baseReq.horas_ruta_min);
   const okEfect = computed.efectividad >= baseReq.efectividad_min;
 
   return (
     <div className="fixed inset-0 z-50">
       {/* overlay */}
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={() => onOpenChange(false)}
-      />
+      <div className="absolute inset-0 bg-black/50" onClick={() => onOpenChange(false)} />
 
       {/* modal */}
       <div className="absolute left-1/2 top-1/2 w-[min(1200px,92vw)] max-h-[85vh] -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl overflow-hidden">
@@ -143,14 +129,10 @@ export default function CategoriaDetailsModal({
 
           <div className="mt-6 justify-center flex gap-8 text-sm">
             <div className="text-center">
-              <div className="text-slate-500">
-                Horario requerido: {baseReq.horas_ruta_min}
-              </div>
+              <div className="text-slate-500">Horario requerido: {baseReq.horas_ruta_min}</div>
               <div
                 className={
-                  okHorario
-                    ? 'text-emerald-600 font-semibold'
-                    : 'text-red-600 font-semibold'
+                  okHorario ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'
                 }
               >
                 Alcanzado: {computed.horasRutaStr} {okHorario ? '✓' : '✕'}
@@ -163,19 +145,24 @@ export default function CategoriaDetailsModal({
               </div>
               <div
                 className={
-                  okEfect
-                    ? 'text-emerald-600 font-semibold'
-                    : 'text-red-600 font-semibold'
+                  okEfect ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'
                 }
               >
-                Alcanzado: {computed.efectividad.toFixed(2)}%{' '}
-                {okEfect ? '✓' : '✕'}
+                Alcanzado: {computed.efectividad.toFixed(2)}% {okEfect ? '✓' : '✕'}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="p-6 overflow-y-auto max-h-[calc(85vh-84px)]">
+        {/* ✅ FIX MOBILE: padding-bottom extra + safe-area */}
+        <div
+          className="
+            p-6 overflow-y-auto max-h-[calc(85vh-84px)]
+            pb-24 sm:pb-6
+            [padding-bottom:calc(6rem+env(safe-area-inset-bottom))]
+            sm:[padding-bottom:1.5rem]
+          "
+        >
           {/* tabs */}
           <div className="mb-6 flex justify-center">
             <div className="inline-flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
@@ -234,7 +221,6 @@ export default function CategoriaDetailsModal({
 }
 
 function CompareColumn({ cat, computed }: { cat: Categoria; computed: Computed }) {
-  // ✅ Aseguramos que el index sea CategoriaKey (no any)
   const facturacionKey = normalizeCategoriaKey((cat as any).facturacion);
 
   const puntosFacturacion =
@@ -242,27 +228,16 @@ function CompareColumn({ cat, computed }: { cat: Categoria; computed: Computed }
       ? PUNTOS.FACTURACION
       : 0;
 
-  const puntosEficiencia =
-    computed.eficiencia >= (cat as any).eficiencia ? PUNTOS.EFICIENCIA : 0;
-  const puntosCobertura =
-    computed.cobertura >= (cat as any).cobertura ? PUNTOS.COBERTURA : 0;
-  const puntosVolumen =
-    computed.volumen >= (cat as any).volumen ? PUNTOS.VOLUMEN : 0;
+  const puntosEficiencia = computed.eficiencia >= (cat as any).eficiencia ? PUNTOS.EFICIENCIA : 0;
+  const puntosCobertura = computed.cobertura >= (cat as any).cobertura ? PUNTOS.COBERTURA : 0;
+  const puntosVolumen = computed.volumen >= (cat as any).volumen ? PUNTOS.VOLUMEN : 0;
   const puntosPop = computed.pop >= (cat as any).pop ? PUNTOS.POP : 0;
-  const puntosExhib =
-    computed.exhib >= (cat as any).exhibicion ? PUNTOS.EXHIBICION : 0;
+  const puntosExhib = computed.exhib >= (cat as any).exhibicion ? PUNTOS.EXHIBICION : 0;
 
-  const puntosMix =
-    computed.mix >= (cat as any).mix ? (PUNTOS as any).MIX ?? 0 : 0;
+  const puntosMix = computed.mix >= (cat as any).mix ? (PUNTOS as any).MIX ?? 0 : 0;
 
   const puntosAlcanzados =
-    puntosFacturacion +
-    puntosEficiencia +
-    puntosCobertura +
-    puntosVolumen +
-    puntosPop +
-    puntosExhib +
-    puntosMix;
+    puntosFacturacion + puntosEficiencia + puntosCobertura + puntosVolumen + puntosPop + puntosExhib + puntosMix;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -296,50 +271,22 @@ function CompareColumn({ cat, computed }: { cat: Categoria; computed: Computed }
           got={`${computed.eficiencia.toFixed(2)}%`}
           earned={puntosEficiencia}
         />
-        <RowCompare
-          label="Cobertura"
-          req={(cat as any).cobertura}
-          got={computed.cobertura}
-          earned={puntosCobertura}
-        />
-        <RowCompare
-          label="Volumen"
-          req={(cat as any).volumen}
-          got={computed.volumen}
-          earned={puntosVolumen}
-        />
-        <RowCompare
-          label="% POP"
-          req={`${(cat as any).pop}%`}
-          got={`${computed.pop.toFixed(2)}%`}
-          earned={puntosPop}
-        />
+        <RowCompare label="Cobertura" req={(cat as any).cobertura} got={computed.cobertura} earned={puntosCobertura} />
+        <RowCompare label="Volumen" req={(cat as any).volumen} got={computed.volumen} earned={puntosVolumen} />
+        <RowCompare label="% POP" req={`${(cat as any).pop}%`} got={`${computed.pop.toFixed(2)}%`} earned={puntosPop} />
         <RowCompare
           label="% Exhibición"
           req={`${(cat as any).exhibicion}%`}
           got={`${computed.exhib.toFixed(2)}%`}
           earned={puntosExhib}
         />
-        <RowCompare
-          label="Mix"
-          req={`${(cat as any).mix}%`}
-          got={`${computed.mix.toFixed(2)}%`}
-          earned={puntosMix}
-        />
+        <RowCompare label="Mix" req={`${(cat as any).mix}%`} got={`${computed.mix.toFixed(2)}%`} earned={puntosMix} />
       </div>
     </div>
   );
 }
 
-function RowProjection({
-  required,
-  got,
-  earned,
-}: {
-  required: string;
-  got: string;
-  earned: number;
-}) {
+function RowProjection({ required, got, earned }: { required: string; got: string; earned: number }) {
   const ok = earned > 0;
 
   return (
@@ -355,11 +302,7 @@ function RowProjection({
 
       <div className="text-xs">
         Alcanzado:{' '}
-        <span
-          className={
-            ok ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'
-          }
-        >
+        <span className={ok ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>
           {got}
         </span>
       </div>
@@ -393,11 +336,7 @@ function RowCompare({
 
       <div className="text-xs">
         Alcanzado:{' '}
-        <span
-          className={
-            ok ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'
-          }
-        >
+        <span className={ok ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>
           {got}
         </span>
       </div>
@@ -412,6 +351,8 @@ function RowCompare({
 function FullDataSection({ row, computed }: { row: VendedorCategoriaRow; computed: Computed }) {
   return (
     <div className="space-y-6">
+      {/* (tu sección igual, la dejo tal cual) */}
+      {/* ... */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiExplainCard
           title="Efectividad"
@@ -457,19 +398,12 @@ function FullDataSection({ row, computed }: { row: VendedorCategoriaRow; compute
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-lg font-extrabold text-slate-900">
-              Resumen del vendedor
-            </div>
-            <div className="text-sm text-slate-500">
-              KPIs base + datos para cálculos
-            </div>
+            <div className="text-lg font-extrabold text-slate-900">Resumen del vendedor</div>
+            <div className="text-sm text-slate-500">KPIs base + datos para cálculos</div>
           </div>
 
           <div className="text-xs text-slate-500">
-            ID:{' '}
-            <span className="font-semibold text-slate-900">
-              {(row as any).id}
-            </span>
+            ID: <span className="font-semibold text-slate-900">{(row as any).id}</span>
           </div>
         </div>
 
@@ -492,7 +426,10 @@ function FullDataSection({ row, computed }: { row: VendedorCategoriaRow; compute
           <BentoCard title="Promedio boletas diarias" value={(row as any).promedio_boletas_diarias} />
           <BentoCard title="Facturación promedio" value={(row as any).facturacion_promedio} />
           <BentoCard title="Promedio $ boletas" value={(row as any)['promedio_$_boletas']} />
-          <BentoCard title="Categoría según proyección" value={String(computed.proyeccionKey).replaceAll('_', ' ')} />
+          <BentoCard
+            title="Categoría según proyección"
+            value={String(computed.proyeccionKey).replaceAll('_', ' ')}
+          />
         </div>
       </div>
     </div>
