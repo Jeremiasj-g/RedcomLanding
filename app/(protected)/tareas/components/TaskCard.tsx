@@ -42,6 +42,9 @@ type Props = {
   ) => Promise<void>;
 
   onOpenDetail: () => void;
+
+  /** Ctrl/Cmd + click para copiar rápido */
+  onQuickCopy?: (task: Task) => void;
 };
 
 export default function TaskCard({
@@ -56,6 +59,7 @@ export default function TaskCard({
   onDelete,
   onDuplicateRange,
   onOpenDetail,
+  onQuickCopy,
 }: Props) {
   /* =======================
      Drag & Drop (toda la card)
@@ -133,9 +137,18 @@ export default function TaskCard({
         // ✅ sin transition-all que a veces “estira”
         'transition-colors',
       ].join(' ')}
-      onClick={() => {
+      onClick={(e) => {
         // ✅ si estás arrastrando, no abras detalle
         if (isDragging) return;
+
+        // ✅ Ctrl/Cmd + click => copia rápida (sin abrir detalle)
+        if ((e.ctrlKey || e.metaKey) && onQuickCopy) {
+          e.preventDefault();
+          e.stopPropagation();
+          onQuickCopy(task);
+          return;
+        }
+
         onOpenDetail();
       }}
     >
