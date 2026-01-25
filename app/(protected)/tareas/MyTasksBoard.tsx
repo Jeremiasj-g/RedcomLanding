@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Task } from '@/lib/tasks';
 
 import { TasksProvider } from './TasksContext';
 import { useTasks } from './TasksContext';
+
+import { SummaryCards } from './panel-tareas/SummaryCards';
+import MyTasksFiltersBar, { type StatusFilter } from './components/MyTasksFiltersBar';
 import { useTasksLoader } from './hooks/useTasksLoader';
 import { useTaskActions } from './hooks/useTaskActions';
 
@@ -31,6 +34,29 @@ function BoardInner({ userId, range }: Props) {
   const { tasks } = useTasks();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
+  // ✅ Filtros (similar a /panel-tareas)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [search, setSearch] = useState('');
+
+  const filteredTasks = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return tasks.filter((t) => {
+      if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+      if (!q) return true;
+      const hay = `${t.title ?? ''} ${t.description ?? ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [tasks, statusFilter, search]);
+
+  const metrics = useMemo(() => {
+    const total = filteredTasks.length;
+    const done = filteredTasks.filter((t) => t.status === 'done').length;
+    const pending = filteredTasks.filter((t) => t.status === 'pending').length;
+    const inProgress = filteredTasks.filter((t) => t.status === 'in_progress').length;
+    const completion = total ? Math.round((done / total) * 100) : 0;
+    return { total, done, pending, inProgress, completion };
+  }, [filteredTasks]);
+
   // mantener la modal sincronizada cuando se actualiza una tarea (estado/notas) desde cards
   useEffect(() => {
     if (!selectedTask) return;
@@ -42,9 +68,20 @@ function BoardInner({ userId, range }: Props) {
     <>
       <NewTaskForm />
 
+      <SummaryCards metrics={metrics} />
+
+      <MyTasksFiltersBar
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        search={search}
+        onSearchChange={setSearch}
+      />
+
       <TasksGrid
         range={range}
         loading={loading}
+        statusFilter={statusFilter}
+        search={search}
         onSelectTask={(t) => setSelectedTask(t)}
 
         // ✅ props que necesita TaskCard (evita BRIEF_STATUS undefined)

@@ -158,6 +158,11 @@ export default function ProyectosPage() {
   const [selectedTask, setSelectedTask] =
     useState<ProjectTaskWithAssignees | null>(null);
 
+  // confirmar cierre (lock)
+  const [closeConfirmTask, setCloseConfirmTask] =
+    useState<ProjectTaskWithAssignees | null>(null);
+  const [closingTask, setClosingTask] = useState(false);
+
   const [loading, setLoading] = useState(true);
 
   // creación rápida (admin + JDV)
@@ -184,6 +189,7 @@ export default function ProyectosPage() {
     dueFrom: '',
     dueTo: '',
     viewMode: 'table',
+    showClosed: true,
   });
 
   // vista (tabla / grid) – por ahora solo tabla pero lo dejamos listo
@@ -214,7 +220,11 @@ export default function ProyectosPage() {
           fetchProjectTasksForUser(me.id, me.role),
           fetchEligibleAssignees(me.role),
         ]);
-        setTasks(tasksData);
+        setTasks((tasksData ?? []).slice().sort((a: any, b: any) => {
+          const da = a?.created_at ? new Date(a.created_at).getTime() : 0;
+          const db = b?.created_at ? new Date(b.created_at).getTime() : 0;
+          return db - da;
+        }));
         setSupervisors(supervisorsData);
       } catch (err) {
         console.error('Error cargando proyectos/tareas', err);
@@ -290,6 +300,9 @@ export default function ProyectosPage() {
     }
 
     // estado
+    // ✅ Por defecto NO mostramos completadas ni cerradas
+    if (filters.status === 'all' && t.status === 'done') return false;
+
     if (filters.status !== 'all' && t.status !== filters.status) return false;
 
     // prioridad
@@ -484,33 +497,55 @@ export default function ProyectosPage() {
     setSelectedTask(updated);
   };
 
-  // Cerrar tarea
-  const handleCloseTask = async (task: ProjectTaskWithAssignees) => {
+  // Cerrar tarea (lock)
+  // ✅ Ahora pedimos confirmación antes de cerrar porque es irreversible (no se puede editar ni agregar más info)
+
+  const doCloseTask = async (task: ProjectTaskWithAssignees) => {
     if (!canManage) return;
     if ((task as any).is_locked) return;
 
     try {
+      setClosingTask(true);
       const updatedRow = await updateProjectTask(task.id, {
         is_locked: true,
       } as any);
+
       const updated: ProjectTaskWithAssignees = {
         ...updatedRow,
         assignees: task.assignees,
       };
+
       patchTask(updated);
-      setSelectedTask((prev) => (prev && prev.id === task.id ? updated : prev));
+      setSelectedTask((prev) =>
+        prev && prev.id === task.id ? updated : prev
+      );
     } catch (err) {
       console.error('Error al cerrar tarea', err);
     } finally {
+      setClosingTask(false);
       closeAllPopovers();
     }
   };
+
+
+  const requestCloseTask = (task: ProjectTaskWithAssignees) => {
+    if (!canManage) return;
+    if ((task as any).is_locked) return;
+    setCloseConfirmTask(task);
+  };
+
+
 
   // Eliminar tarea
   const handleDeleteTask = async (task: ProjectTaskWithAssignees) => {
     if (!canManage) return;
     const ok = window.confirm(
-      `¿Seguro que querés eliminar la tarea "${task.title}"? Esta acción no se puede deshacer.`,
+      `¿Seguro que querés eliminar la tarea "${task.title}
+{task.is_locked && (
+  <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+    Cerrada
+  </span>
+)}"? Esta acción no se puede deshacer.`,
     );
     if (!ok) return;
 
@@ -705,6 +740,11 @@ export default function ProyectosPage() {
                       <div className="flex flex-col gap-0.5 pr-2">
                         <span className="text-sm font-medium">
                           {task.title}
+                          {task.is_locked && (
+                            <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                              Cerrada
+                            </span>
+                          )}
                         </span>
                         {task.project && (
                           <span className="text-[10px] text-slate-400">
@@ -897,6 +937,15 @@ export default function ProyectosPage() {
 
                         {canManage && (
                           <div className="ml-auto flex items-center gap-1">
+                            {isLocked && (
+                              <span
+                                title="Tarea cerrada: no se puede editar ni agregar información"
+                                className="inline-flex items-center rounded-full border border-slate-700/70 bg-slate-950/70 px-2 py-0.5 text-[10px] font-medium text-slate-200"
+                              >
+                                Cerrada
+                              </span>
+                            )}
+
                             <button
                               type="button"
                               onClick={(e) => {
@@ -923,7 +972,7 @@ export default function ProyectosPage() {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleCloseTask(task);
+                                  requestCloseTask(task);
                                 }}
                                 disabled={isLocked}
                                 className={`inline-flex items-center rounded-full border border-amber-600/60 bg-amber-900/40 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-800/70 ${isLocked ? 'cursor-not-allowed opacity-60' : ''
@@ -1082,6 +1131,72 @@ export default function ProyectosPage() {
           />
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {closeConfirmTask && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={() => !closingTask && setCloseConfirmTask(null)}
+          >
+            <motion.div
+              className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl shadow-black/60"
+              initial={{ scale: 0.96, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.98, opacity: 0, y: 6 }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3 flex items-start gap-3">
+                <div className="mt-0.5 rounded-xl bg-amber-500/15 p-2 text-amber-300">
+                  <Ban className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-slate-100">
+                    ¿Cerrar tarea definitivamente?
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Al cerrar esta tarea quedará <span className="text-slate-200">bloqueada</span>:
+                    no se podrá editar, reasignar ni agregar información.
+                  </p>
+                  <p className="mt-2 text-xs text-slate-300">
+                    <span className="font-semibold text-slate-100">Tarea:</span>{' '}
+                    {closeConfirmTask.title}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={closingTask}
+                  onClick={() => setCloseConfirmTask(null)}
+                  className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  disabled={closingTask}
+                  onClick={async () => {
+                    const t = closeConfirmTask;
+                    if (!t) return;
+                    await doCloseTask(t);
+                    setCloseConfirmTask(null);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-200 hover:bg-amber-500/20 disabled:opacity-50"
+                >
+                  {closingTask ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Confirmar cierre
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </RequireAuth>
   );
 }

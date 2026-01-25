@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   DndContext,
@@ -23,6 +23,9 @@ import { useTaskDuplicator } from '../hooks/useTaskDuplicator';
 import { useTaskRescheduler } from '../hooks/useTaskRescheduler';
 
 type Props = {
+  statusFilter: 'all' | Task['status'];
+  search: string;
+
   range: { from: Date; to: Date };
   loading: boolean;
   onSelectTask: (t: Task) => void;
@@ -58,6 +61,8 @@ function hhmmFromISO(iso: string) {
 export default function TasksGrid({
   range,
   loading,
+  statusFilter,
+  search,
   onSelectTask,
   BRIEF_STATUS,
   changingStatusId,
@@ -69,7 +74,22 @@ export default function TasksGrid({
   onDeleteDay,
   deletingDayKey,
 }: Props) {
-  const { daysInRange, tasksByDay } = useTasksGrouping(range);
+  const { daysInRange, tasksByDay: tasksByDayAll } = useTasksGrouping(range);
+
+  const tasksByDay = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const map: Record<string, Task[]> = {};
+    for (const dayKey of Object.keys(tasksByDayAll)) {
+      const list = tasksByDayAll[dayKey] ?? [];
+      map[dayKey] = list.filter((t) => {
+        if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+        if (!q) return true;
+        const hay = `${t.title ?? ''} ${t.description ?? ''}`.toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    return map;
+  }, [tasksByDayAll, statusFilter, search]);
   const { duplicate, duplicateRange } = useTaskDuplicator();
   const { moveTaskToDay } = useTaskRescheduler();
 

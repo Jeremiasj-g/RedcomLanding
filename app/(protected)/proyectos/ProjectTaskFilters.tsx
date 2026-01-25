@@ -14,6 +14,7 @@ export type ProjectTaskFiltersState = {
   dueFrom: string;
   dueTo: string;
   viewMode: 'table' | 'grid';
+  showClosed: boolean;
 };
 
 type Stats = {
@@ -61,6 +62,7 @@ export default function ProjectTaskFilters({
     dueFrom: '',
     dueTo: '',
     viewMode: 'table',
+    showClosed: true,
   };
 
   const safeValue = value ?? defaultFilters;
@@ -81,6 +83,7 @@ export default function ProjectTaskFilters({
     dueFrom,
     dueTo,
     viewMode,
+    showClosed,
   } = safeValue;
 
   // dropdown responsables
