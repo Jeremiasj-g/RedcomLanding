@@ -53,9 +53,13 @@ function taskDragId(taskId: number) {
 }
 
 // helper: extrae HH:mm de un ISO
+// helper: HH:mm LOCAL (lo mismo que ve el usuario en pantalla)
 function hhmmFromISO(iso: string) {
-  const m = iso.match(/T(\d{2}:\d{2})/);
-  return m?.[1] ?? '09:00';
+  const d = new Date(iso);
+  // Forzamos 2 dígitos y formato 24h
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
 }
 
 export default function TasksGrid({
@@ -462,16 +466,7 @@ useEffect(() => {
                       deletingId={deletingId}
                       onToggleStatus={onToggleStatus}
                       onSaveNotes={onSaveNotes}
-                      onDelete={onDelete}
-                      onDuplicateRange={async (
-                        t: Task,
-                        fromYMD: string,
-                        toYMD: string,
-                        timeHHmm: string,
-                      ) => {
-                        await duplicateRange(t, fromYMD, toYMD, timeHHmm);
-                      }}
-                      onOpenDetail={() => { setSelectedTaskId(task.id); onSelectTask(task); }}
+                      onDelete={onDelete}onOpenDetail={() => { setSelectedTaskId(task.id); onSelectTask(task); }}
                       onQuickCopy={(t: Task) => {
                         clipboardRef.current = { task: t, timeHHmm: hhmmFromISO(t.scheduled_at) };
                         setSelectedTaskId(t.id);
