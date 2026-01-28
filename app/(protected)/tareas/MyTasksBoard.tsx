@@ -31,7 +31,7 @@ export default function MyTasksBoard(props: Props) {
 function BoardInner({ userId, range }: Props) {
   const { loading } = useTasksLoader(userId, range);
   const actions = useTaskActions();
-  const { tasks } = useTasks();
+  const { tasks, setTasks } = useTasks();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // ✅ Filtros (similar a /panel-tareas)
@@ -102,7 +102,15 @@ function BoardInner({ userId, range }: Props) {
         task={selectedTask}
         onClose={() => setSelectedTask(null)}
         briefStatusLabel={(s) => actions.BRIEF_STATUS[s]}
-        onTaskUpdate={(next) => setSelectedTask(next)}
+        onTaskUpdate={(next) => {
+          // 🔁 Refrescar inmediatamente la UI (grid + modal) sin recargar la página
+          setSelectedTask(next);
+          setTasks((prev) => {
+            const exists = prev.some((t) => t.id === next.id);
+            if (!exists) return prev;
+            return prev.map((t) => (t.id === next.id ? next : t));
+          });
+        }}
         onAllDone={async (task) => {
           const updated = await actions.markDoneIfNeeded(task);
           return updated;
