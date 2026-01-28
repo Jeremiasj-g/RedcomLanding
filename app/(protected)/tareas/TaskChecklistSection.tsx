@@ -53,6 +53,9 @@ export default function TaskChecklistSection({
   const [loadingItems, setLoadingItems] = useState(true);
   const [savingItem, setSavingItem] = useState(false);
 
+  // Mantener el flujo “escribir → Enter → escribir → Enter” sin tocar el mouse.
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
   const { title, subtitle, tip } = TEXTS[variant];
   const lastAllDoneRef = useRef<boolean | null>(null);
 
@@ -96,6 +99,11 @@ export default function TaskChecklistSection({
       const created = await createTaskItem(taskId, newItem.trim());
       setItems((prev) => [...prev, created]);
       setNewItem('');
+
+      // Volver a enfocar el input para seguir cargando ítems.
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
     } catch (err) {
       console.error('Error creating item', err);
     } finally {
@@ -154,10 +162,17 @@ export default function TaskChecklistSection({
         {editable && (
           <div className="mb-3 flex gap-2">
             <input
+              ref={inputRef}
               className="flex-1 rounded-lg border border-slate-700/70 bg-slate-950/70 px-3 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
               placeholder="Ej: Revisé línea de obj. fiambres 214 y FRS..."
               value={newItem}
               onChange={(e) => setNewItem(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                // Enter agrega; Shift+Enter no aplica porque el input es una línea
+                e.preventDefault();
+                if (!savingItem) handleAddItem();
+              }}
             />
             <button
               onClick={handleAddItem}
