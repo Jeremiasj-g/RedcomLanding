@@ -142,7 +142,7 @@ export default function TaskChecklistSection({
       )}
 
       {/* checklist / items */}
-      <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-3">
+      <section className="rounded-xl border border-slate-800">
         <div className="mb-2 flex items-center justify-between">
           <div>
             <h3 className="text-sm font-medium text-slate-100">{title}</h3>
@@ -204,7 +204,7 @@ export default function TaskChecklistSection({
                 <div className="flex-1 text-[11px] leading-snug text-slate-200">
                   <p
                     className={
-                      item.is_done ? 'line-through text-slate-500' : ''
+                      item.is_done ? 'font-bold text-slate-500' : ''
                     }
                   >
                     {item.content}
