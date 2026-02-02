@@ -90,7 +90,7 @@ export default function Misiones() {
               <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
             </Container>
 
-            <LookerEmbed looker_id='misiones' />
+            <LookerEmbed looker_id='misiones' bgImage="dash_mnes.webp"/>
           </>
         )}
 

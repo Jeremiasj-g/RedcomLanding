@@ -11,7 +11,7 @@ export function SectionDivider({ title, className = "", children, icon }: Props)
   return (
     <div className={`flex items-center my-12 ${className}`}>
       <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-gray-300 to-transparent" />
-      <div className="mx-4 flex items-center gap-2 rounded-full border border-gray-200 bg-white px-8 py-4 shadow-lg">
+      <div className="mx-4 flex items-center z-10 gap-2 rounded-full border border-gray-200 bg-white px-8 py-4 shadow-lg">
         {icon ?? <IconScale className="h-5 w-5 text-gray-700" />}
         <span className="text-2xl font-semibold text-gray-800">{title}</span>
       </div>

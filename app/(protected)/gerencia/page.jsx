@@ -64,7 +64,7 @@ export default function Gerencia() {
           <SectionDivider title="Dashboard de ventas" icon={<IconAnalytics />} />
         </Container>
 
-        <LookerEmbed looker_id="gerencia" />
+        <LookerEmbed looker_id="gerencia" bgImage="gerencias_dash.webp"/>
 
 
       </div>

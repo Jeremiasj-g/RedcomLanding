@@ -91,7 +91,7 @@ export default function CorrientesMasivos() {
               <SectionDivider title="Dashboard de ventas" icon={<IconAnalytics />} />
             </Container>
 
-            <LookerEmbed looker_id="masivos" />
+            <LookerEmbed looker_id="masivos" bgImage="dash_ctes.webp"/>
           </>
         )}
       </div>
