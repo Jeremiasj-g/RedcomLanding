@@ -5,15 +5,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  DndContext,
-  DragEndEvent,
-  PointerSensor,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
   X,
   CalendarDays,
   CheckSquare,
@@ -22,10 +13,6 @@ import {
   Link2,
   ListChecks,
   StickyNote,
-  GripVertical,
-  Pencil,
-  Check,
-  ChevronDown,
 } from 'lucide-react';
 import {
   updateProjectTask,
@@ -232,351 +219,6 @@ export default function ProjectTaskDrawer({
   );
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
-
-
-  // ───── CHECKLIST AGRUPADO (columna 2) ────────────────
-  const TODO_GROUP_PREFIX = '§§';
-  const TODO_NO_GROUP_KEY = '__NO_GROUP__';
-
-  const newTodoInputRef = useRef<HTMLInputElement | null>(null);
-
-  const decodeTodo = (text: string) => {
-    if (!text?.startsWith(TODO_GROUP_PREFIX)) return { group: null as string | null, label: text ?? '' };
-    const idx = text.indexOf(TODO_GROUP_PREFIX, 2);
-    if (idx === -1) return { group: null as string | null, label: text ?? '' };
-    const group = text.slice(2, idx).trim() || null;
-    const label = text.slice(idx + 2).trimStart();
-    return { group, label };
-  };
-
-  const encodeTodo = (group: string | null, label: string) => {
-    if (!group) return label;
-    return `${TODO_GROUP_PREFIX}${group}${TODO_GROUP_PREFIX} ${label}`;
-  };
-
-  const [todoGroups, setTodoGroups] = useState<string[]>([]);
-  const [todoGroupSelected, setTodoGroupSelected] = useState<string | null>(null);
-  const [todoGroupMenuOpen, setTodoGroupMenuOpen] = useState(false);
-  const [newTodoGroupName, setNewTodoGroupName] = useState('');
-  const todoGroupPickerRef = useRef<HTMLDivElement | null>(null);
-
-  // edición inline
-  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
-  const [editingTodoValue, setEditingTodoValue] = useState('');
-
-  // DnD
-  const [activeTodoDropId, setActiveTodoDropId] = useState('');
-  const todoDndSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-  );
-
-  // cerrar dropdown grupo al click afuera
-  useEffect(() => {
-    if (!todoGroupMenuOpen) return;
-
-    const onDown = (e: MouseEvent) => {
-      const el = todoGroupPickerRef.current;
-      if (!el) return;
-      if (!el.contains(e.target as Node)) {
-        setTodoGroupMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [todoGroupMenuOpen]);
-
-  const addTodoGroup = (name: string) => {
-    const g = name.trim();
-    if (!g) return;
-    setTodoGroups((prev) => {
-      if (prev.includes(g)) return prev;
-      return [...prev, g].sort((a, b) => a.localeCompare(b, 'es'));
-    });
-  };
-
-  // recomputar grupos existentes cuando cambian todos
-  useEffect(() => {
-    const uniq = Array.from(
-      new Set(
-        (todos ?? [])
-          .map((t) => decodeTodo((t as any).text).group)
-          .filter(Boolean) as string[],
-      ),
-    ).sort((a, b) => a.localeCompare(b, 'es'));
-
-    setTodoGroups((prev) => {
-      const merged = Array.from(new Set([...(prev ?? []), ...uniq]));
-      return merged.sort((a, b) => a.localeCompare(b, 'es'));
-    });
-  }, [todos]);
-
-  const todosUi = useMemo(() => {
-    return (todos ?? []).map((t) => {
-      const { group, label } = decodeTodo((t as any).text);
-      return { ...t, group, label };
-    });
-  }, [todos]);
-
-  const { todoGroupKeys, todosByGroup } = useMemo(() => {
-    const map = new Map<string, any[]>();
-    for (const t of todosUi as any[]) {
-      const key = t.group ?? TODO_NO_GROUP_KEY;
-      const arr = map.get(key) ?? [];
-      arr.push(t);
-      map.set(key, arr);
-    }
-
-    const keys = Array.from(map.keys()).sort((a, b) => {
-      if (a === TODO_NO_GROUP_KEY) return -1;
-      if (b === TODO_NO_GROUP_KEY) return 1;
-      return a.localeCompare(b, 'es');
-    });
-
-    return { todoGroupKeys: keys, todosByGroup: map };
-  }, [todosUi]);
-
-  const startEditTodo = (t: any) => {
-    setEditingTodoId(t.id);
-    setEditingTodoValue(t.label ?? '');
-  };
-
-  const cancelEditTodo = () => {
-    setEditingTodoId(null);
-    setEditingTodoValue('');
-  };
-
-  const saveEditTodo = (t: any) => {
-    const nextLabel = editingTodoValue.trim();
-    if (!nextLabel) return;
-
-    const nextText = encodeTodo(t.group ?? null, nextLabel);
-
-    setTodos((prev) =>
-      prev.map((x) => (x.id === t.id ? { ...x, text: nextText } : x)),
-    );
-
-    cancelEditTodo();
-  };
-
-  const handleTodoDragEnd = (e: DragEndEvent) => {
-    const activeId = String(e.active?.id ?? '');
-    const overId = String(e.over?.id ?? '');
-
-    setActiveTodoDropId('');
-
-    if (!activeId || !overId.startsWith('drop:')) return;
-
-    const dropKey = overId.replace('drop:', '');
-    const newGroup = dropKey === TODO_NO_GROUP_KEY ? null : dropKey;
-
-    const t = (todosUi as any[]).find((x) => x.id === activeId);
-    if (!t) return;
-
-    if ((t.group ?? null) === (newGroup ?? null)) return;
-
-    const nextText = encodeTodo(newGroup, t.label ?? '');
-
-    setTodos((prev) =>
-      prev.map((x) => (x.id === activeId ? { ...x, text: nextText } : x)),
-    );
-  };
-
-  function TodoGroup({
-    dropId,
-    title,
-    count,
-    isActiveDrop,
-    children,
-  }: {
-    dropId: string;
-    title: string;
-    count: string;
-    isActiveDrop: boolean;
-    children: React.ReactNode;
-  }) {
-    const { setNodeRef } = useDroppable({ id: dropId });
-    const [open, setOpen] = useState(true);
-
-    return (
-      <div
-        ref={setNodeRef}
-        className={`rounded-xl border border-gray-700 bg-gray-900/40 ${
-          isActiveDrop ? 'ring-2 ring-gray-500/50' : ''
-        }`}
-      >
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-center justify-between gap-2 px-3 py-2"
-        >
-          <div className="min-w-0 text-left">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-200">
-              {title}
-            </div>
-            <div className="text-[11px] text-gray-400">{count}</div>
-          </div>
-          <motion.div
-            animate={{ rotate: open ? 180 : 0 }}
-            transition={{ duration: 0.18 }}
-          >
-            <ChevronDown className="h-4 w-4 text-gray-400" />
-          </motion.div>
-        </button>
-
-        <AnimatePresence initial={false}>
-          {open && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              className="overflow-hidden"
-            >
-              <div className="space-y-1 px-3 pb-3 pt-1">{children}</div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  }
-
-  function TodoRow({
-    todo,
-    canEdit,
-    isEditing,
-    editingValue,
-    onStartEdit,
-    onChangeEditingValue,
-    onCancelEdit,
-    onSaveEdit,
-    onToggle,
-    onDelete,
-  }: {
-    todo: any;
-    canEdit: boolean;
-    isEditing: boolean;
-    editingValue: string;
-    onStartEdit: () => void;
-    onChangeEditingValue: (v: string) => void;
-    onCancelEdit: () => void;
-    onSaveEdit: () => void;
-    onToggle: () => void;
-    onDelete: () => void;
-  }) {
-    const { attributes, listeners, setNodeRef, transform, isDragging } =
-      useDraggable({ id: todo.id });
-
-    const style: React.CSSProperties | undefined = transform
-      ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
-      : undefined;
-
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        className={`group relative flex items-center gap-2 rounded-lg px-2 py-1.5 pr-16 z-10 bg-gray-900 hover:bg-gray-800 ${
-          isDragging ? 'opacity-70' : ''
-        }`}
-      >
-        <button
-          type="button"
-          disabled={!canEdit}
-          {...attributes}
-          {...listeners}
-          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-gray-500 text-gray-200 disabled:cursor-not-allowed"
-          aria-label="Arrastrar"
-        >
-          <GripVertical className="h-4 w-4 text-gray-400" />
-        </button>
-
-        <button
-          type="button"
-          disabled={!canEdit}
-          onClick={onToggle}
-          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-gray-500 text-gray-200 disabled:cursor-not-allowed"
-          aria-label="Completar"
-        >
-          {todo.done ? (
-            <CheckSquare className="h-4 w-4 text-emerald-400" />
-          ) : (
-            <Square className="h-4 w-4 text-gray-400" />
-          )}
-        </button>
-
-        <div className="flex-1 min-w-0">
-          {!isEditing ? (
-            <p
-              className={`whitespace-pre-wrap break-words text-xs text-gray-100 ${
-                todo.done ? 'line-through text-gray-400' : ''
-              }`}
-            >
-              {todo.label}
-            </p>
-          ) : (
-            <input
-              autoFocus
-              value={editingValue}
-              onChange={(e) => onChangeEditingValue(e.target.value)}
-              className={`w-full px-2 py-1 text-xs ${INPUT_BASE}`}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  onSaveEdit();
-                }
-                if (e.key === 'Escape') {
-                  e.preventDefault();
-                  onCancelEdit();
-                }
-              }}
-            />
-          )}
-        </div>
-
-        {canEdit && !isEditing && (
-          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-            <button
-              type="button"
-              onClick={onStartEdit}
-              className="rounded-md p-1 text-gray-400 hover:bg-gray-700 hover:text-gray-100"
-              aria-label="Editar"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onDelete}
-              className="rounded-md p-1 text-gray-400 hover:bg-gray-700 hover:text-rose-300"
-              aria-label="Eliminar"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
-        {canEdit && isEditing && (
-          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
-            <button
-              type="button"
-              onClick={onSaveEdit}
-              className="rounded-md p-1 text-gray-400 hover:bg-gray-700 hover:text-emerald-300"
-              aria-label="Guardar"
-            >
-              <Check className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onCancelEdit}
-              className="rounded-md p-1 text-gray-400 hover:bg-gray-700 hover:text-gray-100"
-              aria-label="Cancelar"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   // autosave workspace
   const [workspaceSaving, setWorkspaceSaving] = useState(false);
@@ -861,18 +503,11 @@ export default function ProjectTaskDrawer({
   // ───── HELPERS WORKSPACE ─────────────────────────────
   const addTodo = () => {
     if (!newTodoText.trim()) return;
-
-    const label = newTodoText.trim();
-    const text = encodeTodo(todoGroupSelected, label);
-
     setTodos((prev) => [
       ...prev,
-      { id: makeId(), text, done: false },
+      { id: makeId(), text: newTodoText.trim(), done: false },
     ]);
-
     setNewTodoText('');
-    // foco para flujo escribir → Enter → escribir
-    requestAnimationFrame(() => newTodoInputRef.current?.focus());
   };
 
   const toggleTodo = (id: string) => {
@@ -1395,197 +1030,78 @@ export default function ProjectTaskDrawer({
               </span>
             </div>
 
-            {/* Agrupación + creación rápida */}
-            <div className="flex flex-col gap-2 border-b border-gray-700 pb-3">
-              {/* selector de grupo + input */}
-              <div className="grid grid-cols-1 gap-2 md:items-center">
-                <div className="relative" ref={todoGroupPickerRef}>
+            {/* input arriba */}
+            <div className="flex items-center gap-2 border-b border-gray-700 pb-2">
+              <input
+                value={newTodoText}
+                onChange={(e) => setNewTodoText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && canEditWorkspace) {
+                    e.preventDefault();
+                    addTodo();
+                  }
+                }}
+                disabled={!canEditWorkspace}
+                placeholder={
+                  canEditWorkspace
+                    ? 'Agregar nueva tarea interna y presionar Enter...'
+                    : 'Solo lectura'
+                }
+                className={`flex-1 px-3 py-1.5 text-xs ${INPUT_BASE}`}
+              />
+              <button
+                type="button"
+                onClick={addTodo}
+                disabled={!canEditWorkspace || !newTodoText.trim()}
+                className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold text-emerald-950 shadow-sm shadow-emerald-500/30 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-300"
+              >
+                <Plus className="h-3 w-3" />
+                Añadir
+              </button>
+            </div>
+
+            {/* lista todos */}
+            <div className="flex-1 min-h-0 space-y-1 overflow-y-auto pr-1">
+              {todos.map((item) => (
+                <div
+                  key={item.id}
+                  className="group relative flex items-start gap-2 rounded-lg px-2 py-1.5 pr-8 hover:bg-gray-800"
+                >
                   <button
                     type="button"
                     disabled={!canEditWorkspace}
-                    onClick={() => {
-                      if (!canEditWorkspace) return;
-                      setTodoGroupMenuOpen((v) => !v);
-                    }}
-                    className={`flex w-full items-center justify-between rounded-full px-3 py-1.5 text-left text-[11px] ${INPUT_BASE}`}
+                    onClick={() => canEditWorkspace && toggleTodo(item.id)}
+                    className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border border-gray-500 text-gray-200 disabled:cursor-not-allowed"
                   >
-                    <span className="truncate">
-                      {todoGroupSelected ?? 'Sin grupo'}
-                    </span>
-                    <motion.span
-                      animate={{ rotate: todoGroupMenuOpen ? 180 : 0 }}
-                      transition={{ duration: 0.16 }}
-                    >
-                      <ChevronDown className="h-4 w-4 text-gray-400" />
-                    </motion.span>
+                    {item.done ? (
+                      <CheckSquare className="h-4 w-4 text-emerald-400" />
+                    ) : (
+                      <Square className="h-4 w-4 text-gray-400" />
+                    )}
                   </button>
 
-                  <AnimatePresence>
-                    {todoGroupMenuOpen && canEditWorkspace && !isLocked && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                        transition={{ duration: 0.16 }}
-                        className="absolute z-30 mt-2 w-full overflow-hidden rounded-xl border border-gray-700 bg-gray-900 shadow-xl shadow-black/60"
-                      >
-                        <div className="p-2 space-y-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTodoGroupSelected(null);
-                              setTodoGroupMenuOpen(false);
-                            }}
-                            className={`w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-gray-800 ${
-                              todoGroupSelected === null ? 'bg-gray-800' : ''
-                            }`}
-                          >
-                            Sin grupo
-                          </button>
+                  <p
+                    className={`flex-1 whitespace-pre-wrap break-words text-xs text-gray-100 ${
+                      item.done ? 'line-through text-gray-400' : ''
+                    }`}
+                  >
+                    {item.text}
+                  </p>
 
-                          {todoGroups.map((g) => (
-                            <button
-                              key={g}
-                              type="button"
-                              onClick={() => {
-                                setTodoGroupSelected(g);
-                                setTodoGroupMenuOpen(false);
-                              }}
-                              className={`w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-gray-800 ${
-                                todoGroupSelected === g ? 'bg-gray-800' : ''
-                              }`}
-                            >
-                              {g}
-                            </button>
-                          ))}
-
-                          <div className="mt-2 border-t border-gray-700 pt-2">
-                            <div className="px-1 pb-1 text-[10px] uppercase tracking-wide text-gray-400">
-                              Crear grupo
-                            </div>
-                            <div className="flex gap-2">
-                              <input
-                                value={newTodoGroupName}
-                                onChange={(e) => setNewTodoGroupName(e.target.value)}
-                                placeholder="Ej: Categorías"
-                                className={`h-9 flex-1 px-2 ${INPUT_BASE}`}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    const name = newTodoGroupName.trim();
-                                    if (!name) return;
-                                    addTodoGroup(name);
-                                    setTodoGroupSelected(name);
-                                    setNewTodoGroupName('');
-                                    setTodoGroupMenuOpen(false);
-                                  }
-                                }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const name = newTodoGroupName.trim();
-                                  if (!name) return;
-                                  addTodoGroup(name);
-                                  setTodoGroupSelected(name);
-                                  setNewTodoGroupName('');
-                                  setTodoGroupMenuOpen(false);
-                                }}
-                                className="inline-flex h-9 items-center justify-center rounded-full bg-gray-700 px-4 text-[11px] font-semibold text-gray-100 hover:bg-gray-600"
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                <input
-                  ref={newTodoInputRef}
-                  value={newTodoText}
-                  onChange={(e) => setNewTodoText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && canEditWorkspace) {
-                      e.preventDefault();
-                      addTodo();
-                    }
-                  }}
-                  disabled={!canEditWorkspace}
-                  placeholder={
-                    canEditWorkspace
-                      ? 'Escribí y presioná Enter...'
-                      : 'Solo lectura'
-                  }
-                  className={`flex-1 px-3 py-1.5 text-xs ${INPUT_BASE}`}
-                />
-
-                <button
-                  type="button"
-                  onClick={addTodo}
-                  disabled={!canEditWorkspace || !newTodoText.trim()}
-                  className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-1.5 text-[11px] font-semibold text-emerald-950 shadow-sm shadow-emerald-500/30 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-300"
-                >
-                  <Plus className="mr-1 h-3 w-3" />
-                  Añadir
-                </button>
-              </div>
-            </div>
-
-            {/* lista todos agrupada + DnD */}
-            <div className="flex-1 min-h-0 space-y-3 overflow-y-auto pr-1">
-              <DndContext
-                sensors={todoDndSensors}
-                onDragEnd={handleTodoDragEnd}
-                onDragOver={(e) => setActiveTodoDropId(String(e.over?.id ?? ''))}
-              >
-                {todoGroupKeys.map((key) => {
-                  const groupName = key === TODO_NO_GROUP_KEY ? null : key;
-                  const arr = todosByGroup.get(key) ?? [];
-                  const done = arr.filter((t) => t.done).length;
-                  const total = arr.length;
-
-                  const dropId = `drop:${key}`;
-                  const isActiveDrop = activeTodoDropId === dropId;
-
-                  return (
-                    <TodoGroup
-                      key={key}
-                      dropId={dropId}
-                      title={groupName ?? 'Sin grupo'}
-                      count={`${done}/${total}`}
-                      isActiveDrop={isActiveDrop}
+                  {canEditWorkspace && (
+                    <button
+                      type="button"
+                      onClick={() => deleteTodo(item.id)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 opacity-0 transition-opacity hover:text-rose-300 group-hover:opacity-100"
                     >
-                      {arr.map((t) => (
-                        <TodoRow
-                          key={t.id}
-                          todo={t}
-                          canEdit={canEditWorkspace}
-                          isEditing={editingTodoId === t.id}
-                          editingValue={editingTodoValue}
-                          onStartEdit={() => startEditTodo(t)}
-                          onChangeEditingValue={setEditingTodoValue}
-                          onCancelEdit={cancelEditTodo}
-                          onSaveEdit={() => saveEditTodo(t)}
-                          onToggle={() => canEditWorkspace && toggleTodo(t.id)}
-                          onDelete={() => canEditWorkspace && deleteTodo(t.id)}
-                        />
-                      ))}
-
-                      {arr.length === 0 && groupName && (
-                        <p className="rounded-lg bg-gray-800/60 px-3 py-2 text-[11px] text-gray-400">
-                          Arrastrá items acá para agruparlos.
-                        </p>
-                      )}
-                    </TodoGroup>
-                  );
-                })}
-              </DndContext>
+                      Eliminar
+                    </button>
+                  )}
+                </div>
+              ))}
 
               {todos.length === 0 && (
-                <p className="rounded-lg bg-gray-800/80 px-3 py-2 text-[11px] text-gray-400">
+                <p className="mt-2 rounded-lg bg-gray-800/80 px-3 py-2 text-[11px] text-gray-400">
                   Usá este checklist para definir pasos como “Relevar
                   requerimientos”, “Diseñar UI”, “Implementar API”, etc.
                 </p>
@@ -1593,7 +1109,7 @@ export default function ProjectTaskDrawer({
             </div>
           </div>
 
-{/* Columna 3: Notas + recursos */}
+          {/* Columna 3: Notas + recursos */}
           <div className="flex h-full min-h-0 flex-col gap-3 bg-gray-900/60 px-6 py-4">
             {/* Notas rápidas */}
             <div className={PANEL_BASE}>
