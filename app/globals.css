@@ -60,16 +60,16 @@ html {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #cecdcd;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #f43f5e;
-  border-radius: 4px;
+  background: #2a2a2a;
+  border-radius: 5000px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #e11d48;
+  background: #4a4a4a;
 }
 
 :root {
