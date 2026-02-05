@@ -352,7 +352,7 @@ export default function TaskDetailModal({
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: 24, scale: 0.97, opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="relative max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-800 bg-gray-800 text-slate-100 shadow-2xl shadow-slate-950/70"
+            className="relative max-h-[95dvh] w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-800 bg-gray-800 text-slate-100 shadow-2xl shadow-slate-950/70"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -378,7 +378,7 @@ export default function TaskDetailModal({
             </div>
 
             {/* Body: izquierda edición | derecha checklist */}
-            <div className="grid max-h-[calc(90vh-72px)] grid-cols-1 md:grid-cols-[1fr,1.15fr]">
+            <div className="grid max-h-[calc(90vh-72px)] grid-cols-1 md:grid-cols-[1fr,1.15fr] overflow-y-auto">
               {/* Left */}
               <div className="border-b border-slate-800 p-5 md:border-b-0 md:border-r">
                 <div className="space-y-4">

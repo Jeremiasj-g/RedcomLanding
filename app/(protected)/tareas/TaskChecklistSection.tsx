@@ -390,7 +390,7 @@ export default function TaskChecklistSection({
   };
 
   return (
-    <div className="max-h-[70vh] space-y-5 overflow-y-auto px-5 py-4">
+    <div className="max-h-[70vh] space-y-5 px-5 py-4">
       {/* notas breves si existen */}
       {notes && notes.trim().length > 0 && (
         <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-3 text-xs text-slate-200">
@@ -582,7 +582,7 @@ export default function TaskChecklistSection({
             }}
             onDragEnd={onDragEnd}
           >
-            <div className="space-y-3">
+            <div className="space-y-3 h-[22rem] overflow-y-auto">
             {/* Ungrouped primero */}
             {grouped.has('__ungrouped__') && (
               <GroupDropZone groupKey="__ungrouped__" disabled={!editable}>
