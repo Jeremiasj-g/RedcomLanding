@@ -7,19 +7,19 @@ export default function LookerEmbed({ looker_id, bgImage }) {
 
   const LOOKER_LINKS = {
     masivos:
-      'https://lookerstudio.google.com/embed/reporting/b37f7c00-c237-404d-9cc3-34c568658ee6/page/zWgkF',
+      'https://lookerstudio.google.com/embed/reporting/8a84b227-73a0-4465-ab4a-ffc4daf6be49/page/W41nF',
     refrigerados:
       'https://lookerstudio.google.com/embed/reporting/b1165fcb-7d52-4856-9c09-04dfdfe1acf2/page/1f9lF',
     refrigeradosKilos:
-      'https://lookerstudio.google.com/embed/reporting/c8441ded-1073-41a0-ba7c-6b5826637c41/page/yy9lF',
+      'https://lookerstudio.google.com/embed/reporting/8e7c5cb0-1d73-41e0-b1a2-5279a8a73f2d/page/838nF',
     chaco:
-      'https://lookerstudio.google.com/embed/reporting/95f84fe1-d5b8-4b6d-b877-fe5c4015c135/page/3eLiF',
+      'https://lookerstudio.google.com/embed/reporting/80c6f92f-61f4-4d70-90c8-41c4b71f9930/page/Ie3nF',
     misiones:
-      'https://lookerstudio.google.com/embed/reporting/535423b7-c192-49b3-a2bf-a1d03f070110/page/iSnkF',
+      'https://lookerstudio.google.com/embed/reporting/c657a1d6-8c36-4359-a219-6e92537e175c/page/oJ8nF',
     obera:
-      'https://lookerstudio.google.com/embed/reporting/02da7063-7bb9-4398-b53a-da040bc4355e/page/p1nkF',
+      'https://lookerstudio.google.com/embed/reporting/d6f9ac8f-cf36-490d-aa9a-f9c79b317a9a/page/Yc8nF',
     gerencia:
-      'https://lookerstudio.google.com/embed/reporting/27614a4d-463e-485f-a9c6-b229948be202/page/OzFlF',
+      'https://lookerstudio.google.com/embed/reporting/c800f6e3-844d-4493-8600-5125845d547e/page/7y9nF',
   };
 
   const src = useMemo(() => {
