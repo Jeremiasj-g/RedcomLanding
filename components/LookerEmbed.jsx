@@ -1,67 +1,167 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { DatabaseZap, LayoutDashboard, Sparkles } from 'lucide-react';
 
-export default function LookerEmbed({ looker_id, bgImage }) {
-  const [active, setActive] = useState(false);
-
+export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) {
   const LOOKER_LINKS = {
-    masivos:
-      'https://lookerstudio.google.com/embed/reporting/76975544-c99b-4cb2-be4c-0e8600ef0a24/page/LwcrF',
-    refrigerados:
-      '',
-    refrigeradosKilos:
-      '',
-    chaco:
-      '',
-    misiones:
-      '',
-    obera:
-      '',
-    gerencia:
-      '',
+    masivos: {
+      dashboard:
+        'https://lookerstudio.google.com/embed/reporting/76975544-c99b-4cb2-be4c-0e8600ef0a24/page/LwcrF',
+      heatmap:
+        'https://lookerstudio.google.com/embed/reporting/c8b99cb6-6276-4ef2-9ac6-9f755e14f9bc/page/UEjrF',
+    },
+    refrigerados: {
+      dashboard: '',
+      heatmap: '',
+    },
+    refrigeradosKilos: {
+      dashboard: '',
+      heatmap: '',
+    },
+    chaco: {
+      dashboard: '',
+      heatmap: '',
+    },
+    misiones: {
+      dashboard: '',
+      heatmap: '',
+    },
+    obera: {
+      dashboard: '',
+      heatmap: '',
+    },
+    gerencia: {
+      dashboard: '',
+      heatmap: '',
+    },
   };
 
-  const src = useMemo(() => {
+  const branch = useMemo(() => {
     return LOOKER_LINKS[looker_id] || LOOKER_LINKS.masivos;
   }, [looker_id]);
 
-  // fallback por si no mandan imagen
+  const availableTypes = useMemo(() => {
+    return Object.entries(branch)
+      .filter(([, url]) => Boolean(url))
+      .map(([key]) => key);
+  }, [branch]);
+
+  const [visitedTypes, setVisitedTypes] = useState(() => {
+    return branch[type] ? [type] : [];
+  });
+
+  useEffect(() => {
+    if (branch[type] && !visitedTypes.includes(type)) {
+      setVisitedTypes((prev) => [...prev, type]);
+    }
+  }, [type, branch, visitedTypes]);
+
   const backgroundImage = bgImage
     ? `url('/${bgImage}')`
-    : "linear-gradient(135deg, #020617, #020617)";
+    : 'linear-gradient(135deg, #020617, #020617)';
+
+  const hasCurrentUrl = Boolean(branch[type]);
+
+  const getFriendlyLabel = (value) => {
+    if (value === 'dashboard') return 'Dashboard';
+    if (value === 'heatmap') return 'Mapa de calor';
+    return value;
+  };
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-8">
-      <div
-        className="relative w-full h-[1000px] rounded-2xl shadow-2xl bg-slate-950"
-        onMouseEnter={() => setActive(true)}
-        onMouseLeave={() => setActive(false)}
-      >
-        {/* Fondo blur (imagen por props) */}
+    <section className="relative z-0 mx-auto max-w-7xl px-4 py-8">
+      <div className="relative">
+        {/* glow / blur de fondo */}
         <div
-          className={`
-            absolute inset-0
-            bg-cover bg-center
-            scale-[1.25] blur-2xl opacity-55
-          `}
+          className="pointer-events-none absolute inset-0 -z-10 scale-[1.2] rounded-[2rem] bg-cover bg-center blur-3xl saturate-150"
           style={{ backgroundImage }}
         />
 
-        {/* Overlay oscuro para contraste */}
-        <div className="absolute inset-0 bg-slate-950/40" />
+        {/* card principal */}
+        <div className="relative isolate h-[1000px] w-full overflow-hidden rounded-2xl bg-slate-950 shadow-2xl">
+          {/* imagen interna suavizada */}
+          <div
+            className="pointer-events-none absolute inset-0 rounded-2xl bg-cover bg-center opacity-25"
+            style={{ backgroundImage }}
+          />
 
-        {/* Dashboard real */}
-        <iframe
-          title="Dashboard Ventas Redcom"
-          src={src}
-          loading="lazy"
-          allowFullScreen
-          className="relative z-10 h-full w-full border-0"
-        />
+          {/* overlay oscuro */}
+          <div className="pointer-events-none absolute inset-0 rounded-2xl bg-slate-950/35" />
 
-        {/* Borde glass premium */}
-        <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/10 z-20" />
+          {/* iframes visitados */}
+          {visitedTypes.map((visitedType) => {
+            const url = branch[visitedType];
+            if (!url) return null;
+
+            const isActive = visitedType === type;
+
+            return (
+              <iframe
+                key={visitedType}
+                title={`Dashboard Ventas Redcom - ${visitedType}`}
+                src={url}
+                loading="lazy"
+                allowFullScreen
+                className={`absolute inset-0 z-10 h-full w-full rounded-2xl border-0 transition-opacity duration-300 ${
+                  isActive
+                    ? 'pointer-events-auto opacity-100'
+                    : 'pointer-events-none opacity-0'
+                }`}
+              />
+            );
+          })}
+
+          {/* empty state */}
+          {!hasCurrentUrl && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center p-6">
+              <div className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+                <div className="pointer-events-none absolute -left-10 top-0 h-32 w-32 rounded-full bg-cyan-500/10 blur-3xl" />
+                <div className="pointer-events-none absolute -right-10 bottom-0 h-32 w-32 rounded-full bg-blue-500/10 blur-3xl" />
+
+                <div className="relative flex flex-col items-center text-center">
+                  <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300 shadow-lg shadow-cyan-500/10">
+                    {type === 'dashboard' ? (
+                      <LayoutDashboard className="h-8 w-8" />
+                    ) : (
+                      <DatabaseZap className="h-8 w-8" />
+                    )}
+                  </div>
+
+                  <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300">
+                    <Sparkles className="h-3.5 w-3.5 text-cyan-300" />
+                    Visualización no disponible
+                  </div>
+
+                  <h3 className="text-2xl font-semibold tracking-tight text-white">
+                    Todavía no hay información para mostrar
+                  </h3>
+
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">
+                    La vista de{' '}
+                    <span className="font-medium text-white">
+                      {getFriendlyLabel(type)}
+                    </span>{' '}
+                    para esta sucursal aún no fue configurada o no tiene una URL
+                    disponible en este momento.
+                  </p>
+
+                  {availableTypes.length > 0 && (
+                    <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-300">
+                      <span className="text-slate-400">Vistas disponibles: </span>
+                      <span className="font-medium text-white">
+                        {availableTypes.map(getFriendlyLabel).join(' · ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* borde glass */}
+          <div className="pointer-events-none absolute inset-0 z-40 rounded-2xl ring-1 ring-white/10" />
+        </div>
       </div>
     </section>
   );

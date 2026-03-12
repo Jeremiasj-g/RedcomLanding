@@ -76,7 +76,7 @@ export default function Obera() {
               <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
             </Container>
 
-            <LookerEmbed looker_id="obera" bgImage="dash_obera.webp" />
+            <LookerEmbed looker_id="obera" type="dashboard" bgImage="dash_obera.webp" />
           </>
         )}
       </div>

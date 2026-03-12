@@ -91,7 +91,7 @@ export default function Chaco() {
               <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
             </Container>
 
-            <LookerEmbed looker_id='chaco' bgImage="dash_rcia.webp" />
+            <LookerEmbed looker_id='chaco' type="dashboard" bgImage="dash_rcia.webp" />
           </>
         )}
 
