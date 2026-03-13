@@ -1,5 +1,8 @@
 'use client';
 
+import { useMemo } from 'react';
+import LookerTabs from '@/components/LookerTabs';
+import { Table, BarChart3, Flame } from 'lucide-react';
 import { motion } from 'framer-motion';
 import PageHeader from '@/components/PageHeader';
 import CardSucursales from '@/components/CardSucursales';
@@ -10,7 +13,6 @@ import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 import { urls } from '@/lib/data';
-import { Table } from 'lucide-react';
 import { useMe } from '@/hooks/useMe';
 import { RequireAuth } from '@/components/RouteGuards';
 import CategoryBannerLink from '@/components/categoria/CategoryBannerLink';
@@ -34,10 +36,28 @@ export default function Chaco() {
 
   const canSeeAnalytics = PERMISSIONS.analytics.includes(role);
 
+  const lookerTabs = useMemo(
+    () => [
+      {
+        key: 'dashboard',
+        label: 'Dashboard',
+        icon: <BarChart3 className="h-4 w-4" />,
+        bgImage: 'dash_rcia.webp',
+      },
+      {
+        key: 'heatmap',
+        label: 'Mapa de calor',
+        icon: <Flame className="h-4 w-4" />,
+        bgImage: 'heatmap_rcia.webp',
+      },
+    ],
+    [],
+  );
+
 
   return (
 
-    <RequireAuth roles={['admin', 'supervisor', 'jdv' ,'vendedor', 'rrhh']} branches={['chaco']}>
+    <RequireAuth roles={['admin', 'supervisor', 'jdv', 'vendedor', 'rrhh']} branches={['chaco']}>
 
       <div className="min-h-screen">
         <PageHeader
@@ -87,11 +107,21 @@ export default function Chaco() {
               <FullScreenEmbedCard {...resistenciaTablero} icon={<Table />} />
             </Container>
 
-            <Container>
+            {/* <Container>
               <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
-            </Container>
+            </Container> */}
 
-            <LookerEmbed looker_id='chaco' type="dashboard" bgImage="dash_rcia.webp" />
+            <LookerTabs tabs={lookerTabs} defaultTab="dashboard" className='mt-28'>
+              {({ activeTab }) => (
+                <LookerEmbed
+                  looker_id="chaco"
+                  type={activeTab.key}
+                  bgImage={activeTab.bgImage}
+                />
+              )}
+            </LookerTabs>
+
+            {/* <LookerEmbed looker_id='chaco' type="dashboard" bgImage="dash_rcia.webp" /> */}
           </>
         )}
 

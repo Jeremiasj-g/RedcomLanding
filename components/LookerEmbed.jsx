@@ -20,19 +20,19 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
       heatmap: '',
     },
     chaco: {
-      dashboard: '',
-      heatmap: '',
+      dashboard: 'https://lookerstudio.google.com/embed/reporting/9520a7c3-3999-4710-9ad7-d5d4883730f9/page/1glrF',
+      heatmap: 'https://lookerstudio.google.com/embed/reporting/acfb408f-1bd5-4f2f-aa24-ce0743abdfdd/page/0zlrF',
     },
     misiones: {
-      dashboard: '',
-      heatmap: '',
+      dashboard: 'https://lookerstudio.google.com/embed/reporting/d45f4ffe-fe56-44ed-aee5-01772836d111/page/X6trF',
+      heatmap: 'https://lookerstudio.google.com/embed/reporting/7be38458-43d8-4123-89c6-cc32391c13f0/page/xPurF',
     },
     obera: {
-      dashboard: '',
-      heatmap: '',
+      dashboard: 'https://lookerstudio.google.com/embed/reporting/a4ad4a8e-c677-46c4-bc34-63dfc87f52c0/page/513rF',
+      heatmap: 'https://lookerstudio.google.com/embed/reporting/bb5f1ff8-1372-4c93-93c4-d51d4b07aaf9/page/UC4rF',
     },
     gerencia: {
-      dashboard: '',
+      dashboard: 'https://lookerstudio.google.com/embed/reporting/c71c0b8a-4e73-485d-8ea6-1617b683d01c/page/BTXrF',
       heatmap: '',
     },
   };

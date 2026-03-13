@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import PageHeader from '@/components/PageHeader';
 import LookerEmbed from '@/components/LookerEmbed';
@@ -10,9 +11,10 @@ import { SectionDivider } from '@/components/SectionDivider';
 import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 import { urls } from '@/lib/data';
-import { Table } from 'lucide-react';
+import { Table, BarChart3, Flame } from 'lucide-react';
 import { RequireAuth } from '@/components/RouteGuards';
 import CardSucursales from '@/components/CardSucursales';
+import LookerTabs from '@/components/LookerTabs';
 // (opcional) import { IconMapPoint } from '@/components/Icons/IconMapPoint';
 
 /* const MAP_URL = 'https://www.google.com/maps/d/u/0/embed?mid=19y6MniEXtnVs3QBIZOlaXGOnkRMVTkI&ehbc=2E312F'; */
@@ -21,6 +23,24 @@ export default function Gerencia() {
 
   const gerenciaMapa = urls.mapas[2].gerencia
   const gerenciaTablero = urls.tableros[2].gerencia
+
+  const lookerTabs = useMemo(
+    () => [
+      {
+        key: 'dashboard',
+        label: 'Dashboard',
+        icon: <BarChart3 className="h-4 w-4" />,
+        bgImage: 'gerencias_dash.webp',
+      },
+      {
+        key: 'heatmap',
+        label: 'Mapa de calor',
+        icon: <Flame className="h-4 w-4" />,
+        bgImage: '',
+      },
+    ],
+    [],
+  );
 
   return (
     <RequireAuth roles={['admin']}>
@@ -60,11 +80,23 @@ export default function Gerencia() {
             <FullScreenEmbedCard {...gerenciaTablero} icon={<Table />} />
           </Container>
         </section>
-        <Container>
+        {/* <Container>
           <SectionDivider title="Dashboard de ventas" icon={<IconAnalytics />} />
-        </Container>
+        </Container> */}
 
-        <LookerEmbed looker_id="gerencia" type="dashboard" bgImage="gerencias_dash.webp"/>
+
+        <LookerTabs tabs={lookerTabs} defaultTab="dashboard" className='mt-28'>
+          {({ activeTab }) => (
+            <LookerEmbed
+              looker_id="gerencia"
+              type={activeTab.key}
+              bgImage={activeTab.bgImage}
+            />
+          )}
+        </LookerTabs>
+
+
+        {/* <LookerEmbed looker_id="gerencia" type="dashboard" bgImage="gerencias_dash.webp" /> */}
 
 
       </div>
