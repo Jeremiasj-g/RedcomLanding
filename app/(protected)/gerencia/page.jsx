@@ -36,7 +36,7 @@ export default function Gerencia() {
         key: 'heatmap',
         label: 'Mapa de calor',
         icon: <Flame className="h-4 w-4" />,
-        bgImage: '',
+        bgImage: 'heatmap_gerencia.webp',
       },
     ],
     [],
@@ -76,7 +76,7 @@ export default function Gerencia() {
         {/* Card + Modal reutilizable */}
         <section className="pb-14">
           <Container>
-            <FullScreenEmbedCard {...gerenciaMapa} />
+            {/* <FullScreenEmbedCard {...gerenciaMapa} /> */}
             <FullScreenEmbedCard {...gerenciaTablero} icon={<Table />} />
           </Container>
         </section>

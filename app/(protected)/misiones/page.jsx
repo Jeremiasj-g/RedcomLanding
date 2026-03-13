@@ -102,7 +102,7 @@ export default function Misiones() {
         {canSeeAnalytics && (
           <>
             <Container>
-              <FullScreenEmbedCard {...mapaMisiones} />
+              {/* <FullScreenEmbedCard {...mapaMisiones} /> */}
               <FullScreenEmbedCard {...tableroMisiones} icon={<Table />} />
             </Container>
 

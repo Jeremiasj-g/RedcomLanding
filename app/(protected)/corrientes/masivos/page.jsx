@@ -102,7 +102,7 @@ export default function CorrientesMasivos() {
         {canSeeAnalytics && (
           <>
             <Container>
-              <FullScreenEmbedCard {...corrientesMapa} />
+              {/* <FullScreenEmbedCard {...corrientesMapa} /> */}
               <FullScreenEmbedCard {...corrientesTablero} icon={<Table />} />
             </Container>
 

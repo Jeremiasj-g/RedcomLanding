@@ -103,7 +103,7 @@ export default function Chaco() {
         {canSeeAnalytics && (
           <>
             <Container>
-              <FullScreenEmbedCard {...resistenciaMapa} />
+              {/* <FullScreenEmbedCard {...resistenciaMapa} /> */}
               <FullScreenEmbedCard {...resistenciaTablero} icon={<Table />} />
             </Container>
 

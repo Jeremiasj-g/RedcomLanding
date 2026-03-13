@@ -76,7 +76,7 @@ export default function CorrientesRefrigerados() {
           <>
             <Container>
               <FullScreenEmbedCard {...refrigeradosTablero} icon={<Table />} />
-              <FullScreenEmbedCard {...mapaTablero} />
+              {/* <FullScreenEmbedCard {...mapaTablero} /> */}
             </Container>
 
             <Container>

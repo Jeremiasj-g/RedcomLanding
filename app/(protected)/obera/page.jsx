@@ -88,7 +88,7 @@ export default function Obera() {
         {canSeeAnalytics && (
           <>
             <Container>
-              <FullScreenEmbedCard {...mapaObera} />
+              {/* <FullScreenEmbedCard {...mapaObera} /> */}
               <FullScreenEmbedCard {...tableroObera} icon={<Table />} />
             </Container>
 
