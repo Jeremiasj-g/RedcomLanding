@@ -6,34 +6,32 @@ import { DatabaseZap, LayoutDashboard, Sparkles } from 'lucide-react';
 export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) {
   const LOOKER_LINKS = {
     masivos: {
-      dashboard:
-        'https://lookerstudio.google.com/embed/reporting/76975544-c99b-4cb2-be4c-0e8600ef0a24/page/LwcrF',
-      heatmap:
-        'https://lookerstudio.google.com/embed/reporting/c8b99cb6-6276-4ef2-9ac6-9f755e14f9bc/page/UEjrF',
+      dashboard: 'https://lookerstudio.google.com/embed/u/0/reporting/b6314da7-6b9d-4177-ba3e-a0350f7f1795/page/HRQuF',
+      heatmap: 'https://lookerstudio.google.com/embed/reporting/25b8e2b9-db76-4fba-bd44-1a65fd547a5d/page/xqSuF',
     },
     refrigerados: {
       dashboard: '',
-      heatmap: '',
+      heatmap: 'https://lookerstudio.google.com/embed/reporting/b8662d72-6a08-4d5d-aa95-b5e270540870/page/roZuF',
     },
     refrigeradosKilos: {
-      dashboard: '',
+      dashboard: 'https://lookerstudio.google.com/embed/reporting/cbc50042-c208-4d61-8b0c-55d734f9d8c2/page/RyRuF',
       heatmap: '',
     },
     chaco: {
-      dashboard: 'https://lookerstudio.google.com/embed/reporting/9520a7c3-3999-4710-9ad7-d5d4883730f9/page/1glrF',
-      heatmap: 'https://lookerstudio.google.com/embed/reporting/acfb408f-1bd5-4f2f-aa24-ce0743abdfdd/page/0zlrF',
+      dashboard: 'https://lookerstudio.google.com/embed/reporting/f6f90898-19a7-4f64-8d1e-ed438751364d/page/dzQuF',
+      heatmap: 'https://lookerstudio.google.com/embed/reporting/12eb719f-d999-4e0e-bcd8-d7c062fc0e81/page/uIYuF',
     },
     misiones: {
-      dashboard: 'https://lookerstudio.google.com/embed/reporting/d45f4ffe-fe56-44ed-aee5-01772836d111/page/X6trF',
-      heatmap: 'https://lookerstudio.google.com/embed/reporting/7be38458-43d8-4123-89c6-cc32391c13f0/page/xPurF',
+      dashboard: 'https://lookerstudio.google.com/embed/reporting/9877c32a-7a72-4a34-9a26-19b7029e0157/page/mMRuF',
+      heatmap: 'https://lookerstudio.google.com/embed/reporting/7c13afff-1873-4cac-ad93-67bd3897fb22/page/KdYuF',
     },
     obera: {
-      dashboard: 'https://lookerstudio.google.com/embed/reporting/a4ad4a8e-c677-46c4-bc34-63dfc87f52c0/page/513rF',
-      heatmap: 'https://lookerstudio.google.com/embed/reporting/bb5f1ff8-1372-4c93-93c4-d51d4b07aaf9/page/UC4rF',
+      dashboard: 'https://lookerstudio.google.com/embed/reporting/da56d30a-0663-4b55-b678-018ec9872fae/page/VhRuF',
+      heatmap: 'https://lookerstudio.google.com/embed/reporting/bf9284e1-5893-44a3-85eb-c1ddb065cf25/page/CSZuF',
     },
     gerencia: {
-      dashboard: 'https://lookerstudio.google.com/embed/reporting/c71c0b8a-4e73-485d-8ea6-1617b683d01c/page/BTXrF',
-      heatmap: 'https://lookerstudio.google.com/embed/reporting/88c8ba19-b2e5-43a6-81e3-7bfa04bbc619/page/HZ9rF',
+      dashboard: '',
+      heatmap: '',
     },
   };
 

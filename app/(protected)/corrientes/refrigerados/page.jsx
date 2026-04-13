@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import PageHeader from '@/components/PageHeader';
 import CardSucursales from '@/components/CardSucursales';
@@ -13,8 +14,9 @@ import { IconAnalytics } from '@/components/Icons/IconAnalytics'
 import { RequireAuth } from '@/components/RouteGuards';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 import { urls } from '@/lib/data';
-import { Table } from 'lucide-react';
+import { Table, BarChart3, Flame } from 'lucide-react';
 import { useMe } from '@/hooks/useMe';
+import LookerTabs from '@/components/LookerTabs';
 
 export default function CorrientesRefrigerados() {
 
@@ -37,9 +39,39 @@ export default function CorrientesRefrigerados() {
 
   const canSeeAnalytics = PERMISSIONS.analytics.includes(role);
 
+  const lookerTabs = useMemo(
+      () => [
+        {
+          key: 'dashboard',
+          label: 'Dashboard volumen',
+          icon: <BarChart3 className="h-4 w-4" />,
+          bgImage: 'dash_ctes.webp',
+        },
+        {
+          key: 'heatmap',
+          label: 'Mapa de calor',
+          icon: <Flame className="h-4 w-4" />,
+          bgImage: 'heatmap_ctes.webp',
+        },
+      ],
+      [],
+    );
+
+    const lookerTabsKilos = useMemo(
+      () => [
+        {
+          key: 'dashboard',
+          label: 'Dashboard kilos',
+          icon: <BarChart3 className="h-4 w-4" />,
+          bgImage: 'dash_ctes.webp',
+        },
+      ],
+      [],
+    );
+
   return (
 
-    <RequireAuth roles={['admin', 'supervisor', 'jdv' ,'vendedor', 'rrhh']} branches={['refrigerados']}>
+    <RequireAuth roles={['admin', 'supervisor', 'jdv', 'vendedor', 'rrhh']} branches={['refrigerados']}>
 
       <div className="min-h-screen">
         <PageHeader
@@ -104,7 +136,27 @@ export default function CorrientesRefrigerados() {
               </Container>
             </section>
 
-            <Container>
+            <LookerTabs tabs={lookerTabs} defaultTab="dashboard" className='mt-28'>
+              {({ activeTab }) => (
+                <LookerEmbed
+                  looker_id="refrigerados"
+                  type={activeTab.key}
+                  bgImage={activeTab.bgImage}
+                />
+              )}
+            </LookerTabs>
+            
+            <LookerTabs tabs={lookerTabsKilos} defaultTab="dashboard" className='mt-28'>
+              {({ activeTab }) => (
+                <LookerEmbed
+                  looker_id="refrigeradosKilos"
+                  type={activeTab.key}
+                  bgImage={activeTab.bgImage}
+                />
+              )}
+            </LookerTabs>
+
+            {/* <Container>
               <SectionDivider title='Dashboard de ventas BULTOS' icon={<IconAnalytics />} />
             </Container>
 
@@ -114,7 +166,7 @@ export default function CorrientesRefrigerados() {
               <SectionDivider title='Dashboard de ventas KILOS' icon={<IconAnalytics />} />
             </Container>
             
-            <LookerEmbed looker_id='refrigeradosKilos' type="dashboard" bgImage="dash_refri.webp"/>
+            <LookerEmbed looker_id='refrigeradosKilos' type="dashboard" bgImage="dash_refri.webp"/> */}
           </>
         )}
 

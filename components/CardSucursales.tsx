@@ -87,7 +87,7 @@ const Card = ({
         <p
           className="
           text-white/90
-            mt-3 max-w-[70%] text-xs md:text-sm text-white/85
+            mb-3 max-w-[70%] text-xs md:text-sm text-white/85
             z-10 relative
             transition-opacity duration-150
             group-hover:opacity-0
@@ -100,7 +100,7 @@ const Card = ({
       {/* Título */}
       <span
         className="
-          absolute bottom-6 left-8
+          absolute bottom-4 left-8
           font-bold text-xl md:text-2xl text-white
           drop-shadow-sm
           z-10
