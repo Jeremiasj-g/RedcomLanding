@@ -6,31 +6,31 @@ import { DatabaseZap, LayoutDashboard, Sparkles } from 'lucide-react';
 export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) {
   const LOOKER_LINKS = {
     masivos: {
-      dashboard: 'https://lookerstudio.google.com/embed/u/0/reporting/b6314da7-6b9d-4177-ba3e-a0350f7f1795/page/HRQuF',
-      heatmap: 'https://lookerstudio.google.com/embed/reporting/25b8e2b9-db76-4fba-bd44-1a65fd547a5d/page/xqSuF',
+      dashboard: '',
+      heatmap: '',
     },
     refrigerados: {
       dashboard: '',
-      heatmap: 'https://lookerstudio.google.com/embed/reporting/b8662d72-6a08-4d5d-aa95-b5e270540870/page/roZuF',
+      heatmap: '',
     },
     refrigeradosKilos: {
-      dashboard: 'https://lookerstudio.google.com/embed/reporting/cbc50042-c208-4d61-8b0c-55d734f9d8c2/page/RyRuF',
+      dashboard: '',
       heatmap: '',
     },
     chaco: {
-      dashboard: 'https://lookerstudio.google.com/embed/reporting/f6f90898-19a7-4f64-8d1e-ed438751364d/page/dzQuF',
-      heatmap: 'https://lookerstudio.google.com/embed/reporting/12eb719f-d999-4e0e-bcd8-d7c062fc0e81/page/uIYuF',
+      dashboard: '',
+      heatmap: '',
     },
     misiones: {
-      dashboard: 'https://lookerstudio.google.com/embed/reporting/9877c32a-7a72-4a34-9a26-19b7029e0157/page/mMRuF',
-      heatmap: 'https://lookerstudio.google.com/embed/reporting/7c13afff-1873-4cac-ad93-67bd3897fb22/page/KdYuF',
+      dashboard: 'https://datastudio.google.com/embed/reporting/58df5dff-27b4-4ff8-885c-f5551d4f0a43/page/D9hxF',
+      heatmap: 'https://datastudio.google.com/embed/reporting/f3bb4dfc-dcda-4b5e-9916-200d10ce99c1/page/4wcxF',
     },
     obera: {
-      dashboard: 'https://lookerstudio.google.com/embed/reporting/da56d30a-0663-4b55-b678-018ec9872fae/page/VhRuF',
-      heatmap: 'https://lookerstudio.google.com/embed/reporting/bf9284e1-5893-44a3-85eb-c1ddb065cf25/page/CSZuF',
+      dashboard: '',
+      heatmap: '',
     },
     gerencia: {
-      dashboard: 'https://lookerstudio.google.com/embed/reporting/ab077cbc-2f51-490d-8f56-8abff6e0826c/page/Fz7uF',
+      dashboard: '',
       heatmap: '',
     },
   };
