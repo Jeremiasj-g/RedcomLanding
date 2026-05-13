@@ -6,8 +6,8 @@ import { DatabaseZap, LayoutDashboard, Sparkles } from 'lucide-react';
 export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) {
   const LOOKER_LINKS = {
     masivos: {
-      dashboard: '',
-      heatmap: '',
+      dashboard: 'https://datastudio.google.com/embed/reporting/05f5c247-e50e-46f5-a8a1-7ef3d7660d5b/page/8nhxF',
+      heatmap: 'https://datastudio.google.com/embed/reporting/99d93a3c-5c11-43d8-bf1a-b3ce5afea924/page/A6HxF',
     },
     refrigerados: {
       dashboard: '',
@@ -18,8 +18,8 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
       heatmap: '',
     },
     chaco: {
-      dashboard: '',
-      heatmap: '',
+      dashboard: 'https://datastudio.google.com/embed/reporting/7a65ec7a-28a5-4b22-b512-78be1e735712/page/GwhxF',
+      heatmap: 'https://datastudio.google.com/embed/reporting/4f615036-fb2b-49a6-8131-1557ac783a81/page/C4NxF',
     },
     misiones: {
       dashboard: 'https://datastudio.google.com/embed/reporting/58df5dff-27b4-4ff8-885c-f5551d4f0a43/page/D9hxF',
@@ -30,8 +30,8 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
       heatmap: '',
     },
     gerencia: {
-      dashboard: '',
-      heatmap: '',
+      dashboard: 'https://datastudio.google.com/embed/reporting/05f5c247-e50e-46f5-a8a1-7ef3d7660d5b/page/8nhxF',
+      heatmap: 'https://datastudio.google.com/embed/reporting/99d93a3c-5c11-43d8-bf1a-b3ce5afea924/page/A6HxF',
     },
   };
 
