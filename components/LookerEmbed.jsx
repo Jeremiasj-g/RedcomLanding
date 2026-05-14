@@ -11,7 +11,7 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
     },
     refrigerados: {
       dashboard: '',
-      heatmap: '',
+      heatmap: 'https://datastudio.google.com/embed/reporting/313f76c1-1998-4afd-bea6-e8e91ab5d94d/page/5mexF',
     },
     refrigeradosKilos: {
       dashboard: '',
