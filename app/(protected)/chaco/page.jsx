@@ -31,7 +31,7 @@ export default function Chaco() {
   );
 
   const PERMISSIONS = {
-    analytics: ['admin', 'supervisor'],
+    analytics: ['admin', 'supervisor', 'jdv'],
   };
 
   const canSeeAnalytics = PERMISSIONS.analytics.includes(role);
