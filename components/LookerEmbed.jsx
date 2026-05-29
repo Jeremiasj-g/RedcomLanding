@@ -10,7 +10,7 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
       heatmap: 'https://datastudio.google.com/embed/reporting/99d93a3c-5c11-43d8-bf1a-b3ce5afea924/page/A6HxF',
     },
     refrigerados: {
-      dashboard: '',
+      dashboard: 'https://datastudio.google.com/embed/reporting/b7c5700c-1775-40c6-8573-2c99922e5bdc/page/VkEyF',
       heatmap: 'https://datastudio.google.com/embed/reporting/313f76c1-1998-4afd-bea6-e8e91ab5d94d/page/5mexF',
     },
     refrigeradosKilos: {
@@ -26,8 +26,8 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
       heatmap: 'https://datastudio.google.com/embed/reporting/f3bb4dfc-dcda-4b5e-9916-200d10ce99c1/page/4wcxF',
     },
     obera: {
-      dashboard: '',
-      heatmap: '',
+      dashboard: 'https://datastudio.google.com/embed/reporting/26e8a879-11cb-4beb-97b5-3a59999281a1/page/bvPyF',
+      heatmap: 'https://datastudio.google.com/embed/reporting/ba020d7b-5216-4da0-8550-859210b91774/page/E9PyF',
     },
     gerencia: {
       dashboard: 'https://datastudio.google.com/embed/reporting/05f5c247-e50e-46f5-a8a1-7ef3d7660d5b/page/8nhxF',
