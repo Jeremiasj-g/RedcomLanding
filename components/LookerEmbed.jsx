@@ -6,32 +6,32 @@ import { DatabaseZap, LayoutDashboard, Sparkles } from 'lucide-react';
 export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) {
   const LOOKER_LINKS = {
     masivos: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/05f5c247-e50e-46f5-a8a1-7ef3d7660d5b/page/8nhxF',
-      heatmap: 'https://datastudio.google.com/embed/reporting/99d93a3c-5c11-43d8-bf1a-b3ce5afea924/page/A6HxF',
+      dashboard: 'https://datastudio.google.com/embed/reporting/95672365-963d-4337-88aa-e321226a30b9/page/MKU0F',
+      heatmap: '',
     },
     refrigerados: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/b7c5700c-1775-40c6-8573-2c99922e5bdc/page/VkEyF',
-      heatmap: 'https://datastudio.google.com/embed/reporting/313f76c1-1998-4afd-bea6-e8e91ab5d94d/page/5mexF',
+      dashboard: 'https://datastudio.google.com/embed/reporting/68a79e0b-4d5c-4ccc-87f6-3932e9b17cc5/page/lJc0F',
+      heatmap: '',
     },
     refrigeradosKilos: {
       dashboard: '',
       heatmap: '',
     },
     chaco: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/7a65ec7a-28a5-4b22-b512-78be1e735712/page/GwhxF',
-      heatmap: 'https://datastudio.google.com/embed/reporting/4f615036-fb2b-49a6-8131-1557ac783a81/page/C4NxF',
+      dashboard: 'https://datastudio.google.com/embed/reporting/0055785b-135c-4e10-be1e-06a5c03e5df8/page/VbU0F',
+      heatmap: '',
     },
     misiones: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/58df5dff-27b4-4ff8-885c-f5551d4f0a43/page/D9hxF',
-      heatmap: 'https://datastudio.google.com/embed/reporting/f3bb4dfc-dcda-4b5e-9916-200d10ce99c1/page/4wcxF',
+      dashboard: 'https://datastudio.google.com/embed/reporting/17fb6121-b0a9-4352-b802-af6516113e5d/page/3pU0F',
+      heatmap: '',
     },
     obera: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/26e8a879-11cb-4beb-97b5-3a59999281a1/page/bvPyF',
-      heatmap: 'https://datastudio.google.com/embed/reporting/ba020d7b-5216-4da0-8550-859210b91774/page/E9PyF',
+      dashboard: 'https://datastudio.google.com/embed/reporting/3bc16cef-4cd0-4daa-9c93-750572b9f30a/page/hYY0F',
+      heatmap: '',
     },
     gerencia: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/05f5c247-e50e-46f5-a8a1-7ef3d7660d5b/page/8nhxF',
-      heatmap: 'https://datastudio.google.com/embed/reporting/99d93a3c-5c11-43d8-bf1a-b3ce5afea924/page/A6HxF',
+      dashboard: 'https://datastudio.google.com/embed/reporting/95672365-963d-4337-88aa-e321226a30b9/page/MKU0F',
+      heatmap: '',
     },
   };
 
