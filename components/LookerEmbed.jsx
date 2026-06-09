@@ -7,11 +7,11 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
   const LOOKER_LINKS = {
     masivos: {
       dashboard: 'https://datastudio.google.com/embed/reporting/95672365-963d-4337-88aa-e321226a30b9/page/MKU0F',
-      heatmap: '',
+      heatmap: 'https://datastudio.google.com/embed/reporting/ee4a9dfc-1e5c-406f-bcc3-1f6025f5a4db/page/mTc0F',
     },
     refrigerados: {
       dashboard: 'https://datastudio.google.com/embed/reporting/68a79e0b-4d5c-4ccc-87f6-3932e9b17cc5/page/lJc0F',
-      heatmap: '',
+      heatmap: 'https://datastudio.google.com/embed/reporting/81f660d5-7781-4b90-8198-fbf6586d3a1e/page/JXj0F',
     },
     refrigeradosKilos: {
       dashboard: '',
@@ -19,15 +19,15 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
     },
     chaco: {
       dashboard: 'https://datastudio.google.com/embed/reporting/0055785b-135c-4e10-be1e-06a5c03e5df8/page/VbU0F',
-      heatmap: '',
+      heatmap: 'https://datastudio.google.com/embed/reporting/a4537dfb-132a-4e00-91ab-27ede67961cb/page/tsc0F',
     },
     misiones: {
       dashboard: 'https://datastudio.google.com/embed/reporting/17fb6121-b0a9-4352-b802-af6516113e5d/page/3pU0F',
-      heatmap: '',
+      heatmap: 'https://datastudio.google.com/embed/reporting/d2f15f65-c9bf-475a-b54c-a25a996886b7/page/f4c0F',
     },
     obera: {
       dashboard: 'https://datastudio.google.com/embed/reporting/3bc16cef-4cd0-4daa-9c93-750572b9f30a/page/hYY0F',
-      heatmap: '',
+      heatmap: 'https://datastudio.google.com/embed/reporting/f5cee063-8518-409b-bf15-2a18433a782e/page/cud0F',
     },
     gerencia: {
       dashboard: 'https://datastudio.google.com/embed/reporting/95672365-963d-4337-88aa-e321226a30b9/page/MKU0F',
