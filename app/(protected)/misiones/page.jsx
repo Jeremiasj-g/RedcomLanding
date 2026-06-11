@@ -59,7 +59,8 @@ export default function Misiones() {
       <div className="min-h-screen">
         <PageHeader
           title="Misiones"
-          bg="border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900"
+          bg="bg-gradient-to-tl from-emerald-900 to-transparent to-[55%]"
+          bg2='bg-gradient-to-bl from-lime-400/90 from-0% via-[20%] to-transparent to-[35%]'
           bgImage='/mapa-misiones.png'
         />
 

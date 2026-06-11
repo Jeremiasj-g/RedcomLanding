@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Container from './Container';
+import Carrusel from './Carrusel';
 
 export default function PageHeader(props) {
   const {
@@ -9,23 +10,30 @@ export default function PageHeader(props) {
     subtitle = 'Recursos sucursal',
     bgImage = '',
     bg = ' ',
+    bg2 = '',
     actions = null,
     className = '',
   } = props;
 
   return (
-    <header className={`relative h-[600px] min-h-[420px] overflow-hidden shadow-2xl ${className}`}>
+    <header className={`h-[calc(100dvh-64px)] min-h-[420px] overflow-hidden ${className}`}>
+
+      <div className={`relative flex flex-col justify-center gap-10 max-w-7xl mx-auto px-4 py-14 h-full z-10`}>
+        <h1 className="text-6xl font-extrabold drop-shadow-sm">
+          ¡Bienvenido al espacio <br /> de trabajo de <br /> {title}!
+        </h1>
+
+        <p>Aquí podras encontrar todos los recursos necesarios para tu trabajo, <br /> desde planillas hasta herramientas de colaboración. <br /> dashboards y tableros de los ultimos 3 meses cerrados</p>
+
+        <Carrusel />
+      </div>
+
+
+
+
       {/* Fondo */}
-      <div className="absolute inset-0">
-        <img
-          src="/redcom_portada.jpg"
-          alt="Portada Redcom"
-          className="h-full w-full object-cover"
-        />
-        {/* Overlay para contraste */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/10" />
-        {/* Halo sutil */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(1200px_240px_at_50%_-10%,rgba(59,130,246,0.18),transparent)] opacity-60" />
+      <div className={`absolute inset-0 ${bg}`}>
+        <div className={`absolute inset-0 ${bg2}`} />
       </div>
 
       {/* Card flotante (glass) */}
@@ -34,33 +42,15 @@ export default function PageHeader(props) {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
-          className="absolute bottom-8 w-full -translate-x-1/2"
+          className="absolute bottom-0 right-0 w-full border h-full"
         >
-          <div className="w-max rounded-2xl border border-white/15 bg-white/10 p-5 md:p-6 backdrop-blur-md shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-            <div className="flex items-center gap-4 md:gap-6">
-              {/* Avatar/Badge */}
-              <div className={`h-40 w-40 p-4 shrink-0 overflow-hidden rounded-full ring-2 ring-white/40 bg-white/5 ${bg}`}>
+          <div className={`absolute top-[20%] right-12 p-4 overflow-hidden`}>
                 {bgImage ? (
-                  <img src={bgImage} alt={bgImage} className="h-full w-full object-contain" />
+                  <img src={bgImage} alt={bgImage} className="h-full w-full drop-shadow-[10px_10px_0px_rgba(0,0,0,.7)]" />
                 ) : (
                   <div className="h-full w-full" />
                 )}
               </div>
-
-              {/* Títulos */}
-              <div className="flex min-w-0 flex-col">
-                <span className="text-xs md:text-sm uppercase tracking-[0.12em] text-white/70">
-                  {subtitle}
-                </span>
-                <h1 className="truncate text-2xl md:text-4xl font-bold text-white drop-shadow-sm">
-                  {title}
-                </h1>
-              </div>
-
-              {/* Acciones (opcional) */}
-              {actions ? <div className="ml-auto flex items-center gap-3">{actions}</div> : null}
-            </div>
-          </div>
         </motion.div>
       </Container>
     </header>

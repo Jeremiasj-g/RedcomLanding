@@ -59,7 +59,8 @@ export default function Obera() {
       <div className="min-h-screen">
         <PageHeader
           title="Oberá"
-          bg="border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900"
+          bg="bg-gradient-to-tl from-purple-900 to-transparent to-[55%]"
+          bg2='bg-gradient-to-bl from-pink-400/90 from-0% via-[20%] to-transparent to-[35%]'
           bgImage="/mapa-obera.png"
         />
 

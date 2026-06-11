@@ -62,7 +62,8 @@ export default function Chaco() {
       <div className="min-h-screen">
         <PageHeader
           title="Chaco"
-          bg='border-2 bg-gradient-to-tr from-gray-900 via-cyan-900 to-gray-900'
+          bg='bg-gradient-to-tl from-red-800 to-transparent to-[55%]'
+          bg2='bg-gradient-to-bl from-pink-400/70 from-0% via-[20%] to-transparent to-[35%]'
           bgImage="/mapa-chaco.png"
         />
 
