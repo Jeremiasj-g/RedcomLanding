@@ -47,7 +47,7 @@ export default function Carrusel() {
                 src={sponsor.logo}
                 alt={index < sponsors.length ? sponsor.name : ""}
                 className="
-                  w-20 object-contain
+                  w-24 object-contain
                   transition duration-300
                   hover:scale-110
                 "

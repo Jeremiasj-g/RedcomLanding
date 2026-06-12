@@ -1,93 +1,68 @@
-'use client';
+"use client";
 
-import { useMemo } from 'react';
-import LookerTabs from '@/components/LookerTabs';
-import { Table, BarChart3, Flame } from 'lucide-react';
-import { motion } from 'framer-motion';
-import PageHeader from '@/components/PageHeader';
-import LookerEmbed from '@/components/LookerEmbed';
-import CardSucursales from '@/components/CardSucursales';
-import Container from '@/components/Container';
-import { misionesProducts } from '@/lib/data';
-import { SectionDivider } from '@/components/SectionDivider';
-import { IconAnalytics } from '@/components/Icons/IconAnalytics';
-import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
-import { RequireAuth } from '@/components/RouteGuards';
-import { urls } from '@/lib/data';
-import CategoryBannerLink from '@/components/categoria/CategoryBannerLink';
-import { useMe } from '@/hooks/useMe';
+import { useMemo } from "react";
+import { BarChart3, Flame, Table } from "lucide-react";
+import BranchResourcesSection from "@/components/BranchResourcesSection";
+import CategoryBannerLink from "@/components/categoria/CategoryBannerLink";
+import Container from "@/components/Container";
+import FullScreenEmbedCard from "@/components/FullScreenEmbedCard";
+import LookerEmbed from "@/components/LookerEmbed";
+import LookerTabs from "@/components/LookerTabs";
+import { RequireAuth } from "@/components/RouteGuards";
+import { useMe } from "@/hooks/useMe";
+import { misionesProducts, urls } from "@/lib/data";
+import PageHeader from "@/components/PageHeader";
 
 export default function Misiones() {
-
-  const mapaMisiones = urls.mapas[3].misiones
-  const tableroMisiones = urls.tableros[3].misiones
-
   const { me } = useMe();
-  const role = me?.role ?? 'vendedor';
+  const tableroMisiones = urls.tableros[3].misiones;
+  const role = me?.role ?? "vendedor";
 
   const visibleProducts = misionesProducts.filter((product) =>
     (product.roles ?? []).includes(role),
   );
 
-  const PERMISSIONS = {
-    analytics: ['admin', 'supervisor', 'jdv'],
-  };
-
-  const canSeeAnalytics = PERMISSIONS.analytics.includes(role);
+  const canSeeAnalytics = ["admin", "supervisor", "jdv"].includes(role);
 
   const lookerTabs = useMemo(
     () => [
       {
-        key: 'dashboard',
-        label: 'Dashboard',
+        key: "dashboard",
+        label: "Dashboard",
         icon: <BarChart3 className="h-4 w-4" />,
-        bgImage: 'dash_mnes.webp',
+        bgImage: "dash_mnes.webp",
       },
       {
-        key: 'heatmap',
-        label: 'Mapa de calor',
+        key: "heatmap",
+        label: "Mapa de calor",
         icon: <Flame className="h-4 w-4" />,
-        bgImage: 'heatmap_mnes.webp',
+        bgImage: "heatmap_mnes.webp",
       },
     ],
     [],
   );
 
   return (
+    <RequireAuth
+      roles={["admin", "supervisor", "jdv", "vendedor", "rrhh"]}
+      branches={["misiones"]}
+    >
 
-    <RequireAuth roles={['admin', 'supervisor', 'jdv', 'vendedor', 'rrhh']} branches={['misiones']}>
-      <div className="min-h-screen">
-        <PageHeader
+      <PageHeader
           title="Misiones"
           bg="bg-gradient-to-tl from-emerald-900 to-transparent to-[55%]"
           bg2='bg-gradient-to-bl from-lime-400/90 from-0% via-[20%] to-transparent to-[35%]'
           bgImage='/mapa-misiones.png'
         />
 
-        <section className="pt-24 pb-14">
-          <Container>
-            <div className="grid md:grid-cols-3 lg:grid-cols-3 gap-6">
-              {visibleProducts.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.5,
-                    delay: index * 0.1
-                  }}
-                  viewport={{ once: true }}
-                >
-                  <CardSucursales {...product} />
-                </motion.div>
-              ))}
-            </div>
-          </Container>
-        </section>
+      <div className="min-h-screen bg-white">
+        <BranchResourcesSection
+          branchName="Misiones"
+          products={visibleProducts}
+        />
 
-        {/* ✅ banner a categorías */}
-        <Container>
-          <div className="mt-6">
+        <section className="bg-white py-12 sm:py-14">
+          <Container>
             <CategoryBannerLink
               branchLabel="Misiones"
               href="/misiones/categorias"
@@ -95,36 +70,30 @@ export default function Misiones() {
               description="Ranking por vendedor, puntajes y comparación por criterios."
               buttonLabel="Abrir"
             />
-          </div>
-        </Container>
 
-
+            {canSeeAnalytics && (
+              <div className="mt-8">
+                <FullScreenEmbedCard {...tableroMisiones} icon={<Table />} />
+              </div>
+            )}
+          </Container>
+        </section>
 
         {canSeeAnalytics && (
-          <>
-            <Container>
-              {/* <FullScreenEmbedCard {...mapaMisiones} /> */}
-              <FullScreenEmbedCard {...tableroMisiones} icon={<Table />} />
-            </Container>
-
-            <LookerTabs tabs={lookerTabs} defaultTab="dashboard" className='mt-28'>
-              {({ activeTab }) => (
-                <LookerEmbed
-                  looker_id="misiones"
-                  type={activeTab.key}
-                  bgImage={activeTab.bgImage}
-                />
-              )}
-            </LookerTabs>
-
-            {/* <Container>
-              <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
-            </Container> */}
-
-            {/* <LookerEmbed looker_id='misiones' type="dashboard" bgImage="dash_mnes.webp" /> */}
-          </>
+          <LookerTabs
+            tabs={lookerTabs}
+            defaultTab="dashboard"
+            className="mt-14"
+          >
+            {({ activeTab }) => (
+              <LookerEmbed
+                looker_id="misiones"
+                type={activeTab.key}
+                bgImage={activeTab.bgImage}
+              />
+            )}
+          </LookerTabs>
         )}
-
       </div>
     </RequireAuth>
   );

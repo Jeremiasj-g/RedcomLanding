@@ -44,9 +44,9 @@ export default function PageHeader(props) {
           transition={{ duration: 0.6, ease: 'easeOut' }}
           className="absolute bottom-0 right-0 w-full border h-full"
         >
-          <div className={`absolute top-[20%] right-12 p-4 overflow-hidden`}>
+          <div className={`absolute top-[20%] right-[8%] p-4 overflow-hidden`}>
                 {bgImage ? (
-                  <img src={bgImage} alt={bgImage} className="h-full w-full drop-shadow-[10px_10px_0px_rgba(0,0,0,.7)]" />
+                  <img src={bgImage} alt={bgImage} className="h-full w-full drop-shadow-[5px_5px_0px_rgba(0,0,0,.7)]" />
                 ) : (
                   <div className="h-full w-full" />
                 )}

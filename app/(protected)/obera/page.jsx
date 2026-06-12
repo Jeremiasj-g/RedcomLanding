@@ -1,99 +1,75 @@
-'use client';
+"use client";
 
-import { useMemo } from 'react';
-import LookerTabs from '@/components/LookerTabs';
-import { Table, BarChart3, Flame } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useMemo } from "react";
+import { BarChart3, Flame, Table } from "lucide-react";
+import BranchResourcesSection from "@/components/BranchResourcesSection";
+import Container from "@/components/Container";
+import FullScreenEmbedCard from "@/components/FullScreenEmbedCard";
+import LookerEmbed from "@/components/LookerEmbed";
+import LookerTabs from "@/components/LookerTabs";
+import { RequireAuth } from "@/components/RouteGuards";
+import { useMe } from "@/hooks/useMe";
+import { oberaProducts, urls } from "@/lib/data";
 import PageHeader from '@/components/PageHeader';
-import CardSucursales from '@/components/CardSucursales';
-import Container from '@/components/Container';
-import { oberaProducts } from '@/lib/data';
-import { SectionDivider } from '@/components/SectionDivider';
-import { IconAnalytics } from '@/components/Icons/IconAnalytics';
-import LookerEmbed from '@/components/LookerEmbed';
-import { RequireAuth } from '@/components/RouteGuards';
-import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
-import { urls } from '@/lib/data';
-import { useMe } from '@/hooks/useMe';
 
 export default function Obera() {
-
-  // const mapaMisiones = urls.mapas[3].misiones
-  const tableroObera = urls.tableros[5].obera
-  const mapaObera = urls.mapas[4].obera
-
   const { me } = useMe();
-  const role = me?.role ?? 'vendedor';
+  const tableroObera = urls.tableros[5].obera;
+  const role = me?.role ?? "vendedor";
 
   const visibleProducts = oberaProducts.filter((product) =>
     (product.roles ?? []).includes(role),
   );
 
-  const PERMISSIONS = {
-    analytics: ['admin', 'supervisor', 'jdv'],
-  };
+  const canSeeAnalytics = ["admin", "supervisor", "jdv"].includes(role);
 
-  const canSeeAnalytics = PERMISSIONS.analytics.includes(role);
-  
-    const lookerTabs = useMemo(
-      () => [
-        {
-          key: 'dashboard',
-          label: 'Dashboard',
-          icon: <BarChart3 className="h-4 w-4" />,
-          bgImage: 'dash_obera.webp',
-        },
-        {
-          key: 'heatmap',
-          label: 'Mapa de calor',
-          icon: <Flame className="h-4 w-4" />,
-          bgImage: 'heatmap_obera.webp',
-        },
-      ],
-      [],
-    );
+  const lookerTabs = useMemo(
+    () => [
+      {
+        key: "dashboard",
+        label: "Dashboard",
+        icon: <BarChart3 className="h-4 w-4" />,
+        bgImage: "dash_obera.webp",
+      },
+      {
+        key: "heatmap",
+        label: "Mapa de calor",
+        icon: <Flame className="h-4 w-4" />,
+        bgImage: "heatmap_obera.webp",
+      },
+    ],
+    [],
+  );
 
   return (
+    <RequireAuth
+      roles={["admin", "supervisor", "jdv", "vendedor", "rrhh"]}
+      branches={["obera"]}
+    >
 
-    <RequireAuth roles={['admin', 'supervisor', 'jdv', 'vendedor', 'rrhh']} branches={['obera']}>
-      <div className="min-h-screen">
-        <PageHeader
-          title="Oberá"
-          bg="bg-gradient-to-tl from-purple-900 to-transparent to-[55%]"
-          bg2='bg-gradient-to-bl from-pink-400/90 from-0% via-[20%] to-transparent to-[35%]'
-          bgImage="/mapa-obera.png"
-        />
+      <PageHeader
+        title="Oberá"
+        bg="bg-gradient-to-tl from-purple-900 to-transparent to-[55%]"
+        bg2='bg-gradient-to-bl from-pink-400/90 from-0% via-[20%] to-transparent to-[35%]'
+        bgImage="/mapa-obera.png"
+      />
 
-        <section className="pt-24 pb-14">
-          <Container>
-            <div className="grid md:grid-cols-3 lg:grid-cols-3 gap-6">
-              {visibleProducts.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.5,
-                    delay: index * 0.1
-                  }}
-                  viewport={{ once: true }}
-                >
-                  <CardSucursales {...product} />
-                </motion.div>
-              ))}
-            </div>
-          </Container>
-        </section>
-
+      <div className="min-h-screen bg-white">
+        <BranchResourcesSection branchName="Oberá" products={visibleProducts} />
 
         {canSeeAnalytics && (
           <>
-            <Container>
-              {/* <FullScreenEmbedCard {...mapaObera} /> */}
-              <FullScreenEmbedCard {...tableroObera} icon={<Table />} />
-            </Container>
+            <section className="bg-white py-12 sm:py-14">
+              <Container>
+                <FullScreenEmbedCard {...tableroObera} icon={<Table />} />
+              </Container>
+            </section>
 
-            <LookerTabs tabs={lookerTabs} defaultTab="dashboard" className='mt-28'>
+            <LookerTabs
+              tabs={lookerTabs}
+              defaultTab="dashboard"
+              className="mt-14"
+            >
               {({ activeTab }) => (
                 <LookerEmbed
                   looker_id="obera"
@@ -102,16 +78,9 @@ export default function Obera() {
                 />
               )}
             </LookerTabs>
-
-            {/* <Container>
-              <SectionDivider title='Dashboard de ventas' icon={<IconAnalytics />} />
-            </Container>
-
-            <LookerEmbed looker_id="obera" type="dashboard" bgImage="dash_obera.webp" /> */}
           </>
         )}
       </div>
     </RequireAuth>
-
   );
 }
