@@ -30,7 +30,7 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
       heatmap: 'https://datastudio.google.com/embed/reporting/f5cee063-8518-409b-bf15-2a18433a782e/page/cud0F',
     },
     gerencia: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/95672365-963d-4337-88aa-e321226a30b9/page/MKU0F',
+      dashboard: 'https://datastudio.google.com/embed/reporting/8a7134c3-4aa4-4955-ab87-3c651813ceaf/page/zu70F',
       heatmap: '',
     },
   };
