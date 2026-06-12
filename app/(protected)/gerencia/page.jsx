@@ -1,28 +1,18 @@
 'use client';
 
 import { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import PageHeader from '@/components/PageHeader';
-import LookerEmbed from '@/components/LookerEmbed';
-import Card from '@/components/Card';
+import { BarChart3, Flame, Table } from 'lucide-react';
+import BranchResourcesSection from '@/components/BranchResourcesSection';
 import Container from '@/components/Container';
-import { gerenciaProducts } from '@/lib/data';
-import { SectionDivider } from '@/components/SectionDivider';
-import { IconAnalytics } from '@/components/Icons/IconAnalytics';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
-import { urls } from '@/lib/data';
-import { Table, BarChart3, Flame } from 'lucide-react';
-import { RequireAuth } from '@/components/RouteGuards';
-import CardSucursales from '@/components/CardSucursales';
+import LookerEmbed from '@/components/LookerEmbed';
 import LookerTabs from '@/components/LookerTabs';
-// (opcional) import { IconMapPoint } from '@/components/Icons/IconMapPoint';
-
-/* const MAP_URL = 'https://www.google.com/maps/d/u/0/embed?mid=19y6MniEXtnVs3QBIZOlaXGOnkRMVTkI&ehbc=2E312F'; */
+import PageHeader from '@/components/PageHeader';
+import { RequireAuth } from '@/components/RouteGuards';
+import { gerenciaProducts, urls } from '@/lib/data';
 
 export default function Gerencia() {
-
-  const gerenciaMapa = urls.mapas[2].gerencia
-  const gerenciaTablero = urls.tableros[2].gerencia
+  const gerenciaTablero = urls.tableros[2].gerencia;
 
   const lookerTabs = useMemo(
     () => [
@@ -44,49 +34,31 @@ export default function Gerencia() {
 
   return (
     <RequireAuth roles={['admin']}>
+      <PageHeader
+        title="Gerencia"
+        bg="bg-gradient-to-tl from-sky-700 to-transparent to-[55%]"
+        bg2="bg-gradient-to-bl from-sky-400/70 from-0% via-[20%] to-transparent to-[35%]"
+        bgImage="/mapa-corrientes.png"
+      />
 
-      <div className="min-h-screen">
-        <PageHeader
-          title="Gerencia"
-          bg="bg-gradient-to-tl from-sky-700 to-transparent to-[55%]"
-          bg2='bg-gradient-to-bl from-sky-400/70 from-0% via-[20%] to-transparent to-[35%]'
-          bgImage="/mapa-corrientes.png"
+      <div className="min-h-screen bg-white">
+        <BranchResourcesSection
+          branchName="Gerencia"
+          products={gerenciaProducts}
+          description="Accedé rápidamente a las planillas y recursos de seguimiento utilizados por Gerencia."
         />
 
-        <section className="pt-24 pb-14">
+        <section className="bg-white py-12 sm:py-14">
           <Container>
-            <div className="grid md:grid-cols-3 lg:grid-cols-3 gap-6">
-              {gerenciaProducts.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.5,
-                    delay: index * 0.1
-                  }}
-                  viewport={{ once: true }}
-                >
-                  <CardSucursales {...product} />
-                </motion.div>
-              ))}
-            </div>
-          </Container>
-        </section>
-
-        {/* Card + Modal reutilizable */}
-        <section className="pb-14">
-          <Container>
-            {/* <FullScreenEmbedCard {...gerenciaMapa} /> */}
             <FullScreenEmbedCard {...gerenciaTablero} icon={<Table />} />
           </Container>
         </section>
-        {/* <Container>
-          <SectionDivider title="Dashboard de ventas" icon={<IconAnalytics />} />
-        </Container> */}
 
-
-        <LookerTabs tabs={lookerTabs} defaultTab="dashboard" className='mt-28'>
+        <LookerTabs
+          tabs={lookerTabs}
+          defaultTab="dashboard"
+          className="mt-14"
+        >
           {({ activeTab }) => (
             <LookerEmbed
               looker_id="gerencia"
@@ -95,13 +67,7 @@ export default function Gerencia() {
             />
           )}
         </LookerTabs>
-
-
-        {/* <LookerEmbed looker_id="gerencia" type="dashboard" bgImage="gerencias_dash.webp" /> */}
-
-
       </div>
     </RequireAuth>
-
   );
 }

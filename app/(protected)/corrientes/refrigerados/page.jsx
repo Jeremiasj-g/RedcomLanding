@@ -1,143 +1,109 @@
 'use client';
 
 import { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import PageHeader from '@/components/PageHeader';
-import CardSucursales from '@/components/CardSucursales';
+import { BarChart3, Flame, Table } from 'lucide-react';
+import BranchResourcesSection from '@/components/BranchResourcesSection';
 import Container from '@/components/Container';
-import { corrientesRefrigerados } from '@/lib/data';
-import { corrientesRefrigeradosKilosBultos } from '@/lib/data';
-import ClientGate from '@/components/ClientGate';
-import LookerEmbed from '@/components/LookerEmbed';
-import { SectionDivider } from '@/components/SectionDivider';
-import { IconAnalytics } from '@/components/Icons/IconAnalytics'
-import { RequireAuth } from '@/components/RouteGuards';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
-import { urls } from '@/lib/data';
-import { Table, BarChart3, Flame } from 'lucide-react';
-import { useMe } from '@/hooks/useMe';
+import LookerEmbed from '@/components/LookerEmbed';
 import LookerTabs from '@/components/LookerTabs';
+import PageHeader from '@/components/PageHeader';
+import { RequireAuth } from '@/components/RouteGuards';
+import { useMe } from '@/hooks/useMe';
+import {
+  corrientesRefrigerados,
+  corrientesRefrigeradosKilosBultos,
+  urls,
+} from '@/lib/data';
 
 export default function CorrientesRefrigerados() {
-
-  const refrigeradosTablero = urls.tableros[1].refrigerados
-  const mapaTablero = urls.mapas[5].refrigerados
-
+  const refrigeradosTablero = urls.tableros[1].refrigerados;
   const { me } = useMe();
   const role = me?.role ?? 'vendedor';
 
   const visibleProducts = corrientesRefrigerados.filter((product) =>
     (product.roles ?? []).includes(role),
   );
-  const visibleProductsKB = corrientesRefrigeradosKilosBultos.filter((product) =>
-    (product.roles ?? []).includes(role),
+
+  const visibleProductsKB = corrientesRefrigeradosKilosBultos.filter(
+    (product) => (product.roles ?? []).includes(role),
   );
 
-  const PERMISSIONS = {
-    analytics: ['admin', 'supervisor', 'jdv'],
-  };
-
-  const canSeeAnalytics = PERMISSIONS.analytics.includes(role);
+  const canSeeAnalytics = ['admin', 'supervisor', 'jdv'].includes(role);
 
   const lookerTabs = useMemo(
-      () => [
-        {
-          key: 'dashboard',
-          label: 'Dashboard volumen',
-          icon: <BarChart3 className="h-4 w-4" />,
-          bgImage: 'dash_ctes.webp',
-        },
-        {
-          key: 'heatmap',
-          label: 'Mapa de calor',
-          icon: <Flame className="h-4 w-4" />,
-          bgImage: 'heatmap_ctes.webp',
-        },
-      ],
-      [],
-    );
+    () => [
+      {
+        key: 'dashboard',
+        label: 'Dashboard volumen',
+        icon: <BarChart3 className="h-4 w-4" />,
+        bgImage: 'dash_ctes.webp',
+      },
+      {
+        key: 'heatmap',
+        label: 'Mapa de calor',
+        icon: <Flame className="h-4 w-4" />,
+        bgImage: 'heatmap_ctes.webp',
+      },
+    ],
+    [],
+  );
 
-    const lookerTabsKilos = useMemo(
-      () => [
-        {
-          key: 'dashboard',
-          label: 'Dashboard kilos',
-          icon: <BarChart3 className="h-4 w-4" />,
-          bgImage: 'dash_ctes.webp',
-        },
-      ],
-      [],
-    );
+  const lookerTabsKilos = useMemo(
+    () => [
+      {
+        key: 'dashboard',
+        label: 'Dashboard kilos',
+        icon: <BarChart3 className="h-4 w-4" />,
+        bgImage: 'dash_ctes.webp',
+      },
+    ],
+    [],
+  );
 
   return (
+    <RequireAuth
+      roles={['admin', 'supervisor', 'jdv', 'vendedor', 'rrhh']}
+      branches={['refrigerados']}
+    >
+      <PageHeader
+        title="Refrigerados"
+        bg="bg-gradient-to-tl from-sky-700 to-transparent to-[55%]"
+        bg2="bg-gradient-to-bl from-sky-400/70 from-0% via-[20%] to-transparent to-[35%]"
+        bgImage="/mapa-corrientes.png"
+      />
 
-    <RequireAuth roles={['admin', 'supervisor', 'jdv', 'vendedor', 'rrhh']} branches={['refrigerados']}>
-
-      <div className="min-h-screen">
-        <PageHeader
-          title="Refrigerados"
-          bg="bg-gradient-to-tl from-sky-700 to-transparent to-[55%]"
-          bg2='bg-gradient-to-bl from-sky-400/70 from-0% via-[20%] to-transparent to-[35%]'
-          bgImage="/mapa-corrientes.png"
+      <div className="min-h-screen bg-white">
+        <BranchResourcesSection
+          branchName="Corrientes Refrigerados"
+          products={visibleProducts}
         />
-
-        <section className="pt-24 pb-14">
-          <Container>
-            <div className="grid md:grid-cols-3 lg:grid-cols-3 gap-6">
-              {visibleProducts.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.5,
-                    delay: index * 0.1
-                  }}
-                  viewport={{ once: true }}
-                >
-                  <CardSucursales {...product} />
-                </motion.div>
-              ))}
-            </div>
-          </Container>
-        </section>
-
-
-
 
         {canSeeAnalytics && (
           <>
-            <Container>
-              <FullScreenEmbedCard {...refrigeradosTablero} icon={<Table />} />
-              {/* <FullScreenEmbedCard {...mapaTablero} /> */}
-            </Container>
-
-            <Container>
-              <SectionDivider title='Kílos - bultos' />
-            </Container>
-
-            <section className="py-12">
+            <section className="bg-white py-12 sm:py-14">
               <Container>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
-                  {visibleProductsKB.map((product, index) => (
-                    <motion.div
-                      key={product.id}
-                      initial={{ opacity: 0, y: 30 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      transition={{
-                        duration: 0.5,
-                        delay: index * 0.1
-                      }}
-                      viewport={{ once: true }}
-                    >
-                      <CardSucursales {...product} />
-                    </motion.div>
-                  ))}
-                </div>
+                <FullScreenEmbedCard
+                  {...refrigeradosTablero}
+                  icon={<Table />}
+                />
               </Container>
             </section>
 
-            <LookerTabs tabs={lookerTabs} defaultTab="dashboard" className='mt-28'>
+            <BranchResourcesSection
+              branchName="Refrigerados"
+              products={visibleProductsKB}
+              eyebrow="Análisis comercial"
+              title="Kilos y bultos"
+              description="Accedé a las planillas de análisis, objetivos y sensibilización de kilos y bultos."
+              searchPlaceholder="Buscar una herramienta de kilos o bultos..."
+            />
+
+            <LookerTabs
+              tabs={lookerTabs}
+              defaultTab="dashboard"
+              className="mt-14"
+            >
               {({ activeTab }) => (
                 <LookerEmbed
                   looker_id="refrigerados"
@@ -146,8 +112,12 @@ export default function CorrientesRefrigerados() {
                 />
               )}
             </LookerTabs>
-            
-            <LookerTabs tabs={lookerTabsKilos} defaultTab="dashboard" className='mt-28'>
+
+            <LookerTabs
+              tabs={lookerTabsKilos}
+              defaultTab="dashboard"
+              className="mt-14"
+            >
               {({ activeTab }) => (
                 <LookerEmbed
                   looker_id="refrigeradosKilos"
@@ -156,26 +126,9 @@ export default function CorrientesRefrigerados() {
                 />
               )}
             </LookerTabs>
-
-            {/* <Container>
-              <SectionDivider title='Dashboard de ventas BULTOS' icon={<IconAnalytics />} />
-            </Container>
-
-            <LookerEmbed looker_id='refrigerados' type="dashboard" bgImage="dash_refri.webp"/>
-            
-            <Container>
-              <SectionDivider title='Dashboard de ventas KILOS' icon={<IconAnalytics />} />
-            </Container>
-            
-            <LookerEmbed looker_id='refrigeradosKilos' type="dashboard" bgImage="dash_refri.webp"/> */}
           </>
         )}
-
       </div>
     </RequireAuth>
-
-
-
-
   );
 }

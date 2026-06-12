@@ -52,6 +52,10 @@ type ResourceProduct = {
 type BranchResourcesSectionProps = {
   branchName: string;
   products: ResourceProduct[];
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  searchPlaceholder?: string;
 };
 
 type FilterOption = {
@@ -79,6 +83,11 @@ function normalizeText(value = "") {
 export default function BranchResourcesSection({
   branchName,
   products,
+  eyebrow = "Panel interno",
+  title = "Herramientas y recursos",
+  description =
+    "Accedé rápidamente a las aplicaciones y planillas utilizadas diariamente en Redcom.",
+  searchPlaceholder = "Buscar una herramienta...",
 }: BranchResourcesSectionProps) {
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todas");
@@ -121,7 +130,7 @@ export default function BranchResourcesSection({
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">
-                Panel interno
+                {eyebrow}
               </span>
               <span
                 className="h-1 w-1 rounded-full bg-slate-300"
@@ -133,12 +142,11 @@ export default function BranchResourcesSection({
             </div>
 
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl lg:text-[42px]">
-              Herramientas y recursos
+              {title}
             </h1>
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
-              Accedé rápidamente a las aplicaciones y planillas utilizadas
-              diariamente en Redcom.
+              {description}
             </p>
           </div>
 
@@ -151,7 +159,7 @@ export default function BranchResourcesSection({
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar una herramienta..."
+              placeholder={searchPlaceholder}
               className="h-14 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-12 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10"
               aria-label="Buscar una herramienta"
             />
