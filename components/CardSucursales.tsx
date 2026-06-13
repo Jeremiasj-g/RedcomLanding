@@ -136,10 +136,10 @@ const Card = ({
 
     const resourceCard = (
       <motion.article
-        whileHover={{ y: -5 }}
+        whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.99 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-        className={`group flex h-full min-h-[245px] flex-col rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition-[border-color,box-shadow] duration-300 ${palette.hoverBorder} hover:shadow-[0_18px_45px_rgba(15,23,42,0.10)]`}
+        transition={{ duration: 0.1, ease: "easeOut" }}
+        className={`group flex h-full min-h-[245px] flex-col rounded-2xl border shadow-2xl border-slate-200/90 bg-white p-6 transition-[border-color,box-shadow] duration-300 ${palette.hoverBorder} hover:shadow-[0_18px_45px_rgba(15,23,42,0.10)]`}
       >
         <div className="mb-7 flex items-start justify-between gap-4">
           <span
