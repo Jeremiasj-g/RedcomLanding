@@ -78,7 +78,9 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.2.2",
     "vaul": "^0.9.9",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "@dnd-kit/sortable": "^10.0.0",
+    "react-simple-wysiwyg": "^3.4.0"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",

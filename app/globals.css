@@ -150,6 +150,7 @@ html {
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Atlassian Sans', Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 }
 
@@ -257,4 +258,127 @@ html {
     animation: none;
     opacity: .18;
   }
+}
+
+/* === Trello module integration === */
+.trello-root,
+.trello-root * {
+  font-family: 'Atlassian Sans', Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+/* Scrollbars oscuros y finos en todo el proyecto */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3f444d #17191d;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #17191d;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #3f444d;
+  border-radius: 999px;
+  border: 2px solid #17191d;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #59606b;
+}
+
+*::-webkit-scrollbar-corner {
+  background: #17191d;
+}
+
+@layer components {
+  .trello-description-editor-container {
+    @apply overflow-hidden rounded border border-[#6b7280] bg-[#202126] text-[#dfe3ea];
+  }
+
+  .trello-description-editor .rsw-editor {
+    @apply min-h-[300px] border-0 bg-transparent text-[#dfe3ea];
+  }
+
+  .trello-description-editor .rsw-toolbar {
+    @apply flex min-h-[52px] items-center gap-1 border-b border-[#343941] bg-[#202126] px-3 py-2 text-[#b8c0cc];
+  }
+
+  .trello-description-editor .rsw-btn,
+  .trello-comment-editor .rsw-btn {
+    @apply rounded border-0 bg-transparent px-2 py-1 font-bold text-[#b8c0cc] transition hover:bg-white/10 hover:text-white;
+  }
+
+  .trello-description-editor .rsw-ce {
+    @apply min-h-[246px] px-5 py-5 text-base leading-relaxed outline-none;
+  }
+
+  .trello-description-editor .rsw-ce:empty::before,
+  .trello-comment-editor .rsw-ce:empty::before {
+    @apply text-[#9fa8b7];
+  }
+
+  .trello-description-editor .rsw-ce ul,
+  .trello-comment-editor .rsw-ce ul {
+    @apply ml-5 list-disc;
+  }
+
+  .trello-description-editor .rsw-ce ol,
+  .trello-comment-editor .rsw-ce ol {
+    @apply ml-5 list-decimal;
+  }
+
+  .trello-description-editor .rsw-ce a,
+  .trello-comment-editor .rsw-ce a {
+    @apply text-[#579dff] underline;
+  }
+
+  .trello-comment-editor-container {
+    @apply overflow-hidden rounded-lg border border-[#2c3037] bg-[#22252b] text-[#dfe3ea];
+  }
+
+  .trello-comment-editor .rsw-editor {
+    @apply min-h-[40px] border-0 bg-transparent text-[#dfe3ea];
+  }
+
+  .trello-comment-editor .rsw-toolbar {
+    @apply hidden;
+  }
+
+  .trello-comment-editor .rsw-ce {
+    @apply min-h-[40px] px-3 py-2 text-base leading-relaxed outline-none;
+  }
+
+  .trello-description-content ul {
+    @apply my-2 ml-5 list-disc;
+  }
+
+  .trello-description-content ol {
+    @apply my-2 ml-5 list-decimal;
+  }
+
+  .trello-description-content li {
+    @apply my-1;
+  }
+
+  .trello-description-content a {
+    @apply text-[#579dff] underline;
+  }
+}
+
+@keyframes trello-loader {
+  0%, 100% { transform: scale(.82); opacity: .55; border-radius: .35rem; }
+  50% { transform: scale(1.06); opacity: 1; border-radius: 999px; }
 }

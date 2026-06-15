@@ -1,13 +1,10 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import Navbar from '@/components/navbar/Navbar';
 import Footer from '@/components/Footer';
 import FloatingTelegramButton from '@/components/Icons/FloatingTelegramButton';
 import AuthProvider from '@/app/auth/AuthProvider';
 
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Redcom',
@@ -32,7 +29,7 @@ export default function RootLayout({
       </head>
       
       <AuthProvider>
-        <body className={inter.className}>
+        <body>
           <Navbar />
           <main>{children}</main>
           {/* Botón flotante de Telegram */}
