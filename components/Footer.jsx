@@ -5,7 +5,7 @@ import Container from './Container';
 
 const Footer = () => {
   return (
-    <footer className="bg-gray-900 text-white py-12 md:mt-24">
+    <footer className="bg-[#1d1d1f] text-white py-12 md:mt-24">
       <Container>
         <motion.div
           initial={{ opacity: 0, y: 20 }}

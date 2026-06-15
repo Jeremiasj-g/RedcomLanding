@@ -161,6 +161,7 @@ export interface BoardLabelOption {
 export interface CreateBoardLabelInput {
   name: string;
   color: string;
+  boardId?: string;
 }
 
 export interface UpdateBoardLabelInput {

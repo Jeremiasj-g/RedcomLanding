@@ -60,6 +60,17 @@ const config: Config = {
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))',
         },
+        'trello-blue': '#579dff',
+        'trello-active': '#1c2f4f',
+        'trello-card': '#22272b',
+        'trello-list': '#101204',
+        'trello-surface': '#1d2125',
+        'trello-border': '#38414a',
+        'trello-text': '#dfe3ea',
+        'trello-muted': '#9fadbc',
+      },
+      boxShadow: {
+        trello: '0 12px 32px rgba(0, 0, 0, 0.45)',
       },
       keyframes: {
         'accordion-down': {

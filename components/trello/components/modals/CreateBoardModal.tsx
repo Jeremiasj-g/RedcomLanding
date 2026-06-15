@@ -2,7 +2,7 @@ import { Globe2, LockKeyhole, X } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useBoards } from '../../context/BoardContext';
 import type { BoardCover, BoardVisibility } from '../../types/trello';
-import { boardCovers } from '../../utils/trelloMockData';
+import { boardCovers } from '../../utils/trelloDesignData';
 
 interface CreateBoardModalProps {
   open: boolean;

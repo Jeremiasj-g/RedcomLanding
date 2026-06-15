@@ -8,6 +8,7 @@ import type {
   BoardLabelOption,
   BoardList,
   BoardVisibility,
+  ChatMessage,
   CreateWorkspaceInput,
   CreateBoardInput,
   CreateBoardLabelInput,
@@ -24,7 +25,7 @@ import type {
   UpdateBoardTaskCardInput,
   UpdateBoardLabelInput,
 } from '../types/trello';
-import { boardCovers } from '../utils/trelloMockData';
+import { boardCovers } from '../utils/trelloDesignData';
 import { filterBoards, filterMembers } from '../utils/trelloUtils';
 
 interface BoardContextValue {
@@ -47,6 +48,7 @@ interface BoardContextValue {
   selectedBoard?: Board;
   workspaceBoards: Board[];
   selectedBoardLists: BoardList[];
+  boardMessages: ChatMessage[];
   setActiveView: (view: AppView) => void;
   setSearch: (search: string) => void;
   setMemberSearch: (search: string) => void;
@@ -75,6 +77,7 @@ interface BoardContextValue {
   updateTaskCard: (listId: string, cardId: string, input: UpdateBoardTaskCardInput) => Promise<BoardList | null>;
   toggleTaskCardCompleted: (listId: string, cardId: string, completed: boolean) => Promise<void>;
   toggleWorkspaceExpanded: (workspaceId: string) => Promise<void>;
+  sendBoardMessage: (boardId: string, message: string) => Promise<void>;
 }
 
 const BoardContext = createContext<BoardContextValue | undefined>(undefined);
@@ -86,8 +89,9 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   const [boardLabels, setBoardLabels] = useState<BoardLabelOption[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('ws-facultad');
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('');
   const [selectedBoardId, setSelectedBoardId] = useState<string | undefined>();
+  const [boardMessages, setBoardMessages] = useState<ChatMessage[]>([]);
   const [search, setSearch] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   const [memberStatusFilter, setMemberStatusFilter] = useState<WorkspaceMemberStatus | undefined>('member');
@@ -96,25 +100,55 @@ export function BoardProvider({ children }: { children: ReactNode }) {
 
   const loadInitialData = useCallback(async () => {
     setLoading(true);
-    const [workspacesResponse, boardsResponse, boardListsResponse, membersResponse, labelsResponse] = await Promise.all([
-      tableroFacade.getWorkspaces(),
-      tableroFacade.getBoards(),
-      tableroFacade.getBoardLists(),
-      tableroFacade.getWorkspaceMembers(),
-      tableroFacade.getBoardLabels(),
-    ]);
+    try {
+      const [workspacesResponse, boardsResponse, boardListsResponse, membersResponse, labelsResponse] = await Promise.all([
+        tableroFacade.getWorkspaces(),
+        tableroFacade.getBoards(),
+        tableroFacade.getBoardLists(),
+        tableroFacade.getWorkspaceMembers(),
+        tableroFacade.getBoardLabels(),
+      ]);
 
-    setWorkspaces(workspacesResponse);
-    setBoards(boardsResponse);
-    setBoardLists(boardListsResponse);
-    setMembers(membersResponse);
-    setBoardLabels(labelsResponse);
-    setLoading(false);
+      setWorkspaces(workspacesResponse);
+      setBoards(boardsResponse);
+      setBoardLists(boardListsResponse);
+      setMembers(membersResponse);
+      setBoardLabels(labelsResponse);
+      setSelectedWorkspaceId((currentWorkspaceId) => {
+        if (currentWorkspaceId && workspacesResponse.some((workspace) => workspace.id === currentWorkspaceId)) return currentWorkspaceId;
+        return workspacesResponse[0]?.id ?? '';
+      });
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     void loadInitialData();
   }, [loadInitialData]);
+
+  useEffect(() => {
+    if (!selectedBoardId) {
+      setBoardMessages([]);
+      return undefined;
+    }
+
+    let isMounted = true;
+    const loadMessages = async () => {
+      const messages = await tableroFacade.getBoardMessages(selectedBoardId);
+      if (isMounted) setBoardMessages(messages);
+    };
+
+    void loadMessages();
+    const unsubscribe = tableroFacade.subscribeToBoardMessages(selectedBoardId, () => {
+      void loadMessages();
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [selectedBoardId]);
 
   const currentWorkspace = useMemo(
     () => workspaces.find((workspace) => workspace.id === selectedWorkspaceId),
@@ -183,10 +217,10 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   }, [boards, selectedWorkspaceId]);
 
   const createBoardLabel = useCallback(async (input: CreateBoardLabelInput) => {
-    const newLabel = await tableroFacade.createBoardLabel(input);
+    const newLabel = await tableroFacade.createBoardLabel({ ...input, boardId: input.boardId ?? selectedBoardId });
     setBoardLabels((currentLabels) => [...currentLabels, newLabel]);
     return newLabel;
-  }, []);
+  }, [selectedBoardId]);
 
   const updateBoardLabel = useCallback(async (labelId: string, input: UpdateBoardLabelInput) => {
     const updatedLabel = await tableroFacade.updateBoardLabel(labelId, input);
@@ -268,9 +302,9 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const removeWorkspaceMember = useCallback(async (memberId: string) => {
-    await tableroFacade.removeWorkspaceMember(memberId);
-    setMembers((currentMembers) => currentMembers.filter((member) => member.id !== memberId));
-  }, []);
+    await tableroFacade.removeWorkspaceMember(memberId, selectedWorkspaceId);
+    setMembers((currentMembers) => currentMembers.filter((member) => !(member.id === memberId && member.workspaceId === selectedWorkspaceId)));
+  }, [selectedWorkspaceId]);
 
   const createBoardTaskCard = useCallback(async (input: CreateBoardTaskCardInput) => {
     const updatedList = await tableroFacade.createBoardTaskCard(input);
@@ -346,6 +380,14 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     setWorkspaces(updatedWorkspaces);
   }, []);
 
+  const sendBoardMessage = useCallback(async (boardId: string, message: string) => {
+    const newMessage = await tableroFacade.sendBoardMessage(boardId, message);
+    setBoardMessages((currentMessages) => {
+      if (currentMessages.some((currentMessage) => currentMessage.id === newMessage.id)) return currentMessages;
+      return [...currentMessages, newMessage];
+    });
+  }, []);
+
   const value = useMemo(
     () => ({
       activeView,
@@ -367,6 +409,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       selectedBoard,
       workspaceBoards,
       selectedBoardLists,
+      boardMessages,
       setActiveView,
       setSearch,
       setMemberSearch,
@@ -395,6 +438,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       updateTaskCard,
       toggleTaskCardCompleted,
       toggleWorkspaceExpanded,
+      sendBoardMessage,
     }),
     [
       activeView,
@@ -416,6 +460,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       selectedBoard,
       workspaceBoards,
       selectedBoardLists,
+      boardMessages,
       createWorkspace,
       deleteWorkspace,
       createBoard,
@@ -438,6 +483,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       updateTaskCard,
       toggleTaskCardCompleted,
       toggleWorkspaceExpanded,
+      sendBoardMessage,
     ],
   );
 

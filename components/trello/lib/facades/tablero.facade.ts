@@ -3,6 +3,7 @@ import type {
   Board,
   BoardLabelOption,
   BoardList,
+  ChatMessage,
   CreateWorkspaceInput,
   CreateBoardLabelInput,
   CreateBoardInput,
@@ -85,8 +86,8 @@ export const tableroFacade = {
     return tableroController.inviteWorkspaceMember(workspaceId, sourceMemberId);
   },
 
-  removeWorkspaceMember(memberId: string): Promise<void> {
-    return tableroController.removeWorkspaceMember(memberId);
+  removeWorkspaceMember(memberId: string, workspaceId?: string): Promise<void> {
+    return tableroController.removeWorkspaceMember(memberId, workspaceId);
   },
 
   updateBoardTaskCard(listId: string, cardId: string, input: UpdateBoardTaskCardInput): Promise<BoardList | null> {
@@ -111,5 +112,18 @@ export const tableroFacade = {
 
   toggleWorkspaceExpanded(workspaceId: string): Promise<Workspace[]> {
     return tableroController.toggleWorkspaceExpanded(workspaceId);
+  },
+
+
+  getBoardMessages(boardId: string): Promise<ChatMessage[]> {
+    return tableroController.getBoardMessages(boardId);
+  },
+
+  sendBoardMessage(boardId: string, message: string): Promise<ChatMessage> {
+    return tableroController.sendBoardMessage(boardId, message);
+  },
+
+  subscribeToBoardMessages(boardId: string, onChange: () => void): () => void {
+    return tableroController.subscribeToBoardMessages(boardId, onChange);
   },
 };

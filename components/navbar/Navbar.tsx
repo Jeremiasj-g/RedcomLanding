@@ -286,7 +286,7 @@ export default function Navbar() {
   }, [logged, isActive, role, branches, pendingCount, unreadCount]);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-gray-900/90 backdrop-blur">
+    <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-[#1d1d1f] backdrop-blur">
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
         {/* Left: burger + logo */}
         <div className="flex items-center gap-3">

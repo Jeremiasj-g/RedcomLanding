@@ -70,7 +70,7 @@ export function SettingsPage() {
                 <h2 className="text-lg font-black text-white">Visibilidad del espacio de trabajo</h2>
               </div>
               <p className="max-w-2xl text-sm leading-relaxed text-[#a6a8b0]">
-                Este ajuste queda preparado para persistirse en base de datos más adelante. Por ahora se guarda en localStorage.
+                Este ajuste se guarda en Supabase para el espacio de trabajo seleccionado.
               </p>
             </div>
             <span className="rounded-full bg-[#1f3555] px-3 py-1 text-xs font-black text-[#9cc7ff]">
@@ -114,7 +114,7 @@ export function SettingsPage() {
             <div>
               <h2 className="text-lg font-black text-white">Visibilidad de tableros</h2>
               <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#a6a8b0]">
-                Desde esta solapa podés cambiar si cada tablero será público o privado. Cuando conectemos backend, este valor se puede guardar como columna <span className="rounded bg-black/25 px-1.5 py-0.5 font-mono text-xs">visibility</span> en la tabla de tableros.
+                Desde esta solapa podés cambiar si cada tablero será público o privado. Este valor se guarda como columna <span className="rounded bg-black/25 px-1.5 py-0.5 font-mono text-xs">visibility</span> en la tabla <span className="rounded bg-black/25 px-1.5 py-0.5 font-mono text-xs">trello_boards</span>.
               </p>
             </div>
             <span className="rounded-full bg-[#2d2f35] px-3 py-1 text-xs font-black text-[#c3c5cc]">
@@ -174,7 +174,7 @@ export function SettingsPage() {
                 <h2 className="text-lg font-black text-white">Eliminar espacio de trabajo</h2>
               </div>
               <p className="max-w-3xl text-sm leading-relaxed text-[#a6a8b0]">
-                Esta acción elimina el espacio, sus tableros, listas, tarjetas y miembros mock asociados. Cuando conectemos base de datos, esta misma acción puede delegarse a una función segura o endpoint transaccional.
+                Esta acción elimina el espacio, sus tableros, listas, tarjetas y miembros asociados en Supabase. Más adelante puede delegarse a un procedimiento almacenado transaccional.
               </p>
             </div>
             <button

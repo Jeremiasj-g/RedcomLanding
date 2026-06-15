@@ -74,7 +74,7 @@ import type {
   WorkspaceMember,
   UpdateBoardTaskCardInput,
 } from '../../types/trello';
-import { boardCovers, chatMessagesMock } from '../../utils/trelloMockData';
+import { boardCovers } from '../../utils/trelloDesignData';
 
 const defaultBoardGradient = 'linear-gradient(135deg, #075985 0%, #0369a1 50%, #0f172a 100%)';
 
@@ -325,7 +325,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-function InboxChatPanel({ messages, compact = false }: { messages: ChatMessage[]; compact?: boolean }) {
+function InboxChatPanel({ messages, members = [], compact = false, onSend }: { messages: ChatMessage[]; members?: WorkspaceMember[]; compact?: boolean; onSend: (message: string) => Promise<void> }) {
   const [draft, setDraft] = useState('');
 
   return (
@@ -341,7 +341,7 @@ function InboxChatPanel({ messages, compact = false }: { messages: ChatMessage[]
           </span>
           <div>
             <h2 className="text-lg font-black text-white">Bandeja de entrada</h2>
-            <p className="mt-1 text-xs leading-snug text-[#aeb6c2]">Chat interno preparado para Socket.IO o WebSocket.</p>
+            <p className="mt-1 text-xs leading-snug text-[#aeb6c2]">Chat interno conectado a Supabase y listo para Realtime.</p>
           </div>
         </div>
         <button className="grid h-8 w-8 place-items-center rounded-lg text-[#c6d4e8] transition hover:bg-white/10" type="button">
@@ -353,11 +353,11 @@ function InboxChatPanel({ messages, compact = false }: { messages: ChatMessage[]
         <div className="rounded-2xl bg-[#1f2024]/90 p-3 ring-1 ring-white/10">
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#85b8ff]">Usuarios activos</p>
           <div className="flex items-center gap-2">
-            <Avatar label="JG" />
-            <Avatar label="RG" className="bg-gradient-to-br from-[#ff9f1c] to-[#fb5607]" />
-            <Avatar label="SP" className="bg-gradient-to-br from-[#fb7185] to-[#e11d48] text-white" />
+            {members.slice(0, 6).map((member) => (
+              <Avatar key={member.id} label={member.avatarText} />
+            ))}
             <span className="ml-1 rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
-              3 online
+              {members.length} miembros
             </span>
           </div>
         </div>
@@ -368,7 +368,7 @@ function InboxChatPanel({ messages, compact = false }: { messages: ChatMessage[]
           messages.map((message) => <MessageBubble key={message.id} message={message} />)
         ) : (
           <div className="rounded-2xl border border-dashed border-white/15 bg-white/[.04] p-5 text-center text-sm text-[#aeb6c2]">
-            Todavía no hay mensajes en este tablero. El primer mensaje aparecerá acá cuando conectemos tiempo real.
+            Todavía no hay mensajes en este tablero. Escribí el primero para iniciar la conversación.
           </div>
         )}
       </div>
@@ -377,7 +377,9 @@ function InboxChatPanel({ messages, compact = false }: { messages: ChatMessage[]
         className="border-t border-white/10 p-4"
         onSubmit={(event) => {
           event.preventDefault();
-          setDraft('');
+          const cleanDraft = draft.trim();
+          if (!cleanDraft) return;
+          void onSend(cleanDraft).then(() => setDraft(''));
         }}
       >
         <div className="flex items-center gap-2 rounded-2xl bg-[#1f2024] px-3 py-2 ring-1 ring-white/10 focus-within:ring-[#579dff]">
@@ -3144,7 +3146,7 @@ function CardDetailModal({
           )}
 
           <div className="mt-8 rounded-xl border border-[#2f333a] bg-[#1e2025] p-4 text-sm text-[#9fa8b7]">
-            <p className="mb-2 font-black text-[#dfe3ea]">Detalles mock por tarjeta</p>
+            <p className="mb-2 font-black text-[#dfe3ea]">Detalles por tarjeta</p>
             <p>Esta información vive dentro de cada item. Después se puede reemplazar por tablas como cards, comments, members, labels y activity_log.</p>
           </div>
         </aside>
@@ -3174,6 +3176,8 @@ export function BoardDetailPage() {
     deleteBoard,
     createBoardLabel,
     updateBoardLabel,
+    boardMessages,
+    sendBoardMessage,
   } = useBoards();
   const [activePanel, setActivePanel] = useState<BoardPanel>('board');
   const [selectedTask, setSelectedTask] = useState<SelectedTaskRef | null>(null);
@@ -3185,14 +3189,10 @@ export function BoardDetailPage() {
   const [selectedListIdsForDelete, setSelectedListIdsForDelete] = useState<string[]>([]);
   const boardOptionsButtonRef = useRef<HTMLDivElement | null>(null);
 
-  const boardMessages = useMemo(() => {
-    if (!selectedBoard) return [];
-    const messages = chatMessagesMock.filter((message) => message.boardId === selectedBoard.id);
-    return messages.length > 0 ? messages : [];
-  }, [selectedBoard]);
 
-  const boardMemberIds = selectedBoard?.memberIds && selectedBoard.memberIds.length > 0 ? selectedBoard.memberIds : ['member-jeremias'];
-  const boardMembers = members.filter((member) => boardMemberIds.includes(member.id));
+  const boardMemberIds = selectedBoard?.memberIds && selectedBoard.memberIds.length > 0 ? selectedBoard.memberIds : [];
+  const uniqueMembers = Array.from(new Map(members.map((member) => [member.id, member])).values());
+  const boardMembers = uniqueMembers.filter((member) => boardMemberIds.includes(member.id));
 
   const selectedTaskData = useMemo(() => {
     if (!selectedTask) return null;
@@ -3354,12 +3354,12 @@ export function BoardDetailPage() {
 
   const handleToggleBoardMember = async (memberId: string) => {
     if (!selectedBoard) return;
-    const currentMemberIds = selectedBoard.memberIds && selectedBoard.memberIds.length > 0 ? selectedBoard.memberIds : ['member-jeremias'];
+    const currentMemberIds = selectedBoard.memberIds && selectedBoard.memberIds.length > 0 ? selectedBoard.memberIds : [];
     const nextMemberIds = currentMemberIds.includes(memberId)
       ? currentMemberIds.filter((currentMemberId) => currentMemberId !== memberId)
       : [...currentMemberIds, memberId];
 
-    await updateBoard(selectedBoard.id, { memberIds: nextMemberIds.length > 0 ? nextMemberIds : ['member-jeremias'] });
+    await updateBoard(selectedBoard.id, { memberIds: nextMemberIds });
   };
 
   const handleDeleteCurrentBoard = async () => {
@@ -3434,7 +3434,7 @@ export function BoardDetailPage() {
 
   return (
     <main className="relative grid h-full grid-cols-[305px_minmax(0,1fr)] gap-3 overflow-hidden bg-[#1d1d1f] p-3 font-sans text-[#d7d9df]">
-      <InboxChatPanel messages={boardMessages} />
+      <InboxChatPanel messages={boardMessages} members={boardMembers} onSend={(message) => selectedBoard ? sendBoardMessage(selectedBoard.id, message) : Promise.resolve()} />
 
       <section className="relative min-w-0 overflow-hidden rounded-2xl border border-white/10" style={{ background: selectedBoard.cover.value || defaultBoardGradient }}>
         <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-sky-950/10 to-black/45" />
@@ -3572,10 +3572,10 @@ export function BoardDetailPage() {
                   </div>
                   <h1 className="text-3xl font-black">Comunicación del equipo</h1>
                   <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#d7e4f6]">
-                    Esta vista queda lista para conectar Socket.IO, WebSocket o Supabase Realtime. Por ahora usa datos mock, pero la estructura ya separa tablero, mensajes y miembros.
+                    Esta vista queda lista para conectar Socket.IO, WebSocket o Supabase Realtime. Los mensajes se guardan por tablero en Supabase y quedan listos para colaboración en tiempo real.
                   </p>
                 </div>
-                <InboxChatPanel messages={boardMessages} compact />
+                <InboxChatPanel messages={boardMessages} members={boardMembers} compact onSend={(message) => selectedBoard ? sendBoardMessage(selectedBoard.id, message) : Promise.resolve()} />
               </div>
             </div>
           )}
@@ -3634,7 +3634,7 @@ export function BoardDetailPage() {
       {isShareModalOpen && selectedBoard && (
         <BoardShareModal
           board={selectedBoard}
-          allMembers={members}
+          allMembers={uniqueMembers}
           selectedMemberIds={boardMemberIds}
           onToggleMember={(memberId) => void handleToggleBoardMember(memberId)}
           onClose={() => setIsShareModalOpen(false)}
