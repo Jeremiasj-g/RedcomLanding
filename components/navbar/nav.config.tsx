@@ -117,7 +117,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         // ✅ color original
         className: 'text-violet-300 hover:text-violet-100 hover:bg-violet-500/10',
       },
-      {
+/*       {
         id: 'tableros',
         label: 'Tableros',
         href: '/tableros',
@@ -125,7 +125,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         enabledWhen: (ctx) => mustBeLoggedActive(ctx),
         enabledReason: () => 'Debés iniciar sesión para acceder a Tableros',
         className: 'text-pink-300 hover:text-pink-100 hover:bg-pink-300/10',
-      },
+      }, */
       {
         id: 'mis-tareas',
         label: 'Mis tareas',
