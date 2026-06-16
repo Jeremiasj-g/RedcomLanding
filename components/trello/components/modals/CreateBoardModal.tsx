@@ -2,7 +2,7 @@ import { Globe2, LockKeyhole, X } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useBoards } from '../../context/BoardContext';
 import type { BoardCover, BoardVisibility } from '../../types/trello';
-import { boardCovers } from '../../utils/trelloDesignData';
+import { boardCovers, getBoardCoverStyle } from '../../utils/trelloDesignData';
 
 interface CreateBoardModalProps {
   open: boolean;
@@ -74,14 +74,14 @@ export function CreateBoardModal({ open, onClose }: CreateBoardModalProps) {
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 top-16 z-50 grid place-items-start bg-black/55 px-4 py-10 backdrop-blur-sm"
+      className="fixed inset-x-0 bottom-0 top-16 z-50 grid place-items-center overflow-y-auto bg-black/55 px-4 py-4 backdrop-blur-sm"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <div
-        className="mx-auto w-full max-w-[390px] rounded-xl border border-[#323338] bg-[#25262a] p-4 text-[#d7d9df] shadow-trello"
+        className="mx-auto max-h-[calc(100dvh-96px)] w-full max-w-[390px] overflow-y-auto rounded-xl border border-[#323338] bg-[#25262a] p-4 text-[#d7d9df] shadow-trello"
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-board-title"
@@ -100,7 +100,7 @@ export function CreateBoardModal({ open, onClose }: CreateBoardModalProps) {
           </button>
         </div>
 
-        <div className="mb-5 grid h-[112px] place-items-center rounded-lg" style={{ background: selectedCover.value }}>
+        <div className="mb-5 grid h-[112px] place-items-center rounded-lg" style={getBoardCoverStyle(selectedCover, { overlay: true, contain: selectedCover.value.startsWith('/trello-backgrounds/') })}>
           <div className="grid h-[68px] w-[112px] grid-cols-3 gap-2 rounded bg-black/25 p-2 shadow-[inset_0_0_0_1px_rgba(255,255,255,.12)]">
             <span className="rounded bg-white/70" />
             <span className="rounded bg-white/45" />
@@ -119,7 +119,7 @@ export function CreateBoardModal({ open, onClose }: CreateBoardModalProps) {
                   }`}
                   key={cover.value}
                   type="button"
-                  style={{ background: cover.value }}
+                  style={getBoardCoverStyle(cover, { contain: cover.value.startsWith('/trello-backgrounds/') })}
                   onClick={() => handleCoverSelection(cover)}
                   aria-label="Seleccionar fondo"
                 />

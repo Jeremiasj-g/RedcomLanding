@@ -42,7 +42,16 @@ type ProfileLite = {
 };
 
 const workspaceColors: Workspace['color'][] = ['orange', 'pink', 'red', 'blue', 'green', 'purple'];
-const memberColors: WorkspaceMember['avatarColor'][] = ['orange', 'red', 'blue', 'green', 'purple'];
+const memberColors: WorkspaceMember['avatarColor'][] = ['orange', 'red', 'blue', 'green', 'purple', 'yellow', 'teal', 'pink'];
+
+const defaultBoardLabels = [
+  { name: 'Prioridad baja', color: '#216e4e' },
+  { name: 'En revisión', color: '#7f5f01' },
+  { name: 'Importante', color: '#a54800' },
+  { name: 'Urgente', color: '#ae2e24' },
+  { name: 'Pendiente', color: '#0c66e4' },
+  { name: 'Bloqueado', color: '#5e4db2' },
+];
 
 function readExpandedMap(): Record<string, boolean> {
   if (typeof window === 'undefined') return {};
@@ -194,6 +203,7 @@ function mapLabel(row: DbRow): BoardLabelOption {
     id: row.id,
     name: row.name,
     color: row.color,
+    boardId: row.board_id,
   };
 }
 
@@ -253,6 +263,148 @@ async function getFavoriteBoardIds(userId: string): Promise<Set<string>> {
   const { data, error } = await supabase.from('trello_board_favorites').select('board_id').eq('user_id', userId);
   throwIfError(error, 'No se pudieron cargar favoritos de tableros');
   return new Set((data ?? []).map((row: any) => row.board_id));
+}
+
+
+async function getCurrentUserWorkspaceIds(userId?: string): Promise<string[]> {
+  const currentUserId = userId ?? await getCurrentUserId();
+  const [workspaceMembersResult, boardMembersResult] = await Promise.all([
+    supabase
+      .from('trello_workspace_members')
+      .select('workspace_id')
+      .eq('user_id', currentUserId),
+    supabase
+      .from('trello_board_members')
+      .select('board_id')
+      .eq('user_id', currentUserId),
+  ]);
+
+  throwIfError(workspaceMembersResult.error, 'No se pudieron cargar los espacios del usuario actual');
+  throwIfError(boardMembersResult.error, 'No se pudieron cargar los tableros del usuario actual');
+
+  const workspaceIds = new Set((workspaceMembersResult.data ?? []).map((row: any) => row.workspace_id).filter(Boolean));
+  const boardIds = (boardMembersResult.data ?? []).map((row: any) => row.board_id).filter(Boolean);
+
+  if (boardIds.length > 0) {
+    const { data, error } = await supabase
+      .from('trello_boards')
+      .select('workspace_id')
+      .in('id', boardIds)
+      .is('deleted_at', null);
+    throwIfError(error, 'No se pudieron resolver espacios desde tableros compartidos');
+    (data ?? []).forEach((row: any) => {
+      if (row.workspace_id) workspaceIds.add(row.workspace_id);
+    });
+  }
+
+  return Array.from(workspaceIds);
+}
+
+async function getBoardMembershipIds(userId?: string): Promise<Set<string>> {
+  const currentUserId = userId ?? await getCurrentUserId();
+  const { data, error } = await supabase
+    .from('trello_board_members')
+    .select('board_id')
+    .eq('user_id', currentUserId);
+  throwIfError(error, 'No se pudieron cargar los tableros del usuario actual');
+  return new Set((data ?? []).map((row: any) => row.board_id).filter(Boolean));
+}
+
+async function getAccessibleBoardIds(userId?: string): Promise<string[]> {
+  const currentUserId = userId ?? await getCurrentUserId();
+  const [workspaceIds, boardMemberIds] = await Promise.all([
+    getCurrentUserWorkspaceIds(currentUserId),
+    getBoardMembershipIds(currentUserId),
+  ]);
+
+  if (workspaceIds.length === 0 && boardMemberIds.size === 0) return [];
+
+  let query = supabase
+    .from('trello_boards')
+    .select('id,workspace_id,visibility')
+    .is('deleted_at', null)
+    .eq('is_archived', false);
+
+  if (workspaceIds.length > 0) {
+    query = query.in('workspace_id', workspaceIds);
+  } else {
+    query = query.in('id', Array.from(boardMemberIds));
+  }
+
+  const { data, error } = await query;
+  throwIfError(error, 'No se pudieron resolver los tableros accesibles');
+
+  return (data ?? [])
+    .filter((row: any) => row.visibility === 'public' || boardMemberIds.has(row.id))
+    .map((row: any) => row.id);
+}
+
+async function getBoardWorkspaceId(boardId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('trello_boards')
+    .select('workspace_id')
+    .eq('id', boardId)
+    .maybeSingle();
+  throwIfError(error, 'No se pudo resolver el espacio del tablero');
+  return data?.workspace_id ?? null;
+}
+
+async function ensureUsersAreWorkspaceMembers(workspaceId: string, userIds: string[], createdBy: string): Promise<void> {
+  const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
+  if (uniqueUserIds.length === 0) return;
+
+  const rows = uniqueUserIds.map((userId) => ({
+    workspace_id: workspaceId,
+    user_id: userId,
+    role: userId === createdBy ? 'owner' : 'member',
+    created_by: createdBy,
+  }));
+
+  const { error } = await supabase.from('trello_workspace_members').upsert(rows);
+  throwIfError(error, 'No se pudieron sincronizar miembros del espacio de trabajo');
+}
+
+
+async function ensureDefaultLabelsForBoards(boardIds: string[]): Promise<void> {
+  const uniqueBoardIds = Array.from(new Set(boardIds.filter(Boolean)));
+  if (uniqueBoardIds.length === 0) return;
+
+  const { data, error } = await supabase
+    .from('trello_board_labels')
+    .select('board_id,name,position')
+    .in('board_id', uniqueBoardIds);
+  throwIfError(error, 'No se pudieron verificar etiquetas por defecto');
+
+  const labelsByBoard = new Map<string, { names: Set<string>; nextPosition: number }>();
+  uniqueBoardIds.forEach((boardId) => labelsByBoard.set(boardId, { names: new Set(), nextPosition: 0 }));
+
+  (data ?? []).forEach((row: any) => {
+    const entry = labelsByBoard.get(row.board_id);
+    if (!entry) return;
+    entry.names.add(String(row.name ?? '').trim().toLowerCase());
+    const currentPosition = typeof row.position === 'number' ? row.position : -1;
+    entry.nextPosition = Math.max(entry.nextPosition, currentPosition + 1);
+  });
+
+  const rowsToInsert: DbRow[] = [];
+  labelsByBoard.forEach((entry, boardId) => {
+    defaultBoardLabels.forEach((label) => {
+      const labelName = label.name.trim().toLowerCase();
+      if (entry.names.has(labelName)) return;
+      rowsToInsert.push({
+        board_id: boardId,
+        name: label.name,
+        color: label.color,
+        position: entry.nextPosition,
+      });
+      entry.nextPosition += 1;
+      entry.names.add(labelName);
+    });
+  });
+
+  if (rowsToInsert.length === 0) return;
+  const { error: insertError } = await supabase.from('trello_board_labels').insert(rowsToInsert);
+  throwIfError(insertError, 'No se pudieron crear etiquetas por defecto');
 }
 
 async function getMaxPosition(table: string, filterColumn: string, filterValue: string): Promise<number> {
@@ -389,9 +541,14 @@ async function syncCardChecklists(cardId: string, boardId: string, checklists: B
 
 export const tableroController = {
   async getWorkspaces(): Promise<Workspace[]> {
+    const currentUserId = await getCurrentUserId();
+    const workspaceIds = await getCurrentUserWorkspaceIds(currentUserId);
+    if (workspaceIds.length === 0) return [];
+
     const { data, error } = await supabase
       .from('trello_workspaces')
       .select('*')
+      .in('id', workspaceIds)
       .is('deleted_at', null)
       .order('created_at', { ascending: true });
     throwIfError(error, 'No se pudieron cargar espacios de trabajo');
@@ -401,59 +558,116 @@ export const tableroController = {
 
   async getBoards(): Promise<Board[]> {
     const currentUserId = await getCurrentUserId();
-    const [boardsResult, membersByBoard, favoriteBoardIds] = await Promise.all([
-      supabase
-        .from('trello_boards')
-        .select('*')
-        .is('deleted_at', null)
-        .eq('is_archived', false)
-        .order('position', { ascending: true })
-        .order('created_at', { ascending: false }),
+    const [workspaceIds, boardMemberIds, membersByBoard, favoriteBoardIds] = await Promise.all([
+      getCurrentUserWorkspaceIds(currentUserId),
+      getBoardMembershipIds(currentUserId),
       getBoardMemberIdsByBoard(),
       getFavoriteBoardIds(currentUserId),
     ]);
+
+    if (workspaceIds.length === 0 && boardMemberIds.size === 0) return [];
+
+    let boardsQuery = supabase
+      .from('trello_boards')
+      .select('*')
+      .is('deleted_at', null)
+      .eq('is_archived', false)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (workspaceIds.length > 0) {
+      boardsQuery = boardsQuery.in('workspace_id', workspaceIds);
+    } else {
+      boardsQuery = boardsQuery.in('id', Array.from(boardMemberIds));
+    }
+
+    const boardsResult = await boardsQuery;
     throwIfError(boardsResult.error, 'No se pudieron cargar tableros');
-    return (boardsResult.data ?? []).map((row: any) => mapBoard(row, membersByBoard.get(row.id) ?? [], favoriteBoardIds));
+
+    return (boardsResult.data ?? [])
+      .filter((row: any) => row.visibility === 'public' || boardMemberIds.has(row.id))
+      .map((row: any) => mapBoard(row, membersByBoard.get(row.id) ?? [], favoriteBoardIds));
   },
 
   async getBoardLists(): Promise<BoardList[]> {
     const currentUserId = await getCurrentUserId();
+    const accessibleBoardIds = await getAccessibleBoardIds(currentUserId);
+    if (accessibleBoardIds.length === 0) return [];
+
     const [
       listsResult,
       cardsResult,
       labelsResult,
-      cardLabelsResult,
-      cardMembersResult,
-      checklistsResult,
-      checklistItemsResult,
-      checklistItemMembersResult,
-      commentsResult,
-      activityResult,
       profiles,
     ] = await Promise.all([
-      supabase.from('trello_lists').select('*').is('deleted_at', null).eq('is_archived', false).order('position', { ascending: true }),
-      supabase.from('trello_cards').select('*').is('deleted_at', null).order('position', { ascending: true }),
-      supabase.from('trello_board_labels').select('*').order('position', { ascending: true }),
-      supabase.from('trello_card_labels').select('*'),
-      supabase.from('trello_card_members').select('*'),
-      supabase.from('trello_checklists').select('*').order('position', { ascending: true }),
-      supabase.from('trello_checklist_items').select('*').order('position', { ascending: true }),
-      supabase.from('trello_checklist_item_members').select('*'),
-      supabase.from('trello_card_comments').select('*').is('deleted_at', null).order('created_at', { ascending: true }),
-      supabase.from('trello_card_activity').select('*').order('created_at', { ascending: true }),
+      supabase
+        .from('trello_lists')
+        .select('*')
+        .in('board_id', accessibleBoardIds)
+        .is('deleted_at', null)
+        .eq('is_archived', false)
+        .order('position', { ascending: true }),
+      supabase
+        .from('trello_cards')
+        .select('*')
+        .in('board_id', accessibleBoardIds)
+        .is('deleted_at', null)
+        .order('position', { ascending: true }),
+      supabase
+        .from('trello_board_labels')
+        .select('*')
+        .in('board_id', accessibleBoardIds)
+        .order('position', { ascending: true }),
       getAvailableProfiles(),
     ]);
 
     throwIfError(listsResult.error, 'No se pudieron cargar listas');
     throwIfError(cardsResult.error, 'No se pudieron cargar tarjetas');
     throwIfError(labelsResult.error, 'No se pudieron cargar etiquetas');
+
+    const cards = cardsResult.data ?? [];
+    const cardIds = cards.map((row: any) => row.id);
+
+    const emptyResult = { data: [], error: null } as any;
+    const [
+      cardLabelsResult,
+      cardMembersResult,
+      checklistsResult,
+      commentsResult,
+      activityResult,
+    ] = cardIds.length > 0
+      ? await Promise.all([
+          supabase.from('trello_card_labels').select('*').in('card_id', cardIds),
+          supabase.from('trello_card_members').select('*').in('card_id', cardIds),
+          supabase.from('trello_checklists').select('*').in('card_id', cardIds).order('position', { ascending: true }),
+          supabase.from('trello_card_comments').select('*').in('card_id', cardIds).is('deleted_at', null).order('created_at', { ascending: true }),
+          supabase.from('trello_card_activity').select('*').in('card_id', cardIds).order('created_at', { ascending: true }),
+        ])
+      : [emptyResult, emptyResult, emptyResult, emptyResult, emptyResult];
+
     throwIfError(cardLabelsResult.error, 'No se pudieron cargar relaciones de etiquetas');
     throwIfError(cardMembersResult.error, 'No se pudieron cargar miembros de tarjetas');
     throwIfError(checklistsResult.error, 'No se pudieron cargar checklists');
-    throwIfError(checklistItemsResult.error, 'No se pudieron cargar items de checklists');
-    throwIfError(checklistItemMembersResult.error, 'No se pudieron cargar miembros de items');
     throwIfError(commentsResult.error, 'No se pudieron cargar comentarios');
     throwIfError(activityResult.error, 'No se pudo cargar actividad');
+
+    const checklistIds = (checklistsResult.data ?? []).map((row: any) => row.id);
+    const [checklistItemsResult] = checklistIds.length > 0
+      ? await Promise.all([
+          supabase.from('trello_checklist_items').select('*').in('checklist_id', checklistIds).order('position', { ascending: true }),
+        ])
+      : [emptyResult];
+
+    throwIfError(checklistItemsResult.error, 'No se pudieron cargar items de checklists');
+
+    const checklistItemIds = (checklistItemsResult.data ?? []).map((row: any) => row.id);
+    const [checklistItemMembersResult] = checklistItemIds.length > 0
+      ? await Promise.all([
+          supabase.from('trello_checklist_item_members').select('*').in('item_id', checklistItemIds),
+        ])
+      : [emptyResult];
+
+    throwIfError(checklistItemMembersResult.error, 'No se pudieron cargar miembros de items');
 
     const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
     const avatarByUserId = new Map(profiles.map((profile) => [profile.id, getInitials(profile.full_name, profile.email)]));
@@ -522,7 +736,7 @@ export const tableroController = {
     });
 
     const cardsByList = new Map<string, BoardTaskCard[]>();
-    (cardsResult.data ?? []).forEach((row: any) => {
+    cards.forEach((row: any) => {
       const current = cardsByList.get(row.list_id) ?? [];
       current.push({
         id: row.id,
@@ -557,10 +771,16 @@ export const tableroController = {
 
   async getWorkspaceMembers(): Promise<WorkspaceMember[]> {
     const currentUserId = await getCurrentUserId();
-    const [profiles, workspaceMembersResult, boardsResult, boardMembersResult] = await Promise.all([
-      getAvailableProfiles(),
-      supabase.from('trello_workspace_members').select('*'),
-      supabase.from('trello_boards').select('id,workspace_id').is('deleted_at', null),
+    const workspaceIds = await getCurrentUserWorkspaceIds(currentUserId);
+    const profiles = await getAvailableProfiles();
+
+    if (workspaceIds.length === 0) {
+      return profiles.map((profile) => profileToMember(profile, currentUserId));
+    }
+
+    const [workspaceMembersResult, boardsResult, boardMembersResult] = await Promise.all([
+      supabase.from('trello_workspace_members').select('*').in('workspace_id', workspaceIds),
+      supabase.from('trello_boards').select('id,workspace_id').in('workspace_id', workspaceIds).is('deleted_at', null),
       supabase.from('trello_board_members').select('board_id,user_id'),
     ]);
     throwIfError(workspaceMembersResult.error, 'No se pudieron cargar miembros de espacios');
@@ -591,9 +811,14 @@ export const tableroController = {
   },
 
   async getBoardLabels(): Promise<BoardLabelOption[]> {
+    const currentUserId = await getCurrentUserId();
+    const accessibleBoardIds = await getAccessibleBoardIds(currentUserId);
+    if (accessibleBoardIds.length === 0) return [];
+
     const { data, error } = await supabase
       .from('trello_board_labels')
       .select('*')
+      .in('board_id', accessibleBoardIds)
       .order('position', { ascending: true });
     throwIfError(error, 'No se pudieron cargar etiquetas de tableros');
     return (data ?? []).map(mapLabel);
@@ -618,6 +843,14 @@ export const tableroController = {
     const { data, error } = await supabase.from('trello_board_labels').update(payload).eq('id', labelId).select('*').maybeSingle();
     throwIfError(error, 'No se pudo actualizar la etiqueta');
     return data ? mapLabel(data as DbRow) : null;
+  },
+
+  async deleteBoardLabel(labelId: string): Promise<void> {
+    const { error: relationError } = await supabase.from('trello_card_labels').delete().eq('label_id', labelId);
+    throwIfError(relationError, 'No se pudieron quitar las tarjetas vinculadas a la etiqueta');
+
+    const { error } = await supabase.from('trello_board_labels').delete().eq('id', labelId);
+    throwIfError(error, 'No se pudo eliminar la etiqueta');
   },
 
   async createWorkspace(input: CreateWorkspaceInput): Promise<Workspace> {
@@ -667,6 +900,8 @@ export const tableroController = {
       supabase.from('trello_board_members').upsert({ board_id: data.id, user_id: userId, role: 'owner', created_by: userId }),
       supabase.from('trello_workspace_members').upsert({ workspace_id: input.workspaceId, user_id: userId, role: 'owner', created_by: userId }),
     ]).then((responses) => responses.forEach((response) => throwIfError(response.error, 'No se pudo asignar el creador al tablero')));
+
+    await ensureDefaultLabelsForBoards([data.id]);
 
     return mapBoard(data as DbRow, [userId], new Set());
   },
@@ -834,12 +1069,20 @@ export const tableroController = {
     }
 
     if (input.memberIds !== undefined) {
+      const boardWorkspaceId = await getBoardWorkspaceId(boardId);
+      const uniqueMemberIds = Array.from(new Set(input.memberIds));
+
       const { error: deleteError } = await supabase.from('trello_board_members').delete().eq('board_id', boardId);
       throwIfError(deleteError, 'No se pudieron sincronizar miembros del tablero');
-      if (input.memberIds.length > 0) {
-        const rows = Array.from(new Set(input.memberIds)).map((userId) => ({ board_id: boardId, user_id: userId, role: userId === currentUserId ? 'owner' : 'member', created_by: currentUserId }));
+
+      if (uniqueMemberIds.length > 0) {
+        const rows = uniqueMemberIds.map((userId) => ({ board_id: boardId, user_id: userId, role: userId === currentUserId ? 'owner' : 'member', created_by: currentUserId }));
         const { error } = await supabase.from('trello_board_members').insert(rows);
         throwIfError(error, 'No se pudieron guardar miembros del tablero');
+      }
+
+      if (boardWorkspaceId) {
+        await ensureUsersAreWorkspaceMembers(boardWorkspaceId, uniqueMemberIds, currentUserId);
       }
     }
 

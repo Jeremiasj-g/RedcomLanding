@@ -61,14 +61,14 @@ export function CreateWorkspaceModal({ open, onClose }: CreateWorkspaceModalProp
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 top-16 z-[180] grid place-items-start bg-black/60 px-4 py-10 backdrop-blur-sm"
+      className="fixed inset-x-0 bottom-0 top-16 z-[180] grid place-items-center overflow-y-auto bg-black/60 px-4 py-4 backdrop-blur-sm"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <div
-        className="mx-auto w-full max-w-[430px] rounded-xl border border-[#323338] bg-[#25262a] p-4 text-[#d7d9df] shadow-[0_20px_60px_rgba(0,0,0,.58)]"
+        className="mx-auto max-h-[calc(100dvh-96px)] w-full max-w-[430px] overflow-y-auto rounded-xl border border-[#323338] bg-[#25262a] p-4 text-[#d7d9df] shadow-[0_20px_60px_rgba(0,0,0,.58)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-workspace-title"

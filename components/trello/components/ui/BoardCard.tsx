@@ -1,6 +1,7 @@
 import { Globe2, LockKeyhole, MoreHorizontal, Pencil, Star, Trash2 } from 'lucide-react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react';
 import type { Board } from '../../types/trello';
+import { getBoardCoverStyle } from '../../utils/trelloDesignData';
 
 interface BoardCardProps {
   board: Board;
@@ -69,7 +70,7 @@ export function BoardCard({ board, onOpen, onRename, onDelete }: BoardCardProps)
       }}
       onKeyDown={handleKeyDown}
     >
-      <div className="relative h-[78px] overflow-hidden rounded-t-lg" style={{ background: board.cover.value }}>
+      <div className="relative h-[78px] overflow-hidden rounded-t-lg" style={getBoardCoverStyle(board.cover, { overlay: true, contain: board.cover.value.startsWith('/trello-backgrounds/') })}>
         <div className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded bg-black/35 px-2 py-1 text-[11px] font-semibold text-white/85 backdrop-blur">
           <VisibilityIcon size={12} />
           {board.visibility === 'publico' ? 'Público' : 'Privado'}

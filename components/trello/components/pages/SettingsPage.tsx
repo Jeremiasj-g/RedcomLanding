@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, Globe2, LockKeyhole, Settings, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useBoards } from '../../context/BoardContext';
+import { getBoardCoverStyle } from '../../utils/trelloDesignData';
 import type { BoardVisibility, WorkspaceVisibility } from '../../types/trello';
 import { getVisibilityDescription, getVisibilityLabel } from '../../utils/trelloUtils';
 
@@ -129,7 +130,7 @@ export function SettingsPage() {
               return (
                 <div key={board.id} className="grid grid-cols-[minmax(0,1fr)_220px_auto] items-center gap-4 bg-[#1f2024] p-4 max-lg:grid-cols-1">
                   <button className="flex min-w-0 items-center gap-3 text-left" type="button" onClick={() => openBoard(board.id)}>
-                    <span className="h-12 w-16 shrink-0 rounded-lg shadow-inner" style={{ background: board.cover.value }} />
+                    <span className="h-12 w-16 shrink-0 rounded-lg shadow-inner" style={getBoardCoverStyle(board.cover, { overlay: true, contain: board.cover.value.startsWith('/trello-backgrounds/') })} />
                     <span className="min-w-0">
                       <span className="block truncate font-black text-white">{board.title}</span>
                       <span className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-[#a6a8b0]">

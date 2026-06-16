@@ -69,7 +69,7 @@ export interface WorkspaceMember {
   fullName: string;
   username: string;
   avatarText: string;
-  avatarColor: 'orange' | 'red' | 'blue' | 'green' | 'purple';
+  avatarColor: 'orange' | 'red' | 'blue' | 'green' | 'purple' | 'yellow' | 'teal' | 'pink';
   boardCount: number;
   role: WorkspaceMemberRole;
   lastActivity: string;
@@ -156,6 +156,7 @@ export interface BoardLabelOption {
   id: string;
   name: string;
   color: string;
+  boardId?: string;
 }
 
 export interface CreateBoardLabelInput {
@@ -167,6 +168,10 @@ export interface CreateBoardLabelInput {
 export interface UpdateBoardLabelInput {
   name?: string;
   color?: string;
+}
+
+export interface DeleteBoardLabelInput {
+  labelId: string;
 }
 
 export interface BoardTaskCard {

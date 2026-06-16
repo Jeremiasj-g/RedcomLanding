@@ -49,6 +49,10 @@ export const tableroFacade = {
     return tableroController.updateBoardLabel(labelId, input);
   },
 
+  deleteBoardLabel(labelId: string): Promise<void> {
+    return tableroController.deleteBoardLabel(labelId);
+  },
+
   createWorkspace(input: CreateWorkspaceInput): Promise<Workspace> {
     return tableroController.createWorkspace(input);
   },
