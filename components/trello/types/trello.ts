@@ -79,6 +79,11 @@ export interface WorkspaceMember {
   lastActivity: string;
   status: WorkspaceMemberStatus;
   isCurrentUser?: boolean;
+  systemRole?: string | null;
+  branch?: string | null;
+  branchId?: number | null;
+  userTypeId?: number | null;
+  userTypeName?: string | null;
 }
 
 export interface MemberFilters {

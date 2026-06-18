@@ -18,7 +18,6 @@ import {
   Lightbulb,
   ListChecks,
   LockKeyhole,
-  MessageCircle,
   MessageSquareText,
   MoreHorizontal,
   Paperclip,
@@ -1813,9 +1812,48 @@ function BoardShareModal({
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
-  const filteredMembers = allMembers.filter((member) =>
-    `${member.fullName} ${member.username} ${member.avatarText}`.toLowerCase().includes(query.trim().toLowerCase()),
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [branchFilter, setBranchFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+
+  const normalizedMembers = useMemo(() => {
+    const byId = new Map<string, WorkspaceMember>();
+    allMembers.forEach((member) => {
+      if (!byId.has(member.id)) byId.set(member.id, member);
+    });
+    return Array.from(byId.values());
+  }, [allMembers]);
+
+  const typeOptions = useMemo(
+    () => Array.from(new Set(normalizedMembers.map((member) => member.userTypeName || 'Sin tipo').filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
+    [normalizedMembers],
   );
+  const branchOptions = useMemo(
+    () => Array.from(new Set(normalizedMembers.map((member) => member.branch || 'Sin sucursal').filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
+    [normalizedMembers],
+  );
+  const roleOptions = useMemo(
+    () => Array.from(new Set(normalizedMembers.map((member) => member.systemRole || 'Sin rol').filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
+    [normalizedMembers],
+  );
+
+  const cleanQuery = query.trim().toLowerCase();
+  const filteredMembers = normalizedMembers.filter((member) => {
+    const memberType = member.userTypeName || 'Sin tipo';
+    const memberBranch = member.branch || 'Sin sucursal';
+    const memberRole = member.systemRole || 'Sin rol';
+    const matchesQuery = `${member.fullName} ${member.username} ${member.avatarText} ${memberType} ${memberBranch} ${memberRole}`
+      .toLowerCase()
+      .includes(cleanQuery);
+    return (
+      matchesQuery &&
+      (typeFilter === 'all' || memberType === typeFilter) &&
+      (branchFilter === 'all' || memberBranch === branchFilter) &&
+      (roleFilter === 'all' || memberRole === roleFilter)
+    );
+  });
+
+  const selectClass = 'h-10 min-w-0 rounded-lg border border-[#3b4048] bg-[#17191c] px-3 text-xs font-bold text-[#dfe3ea] outline-none focus:border-[#85b8ff] focus:ring-1 focus:ring-[#85b8ff]';
 
   return createPortal(
     <div
@@ -1826,11 +1864,11 @@ function BoardShareModal({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section className="w-full max-w-[520px] overflow-hidden rounded-2xl border border-[#3b4048] bg-[#1f2024] text-[#dfe3ea] shadow-[0_24px_80px_rgba(0,0,0,.75)]">
-        <header className="flex items-center justify-between border-b border-[#32363d] px-5 py-4">
+      <section className="w-full max-w-[640px] overflow-hidden rounded-2xl border border-[#3b4048] bg-[#1f2024] text-[#dfe3ea] shadow-[0_24px_80px_rgba(0,0,0,.75)]">
+        <header className="flex items-start justify-between border-b border-[#32363d] px-5 py-4">
           <div>
             <h2 className="text-lg font-black">Compartir tablero</h2>
-            <p className="mt-1 text-sm text-[#aeb6c2]">Invitá usuarios a <span className="font-bold text-[#dfe3ea]">{board.title}</span>. Esta lista queda lista para reemplazarse por usuarios de BD.</p>
+            <p className="mt-1 text-sm text-[#aeb6c2]">Invitá usuarios a <span className="font-bold text-[#dfe3ea]">{board.title}</span>.</p>
           </div>
           <button className="grid h-9 w-9 place-items-center rounded-lg text-[#b6c2cf] transition hover:bg-white/10 hover:text-white" type="button" onClick={onClose} aria-label="Cerrar compartir">
             <X size={22} />
@@ -1840,11 +1878,35 @@ function BoardShareModal({
         <div className="p-5">
           <input
             className="h-11 w-full rounded-lg border border-[#7a818c] bg-[#17191c] px-3 text-sm text-[#f1f2f4] outline-none placeholder:text-[#aeb6c2] focus:border-[#85b8ff] focus:ring-1 focus:ring-[#85b8ff]"
-            placeholder="Buscar usuarios por nombre o usuario..."
+            placeholder="Buscar usuarios por nombre, usuario, tipo, sucursal o rol..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             autoFocus
           />
+
+          <div className="mt-3 grid grid-cols-3 gap-2 max-sm:grid-cols-1">
+            <label className="space-y-1">
+              <span className="text-[11px] font-black uppercase tracking-wide text-[#9fadbc]">Tipo de usuario</span>
+              <select className={selectClass} value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+                <option value="all">Todos</option>
+                {typeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-[11px] font-black uppercase tracking-wide text-[#9fadbc]">Sucursal</span>
+              <select className={selectClass} value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}>
+                <option value="all">Todas</option>
+                {branchOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-[11px] font-black uppercase tracking-wide text-[#9fadbc]">Rol</span>
+              <select className={selectClass} value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                <option value="all">Todos</option>
+                {roleOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+          </div>
 
           <div className="mt-4 max-h-[46dvh] space-y-1 overflow-y-auto pr-1">
             {filteredMembers.map((member) => {
@@ -1860,6 +1922,9 @@ function BoardShareModal({
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black text-[#f1f2f4]">{member.fullName}</span>
                     <span className="block truncate text-xs text-[#aeb6c2]">@{member.username}</span>
+                    <span className="mt-1 block truncate text-[11px] text-[#8f99a8]">
+                      {[member.userTypeName, member.branch, member.systemRole].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
+                    </span>
                   </span>
                   <span className={`rounded px-3 py-1.5 text-sm font-black transition ${selected ? 'bg-[#1f6f4a] text-[#baf3db]' : 'bg-[#579dff] text-[#092957]'}`}>
                     {selected ? 'Invitado' : 'Añadir'}
@@ -3690,18 +3755,8 @@ export function BoardDetailPage() {
             </>
           ) : (
             <div className="grid h-full place-items-center pb-20">
-              <div className="w-full max-w-3xl">
-                <div className="mb-5 rounded-3xl border border-white/15 bg-black/25 p-5 text-white shadow-2xl backdrop-blur">
-                  <div className="mb-2 flex items-center gap-2 text-[#9cc7ff]">
-                    <MessageCircle size={20} />
-                    <span className="text-sm font-black uppercase tracking-wide">Chat del tablero</span>
-                  </div>
-                  <h1 className="text-3xl font-black">Comunicación del equipo</h1>
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#d7e4f6]">
-                    Esta vista queda lista para conectar Socket.IO, WebSocket o Supabase Realtime. Los mensajes se guardan por tablero en Supabase y quedan listos para colaboración en tiempo real.
-                  </p>
-                </div>
-                <InboxChatPanel messages={boardMessages} members={boardMembers} compact onSend={(message) => selectedBoard ? sendBoardMessage(selectedBoard.id, message) : Promise.resolve()} />
+              <div className="h-[min(72dvh,760px)] w-full max-w-3xl">
+                <InboxChatPanel messages={boardMessages} members={boardMembers} onSend={(message) => selectedBoard ? sendBoardMessage(selectedBoard.id, message) : Promise.resolve()} />
               </div>
             </div>
           )}

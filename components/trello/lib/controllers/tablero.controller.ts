@@ -38,6 +38,8 @@ type ProfileLite = {
   role: string | null;
   branch: string | null;
   branch_id: number | null;
+  user_type_id?: number | null;
+  user_type_name?: string | null;
   is_active: boolean | null;
 };
 
@@ -166,6 +168,14 @@ async function getCurrentUserId(): Promise<string> {
 }
 
 async function getAvailableProfiles(): Promise<ProfileLite[]> {
+  const extendedResult = await supabase
+    .from('trello_available_users')
+    .select('id,email,full_name,role,branch,branch_id,user_type_id,user_type_name,is_active')
+    .order('full_name', { ascending: true });
+
+  if (!extendedResult.error) return (extendedResult.data ?? []) as ProfileLite[];
+
+  console.warn('[Tableros] trello_available_users no expone user_type_id/user_type_name. Se usa lectura básica.', extendedResult.error);
   const { data, error } = await supabase
     .from('trello_available_users')
     .select('id,email,full_name,role,branch,branch_id,is_active')
@@ -189,6 +199,11 @@ function profileToMember(profile: ProfileLite, currentUserId?: string, workspace
     lastActivity: 'Sin actividad',
     status: 'member',
     isCurrentUser: profile.id === currentUserId,
+    systemRole: profile.role,
+    branch: profile.branch,
+    branchId: profile.branch_id,
+    userTypeId: profile.user_type_id ?? null,
+    userTypeName: profile.user_type_name ?? null,
   };
 }
 
@@ -500,6 +515,22 @@ function getPositionBetween(previousPosition?: number | null, nextPosition?: num
   return ((previousPosition as number) + (nextPosition as number)) / 2;
 }
 
+async function rewriteOrderedPositions(table: 'trello_cards' | 'trello_lists', ids: string[], positions: number[], context: string): Promise<void> {
+  if (ids.length === 0) return;
+  if (ids.length !== positions.length) throw new Error(`${context}: cantidad de ids y posiciones no coincide`);
+
+  const tempBase = -Date.now() - Math.floor(Math.random() * 100000);
+  const tempResponses = await Promise.all(
+    ids.map((id, index) => supabase.from(table).update({ position: tempBase - index }).eq('id', id)),
+  );
+  tempResponses.forEach((response) => throwIfError(response.error, `${context}: no se pudo preparar el reordenamiento`));
+
+  const finalResponses = await Promise.all(
+    ids.map((id, index) => supabase.from(table).update({ position: positions[index] }).eq('id', id)),
+  );
+  finalResponses.forEach((response) => throwIfError(response.error, context));
+}
+
 async function rebalanceCardsInList(listId: string): Promise<void> {
   const { data, error } = await supabase
     .from('trello_cards')
@@ -510,12 +541,9 @@ async function rebalanceCardsInList(listId: string): Promise<void> {
     .order('created_at', { ascending: true });
   throwIfError(error, 'No se pudieron rebalancear las tarjetas');
 
-  const responses = await Promise.all(
-    (data ?? []).map((card: any, index: number) =>
-      supabase.from('trello_cards').update({ position: (index + 1) * POSITION_GAP }).eq('id', card.id),
-    ),
-  );
-  responses.forEach((response) => throwIfError(response.error, 'No se pudo rebalancear una tarjeta'));
+  const ids = (data ?? []).map((card: any) => card.id);
+  const positions = ids.map((_: string, index: number) => (index + 1) * POSITION_GAP);
+  await rewriteOrderedPositions('trello_cards', ids, positions, 'No se pudo rebalancear una tarjeta');
 }
 
 async function rebalanceListsInBoard(boardId: string): Promise<void> {
@@ -529,12 +557,9 @@ async function rebalanceListsInBoard(boardId: string): Promise<void> {
     .order('created_at', { ascending: true });
   throwIfError(error, 'No se pudieron rebalancear las listas');
 
-  const responses = await Promise.all(
-    (data ?? []).map((list: any, index: number) =>
-      supabase.from('trello_lists').update({ position: (index + 1) * POSITION_GAP }).eq('id', list.id),
-    ),
-  );
-  responses.forEach((response) => throwIfError(response.error, 'No se pudo rebalancear una lista'));
+  const ids = (data ?? []).map((list: any) => list.id);
+  const positions = ids.map((_: string, index: number) => (index + 1) * POSITION_GAP);
+  await rewriteOrderedPositions('trello_lists', ids, positions, 'No se pudo rebalancear una lista');
 }
 
 
@@ -1172,10 +1197,9 @@ export const tableroController = {
         const { error } = await supabase.from('trello_cards').delete().eq('list_id', listId);
         throwIfError(error, 'No se pudo vaciar la lista');
       } else {
-        const responses = await Promise.all(
-          input.cards.map((card, index) => supabase.from('trello_cards').update({ position: (index + 1) * POSITION_GAP, list_id: listId }).eq('id', card.id)),
-        );
-        responses.forEach((response) => throwIfError(response.error, 'No se pudo ordenar tarjetas'));
+        const cardIds = input.cards.map((card) => card.id).filter((id) => !id.startsWith('temp-'));
+        const cardPositions = cardIds.map((_: string, index: number) => (index + 1) * POSITION_GAP);
+        await rewriteOrderedPositions('trello_cards', cardIds, cardPositions, 'No se pudo ordenar tarjetas');
       }
     }
 

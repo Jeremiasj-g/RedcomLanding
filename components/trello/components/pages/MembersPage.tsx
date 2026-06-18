@@ -91,16 +91,46 @@ function WorkspaceInviteModal({
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [branchFilter, setBranchFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+
+  const typeOptions = useMemo(
+    () => Array.from(new Set(users.map((user) => user.userTypeName || 'Sin tipo').filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
+    [users],
+  );
+  const branchOptions = useMemo(
+    () => Array.from(new Set(users.map((user) => user.branch || 'Sin sucursal').filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
+    [users],
+  );
+  const roleOptions = useMemo(
+    () => Array.from(new Set(users.map((user) => user.systemRole || 'Sin rol').filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
+    [users],
+  );
 
   if (!open) return null;
 
-  const filteredUsers = users.filter((user) =>
-    `${user.fullName} ${user.username} ${user.avatarText}`.toLowerCase().includes(query.trim().toLowerCase()),
-  );
+  const cleanQuery = query.trim().toLowerCase();
+  const filteredUsers = users.filter((user) => {
+    const userType = user.userTypeName || 'Sin tipo';
+    const userBranch = user.branch || 'Sin sucursal';
+    const userRole = user.systemRole || 'Sin rol';
+    const matchesQuery = `${user.fullName} ${user.username} ${user.avatarText} ${userType} ${userBranch} ${userRole}`
+      .toLowerCase()
+      .includes(cleanQuery);
+    return (
+      matchesQuery &&
+      (typeFilter === 'all' || userType === typeFilter) &&
+      (branchFilter === 'all' || userBranch === branchFilter) &&
+      (roleFilter === 'all' || userRole === roleFilter)
+    );
+  });
+
+  const selectClass = 'h-10 min-w-0 rounded-lg border border-[#3b4048] bg-[#17191c] px-3 text-xs font-bold text-[#dfe3ea] outline-none focus:border-[#85b8ff] focus:ring-1 focus:ring-[#85b8ff]';
 
   return createPortal(
     <div className="fixed inset-x-0 bottom-0 top-16 z-[180] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="w-full max-w-[560px] overflow-hidden rounded-2xl border border-[#3b4048] bg-[#1f2024] text-[#dfe3ea] shadow-[0_24px_80px_rgba(0,0,0,.75)]">
+      <section className="w-full max-w-[640px] overflow-hidden rounded-2xl border border-[#3b4048] bg-[#1f2024] text-[#dfe3ea] shadow-[0_24px_80px_rgba(0,0,0,.75)]">
         <header className="flex items-start justify-between gap-4 border-b border-[#32363d] px-5 py-4">
           <div>
             <h2 className="text-lg font-black">Invitar miembros</h2>
@@ -114,11 +144,35 @@ function WorkspaceInviteModal({
         <div className="p-5">
           <input
             className="h-11 w-full rounded-lg border border-[#7a818c] bg-[#17191c] px-3 text-sm text-[#f1f2f4] outline-none placeholder:text-[#aeb6c2] focus:border-[#85b8ff] focus:ring-1 focus:ring-[#85b8ff]"
-            placeholder="Buscar usuarios por nombre o usuario..."
+            placeholder="Buscar usuarios por nombre, usuario, tipo, sucursal o rol..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             autoFocus
           />
+
+          <div className="mt-3 grid grid-cols-3 gap-2 max-sm:grid-cols-1">
+            <label className="space-y-1">
+              <span className="text-[11px] font-black uppercase tracking-wide text-[#9fadbc]">Tipo de usuario</span>
+              <select className={selectClass} value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+                <option value="all">Todos</option>
+                {typeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-[11px] font-black uppercase tracking-wide text-[#9fadbc]">Sucursal</span>
+              <select className={selectClass} value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}>
+                <option value="all">Todas</option>
+                {branchOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-[11px] font-black uppercase tracking-wide text-[#9fadbc]">Rol</span>
+              <select className={selectClass} value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                <option value="all">Todos</option>
+                {roleOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+          </div>
 
           <div className="mt-4 max-h-[50dvh] space-y-1 overflow-y-auto pr-1">
             {filteredUsers.map((user) => {
@@ -138,6 +192,9 @@ function WorkspaceInviteModal({
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black text-[#f1f2f4]">{user.fullName}</span>
                     <span className="block truncate text-xs text-[#aeb6c2]">@{user.username}</span>
+                    <span className="mt-1 block truncate text-[11px] text-[#8f99a8]">
+                      {[user.userTypeName, user.branch, user.systemRole].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
+                    </span>
                   </span>
                   <span className={`inline-flex items-center gap-1 rounded px-3 py-1.5 text-sm font-black transition ${selected ? 'bg-[#1f6f4a] text-[#baf3db]' : 'bg-[#579dff] text-[#092957]'}`}>
                     {selected && <Check size={15} />}
