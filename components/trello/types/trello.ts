@@ -3,6 +3,7 @@ export type BoardVisibility = 'privado' | 'publico';
 export type AppView = 'boards' | 'members' | 'settings' | 'board';
 export type BoardPanel = 'board' | 'inbox';
 export type WorkspaceMemberRole = 'Administrador' | 'Miembro' | 'Observador';
+export type PermissionScope = 'workspace' | 'board';
 export type WorkspaceMemberStatus = 'member' | 'single-board-guest' | 'multi-board-guest' | 'join-request';
 
 export interface Workspace {
@@ -27,8 +28,10 @@ export interface Board {
   visibility: BoardVisibility;
   favorite: boolean;
   memberIds?: string[];
+  memberRoles?: Record<string, WorkspaceMemberRole>;
   createdAt: string;
   updatedAt: string;
+  position?: number;
 }
 
 export type BoardCover =
@@ -41,6 +44,7 @@ export interface CreateBoardInput {
   workspaceId: string;
   cover: BoardCover;
   visibility: BoardVisibility;
+  position?: number;
 }
 
 export interface UpdateBoardInput {
@@ -69,7 +73,7 @@ export interface WorkspaceMember {
   fullName: string;
   username: string;
   avatarText: string;
-  avatarColor: 'orange' | 'red' | 'blue' | 'green' | 'purple';
+  avatarColor: 'orange' | 'red' | 'blue' | 'green' | 'purple' | 'yellow' | 'teal' | 'pink';
   boardCount: number;
   role: WorkspaceMemberRole;
   lastActivity: string;
@@ -90,11 +94,13 @@ export interface BoardList {
   cards: BoardTaskCard[];
   createdAt?: string;
   updatedAt?: string;
+  position?: number;
 }
 
 export interface CreateBoardListInput {
   boardId: string;
   title: string;
+  position?: number;
 }
 
 export interface UpdateBoardListInput {
@@ -107,12 +113,14 @@ export interface MoveBoardTaskCardInput {
   fromListId: string;
   toListId: string;
   targetIndex: number;
+  position?: number;
 }
 
 export interface ReorderBoardListInput {
   boardId: string;
   listId: string;
   targetIndex: number;
+  position?: number;
 }
 
 export interface BoardTaskComment {
@@ -156,6 +164,7 @@ export interface BoardLabelOption {
   id: string;
   name: string;
   color: string;
+  boardId?: string;
 }
 
 export interface CreateBoardLabelInput {
@@ -167,6 +176,10 @@ export interface CreateBoardLabelInput {
 export interface UpdateBoardLabelInput {
   name?: string;
   color?: string;
+}
+
+export interface DeleteBoardLabelInput {
+  labelId: string;
 }
 
 export interface BoardTaskCard {
@@ -187,11 +200,13 @@ export interface BoardTaskCard {
   checklists?: BoardTaskChecklist[];
   createdAt?: string;
   updatedAt?: string;
+  position?: number;
 }
 
 export interface CreateBoardTaskCardInput {
   listId: string;
   title: string;
+  position?: number;
 }
 
 export interface UpdateBoardTaskCardInput {
@@ -220,3 +235,22 @@ export interface ChatMessage {
   sentAt: string;
   isCurrentUser?: boolean;
 }
+
+export interface TrelloBoardSnapshot {
+  boardId: string;
+  workspaceId?: string;
+  board?: Board;
+  lists: BoardList[];
+  labels: BoardLabelOption[];
+  members: WorkspaceMember[];
+  messages: ChatMessage[];
+  version: number;
+  sourceClientId?: string;
+  updatedAt: string;
+}
+
+export type TrelloBoardSnapshotPatch = Partial<Pick<TrelloBoardSnapshot, 'board' | 'lists' | 'labels' | 'members' | 'messages' | 'workspaceId'>> & {
+  boardId: string;
+  version?: number;
+  updatedAt?: string;
+};

@@ -10,6 +10,9 @@ const avatarClasses: Record<WorkspaceMember['avatarColor'], string> = {
   blue: 'bg-[#579dff] text-[#092957]',
   green: 'bg-[#4bce97] text-[#092957]',
   purple: 'bg-[#9f8fef] text-white',
+  yellow: 'bg-[#e2b203] text-[#172b4d]',
+  teal: 'bg-[#60c6d2] text-[#092957]',
+  pink: 'bg-[#f797d2] text-[#172b4d]',
 };
 
 function uniqueSystemUsers(members: WorkspaceMember[]) {

@@ -1,6 +1,13 @@
+import type { CSSProperties } from 'react';
 import type { BoardCover } from '../types/trello';
 
+export const presetBoardBackgroundsPath = '/trello-backgrounds';
+
 export const boardCovers: BoardCover[] = [
+  {
+    type: 'image',
+    value: `${presetBoardBackgroundsPath}/flash-redcom-training.png`,
+  },
   {
     type: 'image',
     value:
@@ -29,3 +36,37 @@ export const boardCovers: BoardCover[] = [
     value: 'linear-gradient(135deg, #f97316, #ef4444)',
   },
 ];
+
+function isImagePath(value: string) {
+  return (value.startsWith('/') || value.startsWith('http://') || value.startsWith('https://'))
+    && !value.startsWith('linear-gradient')
+    && !value.startsWith('radial-gradient');
+}
+
+export function getBoardCoverStyle(
+  cover?: BoardCover,
+  options: { overlay?: boolean; contain?: boolean } = {},
+): CSSProperties {
+  const fallback = boardCovers[1];
+  const selectedCover = cover ?? fallback;
+  const value = selectedCover.value || fallback.value;
+
+  if (selectedCover.type === 'solid') {
+    return { backgroundColor: value };
+  }
+
+  if (selectedCover.type === 'gradient' || !isImagePath(value)) {
+    return { background: value };
+  }
+
+  const image = `url("${value}")`;
+  return {
+    backgroundColor: '#0f172a',
+    backgroundImage: options.overlay
+      ? `linear-gradient(rgba(0,0,0,.34), rgba(0,0,0,.58)), ${image}`
+      : image,
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    backgroundSize: options.contain ? 'contain' : 'cover',
+  };
+}

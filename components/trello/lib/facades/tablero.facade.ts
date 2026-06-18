@@ -33,6 +33,10 @@ export const tableroFacade = {
     return tableroController.getBoardLists();
   },
 
+  getBoardListsByBoard(boardId: string): Promise<BoardList[]> {
+    return tableroController.getBoardListsByBoard(boardId);
+  },
+
   getWorkspaceMembers(): Promise<WorkspaceMember[]> {
     return tableroController.getWorkspaceMembers();
   },
@@ -47,6 +51,10 @@ export const tableroFacade = {
 
   updateBoardLabel(labelId: string, input: UpdateBoardLabelInput): Promise<BoardLabelOption | null> {
     return tableroController.updateBoardLabel(labelId, input);
+  },
+
+  deleteBoardLabel(labelId: string): Promise<void> {
+    return tableroController.deleteBoardLabel(labelId);
   },
 
   createWorkspace(input: CreateWorkspaceInput): Promise<Workspace> {
@@ -90,6 +98,14 @@ export const tableroFacade = {
     return tableroController.removeWorkspaceMember(memberId, workspaceId);
   },
 
+  updateWorkspaceMemberRole(workspaceId: string, memberId: string, role: WorkspaceMember['role']): Promise<WorkspaceMember | null> {
+    return tableroController.updateWorkspaceMemberRole(workspaceId, memberId, role);
+  },
+
+  updateBoardMemberRole(boardId: string, memberId: string, role: WorkspaceMember['role']): Promise<Board | null> {
+    return tableroController.updateBoardMemberRole(boardId, memberId, role);
+  },
+
   updateBoardTaskCard(listId: string, cardId: string, input: UpdateBoardTaskCardInput): Promise<BoardList | null> {
     return tableroController.updateBoardTaskCard(listId, cardId, input);
   },
@@ -123,7 +139,11 @@ export const tableroFacade = {
     return tableroController.sendBoardMessage(boardId, message);
   },
 
-  subscribeToBoardMessages(boardId: string, onChange: () => void): () => void {
+  subscribeToBoardMessages(boardId: string, onChange: (payload?: { table?: string; eventType?: string; id?: string }) => void): () => void {
     return tableroController.subscribeToBoardMessages(boardId, onChange);
+  },
+
+  subscribeToBoardData(boardId: string, onChange: (payload?: { table?: string; eventType?: string; id?: string }) => void): () => void {
+    return tableroController.subscribeToBoardData(boardId, onChange);
   },
 };

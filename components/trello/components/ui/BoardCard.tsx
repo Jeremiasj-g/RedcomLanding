@@ -1,15 +1,18 @@
 import { Globe2, LockKeyhole, MoreHorizontal, Pencil, Star, Trash2 } from 'lucide-react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react';
 import type { Board } from '../../types/trello';
+import { getBoardCoverStyle } from '../../utils/trelloDesignData';
 
 interface BoardCardProps {
   board: Board;
   onOpen: (boardId: string) => void;
   onRename: (boardId: string, title: string) => Promise<void>;
   onDelete: (boardId: string) => Promise<void>;
+  canManage?: boolean;
 }
 
-export function BoardCard({ board, onOpen, onRename, onDelete }: BoardCardProps) {
+
+export function BoardCard({ board, onOpen, onRename, onDelete, canManage = false }: BoardCardProps) {
   const VisibilityIcon = board.visibility === 'publico' ? Globe2 : LockKeyhole;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(board.title);
@@ -69,7 +72,7 @@ export function BoardCard({ board, onOpen, onRename, onDelete }: BoardCardProps)
       }}
       onKeyDown={handleKeyDown}
     >
-      <div className="relative h-[78px] overflow-hidden rounded-t-lg" style={{ background: board.cover.value }}>
+      <div className="relative h-[78px] overflow-hidden rounded-t-lg" style={getBoardCoverStyle(board.cover, { overlay: true, contain: board.cover.value.startsWith('/trello-backgrounds/') })}>
         <div className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded bg-black/35 px-2 py-1 text-[11px] font-semibold text-white/85 backdrop-blur">
           <VisibilityIcon size={12} />
           {board.visibility === 'publico' ? 'Público' : 'Privado'}
@@ -104,8 +107,8 @@ export function BoardCard({ board, onOpen, onRename, onDelete }: BoardCardProps)
           <button
             className="min-w-0 flex-1 truncate rounded px-1 py-1 text-left text-base font-semibold text-[#d7d9df] transition hover:bg-white/10"
             type="button"
-            onClick={() => setEditing(true)}
-            title="Click para editar el nombre del tablero"
+            onClick={() => { if (canManage) setEditing(true); }}
+            title={canManage ? 'Click para editar el nombre del tablero' : 'Solo un administrador puede editar el tablero'}
           >
             {board.title}
           </button>
@@ -126,12 +129,18 @@ export function BoardCard({ board, onOpen, onRename, onDelete }: BoardCardProps)
 
           {optionsOpen && (
             <div className="absolute right-0 top-8 z-30 w-48 rounded-lg border border-[#3b4048] bg-[#282a2f] p-2 text-[#d7dce5] shadow-[0_14px_38px_rgba(0,0,0,.55)]">
-              <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm font-bold transition hover:bg-white/10" type="button" onClick={() => { setOptionsOpen(false); setEditing(true); }}>
-                <Pencil size={15} /> Editar nombre
-              </button>
-              <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm font-bold text-red-200 transition hover:bg-red-500/15" type="button" onClick={() => void handleDelete()}>
-                <Trash2 size={15} /> Eliminar
-              </button>
+              {canManage ? (
+                <>
+                  <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm font-bold transition hover:bg-white/10" type="button" onClick={() => { setOptionsOpen(false); setEditing(true); }}>
+                    <Pencil size={15} /> Editar nombre
+                  </button>
+                  <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm font-bold text-red-200 transition hover:bg-red-500/15" type="button" onClick={() => void handleDelete()}>
+                    <Trash2 size={15} /> Eliminar
+                  </button>
+                </>
+              ) : (
+                <p className="px-3 py-2 text-xs font-semibold text-[#aeb6c2]">Solo un administrador puede editar o eliminar este tablero.</p>
+              )}
             </div>
           )}
         </div>

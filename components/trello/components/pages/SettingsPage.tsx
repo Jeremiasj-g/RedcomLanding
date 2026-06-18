@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { AlertTriangle, Globe2, LockKeyhole, Settings, ShieldCheck, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Globe2, LockKeyhole, Settings, ShieldCheck, Trash2, UsersRound, X } from 'lucide-react';
 import { useBoards } from '../../context/BoardContext';
-import type { BoardVisibility, WorkspaceVisibility } from '../../types/trello';
+import { getBoardCoverStyle } from '../../utils/trelloDesignData';
+import type { BoardVisibility, WorkspaceMemberRole, WorkspaceVisibility } from '../../types/trello';
 import { getVisibilityDescription, getVisibilityLabel } from '../../utils/trelloUtils';
 
 const visibilityOptions: Array<{ value: BoardVisibility; title: string; description: string; icon: typeof LockKeyhole }> = [
@@ -23,8 +24,12 @@ export function SettingsPage() {
   const {
     currentWorkspace,
     workspaceBoards,
+    members,
+    currentUserMember,
+    canManageCurrentWorkspace,
     updateBoardVisibility,
     updateWorkspaceVisibility,
+    updateWorkspaceMemberRole,
     deleteWorkspace,
     openBoard,
   } = useBoards();
@@ -32,7 +37,8 @@ export function SettingsPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const canDeleteWorkspace = Boolean(currentWorkspace && deleteConfirmation === currentWorkspace.name);
+  const canDeleteWorkspace = Boolean(currentWorkspace && canManageCurrentWorkspace && deleteConfirmation === currentWorkspace.name);
+  const workspaceMembers = members.filter((member) => member.workspaceId === currentWorkspace?.id && member.status === 'member');
 
   const handleDeleteWorkspace = async () => {
     if (!currentWorkspace || !canDeleteWorkspace || isDeleting) return;
@@ -89,11 +95,12 @@ export function SettingsPage() {
                   className={`rounded-xl border p-4 text-left transition ${
                     isSelected
                       ? 'border-[#579dff] bg-[#1f3555] text-white'
-                      : 'border-[#3b3d43] bg-[#1f2024] text-[#c9cbd2] hover:border-[#6a6f7a] hover:bg-[#292b30]'
+                      : 'border-[#3b3d43] bg-[#1f2024] text-[#c9cbd2] hover:border-[#6a6f7a] hover:bg-[#292b30] disabled:cursor-not-allowed disabled:opacity-50'
                   }`}
                   type="button"
+                  disabled={!canManageCurrentWorkspace}
                   onClick={() => {
-                    if (currentWorkspace) {
+                    if (currentWorkspace && canManageCurrentWorkspace) {
                       void updateWorkspaceVisibility(currentWorkspace.id, option.value as WorkspaceVisibility);
                     }
                   }}
@@ -129,7 +136,7 @@ export function SettingsPage() {
               return (
                 <div key={board.id} className="grid grid-cols-[minmax(0,1fr)_220px_auto] items-center gap-4 bg-[#1f2024] p-4 max-lg:grid-cols-1">
                   <button className="flex min-w-0 items-center gap-3 text-left" type="button" onClick={() => openBoard(board.id)}>
-                    <span className="h-12 w-16 shrink-0 rounded-lg shadow-inner" style={{ background: board.cover.value }} />
+                    <span className="h-12 w-16 shrink-0 rounded-lg shadow-inner" style={getBoardCoverStyle(board.cover, { overlay: true, contain: board.cover.value.startsWith('/trello-backgrounds/') })} />
                     <span className="min-w-0">
                       <span className="block truncate font-black text-white">{board.title}</span>
                       <span className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-[#a6a8b0]">
@@ -142,6 +149,7 @@ export function SettingsPage() {
                   <select
                     className="h-10 rounded border border-[#6a6f7a] bg-[#17181b] px-3 text-sm font-bold text-[#d7d9df] outline-none transition focus:border-[#579dff] focus:ring-1 focus:ring-[#579dff]"
                     value={board.visibility}
+                    disabled={!canManageCurrentWorkspace}
                     onChange={(event) => void updateBoardVisibility(board.id, event.target.value as BoardVisibility)}
                   >
                     <option value="privado">Privado</option>
@@ -166,6 +174,58 @@ export function SettingsPage() {
         </article>
 
 
+        <article className="rounded-2xl border border-[#323338] bg-[#242528] p-6 shadow-trello">
+          <div className="mb-5 flex items-start justify-between gap-4 border-b border-[#323338] pb-5 max-md:flex-col">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-[#579dff]">
+                <UsersRound size={20} />
+                <h2 className="text-lg font-black text-white">Permisos del espacio</h2>
+              </div>
+              <p className="max-w-3xl text-sm leading-relaxed text-[#a6a8b0]">
+                Los administradores pueden cambiar la visibilidad, eliminar tableros y eliminar este espacio. Los miembros pueden trabajar normalmente dentro de los tableros donde tengan acceso.
+              </p>
+            </div>
+            <span className={`rounded-full px-3 py-1 text-xs font-black ${canManageCurrentWorkspace ? 'bg-[#1f6f4a] text-[#baf3db]' : 'bg-[#3a2b12] text-[#ffd699]'}`}>
+              {canManageCurrentWorkspace ? 'Sos administrador' : 'Permisos de miembro'}
+            </span>
+          </div>
+
+          <div className="divide-y divide-[#323338] overflow-hidden rounded-xl border border-[#323338]">
+            {workspaceMembers.map((member) => {
+              const disabled = !canManageCurrentWorkspace || member.id === currentUserMember?.id;
+              return (
+                <div key={`${member.workspaceId}-${member.id}`} className="grid grid-cols-[minmax(0,1fr)_220px] items-center gap-4 bg-[#1f2024] p-4 max-md:grid-cols-1">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border-2 border-[#2f333a] bg-[#579dff] text-sm font-black text-[#092957]">
+                      {member.avatarText}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate font-black text-white">{member.fullName}</span>
+                      <span className="block truncate text-xs text-[#a6a8b0]">@{member.username}{member.id === currentUserMember?.id ? ' · vos' : ''}</span>
+                    </span>
+                  </div>
+
+                  <select
+                    className="h-10 rounded border border-[#6a6f7a] bg-[#17181b] px-3 text-sm font-bold text-[#d7d9df] outline-none transition focus:border-[#579dff] focus:ring-1 focus:ring-[#579dff] disabled:cursor-not-allowed disabled:opacity-60"
+                    value={member.role}
+                    disabled={disabled}
+                    onChange={(event) => void updateWorkspaceMemberRole(member.id, event.target.value as WorkspaceMemberRole)}
+                  >
+                    <option value="Administrador">Administrador</option>
+                    <option value="Miembro">Miembro</option>
+                    <option value="Observador">Observador</option>
+                  </select>
+                </div>
+              );
+            })}
+
+            {workspaceMembers.length === 0 && (
+              <div className="bg-[#1f2024] p-6 text-sm text-[#a6a8b0]">Todavía no hay miembros en este espacio.</div>
+            )}
+          </div>
+        </article>
+
+
         <article className="rounded-2xl border border-red-500/25 bg-[#242528] p-6 shadow-trello">
           <div className="flex items-start justify-between gap-5 max-md:flex-col">
             <div>
@@ -174,13 +234,13 @@ export function SettingsPage() {
                 <h2 className="text-lg font-black text-white">Eliminar espacio de trabajo</h2>
               </div>
               <p className="max-w-3xl text-sm leading-relaxed text-[#a6a8b0]">
-                Esta acción elimina el espacio, sus tableros, listas, tarjetas y miembros asociados en Supabase. Más adelante puede delegarse a un procedimiento almacenado transaccional.
+                Esta acción elimina el espacio, sus tableros, listas, tarjetas y miembros asociados en Supabase. Solo los administradores del espacio pueden ejecutarla.
               </p>
             </div>
             <button
               className="inline-flex h-10 items-center gap-2 rounded border border-red-500/30 bg-red-500/15 px-4 text-sm font-black text-red-100 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
               type="button"
-              disabled={!currentWorkspace}
+              disabled={!currentWorkspace || !canManageCurrentWorkspace}
               onClick={() => {
                 setDeleteConfirmation('');
                 setIsDeleteModalOpen(true);

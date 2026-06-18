@@ -4,16 +4,14 @@ import { BoardDetailPage } from '../pages/BoardDetailPage';
 import { BoardsPage } from '../pages/BoardsPage';
 import { MembersPage } from '../pages/MembersPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { TrelloGridLoader } from '../ui/TrelloGridLoader';
 import { Sidebar } from './Sidebar';
 
 function PageLoader() {
   return (
-    <div className="fixed inset-x-0 bottom-0 top-16 z-[220] grid place-items-center bg-[#1d1d1f]/72 backdrop-blur-sm">
-      <div className="grid h-14 w-14 grid-cols-2 grid-rows-2 gap-1.5 rounded-2xl border border-white/10 bg-[#22252b] p-2 shadow-2xl">
-        <span className="animate-[trello-loader_1.1s_ease-in-out_infinite] rounded-md bg-[#579dff]" />
-        <span className="animate-[trello-loader_1.1s_ease-in-out_.12s_infinite] rounded-md bg-[#85b8ff]" />
-        <span className="animate-[trello-loader_1.1s_ease-in-out_.24s_infinite] rounded-md bg-[#9f8fef]" />
-        <span className="animate-[trello-loader_1.1s_ease-in-out_.36s_infinite] rounded-md bg-[#4bce97]" />
+    <div className="fixed inset-x-0 bottom-0 top-16 z-[220] grid place-items-center bg-[#1d1d1f]/72 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-[240px]">
+        <TrelloGridLoader label="Cargando..." />
       </div>
     </div>
   );

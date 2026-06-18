@@ -5,9 +5,10 @@ import { TopSearchBar } from '../layout/TopSearchBar';
 import { CreateBoardModal } from '../modals/CreateBoardModal';
 import { BoardCard } from '../ui/BoardCard';
 import { EmptyBoardCard } from '../ui/EmptyBoardCard';
+import { TrelloGridLoader } from '../ui/TrelloGridLoader';
 
 export function BoardsPage() {
-  const { boards, filteredBoards, loading, search, openBoard, updateBoard, deleteBoard } = useBoards();
+  const { boards, filteredBoards, loading, search, openBoard, updateBoard, deleteBoard, currentUserMember, canManageCurrentWorkspace } = useBoards();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   return (
@@ -21,11 +22,11 @@ export function BoardsPage() {
         </div>
 
         {loading ? (
-          <div className="rounded-lg border border-[#323338] bg-[#242528] p-6 text-[#a6a8b0]">Cargando tableros...</div>
+          <TrelloGridLoader label="Cargando tableros..." />
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(238px,1fr))] gap-5">
             {filteredBoards.map((board) => (
-              <BoardCard key={board.id} board={board} onOpen={openBoard} onRename={(boardId, title) => updateBoard(boardId, { title }).then(() => undefined)} onDelete={deleteBoard} />
+              <BoardCard key={board.id} board={board} onOpen={openBoard} onRename={(boardId, title) => updateBoard(boardId, { title }).then(() => undefined)} onDelete={deleteBoard} canManage={canManageCurrentWorkspace || Boolean(currentUserMember && board.memberRoles?.[currentUserMember.id] === 'Administrador')} />
             ))}
 
             {!search && <EmptyBoardCard boardsCount={boards.length} onClick={() => setIsCreateModalOpen(true)} />}

@@ -74,7 +74,7 @@ import type {
   WorkspaceMember,
   UpdateBoardTaskCardInput,
 } from '../../types/trello';
-import { boardCovers } from '../../utils/trelloDesignData';
+import { boardCovers, getBoardCoverStyle } from '../../utils/trelloDesignData';
 
 const defaultBoardGradient = 'linear-gradient(135deg, #075985 0%, #0369a1 50%, #0f172a 100%)';
 
@@ -129,10 +129,26 @@ function getSortableData(eventData: unknown): DndEntityData | null {
   return null;
 }
 
+const avatarGradientClasses = [
+  'from-[#ffb84d] to-[#f97316] text-[#1d1d1f]',
+  'from-[#579dff] to-[#0c66e4] text-white',
+  'from-[#4bce97] to-[#216e4e] text-[#092957]',
+  'from-[#c084fc] to-[#7f3f98] text-white',
+  'from-[#f87168] to-[#ae2e24] text-white',
+  'from-[#e2b203] to-[#a66f00] text-[#172b4d]',
+  'from-[#60c6d2] to-[#227d9b] text-[#092957]',
+  'from-[#f797d2] to-[#9e4c84] text-[#172b4d]',
+];
+
+function getAvatarGradientClass(label: string) {
+  const hash = [...label].reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return avatarGradientClasses[hash % avatarGradientClasses.length];
+}
+
 function Avatar({ label, className = '' }: { label: string; className?: string }) {
   return (
     <span
-      className={`grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#ffb84d] to-[#f97316] text-xs font-black text-[#1d1d1f] shadow-[0_0_0_2px_rgba(255,255,255,.12)] ${className}`}
+      className={`grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br text-xs font-black shadow-[0_0_0_2px_rgba(255,255,255,.12)] ${getAvatarGradientClass(label)} ${className}`}
     >
       {label}
     </span>
@@ -463,7 +479,10 @@ function BoardTask({
           {card.completed ? <CheckCircle2 size={18} className="text-[#4bce97]" /> : <Circle size={18} />}
         </button>
 
-        <p className={`min-w-0 flex-1 text-[15px] leading-snug ${card.completed ? 'text-[#9ca3af] line-through' : 'text-[#dfe3ea]'}`}>
+        <p
+          className={`min-w-0 flex-1 truncate text-[15px] leading-snug ${card.completed ? 'text-[#9ca3af] line-through' : 'text-[#dfe3ea]'}`}
+          title={card.title}
+        >
           {card.title}
         </p>
       </div>
@@ -591,24 +610,27 @@ function AddCardComposer({ listId, onCreate }: { listId: string; onCreate: (list
     }
   }, [isOpen]);
 
-  const submitCard = async () => {
+  const submitCard = () => {
     const cleanTitle = title.trim();
     if (!cleanTitle) return;
 
-    await onCreate(listId, cleanTitle);
     setTitle('');
     window.setTimeout(() => textareaRef.current?.focus(), 0);
+    void onCreate(listId, cleanTitle).catch((error) => {
+      console.error('[Tableros] No se pudo crear la tarjeta', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo crear la tarjeta.');
+    });
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await submitCard();
+    submitCard();
   };
 
-  const handleKeyDown = async (event: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      await submitCard();
+      submitCard();
     }
   };
 
@@ -682,18 +704,21 @@ function AddListComposer({ boardId, onCreate }: { boardId: string; onCreate: (bo
     }
   }, [isOpen]);
 
-  const submitList = async () => {
+  const submitList = () => {
     const cleanTitle = title.trim();
     if (!cleanTitle) return;
 
-    await onCreate(boardId, cleanTitle);
     setTitle('');
     window.setTimeout(() => inputRef.current?.focus(), 0);
+    void onCreate(boardId, cleanTitle).catch((error) => {
+      console.error('[Tableros] No se pudo crear la lista', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo crear la lista.');
+    });
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await submitList();
+    submitList();
   };
 
   if (!isOpen) {
@@ -867,7 +892,7 @@ function PopoverShell({
   return createPortal(
     <div
       ref={popoverRef}
-      className={`fixed z-[160] overflow-y-auto rounded-lg border border-[#3b4048] bg-[#282a2f] p-3 text-[#d7dce5] shadow-[0_16px_48px_rgba(0,0,0,.65)] ${className}`}
+      className={`fixed z-[160] overflow-y-auto overflow-x-hidden rounded-lg border border-[#3b4048] bg-[#282a2f] p-3 text-[#d7dce5] shadow-[0_16px_48px_rgba(0,0,0,.65)] ${className}`}
       style={{
         top: position?.top ?? 0,
         left: position?.left ?? 0,
@@ -949,10 +974,10 @@ function EditableBoardListTitle({
 
   return (
     <button
-      className="min-w-0 flex-1 truncate rounded px-1 py-1 text-left text-[15px] font-black text-[#f1f2f4] transition hover:bg-white/10"
+      className="min-w-0 max-w-[168px] flex-1 truncate rounded px-1 py-1 text-left text-[15px] font-black text-[#f1f2f4] transition hover:bg-white/10"
       type="button"
       onClick={() => setEditing(true)}
-      title="Click para editar el nombre de la lista"
+      title={title}
     >
       {title}
     </button>
@@ -1046,14 +1071,17 @@ function BoardListColumn({
   const [forceRename, setForceRename] = useState(0);
   const optionsButtonRef = useRef<HTMLDivElement | null>(null);
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     const confirmed = window.confirm(`¿Querés eliminar la lista "${list.title}" y todas sus tarjetas? Esta acción no se puede deshacer.`);
     if (!confirmed) return;
     setIsOptionsOpen(false);
-    await onDeleteList(list.id);
+    void onDeleteList(list.id).catch((error) => {
+      console.error('[Tableros] No se pudo eliminar lista', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo eliminar la lista.');
+    });
   };
 
-  const handleEmptyList = async () => {
+  const handleEmptyList = () => {
     if (list.cards.length === 0) {
       window.alert('Esta lista ya está vacía.');
       setIsOptionsOpen(false);
@@ -1063,7 +1091,10 @@ function BoardListColumn({
     const confirmed = window.confirm(`¿Querés vaciar la lista "${list.title}"? Se eliminarán ${list.cards.length} tarjeta${list.cards.length === 1 ? '' : 's'}.`);
     if (!confirmed) return;
     setIsOptionsOpen(false);
-    await onEmptyList(list.id);
+    void onEmptyList(list.id).catch((error) => {
+      console.error('[Tableros] No se pudo vaciar lista', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo vaciar la lista.');
+    });
   };
 
   return (
@@ -1240,6 +1271,7 @@ function LabelsPopover({
   onToggleLabel,
   onCreateLabel,
   onUpdateLabel,
+  onDeleteLabel,
   onClose,
   anchorRef,
 }: {
@@ -1248,10 +1280,15 @@ function LabelsPopover({
   onToggleLabel: (labelId: string) => void;
   onCreateLabel: (name: string, color: string) => Promise<BoardLabelOption>;
   onUpdateLabel: (labelId: string, input: { name?: string; color?: string }) => Promise<BoardLabelOption | null>;
+  onDeleteLabel: (labelId: string) => Promise<void>;
   onClose: () => void;
   anchorRef?: RefObject<HTMLElement>;
 }) {
-  const colorPresets = ['#216e4e', '#7f5f01', '#a54800', '#ae2e24', '#7f3f98', '#0c66e4', '#5e4db2', '#c9372c', '#00875a', '#e2b203'];
+  const colorPresets = [
+    '#216e4e', '#4bce97', '#7f5f01', '#e2b203', '#a54800', '#f97316',
+    '#ae2e24', '#f87168', '#7f3f98', '#c084fc', '#0c66e4', '#579dff',
+    '#5e4db2', '#9f8fef', '#227d9b', '#60c6d2', '#5f3811', '#94a3b8',
+  ];
   const [query, setQuery] = useState('');
   const [editingLabel, setEditingLabel] = useState<BoardLabelOption | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -1301,6 +1338,20 @@ function LabelsPopover({
     }
   };
 
+  const deleteLabel = async () => {
+    if (!editingLabel || saving) return;
+    const confirmed = window.confirm(`¿Querés eliminar la etiqueta "${editingLabel.name}"? Se quitará de todas las tarjetas que la usen.`);
+    if (!confirmed) return;
+
+    setSaving(true);
+    try {
+      await onDeleteLabel(editingLabel.id);
+      closeForm();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <PopoverShell title="Etiquetas" onClose={onClose} anchorRef={anchorRef} className="w-[340px]">
       <input
@@ -1331,7 +1382,7 @@ function LabelsPopover({
           </label>
           <div className="mt-3">
             <p className="mb-2 text-xs font-black text-[#aeb6c2]">Color</p>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-6 gap-2">
               {colorPresets.map((color) => (
                 <button
                   key={color}
@@ -1360,6 +1411,17 @@ function LabelsPopover({
             >
               Cancelar
             </button>
+            {editingLabel && (
+              <button
+                className="ml-auto inline-flex h-9 items-center gap-1.5 rounded px-3 text-sm font-black text-[#f87168] transition hover:bg-[#44201d] hover:text-[#ffb4aa]"
+                type="button"
+                onClick={() => void deleteLabel()}
+                disabled={saving}
+              >
+                <Trash2 size={15} />
+                Eliminar
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -1491,7 +1553,7 @@ function DatesPopover({
   };
 
   return (
-    <PopoverShell title="Fechas" onClose={onClose} anchorRef={anchorRef} className="w-[360px]">
+    <PopoverShell title="Fechas" onClose={onClose} anchorRef={anchorRef} className="w-[340px]">
       <div className="px-1">
         <div className="mb-3 grid grid-cols-[32px_32px_minmax(0,1fr)_32px_32px] items-center text-[#aeb6c2]">
           <button className="grid h-8 w-8 place-items-center rounded hover:bg-white/10" type="button" onClick={() => setCalendarDate((current) => addMonths(current, -12))}>«</button>
@@ -1539,7 +1601,7 @@ function DatesPopover({
         <div className="space-y-4">
           <label className="block">
             <span className="mb-2 block text-xs font-black text-[#aeb6c2]">Fecha de inicio</span>
-            <span className="grid grid-cols-[22px_1fr] items-center gap-2">
+            <span className="grid grid-cols-[22px_minmax(0,1fr)] items-center gap-2">
               <input
                 className="h-5 w-5 accent-[#579dff]"
                 type="checkbox"
@@ -1547,7 +1609,7 @@ function DatesPopover({
                 onChange={(event) => setStartDateEnabled(event.target.checked)}
               />
               <input
-                className="h-10 rounded border border-[#7a818c] bg-[#202126] px-2 text-sm text-[#dfe3ea] outline-none placeholder:text-[#8f96a3] disabled:cursor-not-allowed disabled:bg-[#3a3d44] disabled:text-[#8f96a3]"
+                className="h-10 min-w-0 rounded border border-[#7a818c] bg-[#202126] px-2 text-sm text-[#dfe3ea] outline-none placeholder:text-[#8f96a3] disabled:cursor-not-allowed disabled:bg-[#3a3d44] disabled:text-[#8f96a3]"
                 placeholder="D/M/AAAA"
                 value={startDateText}
                 disabled={!startDateEnabled}
@@ -1562,7 +1624,7 @@ function DatesPopover({
 
           <label className="block">
             <span className="mb-2 block text-xs font-black text-[#aeb6c2]">Fecha de vencimiento</span>
-            <span className="grid grid-cols-[22px_1fr_1fr] items-center gap-2">
+            <span className="grid grid-cols-[22px_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2">
               <input
                 className="h-5 w-5 accent-[#579dff]"
                 type="checkbox"
@@ -1570,7 +1632,7 @@ function DatesPopover({
                 onChange={(event) => setDueDateEnabled(event.target.checked)}
               />
               <input
-                className="h-10 rounded border border-[#7a818c] bg-[#202126] px-2 text-sm text-[#dfe3ea] outline-none placeholder:text-[#8f96a3] disabled:cursor-not-allowed disabled:bg-[#3a3d44] disabled:text-[#8f96a3]"
+                className="h-10 min-w-0 rounded border border-[#7a818c] bg-[#202126] px-2 text-sm text-[#dfe3ea] outline-none placeholder:text-[#8f96a3] disabled:cursor-not-allowed disabled:bg-[#3a3d44] disabled:text-[#8f96a3]"
                 placeholder="D/M/AAAA"
                 value={dueDateText}
                 disabled={!dueDateEnabled}
@@ -1581,7 +1643,7 @@ function DatesPopover({
                 }}
               />
               <input
-                className="h-10 rounded border border-[#7a818c] bg-[#202126] px-2 text-sm text-[#dfe3ea] outline-none disabled:cursor-not-allowed disabled:bg-[#3a3d44] disabled:text-[#8f96a3]"
+                className="h-10 min-w-0 rounded border border-[#7a818c] bg-[#202126] px-2 text-sm text-[#dfe3ea] outline-none disabled:cursor-not-allowed disabled:bg-[#3a3d44] disabled:text-[#8f96a3]"
                 list={timeListId}
                 value={dueTime}
                 disabled={!dueDateEnabled}
@@ -1826,6 +1888,7 @@ function BoardOptionsPopover({
   onToggleFavorite,
   onChangeVisibility,
   onChangeCover,
+  canManageBoard,
   anchorRef,
 }: {
   board: Board;
@@ -1837,6 +1900,7 @@ function BoardOptionsPopover({
   onToggleFavorite: () => void;
   onChangeVisibility: () => void;
   onChangeCover: (coverIndex: number) => void;
+  canManageBoard: boolean;
   anchorRef?: RefObject<HTMLElement>;
 }) {
   return (
@@ -1846,19 +1910,19 @@ function BoardOptionsPopover({
           <Star size={17} className={board.favorite ? 'fill-[#e2b203] text-[#e2b203]' : ''} />
           {board.favorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
         </button>
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-bold text-[#dfe3ea] transition hover:bg-white/10" type="button" onClick={onChangeVisibility}>
+        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-bold text-[#dfe3ea] transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45" type="button" disabled={!canManageBoard} onClick={onChangeVisibility}>
           {board.visibility === 'publico' ? <Globe2 size={17} /> : <LockKeyhole size={17} />}
           Visibilidad: {board.visibility === 'publico' ? 'Público' : 'Privado'}
         </button>
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-bold text-[#dfe3ea] transition hover:bg-white/10" type="button" onClick={onEmptyBoard}>
+        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-bold text-[#dfe3ea] transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45" type="button" disabled={!canManageBoard} onClick={onEmptyBoard}>
           <Archive size={17} />
           Vaciar tablero
         </button>
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-bold text-[#dfe3ea] transition hover:bg-white/10" type="button" onClick={onToggleListSelectionMode}>
+        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-bold text-[#dfe3ea] transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45" type="button" disabled={!canManageBoard} onClick={onToggleListSelectionMode}>
           <CheckSquare2 size={17} />
           {listSelectionMode ? 'Cancelar marcado de listas' : 'Marcar listas'}
         </button>
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-bold text-red-200 transition hover:bg-red-500/15" type="button" onClick={onDeleteBoard}>
+        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-bold text-red-200 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-45" type="button" disabled={!canManageBoard} onClick={onDeleteBoard}>
           <Trash2 size={17} />
           Eliminar tablero
         </button>
@@ -1870,9 +1934,10 @@ function BoardOptionsPopover({
           {boardCovers.map((cover, index) => (
             <button
               key={`${cover.value}-${index}`}
-              className="h-14 rounded-lg border border-white/10 shadow-inner transition hover:scale-[1.02] hover:ring-2 hover:ring-[#85b8ff]"
-              style={{ background: cover.value }}
+              className="h-14 rounded-lg border border-white/10 shadow-inner transition hover:scale-[1.02] hover:ring-2 hover:ring-[#85b8ff] disabled:cursor-not-allowed disabled:opacity-45"
+              style={getBoardCoverStyle(cover, { contain: cover.value.startsWith('/trello-backgrounds/') })}
               type="button"
+              disabled={!canManageBoard}
               onClick={() => onChangeCover(index)}
               aria-label={`Fondo ${index + 1}`}
             />
@@ -2616,6 +2681,7 @@ function CardDetailModal({
   labelOptions,
   onCreateLabel,
   onUpdateLabel,
+  onDeleteLabel,
 }: {
   card: BoardTaskCard;
   list: BoardList;
@@ -2626,6 +2692,7 @@ function CardDetailModal({
   labelOptions: BoardLabelOption[];
   onCreateLabel: (name: string, color: string) => Promise<BoardLabelOption>;
   onUpdateLabel: (labelId: string, input: { name?: string; color?: string }) => Promise<BoardLabelOption | null>;
+  onDeleteLabel: (labelId: string) => Promise<void>;
 }) {
   const [descriptionDraft, setDescriptionDraft] = useState(card.description ?? '');
   const [isDescriptionEditing, setIsDescriptionEditing] = useState(!stripHtml(card.description ?? ''));
@@ -2678,10 +2745,15 @@ function CardDetailModal({
   const handleSaveDescription = async () => {
     if (isSavingDescription) return;
 
+    const previousDescription = card.description ?? '';
+    setIsDescriptionEditing(false);
     setIsSavingDescription(true);
     try {
       await onUpdateCard({ description: descriptionDraft });
-      setIsDescriptionEditing(false);
+    } catch (error) {
+      setDescriptionDraft(previousDescription);
+      setIsDescriptionEditing(true);
+      throw error;
     } finally {
       setIsSavingDescription(false);
     }
@@ -2706,11 +2778,15 @@ function CardDetailModal({
       isCurrentUser: true,
     };
 
+    const previousDraft = commentDraft;
+    setCommentDraft('');
+    setShowActivityDetails(true);
     setIsSavingComment(true);
     try {
       await onUpdateCard({ comments: [newComment, ...(card.comments ?? [])] });
-      setCommentDraft('');
-      setShowActivityDetails(true);
+    } catch (error) {
+      setCommentDraft(previousDraft);
+      throw error;
     } finally {
       setIsSavingComment(false);
     }
@@ -2733,7 +2809,10 @@ function CardDetailModal({
       ? cardLabels.filter((currentLabelId) => currentLabelId !== labelId)
       : [...cardLabels, labelId];
 
-    await onUpdateCard({ labels: nextLabels });
+    void onUpdateCard({ labels: nextLabels }).catch((error) => {
+      console.error('[Tableros] No se pudieron actualizar etiquetas', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudieron actualizar las etiquetas.');
+    });
   };
 
   const handleToggleMember = async (memberText: string) => {
@@ -2741,18 +2820,25 @@ function CardDetailModal({
       ? cardMembers.filter((currentMemberText) => currentMemberText !== memberText)
       : [...cardMembers, memberText];
 
-    await onUpdateCard({ members: nextMembers });
+    void onUpdateCard({ members: nextMembers }).catch((error) => {
+      console.error('[Tableros] No se pudieron actualizar miembros', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudieron actualizar los miembros.');
+    });
   };
 
   const handleSaveDates = async (
     input: Pick<UpdateBoardTaskCardInput, 'startDate' | 'dueDate' | 'dueTime' | 'startDateEnabled' | 'dueDateEnabled' | 'periodicity'>,
   ) => {
-    await updateCardWithActivity(input, 'ha actualizado las fechas de esta tarjeta');
     setActivePopover(null);
+    void updateCardWithActivity(input, 'ha actualizado las fechas de esta tarjeta').catch((error) => {
+      console.error('[Tableros] No se pudieron guardar fechas', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudieron guardar las fechas.');
+    });
   };
 
   const handleRemoveDates = async () => {
-    await updateCardWithActivity(
+    setActivePopover(null);
+    void updateCardWithActivity(
       {
         startDate: '',
         dueDate: '',
@@ -2762,8 +2848,10 @@ function CardDetailModal({
         periodicity: 'Nunca',
       },
       'ha quitado las fechas de esta tarjeta',
-    );
-    setActivePopover(null);
+    ).catch((error) => {
+      console.error('[Tableros] No se pudieron quitar fechas', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudieron quitar las fechas.');
+    });
   };
 
   const handleCreateChecklist = async (title: string, copyFromChecklistId?: string) => {
@@ -2786,11 +2874,14 @@ function CardDetailModal({
       updatedAt: now,
     };
 
-    await updateCardWithActivity(
+    setActivePopover(null);
+    void updateCardWithActivity(
       { checklists: [...cardChecklists, newChecklist] },
       `ha añadido ${newChecklist.title} a esta tarjeta`,
-    );
-    setActivePopover(null);
+    ).catch((error) => {
+      console.error('[Tableros] No se pudo crear checklist', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo crear el checklist.');
+    });
   };
 
   const handleDeleteChecklist = async (checklistId: string) => {
@@ -2798,10 +2889,13 @@ function CardDetailModal({
     const confirmed = window.confirm(`¿Querés eliminar el checklist "${checklist?.title ?? 'sin título'}"? Esta acción no se puede deshacer.`);
     if (!confirmed) return;
 
-    await updateCardWithActivity(
+    void updateCardWithActivity(
       { checklists: cardChecklists.filter((currentChecklist) => currentChecklist.id !== checklistId) },
       `ha quitado ${checklist?.title ?? 'un checklist'} de esta tarjeta`,
-    );
+    ).catch((error) => {
+      console.error('[Tableros] No se pudo eliminar checklist', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo eliminar el checklist.');
+    });
   };
 
   const handleRenameChecklist = async (checklistId: string, title: string) => {
@@ -2812,7 +2906,10 @@ function CardDetailModal({
         : checklist,
     );
 
-    await updateCardWithActivity({ checklists: nextChecklists }, 'ha actualizado un checklist de esta tarjeta');
+    void updateCardWithActivity({ checklists: nextChecklists }, 'ha actualizado un checklist de esta tarjeta').catch((error) => {
+      console.error('[Tableros] No se pudo renombrar checklist', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo renombrar el checklist.');
+    });
   };
 
   const handleAddChecklistItem = async (
@@ -2839,7 +2936,10 @@ function CardDetailModal({
         : checklist,
     );
 
-    await onUpdateCard({ checklists: nextChecklists });
+    void onUpdateCard({ checklists: nextChecklists }).catch((error) => {
+      console.error('[Tableros] No se pudo actualizar checklist', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el checklist.');
+    });
   };
 
   const handleToggleChecklistItem = async (checklistId: string, itemId: string) => {
@@ -2856,7 +2956,10 @@ function CardDetailModal({
         : checklist,
     );
 
-    await onUpdateCard({ checklists: nextChecklists });
+    void onUpdateCard({ checklists: nextChecklists }).catch((error) => {
+      console.error('[Tableros] No se pudo actualizar checklist', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el checklist.');
+    });
   };
 
   const handleUpdateChecklistItem = async (
@@ -2888,7 +2991,10 @@ function CardDetailModal({
         : checklist,
     );
 
-    await onUpdateCard({ checklists: nextChecklists });
+    void onUpdateCard({ checklists: nextChecklists }).catch((error) => {
+      console.error('[Tableros] No se pudo actualizar checklist', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el checklist.');
+    });
   };
 
   const handleDeleteChecklistItem = async (checklistId: string, itemId: string) => {
@@ -2908,7 +3014,10 @@ function CardDetailModal({
         : currentChecklist,
     );
 
-    await onUpdateCard({ checklists: nextChecklists });
+    void onUpdateCard({ checklists: nextChecklists }).catch((error) => {
+      console.error('[Tableros] No se pudo actualizar checklist', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el checklist.');
+    });
   };
 
   const selectedLabelOptions = labelOptions.filter((label) => cardLabels.includes(label.id));
@@ -2966,7 +3075,7 @@ function CardDetailModal({
             <div ref={labelsButtonRef} className="relative">
               <CardActionButton icon={Tag} label="Etiquetas" active={activePopover === 'labels'} onClick={() => setActivePopover(activePopover === 'labels' ? null : 'labels')} />
               {activePopover === 'labels' && (
-                <LabelsPopover selectedLabels={cardLabels} labelOptions={labelOptions} onToggleLabel={(labelId) => void handleToggleLabel(labelId)} onCreateLabel={onCreateLabel} onUpdateLabel={onUpdateLabel} onClose={() => setActivePopover(null)} anchorRef={labelsButtonRef} />
+                <LabelsPopover selectedLabels={cardLabels} labelOptions={labelOptions} onToggleLabel={(labelId) => void handleToggleLabel(labelId)} onCreateLabel={onCreateLabel} onUpdateLabel={onUpdateLabel} onDeleteLabel={onDeleteLabel} onClose={() => setActivePopover(null)} anchorRef={labelsButtonRef} />
               )}
             </div>
             <div ref={datesButtonRef} className="relative">
@@ -3163,6 +3272,7 @@ export function BoardDetailPage() {
     members,
     setActiveView,
     currentWorkspace,
+    canManageSelectedBoard,
     createBoardList,
     updateBoardList,
     deleteBoardList,
@@ -3176,6 +3286,7 @@ export function BoardDetailPage() {
     deleteBoard,
     createBoardLabel,
     updateBoardLabel,
+    deleteBoardLabel,
     boardMessages,
     sendBoardMessage,
   } = useBoards();
@@ -3193,6 +3304,10 @@ export function BoardDetailPage() {
   const boardMemberIds = selectedBoard?.memberIds && selectedBoard.memberIds.length > 0 ? selectedBoard.memberIds : [];
   const uniqueMembers = Array.from(new Map(members.map((member) => [member.id, member])).values());
   const boardMembers = uniqueMembers.filter((member) => boardMemberIds.includes(member.id));
+  const selectedBoardLabelOptions = useMemo(
+    () => selectedBoard ? boardLabels.filter((label) => !label.boardId || label.boardId === selectedBoard.id) : [],
+    [boardLabels, selectedBoard],
+  );
 
   const selectedTaskData = useMemo(() => {
     if (!selectedTask) return null;
@@ -3212,22 +3327,16 @@ export function BoardDetailPage() {
   const activeCardPreview = activeDrag?.type === 'card' ? findCardLocation(renderedBoardLists, activeDrag.cardId)?.card ?? null : null;
   const activeListPreview = activeDrag?.type === 'list' ? renderedBoardLists.find((list) => list.id === activeDrag.listId) ?? null : null;
 
-  const handleCreateList = async (boardId: string, title: string) => {
-    await createBoardList({ boardId, title });
-  };
+  const handleCreateList = (boardId: string, title: string) => createBoardList({ boardId, title }).then(() => undefined);
 
-  const handleRenameList = async (listId: string, title: string) => {
-    await updateBoardList(listId, { title });
-  };
+  const handleRenameList = (listId: string, title: string) => updateBoardList(listId, { title }).then(() => undefined);
 
-  const handleDeleteList = async (listId: string) => {
-    await deleteBoardList(listId);
+  const handleDeleteList = (listId: string) => {
     setSelectedListIdsForDelete((current) => current.filter((currentListId) => currentListId !== listId));
+    return deleteBoardList(listId);
   };
 
-  const handleEmptyList = async (listId: string) => {
-    await updateBoardList(listId, { cards: [] });
-  };
+  const handleEmptyList = (listId: string) => updateBoardList(listId, { cards: [] }).then(() => undefined);
 
   const handleToggleListMarkedForDelete = (listId: string) => {
     setSelectedListIdsForDelete((current) =>
@@ -3245,9 +3354,7 @@ export function BoardDetailPage() {
     setListSelectionMode(false);
   };
 
-  const handleSortListCards = async (listId: string, sortBy: 'name' | 'newest' | 'oldest') => {
-    await sortBoardListCards(listId, sortBy);
-  };
+  const handleSortListCards = (listId: string, sortBy: 'name' | 'newest' | 'oldest') => sortBoardListCards(listId, sortBy).then(() => undefined);
 
   const clearDndState = () => {
     setActiveDrag(null);
@@ -3305,47 +3412,44 @@ export function BoardDetailPage() {
     });
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     if (!selectedBoard || !activeDrag) {
       clearDndState();
       return;
     }
 
     const finalLists = dragPreviewLists ?? selectedBoardLists;
-
-    if (activeDrag.type === 'card') {
-      const finalLocation = findCardLocation(finalLists, activeDrag.cardId);
-      if (finalLocation) {
-        await moveBoardTaskCard({
-          cardId: activeDrag.cardId,
-          fromListId: activeDrag.sourceListId,
-          toListId: finalLocation.listId,
-          targetIndex: finalLocation.cardIndex,
-        });
-      }
-    }
-
-    if (activeDrag.type === 'list') {
-      const finalIndex = finalLists.findIndex((list) => list.id === activeDrag.listId);
-      if (finalIndex !== -1) {
-        await reorderBoardList({ boardId: selectedBoard.id, listId: activeDrag.listId, targetIndex: finalIndex });
-      }
-    }
+    const pendingAction = activeDrag.type === 'card'
+      ? (() => {
+          const finalLocation = findCardLocation(finalLists, activeDrag.cardId);
+          if (!finalLocation) return null;
+          return moveBoardTaskCard({
+            cardId: activeDrag.cardId,
+            fromListId: activeDrag.sourceListId,
+            toListId: finalLocation.listId,
+            targetIndex: finalLocation.cardIndex,
+          });
+        })()
+      : (() => {
+          const finalIndex = finalLists.findIndex((list) => list.id === activeDrag.listId);
+          if (finalIndex === -1) return null;
+          return reorderBoardList({ boardId: selectedBoard.id, listId: activeDrag.listId, targetIndex: finalIndex });
+        })();
 
     clearDndState();
+    void pendingAction?.catch((error) => {
+      console.error('[Tableros] No se pudo guardar drag and drop', error);
+      window.alert(error instanceof Error ? error.message : 'No se pudo guardar el movimiento.');
+    });
   };
 
   const handleDragCancel = (_event?: DragCancelEvent) => {
     clearDndState();
   };
 
-  const handleCreateCard = async (listId: string, title: string) => {
-    await createBoardTaskCard({ listId, title });
-  };
+  const handleCreateCard = (listId: string, title: string) => createBoardTaskCard({ listId, title }).then(() => undefined);
 
-  const handleToggleCard = async (listId: string, card: BoardTaskCard) => {
-    await toggleTaskCardCompleted(listId, card.id, !card.completed);
-  };
+  const handleToggleCard = (listId: string, card: BoardTaskCard) => toggleTaskCardCompleted(listId, card.id, !card.completed);
 
   const handleUpdateSelectedCard = async (input: UpdateBoardTaskCardInput) => {
     if (!selectedTaskData) return;
@@ -3364,6 +3468,10 @@ export function BoardDetailPage() {
 
   const handleDeleteCurrentBoard = async () => {
     if (!selectedBoard) return;
+    if (!canManageSelectedBoard) {
+      window.alert('Solo un administrador del tablero o del espacio puede eliminar este tablero.');
+      return;
+    }
     const confirmed = window.confirm(`¿Querés eliminar el tablero "${selectedBoard.title}"? Esta acción no se puede deshacer.`);
     if (!confirmed) return;
     setIsBoardOptionsOpen(false);
@@ -3372,6 +3480,10 @@ export function BoardDetailPage() {
 
   const handleEmptyCurrentBoard = async () => {
     if (!selectedBoard) return;
+    if (!canManageSelectedBoard) {
+      window.alert('Solo un administrador puede vaciar este tablero.');
+      return;
+    }
     if (selectedBoardLists.length === 0) {
       window.alert('Este tablero ya está vacío.');
       setIsBoardOptionsOpen(false);
@@ -3388,6 +3500,10 @@ export function BoardDetailPage() {
   };
 
   const handleToggleListSelectionMode = () => {
+    if (!canManageSelectedBoard) {
+      window.alert('Solo un administrador puede marcar listas para eliminarlas.');
+      return;
+    }
     setListSelectionMode((current) => {
       const next = !current;
       if (!next) setSelectedListIdsForDelete([]);
@@ -3403,11 +3519,19 @@ export function BoardDetailPage() {
 
   const handleToggleBoardVisibility = async () => {
     if (!selectedBoard) return;
+    if (!canManageSelectedBoard) {
+      window.alert('Solo un administrador puede cambiar la visibilidad del tablero.');
+      return;
+    }
     await updateBoard(selectedBoard.id, { visibility: selectedBoard.visibility === 'publico' ? 'privado' : 'publico' });
   };
 
   const handleChangeBoardCover = async (coverIndex: number) => {
     if (!selectedBoard) return;
+    if (!canManageSelectedBoard) {
+      window.alert('Solo un administrador puede cambiar el fondo del tablero.');
+      return;
+    }
     await updateBoard(selectedBoard.id, { cover: boardCovers[coverIndex] ?? boardCovers[0] });
   };
 
@@ -3436,24 +3560,24 @@ export function BoardDetailPage() {
     <main className="relative grid h-full grid-cols-[305px_minmax(0,1fr)] gap-3 overflow-hidden bg-[#1d1d1f] p-3 font-sans text-[#d7d9df]">
       <InboxChatPanel messages={boardMessages} members={boardMembers} onSend={(message) => selectedBoard ? sendBoardMessage(selectedBoard.id, message) : Promise.resolve()} />
 
-      <section className="relative min-w-0 overflow-hidden rounded-2xl border border-white/10" style={{ background: selectedBoard.cover.value || defaultBoardGradient }}>
+      <section className="relative min-w-0 overflow-hidden rounded-2xl border border-white/10" style={getBoardCoverStyle(selectedBoard.cover, { overlay: true, contain: selectedBoard.cover.value.startsWith('/trello-backgrounds/') })}>
         <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-sky-950/10 to-black/45" />
 
         <header className="relative z-10 flex h-[72px] items-center justify-between border-b border-white/10 bg-black/55 px-6 backdrop-blur-xl">
           <div className="flex min-w-0 items-center gap-3">
+            <button
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-white/90 transition hover:bg-white/10"
+              type="button"
+              onClick={() => setActiveView('boards')}
+              title="Ir a los tableros del espacio de trabajo"
+            >
+              <LayoutPanelLeft size={24} />
+            </button>
             <BoardTitleEditor board={selectedBoard} onSave={(title) => updateBoard(selectedBoard.id, { title }).then(() => undefined)} />
             <span className="inline-flex items-center gap-1 rounded-lg bg-black/25 px-2.5 py-1 text-xs font-bold text-white/85 ring-1 ring-white/10">
               <VisibilityIcon size={13} />
               {selectedBoard.visibility === 'publico' ? 'Público' : 'Privado'}
             </span>
-            <button
-              className="grid h-8 w-8 place-items-center rounded-lg text-white/85 transition hover:bg-white/10"
-              type="button"
-              onClick={() => setActiveView('boards')}
-              title="Ir a los tableros del espacio de trabajo"
-            >
-              <LayoutPanelLeft size={18} />
-            </button>
           </div>
 
           <div className="flex items-center gap-2 text-white/90">
@@ -3463,8 +3587,9 @@ export function BoardDetailPage() {
               ))}
             </div>
             <button
-              className="inline-flex h-9 items-center gap-2 rounded bg-white/80 px-3 font-bold text-[#183153] transition hover:bg-white"
+              className="inline-flex h-9 items-center gap-2 rounded bg-white/80 px-3 font-bold text-[#183153] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
               type="button"
+              disabled={!canManageSelectedBoard}
               onClick={() => setIsShareModalOpen(true)}
             >
               <UserPlus size={17} />
@@ -3490,6 +3615,7 @@ export function BoardDetailPage() {
                   onToggleFavorite={() => void handleToggleFavorite()}
                   onChangeVisibility={() => void handleToggleBoardVisibility()}
                   onChangeCover={(coverIndex) => void handleChangeBoardCover(coverIndex)}
+                  canManageBoard={canManageSelectedBoard}
                   anchorRef={boardOptionsButtonRef}
                 />
               )}
@@ -3545,7 +3671,7 @@ export function BoardDetailPage() {
                       onDeleteList={handleDeleteList}
                       onEmptyList={handleEmptyList}
                       onSortListCards={handleSortListCards}
-                      labelOptions={boardLabels}
+                      labelOptions={selectedBoardLabelOptions}
                       selectionMode={listSelectionMode}
                       isSelectedForDelete={selectedListIdsForDelete.includes(list.id)}
                       onToggleSelectedForDelete={handleToggleListMarkedForDelete}
@@ -3557,7 +3683,7 @@ export function BoardDetailPage() {
               </SortableContext>
 
               <DragOverlay adjustScale={false} dropAnimation={null}>
-                {activeCardPreview ? <BoardTaskDragPreview card={activeCardPreview} labelOptions={boardLabels} /> : null}
+                {activeCardPreview ? <BoardTaskDragPreview card={activeCardPreview} labelOptions={selectedBoardLabelOptions} /> : null}
                 {!activeCardPreview && activeListPreview ? <BoardListDragPreview list={activeListPreview} /> : null}
               </DragOverlay>
             </DndContext>
@@ -3625,9 +3751,10 @@ export function BoardDetailPage() {
           onUpdateCard={handleUpdateSelectedCard}
           onToggleCompleted={() => handleToggleCard(selectedTaskData.list.id, selectedTaskData.card)}
           members={boardMembers}
-          labelOptions={boardLabels}
-          onCreateLabel={(name, color) => createBoardLabel({ name, color })}
+          labelOptions={selectedBoardLabelOptions}
+          onCreateLabel={(name, color) => createBoardLabel({ name, color, boardId: selectedBoard.id })}
           onUpdateLabel={(labelId, input) => updateBoardLabel(labelId, input)}
+          onDeleteLabel={(labelId) => deleteBoardLabel(labelId)}
         />
       )}
 
