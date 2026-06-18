@@ -1110,6 +1110,7 @@ export const tableroController = {
     if (typeof input.position === 'number') {
       const { data: targetListRow, error: targetListError } = await supabase.from('trello_lists').select('board_id').eq('id', input.toListId).single();
       throwIfError(targetListError, 'No se pudo encontrar la lista destino');
+      if (!targetListRow) throw new Error('No se pudo encontrar la lista destino.');
       const { error } = await supabase
         .from('trello_cards')
         .update({ list_id: input.toListId, position: input.position })
