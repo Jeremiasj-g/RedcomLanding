@@ -12,6 +12,7 @@ export default function Page() {
       heroHasShadow
       table={<CategoriasTable />}
       grid={<CategoriasGrid />}
+      historyHref="/chaco/categorias/historico"
     />
   )
 }

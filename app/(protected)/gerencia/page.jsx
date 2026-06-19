@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { BarChart3, Flame, Table } from 'lucide-react';
 import BranchResourcesSection from '@/components/BranchResourcesSection';
+import GerenciaCategoriasDashboard from '@/components/categoria/GerenciaCategoriasDashboard';
 import Container from '@/components/Container';
 import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
 import LookerEmbed from '@/components/LookerEmbed';
@@ -47,6 +48,14 @@ export default function Gerencia() {
           products={gerenciaProducts}
           description="Accedé rápidamente a las planillas y recursos de seguimiento utilizados por Gerencia."
         />
+
+
+
+        <section className="bg-white py-12 sm:py-14">
+          <Container>
+            <GerenciaCategoriasDashboard />
+          </Container>
+        </section>
 
         <section className="bg-white py-12 sm:py-14">
           <Container>
