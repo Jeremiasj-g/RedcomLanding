@@ -11,6 +11,7 @@ export default function PageHeader(props) {
     bgImage = '',
     bg = ' ',
     bg2 = '',
+    bgStyle = undefined,
     actions = null,
     className = '',
   } = props;
@@ -32,7 +33,7 @@ export default function PageHeader(props) {
 
 
       {/* Fondo */}
-      <div className={`absolute inset-0 ${bg}`}>
+      <div className={`absolute inset-0 ${bg}`} style={bgStyle}>
         <div className={`absolute inset-0 ${bg2}`} />
       </div>
 

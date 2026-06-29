@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -41,6 +41,7 @@ import {
 import CategoriaVendorHistory from "@/components/categoria/CategoriaVendorHistory";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SmartTooltip, useSmartTooltip } from "@/components/ui/smart-tooltip";
 import {
   CATEGORY_LABEL,
   formatMoney,
@@ -286,21 +287,98 @@ function getActionNeed(summary: CategoriaHistorySummary | null) {
 }
 
 function getBranchHealthScore(summary: BranchSummary) {
-  const categoryRatio = summary.avgCategoriaRank === null ? 0 : summary.avgCategoriaRank / 3;
-  const eficienciaRatio = summary.avgEficiencia === null ? 0 : Math.min(summary.avgEficiencia / 75, 1);
-  const efectividadRatio = summary.avgEfectividad === null ? 0 : Math.min(summary.avgEfectividad / 95, 1);
-  const seniorBoost = summary.seniorPct ?? 0;
-  const planPenalty = summary.planMejoraPct ?? 0;
+  const breakdown = getBranchHealthBreakdown(summary);
+  return breakdown.finalScore;
+}
 
-  const score =
-    categoryRatio * 35 +
-    eficienciaRatio * 22 +
-    efectividadRatio * 22 +
-    seniorBoost * 13 -
-    planPenalty * 12 +
-    8;
+type HealthBreakdownRow = {
+  label: string;
+  value: string;
+  detail: string;
+  points: number;
+  maxLabel: string;
+  isPenalty?: boolean;
+};
 
-  return Math.max(0, Math.min(100, Math.round(score)));
+type BranchHealthBreakdown = {
+  rows: HealthBreakdownRow[];
+  rawScore: number;
+  finalScore: number;
+};
+
+function ratio01(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
+function getBranchHealthBreakdown(summary: BranchSummary): BranchHealthBreakdown {
+  const categoryRatio = summary.avgCategoriaRank === null ? 0 : ratio01(summary.avgCategoriaRank / 3);
+  const eficienciaRatio = summary.avgEficiencia === null ? 0 : ratio01(summary.avgEficiencia / 75);
+  const efectividadRatio = summary.avgEfectividad === null ? 0 : ratio01(summary.avgEfectividad / 95);
+
+  // planMejoraPct y seniorPct se guardan como porcentaje real, por ejemplo 71 = 71%.
+  // Para el índice deben comportarse como ratio 0..1.
+  const seniorRatio = summary.seniorPct === null ? 0 : ratio01(summary.seniorPct / 100);
+  const planMejoraRatio = summary.planMejoraPct === null ? 0 : ratio01(summary.planMejoraPct / 100);
+
+  const categoryPoints = categoryRatio * 35;
+  const eficienciaPoints = eficienciaRatio * 22;
+  const efectividadPoints = efectividadRatio * 22;
+  const seniorPoints = seniorRatio * 13;
+  const planPenalty = planMejoraRatio * 12;
+  const basePoints = 8;
+  const rawScore = categoryPoints + eficienciaPoints + efectividadPoints + seniorPoints - planPenalty + basePoints;
+  const finalScore = Math.max(0, Math.min(100, Math.round(rawScore)));
+
+  return {
+    rawScore,
+    finalScore,
+    rows: [
+      {
+        label: "Categoría promedio",
+        value: summary.avgCategoriaRank === null ? "Sin datos" : `${formatNumber(summary.avgCategoriaRank, 2)} / 3`,
+        detail: "Nivel promedio de categoría actual de los vendedores.",
+        points: categoryPoints,
+        maxLabel: "35",
+      },
+      {
+        label: "Eficiencia promedio",
+        value: summary.avgEficiencia === null ? "Sin datos" : `${formatPercent(summary.avgEficiencia)} sobre objetivo 75%`,
+        detail: "Mide qué tan cerca está la sucursal del objetivo de eficiencia.",
+        points: eficienciaPoints,
+        maxLabel: "22",
+      },
+      {
+        label: "Efectividad promedio",
+        value: summary.avgEfectividad === null ? "Sin datos" : `${formatPercent(summary.avgEfectividad)} sobre objetivo 95%`,
+        detail: "Mide el nivel de cumplimiento de efectividad comercial.",
+        points: efectividadPoints,
+        maxLabel: "22",
+      },
+      {
+        label: "Peso de Senior",
+        value: summary.seniorPct === null ? "Sin datos" : `${formatPercent(summary.seniorPct, 0)} de vendedores Senior`,
+        detail: "Suma cuando la sucursal concentra vendedores en categorías superiores.",
+        points: seniorPoints,
+        maxLabel: "13",
+      },
+      {
+        label: "Plan de Mejora",
+        value: summary.planMejoraPct === null ? "Sin datos" : `${formatPercent(summary.planMejoraPct, 0)} en Plan de Mejora`,
+        detail: "Resta puntos cuando hay una proporción alta en Plan de Mejora.",
+        points: -planPenalty,
+        maxLabel: "-12",
+        isPenalty: true,
+      },
+      {
+        label: "Base de lectura",
+        value: "+8 pts",
+        detail: "Punto de partida para que el índice sea comparable entre sucursales.",
+        points: basePoints,
+        maxLabel: "8",
+      },
+    ],
+  };
 }
 
 function buildMonthly(points: CategoriaHistoryPoint[]) {
@@ -553,19 +631,104 @@ function PeriodSelect({
   );
 }
 
+function BranchIndexTooltip({ summary }: { summary: BranchSummary }) {
+  const breakdown = getBranchHealthBreakdown(summary);
+
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Índice sucursal</div>
+          <div className="mt-1 text-lg font-black text-slate-950">{summary.healthScore ?? breakdown.finalScore}/100</div>
+        </div>
+        <div className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">{summary.label}</div>
+      </div>
+
+      <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+        Resume la salud comercial de la sucursal combinando categoría promedio, eficiencia, efectividad, presencia de Senior y peso de Plan de Mejora.
+      </p>
+
+      <div className="mt-4 space-y-2">
+        {breakdown.rows.map((row) => (
+          <div key={row.label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-black text-slate-950">{row.label}</div>
+                <div className="mt-0.5 text-xs font-semibold leading-5 text-slate-500">{row.value}</div>
+              </div>
+              <div className={cls("shrink-0 text-sm font-black", row.isPenalty ? "text-red-600" : "text-slate-950")}>
+                {row.points >= 0 ? "+" : ""}{formatNumber(row.points, 1)} pts
+              </div>
+            </div>
+            <div className="mt-1 text-[11px] font-semibold leading-4 text-slate-400">{row.detail}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 rounded-xl bg-slate-950 p-3 text-xs font-bold leading-5 text-white">
+        Resultado: {breakdown.rows.map((row) => `${row.points >= 0 ? "+" : ""}${formatNumber(row.points, 1)}`).join(" ")} = {formatNumber(breakdown.rawScore, 1)} → {breakdown.finalScore}/100.
+      </div>
+    </div>
+  );
+}
+
+function CompanyIndexTooltip({ company }: { company: CompanySummary }) {
+  const branches = company.branches.filter((branch) => typeof branch.healthScore === "number");
+  const total = branches.reduce((acc, branch) => acc + (branch.healthScore ?? 0), 0);
+  const averageScore = branches.length ? total / branches.length : null;
+
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Índice empresa</div>
+          <div className="mt-1 text-lg font-black text-slate-950">{averageScore !== null ? `${formatNumber(averageScore, 0)}/100` : "—"}</div>
+        </div>
+        <div className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">{branches.length} sucursales</div>
+      </div>
+
+      <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+        Es el promedio simple de los índices de las sucursales con datos en el rango seleccionado. Sirve para ver la foto general de la empresa sin entrar sucursal por sucursal.
+      </p>
+
+      <div className="mt-4 space-y-2">
+        {branches.map((branch) => (
+          <div key={branch.branchKey} className="grid grid-cols-[1fr_auto] gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <div>
+              <div className="text-sm font-black text-slate-950">{branch.label}</div>
+              <div className="mt-0.5 text-xs font-semibold text-slate-500">
+                {branch.sellersCount} vendedores · {formatPercent(branch.planMejoraPct, 0)} en Plan de Mejora
+              </div>
+            </div>
+            <div className="self-center text-sm font-black text-slate-950">{branch.healthScore ?? "—"}/100</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 rounded-xl bg-slate-950 p-3 text-xs font-bold leading-5 text-white">
+        Cálculo: ({branches.map((branch) => branch.healthScore ?? 0).join(" + ") || "sin datos"}) / {branches.length || 0} = {averageScore !== null ? `${formatNumber(averageScore, 1)}/100` : "—"}.
+      </div>
+    </div>
+  );
+}
+
 function MetricCard({
   label,
   value,
   helper,
   icon,
   accent = "slate",
+  tooltip,
 }: {
   label: string;
   value: React.ReactNode;
   helper?: React.ReactNode;
   icon: React.ReactNode;
   accent?: "slate" | "red" | "emerald" | "amber" | "blue";
+  tooltip?: React.ReactNode;
 }) {
+  const smartTooltip = useSmartTooltip();
+  const ref = useRef<HTMLDivElement | null>(null);
   const accentClasses = {
     slate: "bg-slate-950 text-white",
     red: "bg-red-600 text-white",
@@ -574,19 +737,60 @@ function MetricCard({
     blue: "bg-sky-700 text-white",
   }[accent];
 
+  const show = () => {
+    if (!tooltip) return;
+    smartTooltip.show();
+  };
+
+  const hide = () => {
+    if (!tooltip) return;
+    smartTooltip.hide();
+  };
+
   return (
-    <Card className="rounded-2xl border-slate-200 bg-white shadow-2xl">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <div className={cls("grid h-10 w-10 shrink-0 place-items-center rounded-xl", accentClasses)}>{icon}</div>
-          <div className="min-w-0">
-            <div className="text-[11px] font-black uppercase leading-4 tracking-[0.16em] text-slate-500">{label}</div>
-            <div className="mt-2 text-2xl font-black leading-none tracking-tight text-slate-950 md:text-3xl">{value}</div>
-            {helper ? <div className="mt-2 text-xs font-semibold leading-5 text-slate-500">{helper}</div> : null}
+    <>
+      <Card
+        ref={ref}
+        tabIndex={tooltip ? 0 : undefined}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+        className={cls(
+          "rounded-2xl border-slate-200 bg-white shadow-2xl",
+          tooltip ? "cursor-help outline-none ring-offset-2 transition focus-visible:ring-2 focus-visible:ring-slate-900/30" : "",
+        )}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className={cls("grid h-10 w-10 shrink-0 place-items-center rounded-xl", accentClasses)}>{icon}</div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-[11px] font-black uppercase leading-4 tracking-[0.16em] text-slate-500">
+                {label}
+                {tooltip ? (
+                  <span className="inline-grid h-5 w-5 place-items-center rounded-full border border-slate-200 bg-slate-50 text-[10px] text-slate-500">?</span>
+                ) : null}
+              </div>
+              <div className="mt-2 text-2xl font-black leading-none tracking-tight text-slate-950 md:text-3xl">{value}</div>
+              {helper ? <div className="mt-2 text-xs font-semibold leading-5 text-slate-500">{helper}</div> : null}
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {tooltip ? (
+        <SmartTooltip
+          anchorRef={ref}
+          open={smartTooltip.open}
+          width={520}
+          align="start"
+          onMouseEnter={smartTooltip.show}
+          onMouseLeave={smartTooltip.hide}
+        >
+          {tooltip}
+        </SmartTooltip>
+      ) : null}
+    </>
   );
 }
 
@@ -760,6 +964,7 @@ function CompanyView({ company }: { company: CompanySummary }) {
           helper="Promedio de salud de sucursales."
           icon={<ShieldAlert className="h-5 w-5" />}
           accent="red"
+          tooltip={<CompanyIndexTooltip company={company} />}
         />
         <MetricCard
           label="Vendedores"
@@ -974,7 +1179,14 @@ function BranchView({ summary }: { summary: BranchSummary }) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <MetricCard label="Índice sucursal" value={summary.healthScore !== null ? `${summary.healthScore}/100` : "—"} helper="Salud comercial del equipo." icon={<ShieldAlert className="h-5 w-5" />} accent="red" />
+        <MetricCard
+          label="Índice sucursal"
+          value={summary.healthScore !== null ? `${summary.healthScore}/100` : "—"}
+          helper="Salud comercial del equipo."
+          icon={<ShieldAlert className="h-5 w-5" />}
+          accent="red"
+          tooltip={<BranchIndexTooltip summary={summary} />}
+        />
         <MetricCard label="Vendedores" value={summary.sellersCount} helper={`${summary.monthsCount} meses analizados`} icon={<Users className="h-5 w-5" />} />
         <MetricCard label="Categoría dominante" value={<CategoryBadge categoria={summary.dominantCategoria} />} helper={summary.dominantCategoriaPct !== null ? `${formatPercent(summary.dominantCategoriaPct * 100, 0)} de la sucursal` : "Sin datos"} icon={<PieChartIcon className="h-5 w-5" />} accent="blue" />
         <MetricCard label="Eficiencia" value={formatPercent(summary.avgEficiencia)} helper={`Efectividad: ${formatPercent(summary.avgEfectividad)}`} icon={<CheckCircle2 className="h-5 w-5" />} accent="emerald" />

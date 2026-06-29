@@ -334,7 +334,7 @@ export default function Navbar() {
                     className="hidden items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800 md:inline-flex"
                   >
                     <Hammer className="h-4 w-4" />
-                    Recursos
+                    Gerencia
                   </Link>
                 </>
               )}

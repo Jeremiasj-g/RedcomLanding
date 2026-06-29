@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import {
   Area,
@@ -54,6 +53,7 @@ import {
 import { CATEGORIA_RANK, type CategoriaKey } from "@/utils/categories";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { SmartTooltip, useSmartTooltip } from "@/components/ui/smart-tooltip";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   RecognitionScoringTable,
@@ -825,18 +825,13 @@ function KpiCard({
 
 function ScoreFormulaTooltip({
   score,
-  coords,
 }: {
   score: HistoricalScore;
-  coords: { top: number; left: number; width: number };
 }) {
   const monthlyAverage = typeof score.monthlyAverage === "number" ? formatNumber(score.monthlyAverage, 1) : "—";
 
-  return createPortal(
-    <div
-      className="fixed z-[99999] max-h-[min(680px,calc(100vh-2rem))] w-[min(460px,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-[0_24px_80px_rgba(15,23,42,0.24)] ring-1 ring-slate-900/5"
-      style={{ top: coords.top, left: coords.left, width: Math.min(coords.width, 460) }}
-    >
+  return (
+    <>
       <div className="flex items-start gap-3">
         <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-950 text-white">
           <Info className="h-4 w-4" />
@@ -948,8 +943,7 @@ function ScoreFormulaTooltip({
           ? `Próximo canje: ${score.nextBenefit.label}. Faltan ${score.nextBenefit.missing} pts.`
           : "El saldo alcanza todos los beneficios cargados en el catálogo."}
       </div>
-    </div>,
-    document.body,
+    </>
   );
 }
 
@@ -962,8 +956,7 @@ function ScoreValue({
   size?: "sm" | "md" | "lg";
   align?: "left" | "right";
 }) {
-  const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
+  const tooltip = useSmartTooltip();
   const ref = useRef<HTMLDivElement | null>(null);
 
   const sizeClass =
@@ -973,60 +966,43 @@ function ScoreValue({
         ? "text-2xl"
         : "text-[clamp(3.4rem,6vw,5.4rem)]";
 
-  const updatePosition = () => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const width = Math.min(420, window.innerWidth - 32);
-    const wantedLeft = align === "right" ? rect.right - width : rect.left;
-    const left = Math.max(16, Math.min(wantedLeft, window.innerWidth - width - 16));
-    const estimatedHeight = Math.min(620, window.innerHeight - 32);
-    let top = rect.bottom + 12;
-    if (top + estimatedHeight > window.innerHeight) {
-      top = Math.max(16, rect.top - estimatedHeight - 12);
-    }
-    setCoords({ top, left, width });
-  };
-
-  const show = () => {
-    updatePosition();
-    setOpen(true);
-  };
-
-  const hide = () => setOpen(false);
-
   return (
     <div
       ref={ref}
       className="relative inline-flex cursor-help items-end gap-1 focus-within:outline-none"
       tabIndex={0}
-      onMouseEnter={show}
-      onMouseLeave={hide}
-      onFocus={show}
-      onBlur={hide}
+      onMouseEnter={tooltip.show}
+      onMouseLeave={tooltip.hide}
+      onFocus={tooltip.show}
+      onBlur={tooltip.hide}
     >
       <span className={cls("font-black leading-[0.85] tracking-[-0.08em] text-slate-950", sizeClass)}>
         {score.totalPoints}
       </span>
       <span className={cls("font-black text-slate-400", size === "lg" ? "pb-2 text-2xl" : "")}>pts</span>
-      {open && coords ? <ScoreFormulaTooltip score={score} coords={coords} /> : null}
+      <SmartTooltip
+        anchorRef={ref}
+        open={tooltip.open}
+        width={460}
+        align={align === "right" ? "end" : "start"}
+        onMouseEnter={tooltip.show}
+        onMouseLeave={tooltip.hide}
+      >
+        <ScoreFormulaTooltip score={score} />
+      </SmartTooltip>
     </div>
   );
 }
 
 function RecognitionIndexTooltip({
   score,
-  coords,
 }: {
   score: HistoricalScore;
-  coords: { top: number; left: number; width: number };
 }) {
   const formula = `${score.totalPoints} / ${score.maxPossiblePoints || 0} × 100`;
 
-  return createPortal(
-    <div
-      style={{ position: "fixed", top: coords.top, left: coords.left, width: coords.width, zIndex: 99999 }}
-      className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-2xl"
-    >
+  return (
+    <>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Índice del vendedor</div>
@@ -1061,32 +1037,13 @@ function RecognitionIndexTooltip({
       <div className="mt-4 rounded-xl bg-slate-950 p-3 text-xs font-bold leading-5 text-white">
         Cálculo: {score.totalPoints} / {score.maxPossiblePoints} × 100 = {score.score}/100.
       </div>
-    </div>,
-    document.body,
+    </>
   );
 }
 
 function RecognitionIndexValue({ score }: { score: HistoricalScore | null | undefined }) {
-  const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
+  const tooltip = useSmartTooltip();
   const ref = useRef<HTMLDivElement | null>(null);
-
-  const updatePosition = () => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const width = Math.min(430, window.innerWidth - 32);
-    const left = Math.max(16, Math.min(rect.left, window.innerWidth - width - 16));
-    const top = Math.min(rect.bottom + 12, window.innerHeight - 260);
-    setCoords({ top: Math.max(16, top), left, width });
-  };
-
-  const show = () => {
-    if (!score) return;
-    updatePosition();
-    setOpen(true);
-  };
-
-  const hide = () => setOpen(false);
 
   if (!score) {
     return (
@@ -1100,10 +1057,10 @@ function RecognitionIndexValue({ score }: { score: HistoricalScore | null | unde
     <div
       ref={ref}
       tabIndex={0}
-      onMouseEnter={show}
-      onMouseLeave={hide}
-      onFocus={show}
-      onBlur={hide}
+      onMouseEnter={tooltip.show}
+      onMouseLeave={tooltip.hide}
+      onFocus={tooltip.show}
+      onBlur={tooltip.hide}
       className="inline-flex cursor-help flex-col outline-none"
     >
       <div className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Índice del vendedor</div>
@@ -1113,54 +1070,55 @@ function RecognitionIndexValue({ score }: { score: HistoricalScore | null | unde
       <div className="mt-3 w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-500">
         {score.totalPoints}/{score.maxPossiblePoints} pts del rango
       </div>
-      {open && coords ? <RecognitionIndexTooltip score={score} coords={coords} /> : null}
+      <SmartTooltip
+        anchorRef={ref}
+        open={tooltip.open}
+        width={430}
+        align="start"
+        onMouseEnter={tooltip.show}
+        onMouseLeave={tooltip.hide}
+      >
+        <RecognitionIndexTooltip score={score} />
+      </SmartTooltip>
     </div>
   );
 }
 
 function RecognitionIndexBadge({ score }: { score: HistoricalScore | null | undefined }) {
-  const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
+  const tooltip = useSmartTooltip();
   const ref = useRef<HTMLDivElement | null>(null);
-
-  const updatePosition = () => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const width = Math.min(430, window.innerWidth - 32);
-    const left = Math.max(16, Math.min(rect.left, window.innerWidth - width - 16));
-    const top = Math.min(rect.bottom + 12, window.innerHeight - 260);
-    setCoords({ top: Math.max(16, top), left, width });
-  };
-
-  const show = () => {
-    if (!score) return;
-    updatePosition();
-    setOpen(true);
-  };
-
-  const hide = () => setOpen(false);
 
   return (
     <div
       ref={ref}
       tabIndex={0}
-      onMouseEnter={show}
-      onMouseLeave={hide}
-      onFocus={show}
-      onBlur={hide}
+      onMouseEnter={tooltip.show}
+      onMouseLeave={tooltip.hide}
+      onFocus={tooltip.show}
+      onBlur={tooltip.hide}
       className="cursor-help flex flex-col justify-end items-end rounded-2xl bg-white p-4 text-left outline-none transition"
     >
       <div className="mt-2 flex items-end justify-between gap-4">
         <div className="text-[clamp(2.4rem,5vw,4.1rem)] font-black leading-none tracking-[-0.08em] text-slate-950">
           {score ? score.score : "—"}<span className="text-[0.38em] text-slate-400">/100</span>
         </div>
-
       </div>
       <div className="mt-3 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-500">
         {score ? `${score.totalPoints}/${score.maxPossiblePoints} pts del rango` : "Sin puntos calculados"}
       </div>
 
-      {open && coords && score ? <RecognitionIndexTooltip score={score} coords={coords} /> : null}
+      {score ? (
+        <SmartTooltip
+          anchorRef={ref}
+          open={tooltip.open}
+          width={430}
+          align="end"
+          onMouseEnter={tooltip.show}
+          onMouseLeave={tooltip.hide}
+        >
+          <RecognitionIndexTooltip score={score} />
+        </SmartTooltip>
+      ) : null}
     </div>
   );
 }
