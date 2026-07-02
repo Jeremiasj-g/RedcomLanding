@@ -2760,7 +2760,7 @@ function CardDetailModal({
   onDeleteLabel: (labelId: string) => Promise<void>;
 }) {
   const [descriptionDraft, setDescriptionDraft] = useState(card.description ?? '');
-  const [isDescriptionEditing, setIsDescriptionEditing] = useState(!stripHtml(card.description ?? ''));
+  const [isDescriptionEditing, setIsDescriptionEditing] = useState(!stripHtml(card.description ?? '')); 
   const [isSavingDescription, setIsSavingDescription] = useState(false);
   const [commentDraft, setCommentDraft] = useState('');
   const [activePopover, setActivePopover] = useState<CardPopover>(null);
@@ -2771,22 +2771,48 @@ function CardDetailModal({
   const datesButtonRef = useRef<HTMLDivElement | null>(null);
   const checklistButtonRef = useRef<HTMLDivElement | null>(null);
   const membersButtonRef = useRef<HTMLDivElement | null>(null);
+  const [localCard, setLocalCard] = useState(card);
+  const localCardRef = useRef(card);
+  const localPendingUntilRef = useRef(0);
 
   useEffect(() => {
-    setDescriptionDraft(card.description ?? '');
-    setIsDescriptionEditing(!stripHtml(card.description ?? ''));
+    const hasRecentLocalEdit = Date.now() < localPendingUntilRef.current;
+    const nextCard = localCardRef.current.id === card.id && hasRecentLocalEdit
+      ? { ...card, ...localCardRef.current }
+      : card;
+
+    localCardRef.current = nextCard;
+    setLocalCard(nextCard);
+  }, [card]);
+
+  useEffect(() => {
+    setDescriptionDraft(localCardRef.current.description ?? '');
+    setIsDescriptionEditing(!stripHtml(localCardRef.current.description ?? ''));
   }, [card.id]);
 
+  const applyLocalCardUpdate = async (input: UpdateBoardTaskCardInput) => {
+    const nextCard = {
+      ...localCardRef.current,
+      ...input,
+      updatedAt: new Date().toISOString(),
+    };
+
+    localPendingUntilRef.current = Date.now() + 5000;
+    localCardRef.current = nextCard;
+    setLocalCard(nextCard);
+    await onUpdateCard(input);
+  };
+
   const fallbackActivity: BoardTaskActivity = {
-    id: `activity-fallback-${card.id}`,
+    id: `activity-fallback-${localCard.id}`,
     actorName: 'Jeremias Goytia',
     avatarText: 'JG',
     message: `ha añadido esta tarjeta a ${list.title}`,
-    createdAt: card.createdAt ?? new Date().toISOString(),
+    createdAt: localCard.createdAt ?? new Date().toISOString(),
   };
 
-  const activities = card.activities && card.activities.length > 0 ? card.activities : [fallbackActivity];
-  const comments = card.comments ?? [];
+  const activities = localCard.activities && localCard.activities.length > 0 ? localCard.activities : [fallbackActivity];
+  const comments = localCard.comments ?? [];
   const timelineItems = useMemo(
     () =>
       [
@@ -2810,11 +2836,11 @@ function CardDetailModal({
   const handleSaveDescription = async () => {
     if (isSavingDescription) return;
 
-    const previousDescription = card.description ?? '';
+    const previousDescription = localCardRef.current.description ?? '';
     setIsDescriptionEditing(false);
     setIsSavingDescription(true);
     try {
-      await onUpdateCard({ description: descriptionDraft });
+      await applyLocalCardUpdate({ description: descriptionDraft });
     } catch (error) {
       setDescriptionDraft(previousDescription);
       setIsDescriptionEditing(true);
@@ -2825,8 +2851,8 @@ function CardDetailModal({
   };
 
   const handleCancelDescription = () => {
-    setDescriptionDraft(card.description ?? '');
-    setIsDescriptionEditing(!stripHtml(card.description ?? ''));
+    setDescriptionDraft(localCardRef.current.description ?? '');
+    setIsDescriptionEditing(!stripHtml(localCardRef.current.description ?? ''));
   };
 
   const handleAddComment = async (event: FormEvent<HTMLFormElement>) => {
@@ -2848,7 +2874,7 @@ function CardDetailModal({
     setShowActivityDetails(true);
     setIsSavingComment(true);
     try {
-      await onUpdateCard({ comments: [newComment, ...(card.comments ?? [])] });
+      await applyLocalCardUpdate({ comments: [newComment, ...(localCardRef.current.comments ?? [])] });
     } catch (error) {
       setCommentDraft(previousDraft);
       throw error;
@@ -2857,16 +2883,16 @@ function CardDetailModal({
     }
   };
 
-  const cardLabels = card.labels ?? [];
-  const cardMembers = card.members ?? [];
+  const cardLabels = localCard.labels ?? [];
+  const cardMembers = localCard.members ?? [];
   const cardAssignableMembers = members.filter((member) => cardMembers.includes(member.avatarText));
-  const cardChecklists = card.checklists ?? [];
+  const cardChecklists = localCard.checklists ?? [];
 
   const updateCardWithActivity = async (input: UpdateBoardTaskCardInput, activityMessage?: string) => {
     const nextInput = activityMessage
       ? { ...input, activities: [createActivity(activityMessage), ...activities] }
       : input;
-    await onUpdateCard(nextInput);
+    await applyLocalCardUpdate(nextInput);
   };
 
   const handleToggleLabel = async (labelId: string) => {
@@ -2874,7 +2900,7 @@ function CardDetailModal({
       ? cardLabels.filter((currentLabelId) => currentLabelId !== labelId)
       : [...cardLabels, labelId];
 
-    void onUpdateCard({ labels: nextLabels }).catch((error) => {
+    void applyLocalCardUpdate({ labels: nextLabels }).catch((error) => {
       console.error('[Tableros] No se pudieron actualizar etiquetas', error);
       window.alert(error instanceof Error ? error.message : 'No se pudieron actualizar las etiquetas.');
     });
@@ -2885,7 +2911,7 @@ function CardDetailModal({
       ? cardMembers.filter((currentMemberText) => currentMemberText !== memberText)
       : [...cardMembers, memberText];
 
-    void onUpdateCard({ members: nextMembers }).catch((error) => {
+    void applyLocalCardUpdate({ members: nextMembers }).catch((error) => {
       console.error('[Tableros] No se pudieron actualizar miembros', error);
       window.alert(error instanceof Error ? error.message : 'No se pudieron actualizar los miembros.');
     });
@@ -2920,7 +2946,8 @@ function CardDetailModal({
   };
 
   const handleCreateChecklist = async (title: string, copyFromChecklistId?: string) => {
-    const sourceChecklist = cardChecklists.find((checklist) => checklist.id === copyFromChecklistId);
+    const currentChecklists = localCardRef.current.checklists ?? [];
+    const sourceChecklist = currentChecklists.find((checklist) => checklist.id === copyFromChecklistId);
     const now = new Date().toISOString();
     const newChecklist: BoardTaskChecklist = {
       id: `checklist-${crypto.randomUUID()}`,
@@ -2941,7 +2968,7 @@ function CardDetailModal({
 
     setActivePopover(null);
     void updateCardWithActivity(
-      { checklists: [...cardChecklists, newChecklist] },
+      { checklists: [...currentChecklists, newChecklist] },
       `ha añadido ${newChecklist.title} a esta tarjeta`,
     ).catch((error) => {
       console.error('[Tableros] No se pudo crear checklist', error);
@@ -2950,12 +2977,13 @@ function CardDetailModal({
   };
 
   const handleDeleteChecklist = async (checklistId: string) => {
-    const checklist = cardChecklists.find((currentChecklist) => currentChecklist.id === checklistId);
+    const currentChecklists = localCardRef.current.checklists ?? [];
+    const checklist = currentChecklists.find((currentChecklist) => currentChecklist.id === checklistId);
     const confirmed = window.confirm(`¿Querés eliminar el checklist "${checklist?.title ?? 'sin título'}"? Esta acción no se puede deshacer.`);
     if (!confirmed) return;
 
     void updateCardWithActivity(
-      { checklists: cardChecklists.filter((currentChecklist) => currentChecklist.id !== checklistId) },
+      { checklists: currentChecklists.filter((currentChecklist) => currentChecklist.id !== checklistId) },
       `ha quitado ${checklist?.title ?? 'un checklist'} de esta tarjeta`,
     ).catch((error) => {
       console.error('[Tableros] No se pudo eliminar checklist', error);
@@ -2965,7 +2993,8 @@ function CardDetailModal({
 
   const handleRenameChecklist = async (checklistId: string, title: string) => {
     const now = new Date().toISOString();
-    const nextChecklists = cardChecklists.map((checklist) =>
+    const currentChecklists = localCardRef.current.checklists ?? [];
+    const nextChecklists = currentChecklists.map((checklist) =>
       checklist.id === checklistId
         ? { ...checklist, title: title.trim(), updatedAt: now }
         : checklist,
@@ -2995,13 +3024,14 @@ function CardDetailModal({
       updatedAt: now,
     };
 
-    const nextChecklists = cardChecklists.map((checklist) =>
+    const currentChecklists = localCardRef.current.checklists ?? [];
+    const nextChecklists = currentChecklists.map((checklist) =>
       checklist.id === checklistId
         ? { ...checklist, items: [...checklist.items, newItem], updatedAt: now }
         : checklist,
     );
 
-    void onUpdateCard({ checklists: nextChecklists }).catch((error) => {
+    void applyLocalCardUpdate({ checklists: nextChecklists }).catch((error) => {
       console.error('[Tableros] No se pudo actualizar checklist', error);
       window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el checklist.');
     });
@@ -3009,7 +3039,8 @@ function CardDetailModal({
 
   const handleToggleChecklistItem = async (checklistId: string, itemId: string) => {
     const now = new Date().toISOString();
-    const nextChecklists = cardChecklists.map((checklist) =>
+    const currentChecklists = localCardRef.current.checklists ?? [];
+    const nextChecklists = currentChecklists.map((checklist) =>
       checklist.id === checklistId
         ? {
             ...checklist,
@@ -3021,7 +3052,7 @@ function CardDetailModal({
         : checklist,
     );
 
-    void onUpdateCard({ checklists: nextChecklists }).catch((error) => {
+    void applyLocalCardUpdate({ checklists: nextChecklists }).catch((error) => {
       console.error('[Tableros] No se pudo actualizar checklist', error);
       window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el checklist.');
     });
@@ -3038,7 +3069,8 @@ function CardDetailModal({
     }
 
     const now = new Date().toISOString();
-    const nextChecklists = cardChecklists.map((checklist) =>
+    const currentChecklists = localCardRef.current.checklists ?? [];
+    const nextChecklists = currentChecklists.map((checklist) =>
       checklist.id === checklistId
         ? {
             ...checklist,
@@ -3056,20 +3088,21 @@ function CardDetailModal({
         : checklist,
     );
 
-    void onUpdateCard({ checklists: nextChecklists }).catch((error) => {
+    void applyLocalCardUpdate({ checklists: nextChecklists }).catch((error) => {
       console.error('[Tableros] No se pudo actualizar checklist', error);
       window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el checklist.');
     });
   };
 
   const handleDeleteChecklistItem = async (checklistId: string, itemId: string) => {
-    const checklist = cardChecklists.find((currentChecklist) => currentChecklist.id === checklistId);
+    const currentChecklists = localCardRef.current.checklists ?? [];
+    const checklist = currentChecklists.find((currentChecklist) => currentChecklist.id === checklistId);
     const item = checklist?.items.find((currentItem) => currentItem.id === itemId);
     const confirmed = window.confirm(`¿Querés eliminar el elemento "${item?.title ?? 'sin título'}"? Esta acción no se puede deshacer.`);
     if (!confirmed) return;
 
     const now = new Date().toISOString();
-    const nextChecklists = cardChecklists.map((currentChecklist) =>
+    const nextChecklists = currentChecklists.map((currentChecklist) =>
       currentChecklist.id === checklistId
         ? {
             ...currentChecklist,
@@ -3079,7 +3112,7 @@ function CardDetailModal({
         : currentChecklist,
     );
 
-    void onUpdateCard({ checklists: nextChecklists }).catch((error) => {
+    void applyLocalCardUpdate({ checklists: nextChecklists }).catch((error) => {
       console.error('[Tableros] No se pudo actualizar checklist', error);
       window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el checklist.');
     });
@@ -3119,11 +3152,11 @@ function CardDetailModal({
               className="mt-2 grid h-6 w-6 shrink-0 place-items-center text-[#b6c2cf] transition hover:text-[#4bce97]"
               type="button"
               onClick={() => void onToggleCompleted()}
-              aria-label={card.completed ? 'Marcar pendiente' : 'Marcar completada'}
+              aria-label={localCard.completed ? 'Marcar pendiente' : 'Marcar completada'}
             >
-              {card.completed ? <CheckCircle2 size={22} className="text-[#4bce97]" /> : <Circle size={22} />}
+              {localCard.completed ? <CheckCircle2 size={22} className="text-[#4bce97]" /> : <Circle size={22} />}
             </button>
-            <CardTitleEditor card={card} onSave={(title) => onUpdateCard({ title })} />
+            <CardTitleEditor card={localCard} onSave={(title) => applyLocalCardUpdate({ title })} />
           </div>
 
           <div className="mb-5 flex flex-wrap items-center gap-2 pl-10">
@@ -3146,7 +3179,7 @@ function CardDetailModal({
             <div ref={datesButtonRef} className="relative">
               <CardActionButton icon={CalendarClock} label="Fechas" active={activePopover === 'dates'} onClick={() => setActivePopover(activePopover === 'dates' ? null : 'dates')} />
               {activePopover === 'dates' && (
-                <DatesPopover card={card} onSave={(input) => void handleSaveDates(input)} onRemove={() => void handleRemoveDates()} onClose={() => setActivePopover(null)} anchorRef={datesButtonRef} />
+                <DatesPopover card={localCard} onSave={(input) => void handleSaveDates(input)} onRemove={() => void handleRemoveDates()} onClose={() => setActivePopover(null)} anchorRef={datesButtonRef} />
               )}
             </div>
             <div ref={checklistButtonRef} className="relative">
@@ -3163,7 +3196,7 @@ function CardDetailModal({
             </div>
           </div>
 
-          {(selectedLabelOptions.length > 0 || cardMembers.length > 0 || (card.dueDateEnabled && card.dueDate)) && (
+          {(selectedLabelOptions.length > 0 || cardMembers.length > 0 || (localCard.dueDateEnabled && localCard.dueDate)) && (
             <div className="mb-7 grid gap-4 pl-10 md:grid-cols-[repeat(3,max-content)]">
               {selectedLabelOptions.length > 0 && (
                 <div>
@@ -3185,12 +3218,12 @@ function CardDetailModal({
                   </div>
                 </div>
               )}
-              {card.dueDateEnabled && card.dueDate && (
+              {localCard.dueDateEnabled && localCard.dueDate && (
                 <div>
                   <p className="mb-1 text-xs font-black uppercase text-[#9fa8b7]">Fecha de vencimiento</p>
                   <button className="inline-flex h-8 items-center gap-2 rounded bg-[#32363d] px-3 text-sm font-bold text-[#dfe3ea] transition hover:bg-[#3d424b]" type="button" onClick={() => setActivePopover('dates')}>
                     <Clock3 size={15} />
-                    {formatDateForTrello(card.dueDate, card.dueTime)}
+                    {formatDateForTrello(localCard.dueDate, localCard.dueTime)}
                   </button>
                 </div>
               )}
@@ -3203,7 +3236,7 @@ function CardDetailModal({
                 <ListChecks size={24} className="text-[#c5ccd7]" />
                 <h2 className="text-lg font-black text-[#dfe3ea]">Descripción</h2>
               </div>
-              {!isDescriptionEditing && stripHtml(card.description ?? '') && (
+              {!isDescriptionEditing && stripHtml(localCard.description ?? '') && (
                 <button
                   className="mr-10 rounded border border-[#3d424b] bg-[#282a2f] px-4 py-2 text-sm font-black text-[#aeb6c2] transition hover:bg-[#343841] hover:text-white"
                   type="button"
@@ -3237,10 +3270,10 @@ function CardDetailModal({
                     </button>
                   </div>
                 </>
-              ) : stripHtml(card.description ?? '') ? (
+              ) : stripHtml(localCard.description ?? '') ? (
                 <div
                   className="trello-description-content rounded-lg px-4 py-3 text-base leading-relaxed text-[#dfe3ea]"
-                  dangerouslySetInnerHTML={{ __html: card.description ?? '' }}
+                  dangerouslySetInnerHTML={{ __html: localCard.description ?? '' }}
                 />
               ) : (
                 <button
@@ -3329,6 +3362,38 @@ function CardDetailModal({
   );
 }
 
+
+function BoardSyncStatusBadge({ syncStatus }: { syncStatus: ReturnType<typeof useBoards>['syncStatus'] }) {
+  const isWorking = syncStatus.state === 'queued' || syncStatus.state === 'syncing';
+  const isError = syncStatus.state === 'error';
+  const totalPending = syncStatus.pendingCount + syncStatus.inflightCount;
+
+  if (isError) {
+    return (
+      <span className="inline-flex items-center gap-2 rounded-lg bg-red-500/20 px-2.5 py-1 text-xs font-black text-red-100 ring-1 ring-red-300/30" title={syncStatus.lastError ?? 'No se pudo sincronizar la última operación'}>
+        <Zap size={13} />
+        Reintentar cambios
+      </span>
+    );
+  }
+
+  if (isWorking) {
+    return (
+      <span className="inline-flex items-center gap-2 rounded-lg bg-[#1f3555]/90 px-2.5 py-1 text-xs font-black text-[#85b8ff] ring-1 ring-[#579dff]/30" title="La interfaz ya se actualizó. Los cambios se guardan en segundo plano.">
+        <Clock3 size={13} />
+        Sincronizando{totalPending > 0 ? ` ${totalPending}` : ''}
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-black text-emerald-100 ring-1 ring-emerald-300/20" title="Todos los cambios visibles ya fueron confirmados o no hay operaciones pendientes.">
+      <CheckCircle2 size={13} />
+      Guardado
+    </span>
+  );
+}
+
 export function BoardDetailPage() {
   const {
     selectedBoard,
@@ -3354,6 +3419,7 @@ export function BoardDetailPage() {
     deleteBoardLabel,
     boardMessages,
     sendBoardMessage,
+    syncStatus,
   } = useBoards();
   const [activePanel, setActivePanel] = useState<BoardPanel>('board');
   const [selectedTask, setSelectedTask] = useState<SelectedTaskRef | null>(null);
@@ -3643,6 +3709,7 @@ export function BoardDetailPage() {
               <VisibilityIcon size={13} />
               {selectedBoard.visibility === 'publico' ? 'Público' : 'Privado'}
             </span>
+            <BoardSyncStatusBadge syncStatus={syncStatus} />
           </div>
 
           <div className="flex items-center gap-2 text-white/90">

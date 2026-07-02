@@ -29,6 +29,7 @@ import type {
 } from '../types/trello';
 import { boardCovers } from '../utils/trelloDesignData';
 import { trelloSocketClient } from '../lib/socket/trelloSocketClient';
+import { TrelloOperationQueue, type TrelloSyncStatus } from '../lib/sync/trelloOperationQueue';
 import { filterBoards, filterMembers } from '../utils/trelloUtils';
 
 interface BoardContextValue {
@@ -88,12 +89,20 @@ interface BoardContextValue {
   toggleTaskCardCompleted: (listId: string, cardId: string, completed: boolean) => Promise<void>;
   toggleWorkspaceExpanded: (workspaceId: string) => Promise<void>;
   sendBoardMessage: (boardId: string, message: string) => Promise<void>;
+  syncStatus: TrelloSyncStatus;
 }
 
 
 const POSITION_GAP = 16384;
 const LOCAL_REALTIME_SUPPRESS_MS = 900;
 const LOCAL_ENTITY_IGNORE_MS = 3500;
+
+const initialSyncStatus: TrelloSyncStatus = {
+  state: 'idle',
+  pendingCount: 0,
+  inflightCount: 0,
+  version: 0,
+};
 
 type RealtimeChangePayload = { table?: string; eventType?: string; id?: string };
 
@@ -128,28 +137,58 @@ function sortByPosition<T extends { position?: number; createdAt?: string; updat
   });
 }
 
-function mergeCardsPreservingOptimistic(currentCards: BoardTaskCard[], incomingCards: BoardTaskCard[]): BoardTaskCard[] {
+function mergeCardsPreservingOptimistic(
+  currentCards: BoardTaskCard[],
+  incomingCards: BoardTaskCard[],
+  listId = '',
+  pendingCardDrafts?: Map<string, UpdateBoardTaskCardInput>,
+  optimisticCardIds?: Map<string, number>,
+): BoardTaskCard[] {
   const incomingById = new Map(incomingCards.map((card) => [card.id, card]));
   const merged = incomingCards.map((incomingCard) => {
     const currentCard = currentCards.find((card) => card.id === incomingCard.id);
+    const pendingDraft = pendingCardDrafts?.get(`${listId}:${incomingCard.id}`);
+
+    if (pendingDraft) {
+      // Cuando hay una edición local en cola, la UI local debe ganar sobre snapshots
+      // o respuestas viejas del servidor. Esto evita que checklists añadidos rápido
+      // desaparezcan y vuelvan recién cuando termina la sincronización.
+      return currentCard
+        ? { ...incomingCard, ...currentCard, ...pendingDraft }
+        : { ...incomingCard, ...pendingDraft };
+    }
+
     return currentCard ? { ...currentCard, ...incomingCard } : incomingCard;
   });
 
+  const now = Date.now();
   currentCards.forEach((card) => {
-    if (isTemporaryId(card.id) && !incomingById.has(card.id)) merged.push(card);
+    const hasPendingDraft = pendingCardDrafts?.has(`${listId}:${card.id}`);
+    const hasPendingCreate = (optimisticCardIds?.get(card.id) ?? 0) > now;
+    if ((isTemporaryId(card.id) || hasPendingDraft || hasPendingCreate) && !incomingById.has(card.id)) merged.push(card);
   });
 
   return sortByPosition(merged);
 }
 
-function mergeBoardListsPreservingOptimistic(currentLists: BoardList[], incomingLists: BoardList[], boardId: string): BoardList[] {
+function mergeBoardListsPreservingOptimistic(
+  currentLists: BoardList[],
+  incomingLists: BoardList[],
+  boardId: string,
+  pendingCardDrafts?: Map<string, UpdateBoardTaskCardInput>,
+  optimisticCardIds?: Map<string, number>,
+): BoardList[] {
   const incomingById = new Map(incomingLists.map((list) => [list.id, list]));
   const currentById = new Map(currentLists.map((list) => [list.id, list]));
   const unrelatedLists = currentLists.filter((list) => list.boardId !== boardId);
   const mergedBoardLists = incomingLists.map((incomingList) => {
     const currentList = currentById.get(incomingList.id);
     return currentList
-      ? { ...currentList, ...incomingList, cards: mergeCardsPreservingOptimistic(currentList.cards, incomingList.cards) }
+      ? {
+          ...currentList,
+          ...incomingList,
+          cards: mergeCardsPreservingOptimistic(currentList.cards, incomingList.cards, incomingList.id, pendingCardDrafts, optimisticCardIds),
+        }
       : incomingList;
   });
 
@@ -160,6 +199,26 @@ function mergeBoardListsPreservingOptimistic(currentLists: BoardList[], incoming
   return [...unrelatedLists, ...sortByPosition(mergedBoardLists)];
 }
 
+
+function mergeAllBoardListsPreservingOptimistic(
+  currentLists: BoardList[],
+  incomingLists: BoardList[],
+  pendingCardDrafts?: Map<string, UpdateBoardTaskCardInput>,
+  optimisticCardIds?: Map<string, number>,
+): BoardList[] {
+  const incomingBoardIds = Array.from(new Set(incomingLists.map((list) => list.boardId)));
+  return incomingBoardIds.reduce(
+    (mergedLists, boardId) =>
+      mergeBoardListsPreservingOptimistic(
+        mergedLists,
+        incomingLists.filter((list) => list.boardId === boardId),
+        boardId,
+        pendingCardDrafts,
+        optimisticCardIds,
+      ),
+    currentLists.filter((list) => !incomingBoardIds.includes(list.boardId)),
+  );
+}
 
 function mergeWorkspaceMembersPreservingOptimistic(currentMembers: WorkspaceMember[], incomingMembers: WorkspaceMember[]): WorkspaceMember[] {
   const getKey = (member: WorkspaceMember) => `${member.workspaceId}:${member.id}`;
@@ -203,6 +262,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   const [memberStatusFilter, setMemberStatusFilter] = useState<WorkspaceMemberStatus | undefined>('member');
   const [loading, setLoading] = useState(true);
   const [selectedCover, setSelectedCover] = useState<BoardCover>(boardCovers[3]);
+  const [syncStatus, setSyncStatus] = useState<TrelloSyncStatus>(initialSyncStatus);
   const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workspaceRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const snapshotPushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -213,10 +273,31 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   const localMutationSilenceUntilRef = useRef(0);
   const localRealtimeIgnoreIdsRef = useRef<Map<string, number>>(new Map());
   const boardListsRef = useRef<BoardList[]>([]);
+  const syncQueueRef = useRef<TrelloOperationQueue | null>(null);
+  const pendingCardUpdateDraftsRef = useRef<Map<string, UpdateBoardTaskCardInput>>(new Map());
+  const optimisticCardIdsRef = useRef<Map<string, number>>(new Map());
+  const initialLoadSequenceRef = useRef(0);
 
   useEffect(() => {
     boardListsRef.current = boardLists;
   }, [boardLists]);
+
+  const trackOptimisticCard = useCallback((cardId: string, ttlMs = LOCAL_ENTITY_IGNORE_MS + 2200) => {
+    const expiresAt = Date.now() + ttlMs;
+    optimisticCardIdsRef.current.set(cardId, expiresAt);
+
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        if ((optimisticCardIdsRef.current.get(cardId) ?? 0) <= Date.now()) {
+          optimisticCardIdsRef.current.delete(cardId);
+        }
+      }, ttlMs + 100);
+    }
+  }, []);
+
+  const forgetOptimisticCard = useCallback((cardId: string) => {
+    optimisticCardIdsRef.current.delete(cardId);
+  }, []);
 
   const markLocalMutation = useCallback((entityIds: Array<string | undefined> = []) => {
     const now = Date.now();
@@ -250,7 +331,27 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const getSyncQueue = useCallback(() => {
+    if (!syncQueueRef.current) {
+      syncQueueRef.current = new TrelloOperationQueue({
+        batchSize: 5,
+        debounceMs: 140,
+        onStatusChange: setSyncStatus,
+        onBackgroundError: (error, operation) => {
+          console.error(`[Tableros] Falló la operación sincronizada: ${operation.label}`, error);
+          reportBackgroundError(error, `No se pudo sincronizar: ${operation.label}.`);
+        },
+      });
+    }
+    return syncQueueRef.current;
+  }, [reportBackgroundError]);
+
+  useEffect(() => () => {
+    syncQueueRef.current?.flushNow();
+  }, []);
+
   const loadInitialData = useCallback(async () => {
+    const loadSequence = ++initialLoadSequenceRef.current;
     setLoading(true);
     try {
       const [workspacesResponse, boardsResponse, boardListsResponse, membersResponse, labelsResponse] = await Promise.all([
@@ -261,9 +362,20 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         tableroFacade.getBoardLabels(),
       ]);
 
+      if (loadSequence !== initialLoadSequenceRef.current) return;
+
       setWorkspaces(workspacesResponse);
       setBoards(boardsResponse);
-      setBoardLists(boardListsResponse);
+      setBoardLists((currentLists) => {
+        const nextLists = mergeAllBoardListsPreservingOptimistic(
+          currentLists,
+          boardListsResponse,
+          pendingCardUpdateDraftsRef.current,
+          optimisticCardIdsRef.current,
+        );
+        boardListsRef.current = nextLists;
+        return nextLists;
+      });
       setMembers(membersResponse);
       setBoardLabels(labelsResponse);
       setSelectedWorkspaceId((currentWorkspaceId) => {
@@ -271,7 +383,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         return workspacesResponse[0]?.id ?? '';
       });
     } finally {
-      setLoading(false);
+      if (loadSequence === initialLoadSequenceRef.current) setLoading(false);
     }
   }, []);
 
@@ -296,10 +408,17 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    setBoardLists((currentLists) => [
-      ...currentLists.filter((list) => list.boardId !== snapshot.boardId),
-      ...(snapshot.lists ?? []),
-    ]);
+    setBoardLists((currentLists) => {
+      const nextLists = mergeBoardListsPreservingOptimistic(
+        currentLists,
+        snapshot.lists ?? [],
+        snapshot.boardId,
+        pendingCardUpdateDraftsRef.current,
+        optimisticCardIdsRef.current,
+      );
+      boardListsRef.current = nextLists;
+      return nextLists;
+    });
 
     setBoardLabels((currentLabels) => [
       ...currentLabels.filter((label) => label.boardId !== snapshot.boardId),
@@ -390,7 +509,17 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     if (refreshSequence !== boardRefreshSequenceRef.current) return;
 
     setBoards((currentBoards) => mergeByIdPreservingOptimistic(currentBoards, boardsResponse));
-    setBoardLists((currentLists) => mergeBoardListsPreservingOptimistic(currentLists, boardListsResponse, boardId));
+    setBoardLists((currentLists) => {
+      const nextLists = mergeBoardListsPreservingOptimistic(
+        currentLists,
+        boardListsResponse,
+        boardId,
+        pendingCardUpdateDraftsRef.current,
+        optimisticCardIdsRef.current,
+      );
+      boardListsRef.current = nextLists;
+      return nextLists;
+    });
     setMembers((currentMembers) => mergeWorkspaceMembersPreservingOptimistic(currentMembers, membersResponse));
     setBoardLabels((currentLabels) => mergeByIdPreservingOptimistic(currentLabels, labelsResponse));
     if (!boardsResponse.some((board) => board.id === boardId)) {
@@ -554,9 +683,14 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     let previousLists: BoardList[] = [];
     setBoardLists((currentLists) => {
       previousLists = currentLists;
-      return updater(currentLists);
+      const nextLists = updater(currentLists);
+      boardListsRef.current = nextLists;
+      return nextLists;
     });
-    return () => setBoardLists(previousLists);
+    return () => {
+      boardListsRef.current = previousLists;
+      setBoardLists(previousLists);
+    };
   }, []);
 
   const createWorkspace = useCallback(async (input: CreateWorkspaceInput) => {
@@ -757,20 +891,30 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       }),
     );
 
+    const boardId = boardListsRef.current.find((list) => list.id === listId)?.boardId;
+
     markLocalMutation([listId]);
-    void tableroFacade.updateBoardList(listId, input)
-      .then((updatedList) => {
-        if (!updatedList) return;
-        setBoardLists((currentLists) => currentLists.map((list) => (list.id === listId ? updatedList : list)));
-        trelloSocketClient.emitBoardChanged({ boardId: updatedList.boardId, scope: 'list', action: 'list_updated', entityId: updatedList.id });
-      })
-      .catch((error) => {
-        rollback();
-        reportBackgroundError(error, 'No se pudo actualizar la lista.');
-      });
+    void getSyncQueue().addOperation({
+      label: input.cards !== undefined ? 'Actualizar tarjetas de lista' : 'Actualizar lista',
+      dedupeKey: input.cards !== undefined ? `list-cards:${listId}` : `list-update:${listId}`,
+      entityIds: [listId],
+      execute: async () => {
+        await tableroFacade.updateBoardList(listId, input);
+      },
+      rollback,
+      onSuccess: () => {
+        markLocalMutation([listId]);
+        trelloSocketClient.emitBoardChanged({ boardId, scope: 'list', action: 'list_updated', entityId: listId });
+      },
+      onError: () => {
+        if (boardId) void refreshBoardData(boardId).catch((error) => console.error('[Tableros] No se pudo reconstruir lista tras conflicto', error));
+      },
+    }).catch((error) => {
+      console.error('[Tableros] No se pudo actualizar lista', error);
+    });
 
     return Promise.resolve(optimisticList);
-  }, [applyBoardListsOptimistically, reportBackgroundError]);
+  }, [applyBoardListsOptimistically, getSyncQueue, markLocalMutation, refreshBoardData]);
 
 
   const deleteBoardList = useCallback((listId: string): Promise<void> => {
@@ -778,17 +922,22 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     const rollback = applyBoardListsOptimistically((currentLists) => currentLists.filter((list) => list.id !== listId));
 
     markLocalMutation([listId]);
-    void tableroFacade.deleteBoardList(listId)
-      .then(() => {
+    return getSyncQueue().addOperation({
+      label: 'Eliminar lista',
+      dedupeKey: `list-delete:${listId}`,
+      entityIds: [listId],
+      execute: async () => {
+        await tableroFacade.deleteBoardList(listId);
+      },
+      rollback,
+      onSuccess: () => {
         trelloSocketClient.emitBoardChanged({ boardId: deletedList?.boardId, scope: 'list', action: 'list_deleted', entityId: listId });
-      })
-      .catch((error) => {
-      rollback();
-      reportBackgroundError(error, 'No se pudo eliminar la lista.');
+      },
+      onError: () => {
+        if (deletedList?.boardId) void refreshBoardData(deletedList.boardId).catch((error) => console.error('[Tableros] No se pudo reconstruir lista tras conflicto', error));
+      },
     });
-
-    return Promise.resolve();
-  }, [applyBoardListsOptimistically, boardLists, reportBackgroundError]);
+  }, [applyBoardListsOptimistically, boardLists, getSyncQueue, markLocalMutation, refreshBoardData]);
 
 
   const moveBoardTaskCard = useCallback((input: MoveBoardTaskCardInput): Promise<void> => {
@@ -807,7 +956,6 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         const previousCard = targetCards[safeTargetIndex - 1];
         const nextCard = targetCards[safeTargetIndex];
         nextPosition = getPositionBetweenLocal(previousCard?.position ?? null, nextCard?.position ?? null);
-        targetCards.splice(safeTargetIndex, 0, { ...movedCard, position: nextPosition });
       }
     }
 
@@ -826,29 +974,36 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       targetCards.splice(safeTargetIndex, 0, { ...movedCard, position: nextPosition });
 
       const updatedLists = listsToUpdate.map((list) => {
-        if (list.id === input.fromListId && list.id === input.toListId) return { ...list, cards: targetCards };
-        if (list.id === input.fromListId) return { ...list, cards: sourceCards };
-        if (list.id === input.toListId) return { ...list, cards: targetCards };
+        if (list.id === input.fromListId && list.id === input.toListId) return { ...list, cards: sortByPosition(targetCards) };
+        if (list.id === input.fromListId) return { ...list, cards: sortByPosition(sourceCards) };
+        if (list.id === input.toListId) return { ...list, cards: sortByPosition(targetCards) };
         return list;
       });
       boardListsRef.current = updatedLists;
       return updatedLists;
     });
 
-    markLocalMutation([input.cardId]);
-    void tableroFacade.moveBoardTaskCard({ ...input, position: nextPosition })
-      .then(() => {
-        markLocalMutation([input.cardId]);
-        const targetListForEvent = boardListsRef.current.find((list) => list.id === input.toListId) ?? boardListsRef.current.find((list) => list.id === input.fromListId);
-        trelloSocketClient.emitBoardChanged({ boardId: targetListForEvent?.boardId, scope: 'card', action: 'card_moved', entityId: input.cardId });
-      })
-      .catch((error) => {
-        rollback();
-        reportBackgroundError(error, 'No se pudo guardar el movimiento de la tarjeta.');
-      });
+    const targetBoardId = targetList?.boardId ?? sourceList?.boardId;
+    const operationInput: MoveBoardTaskCardInput = { ...input, position: nextPosition };
 
-    return Promise.resolve();
-  }, [applyBoardListsOptimistically, markLocalMutation, reportBackgroundError]);
+    markLocalMutation([input.cardId, input.fromListId, input.toListId]);
+    return getSyncQueue().addOperation({
+      label: 'Mover tarjeta',
+      dedupeKey: `card-move:${input.cardId}`,
+      entityIds: [input.cardId, input.fromListId, input.toListId],
+      execute: async () => {
+        await tableroFacade.moveBoardTaskCard(operationInput);
+      },
+      rollback,
+      onSuccess: () => {
+        markLocalMutation([input.cardId, input.fromListId, input.toListId]);
+        trelloSocketClient.emitBoardChanged({ boardId: targetBoardId, scope: 'card', action: 'card_moved', entityId: input.cardId });
+      },
+      onError: () => {
+        if (targetBoardId) void refreshBoardData(targetBoardId).catch((error) => console.error('[Tableros] No se pudo reconstruir tablero tras conflicto', error));
+      },
+    });
+  }, [applyBoardListsOptimistically, getSyncQueue, markLocalMutation, refreshBoardData]);
 
 
   const reorderBoardList = useCallback((input: ReorderBoardListInput): Promise<void> => {
@@ -870,24 +1025,31 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       const [movedList] = optimisticBoardLists.splice(optimisticSourceIndex, 1);
       const safeTargetIndex = Math.max(0, Math.min(input.targetIndex, optimisticBoardLists.length));
       optimisticBoardLists.splice(safeTargetIndex, 0, { ...movedList, position: nextPosition });
-      const updatedLists = [...currentLists.filter((list) => list.boardId !== input.boardId), ...optimisticBoardLists];
+      const updatedLists = [...currentLists.filter((list) => list.boardId !== input.boardId), ...sortByPosition(optimisticBoardLists)];
       boardListsRef.current = updatedLists;
       return updatedLists;
     });
 
+    const operationInput: ReorderBoardListInput = { ...input, position: nextPosition };
+
     markLocalMutation([input.listId]);
-    void tableroFacade.reorderBoardList({ ...input, position: nextPosition })
-      .then(() => {
+    return getSyncQueue().addOperation({
+      label: 'Ordenar lista',
+      dedupeKey: `list-reorder:${input.listId}`,
+      entityIds: [input.listId],
+      execute: async () => {
+        await tableroFacade.reorderBoardList(operationInput);
+      },
+      rollback,
+      onSuccess: () => {
         markLocalMutation([input.listId]);
         trelloSocketClient.emitBoardChanged({ boardId: input.boardId, scope: 'list', action: 'list_reordered', entityId: input.listId });
-      })
-      .catch((error) => {
-        rollback();
-        reportBackgroundError(error, 'No se pudo guardar el orden de las listas.');
-      });
-
-    return Promise.resolve();
-  }, [applyBoardListsOptimistically, markLocalMutation, reportBackgroundError]);
+      },
+      onError: () => {
+        void refreshBoardData(input.boardId).catch((error) => console.error('[Tableros] No se pudo reconstruir tablero tras conflicto', error));
+      },
+    });
+  }, [applyBoardListsOptimistically, getSyncQueue, markLocalMutation, refreshBoardData]);
 
 
   const sortBoardListCards = useCallback(async (listId: string, sortBy: 'name' | 'newest' | 'oldest') => {
@@ -1029,6 +1191,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     };
     let optimisticList: BoardList | null = null;
 
+    trackOptimisticCard(tempCardId);
     markLocalMutation([tempCardId]);
     const nextLists = boardListsRef.current.map((list) => {
       if (list.id !== input.listId) return list;
@@ -1038,21 +1201,50 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     boardListsRef.current = nextLists;
     setBoardLists(nextLists);
 
-    void tableroFacade.createBoardTaskCard({ ...input, position })
-      .then((updatedList) => {
+    void getSyncQueue().addOperation({
+      label: 'Crear tarjeta',
+      entityIds: [tempCardId, input.listId],
+      execute: async () => {
+        const updatedList = await tableroFacade.createBoardTaskCard({ ...input, position });
         if (!updatedList) return;
-        const persistedCard = updatedList.cards.find((card) => card.position === position) ?? updatedList.cards.at(-1);
+
+        const persistedCard =
+          updatedList.cards.find((card) => card.position === position) ??
+          updatedList.cards.find((card) => card.title.trim() === input.title.trim()) ??
+          updatedList.cards.at(-1);
+
+        if (persistedCard?.id) trackOptimisticCard(persistedCard.id);
+        forgetOptimisticCard(tempCardId);
         markLocalMutation([updatedList.id, persistedCard?.id]);
+
         setBoardLists((currentLists) => {
           const mergedLists = currentLists.map((list) =>
-            list.id === updatedList.id ? { ...updatedList, cards: mergeCardsPreservingOptimistic(list.cards.filter((card) => card.id !== tempCardId), updatedList.cards) } : list,
+            list.id === updatedList.id
+              ? {
+                  ...updatedList,
+                  cards: mergeCardsPreservingOptimistic(
+                    list.cards.filter((card) => card.id !== tempCardId),
+                    updatedList.cards,
+                    updatedList.id,
+                    pendingCardUpdateDraftsRef.current,
+                    optimisticCardIdsRef.current,
+                  ),
+                }
+              : list,
           );
           boardListsRef.current = mergedLists;
           return mergedLists;
         });
-        trelloSocketClient.emitBoardChanged({ boardId: updatedList.boardId, scope: 'card', action: 'card_created', entityId: persistedCard?.id });
-      })
-      .catch((error) => {
+
+        trelloSocketClient.emitBoardChanged({
+          boardId: updatedList.boardId,
+          scope: 'card',
+          action: 'card_created',
+          entityId: persistedCard?.id,
+        });
+      },
+      rollback: () => {
+        forgetOptimisticCard(tempCardId);
         setBoardLists((currentLists) => {
           const rolledBackLists = currentLists.map((list) =>
             list.id === input.listId ? { ...list, cards: list.cards.filter((card) => card.id !== tempCardId) } : list,
@@ -1060,15 +1252,24 @@ export function BoardProvider({ children }: { children: ReactNode }) {
           boardListsRef.current = rolledBackLists;
           return rolledBackLists;
         });
-        reportBackgroundError(error, 'No se pudo crear la tarjeta.');
-      });
+      },
+      onError: () => {
+        forgetOptimisticCard(tempCardId);
+      },
+    }).catch((error) => {
+      console.error('[Tableros] No se pudo crear la tarjeta', error);
+    });
 
     return Promise.resolve(optimisticList);
-  }, [markLocalMutation, reportBackgroundError]);
+  }, [forgetOptimisticCard, getSyncQueue, markLocalMutation, trackOptimisticCard]);
 
 
   const updateTaskCard = useCallback((listId: string, cardId: string, input: UpdateBoardTaskCardInput): Promise<BoardList | null> => {
     const now = new Date().toISOString();
+    const draftKey = `${listId}:${cardId}`;
+    const currentDraft = pendingCardUpdateDraftsRef.current.get(draftKey) ?? {};
+    pendingCardUpdateDraftsRef.current.set(draftKey, { ...currentDraft, ...input });
+
     let optimisticList: BoardList | null = null;
     const rollback = applyBoardListsOptimistically((currentLists) =>
       currentLists.map((list) => {
@@ -1083,20 +1284,33 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       }),
     );
 
+    const boardId = boardListsRef.current.find((list) => list.id === listId)?.boardId;
+
     markLocalMutation([cardId, listId]);
-    void tableroFacade.updateBoardTaskCard(listId, cardId, input)
-      .then((updatedList) => {
-        if (!updatedList) return;
-        setBoardLists((currentLists) => currentLists.map((list) => (list.id === updatedList.id ? updatedList : list)));
-        trelloSocketClient.emitBoardChanged({ boardId: updatedList.boardId, scope: 'card', action: 'card_updated', entityId: cardId });
-      })
-      .catch((error) => {
-        rollback();
-        reportBackgroundError(error, 'No se pudo actualizar la tarjeta.');
-      });
+    void getSyncQueue().addOperation({
+      label: 'Actualizar tarjeta',
+      dedupeKey: `card-update:${cardId}`,
+      entityIds: [cardId, listId],
+      execute: async () => {
+        const latestInput = pendingCardUpdateDraftsRef.current.get(draftKey) ?? input;
+        await tableroFacade.updateBoardTaskCard(listId, cardId, latestInput);
+      },
+      rollback,
+      onSuccess: () => {
+        pendingCardUpdateDraftsRef.current.delete(draftKey);
+        markLocalMutation([cardId, listId]);
+        trelloSocketClient.emitBoardChanged({ boardId, scope: 'card', action: 'card_updated', entityId: cardId });
+      },
+      onError: () => {
+        pendingCardUpdateDraftsRef.current.delete(draftKey);
+        if (boardId) void refreshBoardData(boardId).catch((error) => console.error('[Tableros] No se pudo reconstruir tarjeta tras conflicto', error));
+      },
+    }).catch((error) => {
+      console.error('[Tableros] No se pudo actualizar tarjeta', error);
+    });
 
     return Promise.resolve(optimisticList);
-  }, [applyBoardListsOptimistically, reportBackgroundError]);
+  }, [applyBoardListsOptimistically, getSyncQueue, markLocalMutation, refreshBoardData]);
 
 
   const toggleTaskCardCompleted = useCallback(async (listId: string, cardId: string, completed: boolean) => {
@@ -1304,6 +1518,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       toggleTaskCardCompleted,
       toggleWorkspaceExpanded,
       sendBoardMessage,
+      syncStatus,
     }),
     [
       activeView,
@@ -1356,6 +1571,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       toggleTaskCardCompleted,
       toggleWorkspaceExpanded,
       sendBoardMessage,
+      syncStatus,
     ],
   );
 
