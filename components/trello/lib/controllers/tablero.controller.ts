@@ -37,6 +37,7 @@ type ProfileLite = {
   full_name: string | null;
   role: string | null;
   branch: string | null;
+  branches?: string[];
   branch_id: number | null;
   user_type_id?: number | null;
   user_type_name?: string | null;
@@ -45,6 +46,46 @@ type ProfileLite = {
 
 const workspaceColors: Workspace['color'][] = ['orange', 'pink', 'red', 'blue', 'green', 'purple'];
 const memberColors: WorkspaceMember['avatarColor'][] = ['orange', 'red', 'blue', 'green', 'purple', 'yellow', 'teal', 'pink'];
+
+
+function normalizeBranchValue(value?: string | null): string | null {
+  const clean = String(value ?? '').trim().toLowerCase();
+  return clean.length > 0 ? clean : null;
+}
+
+function uniqueBranches(values: Array<string | null | undefined>): string[] {
+  return Array.from(new Set(values.map(normalizeBranchValue).filter(Boolean) as string[]));
+}
+
+async function enrichProfilesWithBranches(profiles: ProfileLite[]): Promise<ProfileLite[]> {
+  const profileIds = Array.from(new Set(profiles.map((profile) => profile.id).filter(Boolean)));
+  if (profileIds.length === 0) return profiles;
+
+  const { data, error } = await supabase
+    .from('user_branches')
+    .select('user_id,branch')
+    .in('user_id', profileIds);
+
+  if (error) {
+    console.warn('[Tableros] No se pudieron cargar sucursales desde user_branches. Se usa profiles.branch.', error);
+    return profiles.map((profile) => {
+      const branches = uniqueBranches([...(profile.branches ?? []), profile.branch]);
+      return { ...profile, branches, branch: branches[0] ?? profile.branch ?? null };
+    });
+  }
+
+  const branchesByUser = new Map<string, string[]>();
+  (data ?? []).forEach((row: any) => {
+    const branch = normalizeBranchValue(row.branch);
+    if (!row.user_id || !branch) return;
+    branchesByUser.set(row.user_id, [...(branchesByUser.get(row.user_id) ?? []), branch]);
+  });
+
+  return profiles.map((profile) => {
+    const branches = uniqueBranches([...(branchesByUser.get(profile.id) ?? []), ...(profile.branches ?? []), profile.branch]);
+    return { ...profile, branches, branch: branches[0] ?? profile.branch ?? null };
+  });
+}
 
 const POSITION_GAP = 16384;
 const MIN_POSITION_GAP = 0.000001;
@@ -173,7 +214,7 @@ async function getAvailableProfiles(): Promise<ProfileLite[]> {
     .select('id,email,full_name,role,branch,branch_id,user_type_id,user_type_name,is_active')
     .order('full_name', { ascending: true });
 
-  if (!extendedResult.error) return (extendedResult.data ?? []) as ProfileLite[];
+  if (!extendedResult.error) return enrichProfilesWithBranches((extendedResult.data ?? []) as ProfileLite[]);
 
   console.warn('[Tableros] trello_available_users no expone user_type_id/user_type_name. Se usa lectura básica.', extendedResult.error);
   const { data, error } = await supabase
@@ -181,7 +222,7 @@ async function getAvailableProfiles(): Promise<ProfileLite[]> {
     .select('id,email,full_name,role,branch,branch_id,is_active')
     .order('full_name', { ascending: true });
   throwIfError(error, 'No se pudieron cargar los usuarios disponibles');
-  return (data ?? []) as ProfileLite[];
+  return enrichProfilesWithBranches((data ?? []) as ProfileLite[]);
 }
 
 function profileToMember(profile: ProfileLite, currentUserId?: string, workspaceId = SYSTEM_WORKSPACE_ID, role: WorkspaceMember['role'] = 'Miembro', boardCount = 0): WorkspaceMember {
@@ -200,7 +241,8 @@ function profileToMember(profile: ProfileLite, currentUserId?: string, workspace
     status: 'member',
     isCurrentUser: profile.id === currentUserId,
     systemRole: profile.role,
-    branch: profile.branch,
+    branch: profile.branch ?? profile.branches?.[0] ?? null,
+    branches: uniqueBranches([...(profile.branches ?? []), profile.branch]),
     branchId: profile.branch_id,
     userTypeId: profile.user_type_id ?? null,
     userTypeName: profile.user_type_name ?? null,
@@ -229,6 +271,7 @@ function mapBoard(row: DbRow, membership: { ids: string[]; roles: Record<string,
     favorite: favoriteBoardIds.has(row.id),
     memberIds: normalizedMembership.ids,
     memberRoles: normalizedMembership.roles,
+    createdBy: row.created_by ?? row.owner_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     position: typeof row.position === 'number' ? row.position : undefined,
@@ -313,18 +356,14 @@ async function assertCanManageWorkspace(workspaceId: string): Promise<void> {
 
 async function assertCanManageBoard(boardId: string): Promise<void> {
   const currentUserId = await getCurrentUserId();
-  const workspaceId = await getBoardWorkspaceId(boardId);
 
-  if (workspaceId) {
-    const { data: workspaceMembership, error: workspaceError } = await supabase
-      .from('trello_workspace_members')
-      .select('role')
-      .eq('workspace_id', workspaceId)
-      .eq('user_id', currentUserId)
-      .maybeSingle();
-    throwIfError(workspaceError, 'No se pudo verificar el permiso del espacio');
-    if (isAdminDbRole(workspaceMembership?.role)) return;
-  }
+  const { data: boardRow, error: boardRowError } = await supabase
+    .from('trello_boards')
+    .select('created_by')
+    .eq('id', boardId)
+    .maybeSingle();
+  throwIfError(boardRowError, 'No se pudo verificar el creador del tablero');
+  if (boardRow?.created_by === currentUserId) return;
 
   const { data: boardMembership, error: boardError } = await supabase
     .from('trello_board_members')
@@ -334,7 +373,7 @@ async function assertCanManageBoard(boardId: string): Promise<void> {
     .maybeSingle();
   throwIfError(boardError, 'No se pudo verificar el permiso del tablero');
   if (!isAdminDbRole(boardMembership?.role)) {
-    throw new Error('Solo un administrador del tablero puede realizar esta acción.');
+    throw new Error('Solo el creador del tablero o un administrador del tablero puede realizar esta acción.');
   }
 }
 
@@ -1213,6 +1252,7 @@ export const tableroController = {
   },
 
   async inviteWorkspaceMember(workspaceId: string, sourceMemberId: string): Promise<WorkspaceMember | null> {
+    await assertCanManageWorkspace(workspaceId);
     const userId = sourceMemberId;
     const currentUserId = await getCurrentUserId();
     const { error } = await supabase.from('trello_workspace_members').upsert({ workspace_id: workspaceId, user_id: userId, role: 'member', created_by: currentUserId });
@@ -1222,6 +1262,19 @@ export const tableroController = {
   },
 
   async removeWorkspaceMember(memberId: string, workspaceId?: string): Promise<void> {
+    if (workspaceId) await assertCanManageWorkspace(workspaceId);
+    if (workspaceId) {
+      const { data: existing, error: existingError } = await supabase
+        .from('trello_workspace_members')
+        .select('role')
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', memberId)
+        .maybeSingle();
+      throwIfError(existingError, 'No se pudo verificar el miembro del espacio');
+      if (existing?.role === 'owner') {
+        throw new Error('El creador del espacio de trabajo no puede quitarse desde esta vista.');
+      }
+    }
     let query = supabase.from('trello_workspace_members').delete().eq('user_id', memberId);
     if (workspaceId) query = query.eq('workspace_id', workspaceId);
     const { error } = await query;
@@ -1336,14 +1389,35 @@ export const tableroController = {
     }
 
     if (input.memberIds !== undefined) {
-      const boardWorkspaceId = await getBoardWorkspaceId(boardId);
-      const uniqueMemberIds = Array.from(new Set(input.memberIds));
+      const { data: boardRow, error: boardRowError } = await supabase
+        .from('trello_boards')
+        .select('workspace_id,created_by')
+        .eq('id', boardId)
+        .maybeSingle();
+      throwIfError(boardRowError, 'No se pudo resolver el tablero para sincronizar miembros');
+
+      const creatorId = boardRow?.created_by ?? null;
+      const boardWorkspaceId = boardRow?.workspace_id ?? await getBoardWorkspaceId(boardId);
+      const uniqueMemberIds = Array.from(new Set([...input.memberIds, creatorId].filter(Boolean) as string[]));
+
+      const { data: existingMembers, error: existingMembersError } = await supabase
+        .from('trello_board_members')
+        .select('user_id,role')
+        .eq('board_id', boardId);
+      throwIfError(existingMembersError, 'No se pudieron verificar permisos actuales del tablero');
+
+      const existingRoleByUserId = new Map<string, string>((existingMembers ?? []).map((row: any) => [row.user_id, row.role]));
 
       const { error: deleteError } = await supabase.from('trello_board_members').delete().eq('board_id', boardId);
       throwIfError(deleteError, 'No se pudieron sincronizar miembros del tablero');
 
       if (uniqueMemberIds.length > 0) {
-        const rows = uniqueMemberIds.map((userId) => ({ board_id: boardId, user_id: userId, role: userId === currentUserId ? 'owner' : 'member', created_by: currentUserId }));
+        const rows = uniqueMemberIds.map((userId) => ({
+          board_id: boardId,
+          user_id: userId,
+          role: userId === creatorId ? 'owner' : existingRoleByUserId.get(userId) ?? 'member',
+          created_by: currentUserId,
+        }));
         const { error } = await supabase.from('trello_board_members').insert(rows);
         throwIfError(error, 'No se pudieron guardar miembros del tablero');
       }

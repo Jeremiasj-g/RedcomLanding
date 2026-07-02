@@ -8,6 +8,8 @@ import type {
   BoardLabelOption,
   BoardList,
   BoardTaskCard,
+  BoardAuditEvent,
+  CreateBoardAuditEventInput,
   BoardVisibility,
   ChatMessage,
   TrelloBoardSnapshot,
@@ -53,6 +55,7 @@ interface BoardContextValue {
   workspaceBoards: Board[];
   selectedBoardLists: BoardList[];
   boardMessages: ChatMessage[];
+  boardAuditEvents: BoardAuditEvent[];
   currentUserMember?: WorkspaceMember;
   currentWorkspaceRole?: WorkspaceMember['role'];
   canManageCurrentWorkspace: boolean;
@@ -89,6 +92,7 @@ interface BoardContextValue {
   toggleTaskCardCompleted: (listId: string, cardId: string, completed: boolean) => Promise<void>;
   toggleWorkspaceExpanded: (workspaceId: string) => Promise<void>;
   sendBoardMessage: (boardId: string, message: string) => Promise<void>;
+  recordBoardAuditEvent: (input: CreateBoardAuditEventInput) => BoardAuditEvent;
   syncStatus: TrelloSyncStatus;
 }
 
@@ -257,6 +261,8 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('');
   const [selectedBoardId, setSelectedBoardId] = useState<string | undefined>();
   const [boardMessages, setBoardMessages] = useState<ChatMessage[]>([]);
+  const [boardAuditEvents, setBoardAuditEvents] = useState<BoardAuditEvent[]>([]);
+  const boardAuditEventsRef = useRef<BoardAuditEvent[]>([]);
   const [search, setSearch] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   const [memberStatusFilter, setMemberStatusFilter] = useState<WorkspaceMemberStatus | undefined>('member');
@@ -281,6 +287,10 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     boardListsRef.current = boardLists;
   }, [boardLists]);
+
+  useEffect(() => {
+    boardAuditEventsRef.current = boardAuditEvents;
+  }, [boardAuditEvents]);
 
   const trackOptimisticCard = useCallback((cardId: string, ttlMs = LOCAL_ENTITY_IGNORE_MS + 2200) => {
     const expiresAt = Date.now() + ttlMs;
@@ -390,6 +400,34 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void loadInitialData();
   }, [loadInitialData]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const rawAudit = window.localStorage.getItem('redcom:trello:audit-events');
+      if (!rawAudit) return;
+      const parsedAudit = JSON.parse(rawAudit) as BoardAuditEvent[];
+      if (Array.isArray(parsedAudit)) {
+        const safeAudit = parsedAudit
+          .filter((event) => event && typeof event.id === 'string' && typeof event.summary === 'string')
+          .slice(0, 500);
+        boardAuditEventsRef.current = safeAudit;
+        setBoardAuditEvents(safeAudit);
+      }
+    } catch (error) {
+      console.error('[Tableros] No se pudo cargar auditoría local', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('redcom:trello:audit-events', JSON.stringify(boardAuditEvents.slice(0, 500)));
+    } catch (error) {
+      console.error('[Tableros] No se pudo guardar auditoría local', error);
+    }
+  }, [boardAuditEvents]);
+
 
   const applyBoardSnapshot = useCallback((snapshot: TrelloBoardSnapshot) => {
     if (!snapshot?.boardId) return;
@@ -675,9 +713,36 @@ export function BoardProvider({ children }: { children: ReactNode }) {
 
   const canManageSelectedBoard = useMemo(() => {
     if (!selectedBoard || !currentUserMember) return false;
-    if (canManageCurrentWorkspace) return true;
+    if (selectedBoard.createdBy === currentUserMember.id) return true;
     return selectedBoard.memberRoles?.[currentUserMember.id] === 'Administrador';
-  }, [canManageCurrentWorkspace, currentUserMember, selectedBoard]);
+  }, [currentUserMember, selectedBoard]);
+
+  const recordBoardAuditEvent = useCallback((input: CreateBoardAuditEventInput): BoardAuditEvent => {
+    const actor = currentUserMember ?? members.find((member) => member.isCurrentUser) ?? members[0];
+    const event: BoardAuditEvent = {
+      id: `audit-${crypto.randomUUID()}`,
+      boardId: input.boardId ?? selectedBoardId,
+      workspaceId: input.workspaceId ?? selectedWorkspaceId,
+      actorName: actor?.fullName ?? 'Usuario',
+      avatarText: actor?.avatarText ?? 'US',
+      action: input.action,
+      summary: input.summary,
+      detail: input.detail,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      entityTitle: input.entityTitle,
+      severity: input.severity ?? 'info',
+      createdAt: new Date().toISOString(),
+    };
+
+    setBoardAuditEvents((currentEvents) => {
+      const nextEvents = [event, ...currentEvents].slice(0, 500);
+      boardAuditEventsRef.current = nextEvents;
+      return nextEvents;
+    });
+
+    return event;
+  }, [currentUserMember, members, selectedBoardId, selectedWorkspaceId]);
 
   const applyBoardListsOptimistically = useCallback((updater: (currentLists: BoardList[]) => BoardList[]) => {
     let previousLists: BoardList[] = [];
@@ -826,12 +891,22 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         cover: input.cover ?? selectedCover,
       });
       setBoards((currentBoards) => [newBoard, ...currentBoards]);
+      recordBoardAuditEvent({
+        boardId: newBoard.id,
+        workspaceId: newBoard.workspaceId,
+        entityType: 'board',
+        entityId: newBoard.id,
+        entityTitle: newBoard.title,
+        action: 'Tablero creado',
+        summary: `creó el tablero ${newBoard.title}`,
+        severity: 'success',
+      });
       trelloSocketClient.emitWorkspaceChanged({ workspaceId: newBoard.workspaceId, action: 'board_created', entityId: newBoard.id });
       trelloSocketClient.emitBoardChanged({ boardId: newBoard.id, workspaceId: newBoard.workspaceId, scope: 'board', action: 'board_created', entityId: newBoard.id });
       void tableroFacade.getBoardLabels().then(setBoardLabels).catch((error) => console.error('[Tableros] No se pudieron recargar etiquetas', error));
       return newBoard;
     },
-    [selectedCover],
+    [recordBoardAuditEvent, selectedCover],
   );
 
   const createBoardList = useCallback((input: CreateBoardListInput): Promise<BoardList> => {
@@ -852,6 +927,16 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     const nextLists = [...boardListsRef.current, optimisticList];
     boardListsRef.current = nextLists;
     setBoardLists(nextLists);
+    recordBoardAuditEvent({
+      boardId: input.boardId,
+      workspaceId: boards.find((board) => board.id === input.boardId)?.workspaceId,
+      entityType: 'list',
+      entityId: tempId,
+      entityTitle: input.title,
+      action: 'Lista creada',
+      summary: `creó la lista ${input.title}`,
+      severity: 'success',
+    });
 
     void tableroFacade.createBoardList({ ...input, position })
       .then((newList) => {
@@ -873,7 +958,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       });
 
     return Promise.resolve(optimisticList);
-  }, [markLocalMutation, reportBackgroundError]);
+  }, [boards, markLocalMutation, recordBoardAuditEvent, reportBackgroundError]);
 
 
   const updateBoardList = useCallback((listId: string, input: UpdateBoardListInput): Promise<BoardList | null> => {
@@ -892,6 +977,29 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     );
 
     const boardId = boardListsRef.current.find((list) => list.id === listId)?.boardId;
+    const previousListTitle = boardListsRef.current.find((list) => list.id === listId)?.title;
+    if (input.title && input.title !== previousListTitle) {
+      recordBoardAuditEvent({
+        boardId,
+        workspaceId: boards.find((board) => board.id === boardId)?.workspaceId,
+        entityType: 'list',
+        entityId: listId,
+        entityTitle: input.title,
+        action: 'Lista renombrada',
+        summary: `renombró una lista a ${input.title}`,
+        detail: previousListTitle ? `Nombre anterior: ${previousListTitle}` : undefined,
+      });
+    } else if (input.cards !== undefined) {
+      recordBoardAuditEvent({
+        boardId,
+        workspaceId: boards.find((board) => board.id === boardId)?.workspaceId,
+        entityType: 'list',
+        entityId: listId,
+        entityTitle: previousListTitle,
+        action: 'Lista actualizada',
+        summary: `actualizó las tarjetas de ${previousListTitle ?? 'una lista'}`,
+      });
+    }
 
     markLocalMutation([listId]);
     void getSyncQueue().addOperation({
@@ -914,12 +1022,23 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     });
 
     return Promise.resolve(optimisticList);
-  }, [applyBoardListsOptimistically, getSyncQueue, markLocalMutation, refreshBoardData]);
+  }, [applyBoardListsOptimistically, boards, getSyncQueue, markLocalMutation, recordBoardAuditEvent, refreshBoardData]);
 
 
   const deleteBoardList = useCallback((listId: string): Promise<void> => {
     const deletedList = boardLists.find((list) => list.id === listId);
     const rollback = applyBoardListsOptimistically((currentLists) => currentLists.filter((list) => list.id !== listId));
+    recordBoardAuditEvent({
+      boardId: deletedList?.boardId,
+      workspaceId: boards.find((board) => board.id === deletedList?.boardId)?.workspaceId,
+      entityType: 'list',
+      entityId: listId,
+      entityTitle: deletedList?.title,
+      action: 'Lista eliminada',
+      summary: `eliminó la lista ${deletedList?.title ?? 'sin título'}`,
+      detail: `${deletedList?.cards.length ?? 0} tarjeta(s) incluidas`,
+      severity: 'danger',
+    });
 
     markLocalMutation([listId]);
     return getSyncQueue().addOperation({
@@ -937,7 +1056,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         if (deletedList?.boardId) void refreshBoardData(deletedList.boardId).catch((error) => console.error('[Tableros] No se pudo reconstruir lista tras conflicto', error));
       },
     });
-  }, [applyBoardListsOptimistically, boardLists, getSyncQueue, markLocalMutation, refreshBoardData]);
+  }, [applyBoardListsOptimistically, boardLists, boards, getSyncQueue, markLocalMutation, recordBoardAuditEvent, refreshBoardData]);
 
 
   const moveBoardTaskCard = useCallback((input: MoveBoardTaskCardInput): Promise<void> => {
@@ -985,6 +1104,17 @@ export function BoardProvider({ children }: { children: ReactNode }) {
 
     const targetBoardId = targetList?.boardId ?? sourceList?.boardId;
     const operationInput: MoveBoardTaskCardInput = { ...input, position: nextPosition };
+    const movedCardTitle = sourceList?.cards.find((card) => card.id === input.cardId)?.title;
+    recordBoardAuditEvent({
+      boardId: targetBoardId,
+      workspaceId: boards.find((board) => board.id === targetBoardId)?.workspaceId,
+      entityType: 'card',
+      entityId: input.cardId,
+      entityTitle: movedCardTitle,
+      action: 'Tarjeta movida',
+      summary: `movió ${movedCardTitle ?? 'una tarjeta'} a ${targetList?.title ?? 'otra lista'}`,
+      detail: sourceList && targetList ? `${sourceList.title} → ${targetList.title}` : undefined,
+    });
 
     markLocalMutation([input.cardId, input.fromListId, input.toListId]);
     return getSyncQueue().addOperation({
@@ -1003,7 +1133,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         if (targetBoardId) void refreshBoardData(targetBoardId).catch((error) => console.error('[Tableros] No se pudo reconstruir tablero tras conflicto', error));
       },
     });
-  }, [applyBoardListsOptimistically, getSyncQueue, markLocalMutation, refreshBoardData]);
+  }, [applyBoardListsOptimistically, boards, getSyncQueue, markLocalMutation, recordBoardAuditEvent, refreshBoardData]);
 
 
   const reorderBoardList = useCallback((input: ReorderBoardListInput): Promise<void> => {
@@ -1031,6 +1161,17 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     });
 
     const operationInput: ReorderBoardListInput = { ...input, position: nextPosition };
+    const reorderedListTitle = boardListsRef.current.find((list) => list.id === input.listId)?.title;
+    recordBoardAuditEvent({
+      boardId: input.boardId,
+      workspaceId: boards.find((board) => board.id === input.boardId)?.workspaceId,
+      entityType: 'list',
+      entityId: input.listId,
+      entityTitle: reorderedListTitle,
+      action: 'Lista reordenada',
+      summary: `reordenó la lista ${reorderedListTitle ?? 'sin título'}`,
+      detail: `Nueva posición visual: ${input.targetIndex + 1}`,
+    });
 
     markLocalMutation([input.listId]);
     return getSyncQueue().addOperation({
@@ -1049,7 +1190,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         void refreshBoardData(input.boardId).catch((error) => console.error('[Tableros] No se pudo reconstruir tablero tras conflicto', error));
       },
     });
-  }, [applyBoardListsOptimistically, getSyncQueue, markLocalMutation, refreshBoardData]);
+  }, [applyBoardListsOptimistically, boards, getSyncQueue, markLocalMutation, recordBoardAuditEvent, refreshBoardData]);
 
 
   const sortBoardListCards = useCallback(async (listId: string, sortBy: 'name' | 'newest' | 'oldest') => {
@@ -1085,6 +1226,16 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       });
     }
 
+    recordBoardAuditEvent({
+      workspaceId,
+      entityType: 'member',
+      entityId: sourceMemberId,
+      entityTitle: sourceMember?.fullName,
+      action: 'Miembro invitado',
+      summary: `invitó a ${sourceMember?.fullName ?? 'un usuario'} al espacio de trabajo`,
+      severity: 'success',
+    });
+
     try {
       const invitedMember = await tableroFacade.inviteWorkspaceMember(workspaceId, sourceMemberId);
       if (!invitedMember) return null;
@@ -1101,11 +1252,21 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       setMembers(previousMembers);
       throw error;
     }
-  }, [members]);
+  }, [members, recordBoardAuditEvent]);
 
   const removeWorkspaceMember = useCallback(async (memberId: string) => {
     const previousMembers = members;
+    const removedMember = previousMembers.find((member) => member.id === memberId && member.workspaceId === selectedWorkspaceId);
     setMembers((currentMembers) => currentMembers.filter((member) => !(member.id === memberId && member.workspaceId === selectedWorkspaceId)));
+    recordBoardAuditEvent({
+      workspaceId: selectedWorkspaceId,
+      entityType: 'member',
+      entityId: memberId,
+      entityTitle: removedMember?.fullName,
+      action: 'Miembro quitado',
+      summary: `quitó a ${removedMember?.fullName ?? 'un miembro'} del espacio de trabajo`,
+      severity: 'danger',
+    });
 
     try {
       await tableroFacade.removeWorkspaceMember(memberId, selectedWorkspaceId);
@@ -1114,10 +1275,11 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       setMembers(previousMembers);
       throw error;
     }
-  }, [members, selectedWorkspaceId]);
+  }, [members, recordBoardAuditEvent, selectedWorkspaceId]);
 
   const updateWorkspaceMemberRole = useCallback(async (memberId: string, role: WorkspaceMember['role']) => {
     const previousMembers = members;
+    const roleMember = previousMembers.find((member) => member.id === memberId && member.workspaceId === selectedWorkspaceId);
     setMembers((currentMembers) =>
       currentMembers.map((member) =>
         member.id === memberId && member.workspaceId === selectedWorkspaceId
@@ -1125,6 +1287,15 @@ export function BoardProvider({ children }: { children: ReactNode }) {
           : member,
       ),
     );
+    recordBoardAuditEvent({
+      workspaceId: selectedWorkspaceId,
+      entityType: 'member',
+      entityId: memberId,
+      entityTitle: roleMember?.fullName,
+      action: 'Rol actualizado',
+      summary: `cambió el rol de ${roleMember?.fullName ?? 'un miembro'} a ${role}`,
+      severity: 'warning',
+    });
 
     try {
       const updatedMember = await tableroFacade.updateWorkspaceMemberRole(selectedWorkspaceId, memberId, role);
@@ -1140,10 +1311,12 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       setMembers(previousMembers);
       throw error;
     }
-  }, [members, selectedWorkspaceId]);
+  }, [members, recordBoardAuditEvent, selectedWorkspaceId]);
 
   const updateBoardMemberRole = useCallback(async (boardId: string, memberId: string, role: WorkspaceMember['role']) => {
     const previousBoards = boards;
+    const boardMember = members.find((member) => member.id === memberId);
+    const boardForRole = previousBoards.find((board) => board.id === boardId);
     setBoards((currentBoards) =>
       currentBoards.map((board) =>
         board.id === boardId
@@ -1157,6 +1330,17 @@ export function BoardProvider({ children }: { children: ReactNode }) {
           : board,
       ),
     );
+    recordBoardAuditEvent({
+      boardId,
+      workspaceId: boardForRole?.workspaceId,
+      entityType: 'member',
+      entityId: memberId,
+      entityTitle: boardMember?.fullName,
+      action: 'Permiso de tablero actualizado',
+      summary: `cambió el permiso de ${boardMember?.fullName ?? 'un miembro'} a ${role}`,
+      detail: boardForRole?.title ? `Tablero: ${boardForRole.title}` : undefined,
+      severity: 'warning',
+    });
 
     try {
       const updatedBoard = await tableroFacade.updateBoardMemberRole(boardId, memberId, role);
@@ -1169,7 +1353,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       setBoards(previousBoards);
       throw error;
     }
-  }, [boards]);
+  }, [boards, members, recordBoardAuditEvent]);
 
   const createBoardTaskCard = useCallback((input: CreateBoardTaskCardInput): Promise<BoardList | null> => {
     const now = new Date().toISOString();
@@ -1200,6 +1384,18 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     });
     boardListsRef.current = nextLists;
     setBoardLists(nextLists);
+    const targetListForAudit = boardListsRef.current.find((list) => list.id === input.listId);
+    recordBoardAuditEvent({
+      boardId: targetListForAudit?.boardId,
+      workspaceId: boards.find((board) => board.id === targetListForAudit?.boardId)?.workspaceId,
+      entityType: 'card',
+      entityId: tempCardId,
+      entityTitle: input.title,
+      action: 'Tarjeta creada',
+      summary: `creó la tarjeta ${input.title}`,
+      detail: targetListForAudit?.title ? `Lista: ${targetListForAudit.title}` : undefined,
+      severity: 'success',
+    });
 
     void getSyncQueue().addOperation({
       label: 'Crear tarjeta',
@@ -1261,7 +1457,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     });
 
     return Promise.resolve(optimisticList);
-  }, [forgetOptimisticCard, getSyncQueue, markLocalMutation, trackOptimisticCard]);
+  }, [boards, forgetOptimisticCard, getSyncQueue, markLocalMutation, recordBoardAuditEvent, trackOptimisticCard]);
 
 
   const updateTaskCard = useCallback((listId: string, cardId: string, input: UpdateBoardTaskCardInput): Promise<BoardList | null> => {
@@ -1285,6 +1481,126 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     );
 
     const boardId = boardListsRef.current.find((list) => list.id === listId)?.boardId;
+    const currentCardForAudit = boardListsRef.current.find((list) => list.id === listId)?.cards.find((card) => card.id === cardId);
+    if (input.completed !== undefined) {
+      recordBoardAuditEvent({
+        boardId,
+        workspaceId: boards.find((board) => board.id === boardId)?.workspaceId,
+        entityType: 'card',
+        entityId: cardId,
+        entityTitle: currentCardForAudit?.title,
+        action: input.completed ? 'Tarjeta completada' : 'Tarjeta reabierta',
+        summary: `${input.completed ? 'marcó como completada' : 'desmarcó'} ${currentCardForAudit?.title ?? 'una tarjeta'}`,
+        severity: input.completed ? 'success' : 'warning',
+      });
+    } else if (input.checklists !== undefined) {
+      const previousItems = (currentCardForAudit?.checklists ?? []).flatMap((checklist) =>
+        checklist.items.map((item) => ({ ...item, checklistTitle: checklist.title })),
+      );
+      const nextItems = input.checklists.flatMap((checklist) =>
+        checklist.items.map((item) => ({ ...item, checklistTitle: checklist.title })),
+      );
+      const changedItem = nextItems.find((nextItem) => {
+        const previousItem = previousItems.find((item) => item.id === nextItem.id);
+        return previousItem && previousItem.completed !== nextItem.completed;
+      });
+      const createdItem = nextItems.find((nextItem) => !previousItems.some((item) => item.id === nextItem.id));
+      const deletedItem = previousItems.find((previousItem) => !nextItems.some((item) => item.id === previousItem.id));
+      const createdChecklist = input.checklists.find((checklist) => !(currentCardForAudit?.checklists ?? []).some((currentChecklist) => currentChecklist.id === checklist.id));
+      const deletedChecklist = (currentCardForAudit?.checklists ?? []).find((currentChecklist) => !input.checklists?.some((checklist) => checklist.id === currentChecklist.id));
+
+      if (changedItem) {
+        recordBoardAuditEvent({
+          boardId,
+          workspaceId: boards.find((board) => board.id === boardId)?.workspaceId,
+          entityType: 'checklist_item',
+          entityId: changedItem.id,
+          entityTitle: changedItem.title,
+          action: changedItem.completed ? 'Checklist completado' : 'Checklist desmarcado',
+          summary: `${changedItem.completed ? 'marcó como completado' : 'desmarcó'} ${changedItem.title}`,
+          detail: `Tarjeta: ${currentCardForAudit?.title ?? 'sin título'} · Checklist: ${changedItem.checklistTitle}`,
+          severity: changedItem.completed ? 'success' : 'warning',
+        });
+      } else if (createdItem) {
+        recordBoardAuditEvent({
+          boardId,
+          workspaceId: boards.find((board) => board.id === boardId)?.workspaceId,
+          entityType: 'checklist_item',
+          entityId: createdItem.id,
+          entityTitle: createdItem.title,
+          action: 'Item de checklist creado',
+          summary: `agregó ${createdItem.title} a un checklist`,
+          detail: `Tarjeta: ${currentCardForAudit?.title ?? 'sin título'} · Checklist: ${createdItem.checklistTitle}`,
+          severity: 'success',
+        });
+      } else if (deletedItem) {
+        recordBoardAuditEvent({
+          boardId,
+          workspaceId: boards.find((board) => board.id === boardId)?.workspaceId,
+          entityType: 'checklist_item',
+          entityId: deletedItem.id,
+          entityTitle: deletedItem.title,
+          action: 'Item de checklist eliminado',
+          summary: `eliminó ${deletedItem.title} de un checklist`,
+          detail: `Tarjeta: ${currentCardForAudit?.title ?? 'sin título'} · Checklist: ${deletedItem.checklistTitle}`,
+          severity: 'danger',
+        });
+      } else if (createdChecklist) {
+        recordBoardAuditEvent({
+          boardId,
+          workspaceId: boards.find((board) => board.id === boardId)?.workspaceId,
+          entityType: 'checklist',
+          entityId: createdChecklist.id,
+          entityTitle: createdChecklist.title,
+          action: 'Checklist creado',
+          summary: `agregó el checklist ${createdChecklist.title}`,
+          detail: `Tarjeta: ${currentCardForAudit?.title ?? 'sin título'}`,
+          severity: 'success',
+        });
+      } else if (deletedChecklist) {
+        recordBoardAuditEvent({
+          boardId,
+          workspaceId: boards.find((board) => board.id === boardId)?.workspaceId,
+          entityType: 'checklist',
+          entityId: deletedChecklist.id,
+          entityTitle: deletedChecklist.title,
+          action: 'Checklist eliminado',
+          summary: `eliminó el checklist ${deletedChecklist.title}`,
+          detail: `Tarjeta: ${currentCardForAudit?.title ?? 'sin título'}`,
+          severity: 'danger',
+        });
+      } else {
+        recordBoardAuditEvent({
+          boardId,
+          workspaceId: boards.find((board) => board.id === boardId)?.workspaceId,
+          entityType: 'checklist',
+          entityId: cardId,
+          entityTitle: currentCardForAudit?.title,
+          action: 'Checklist actualizado',
+          summary: `actualizó un checklist en ${currentCardForAudit?.title ?? 'una tarjeta'}`,
+        });
+      }
+    } else if (input.comments !== undefined) {
+      recordBoardAuditEvent({
+        boardId,
+        workspaceId: boards.find((board) => board.id === boardId)?.workspaceId,
+        entityType: 'card',
+        entityId: cardId,
+        entityTitle: currentCardForAudit?.title,
+        action: 'Comentario agregado',
+        summary: `comentó en ${currentCardForAudit?.title ?? 'una tarjeta'}`,
+      });
+    } else {
+      recordBoardAuditEvent({
+        boardId,
+        workspaceId: boards.find((board) => board.id === boardId)?.workspaceId,
+        entityType: 'card',
+        entityId: cardId,
+        entityTitle: currentCardForAudit?.title,
+        action: 'Tarjeta actualizada',
+        summary: `actualizó ${currentCardForAudit?.title ?? 'una tarjeta'}`,
+      });
+    }
 
     markLocalMutation([cardId, listId]);
     void getSyncQueue().addOperation({
@@ -1310,7 +1626,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     });
 
     return Promise.resolve(optimisticList);
-  }, [applyBoardListsOptimistically, getSyncQueue, markLocalMutation, refreshBoardData]);
+  }, [applyBoardListsOptimistically, boards, getSyncQueue, markLocalMutation, recordBoardAuditEvent, refreshBoardData]);
 
 
   const toggleTaskCardCompleted = useCallback(async (listId: string, cardId: string, completed: boolean) => {
@@ -1337,6 +1653,17 @@ export function BoardProvider({ children }: { children: ReactNode }) {
 
     setBoards((currentBoards) => currentBoards.filter((board) => board.id !== boardId));
     setBoardLists((currentLists) => currentLists.filter((list) => list.boardId !== boardId));
+    const boardForAudit = previousBoards.find((board) => board.id === boardId);
+    recordBoardAuditEvent({
+      boardId,
+      workspaceId: boardForAudit?.workspaceId,
+      entityType: 'board',
+      entityId: boardId,
+      entityTitle: boardForAudit?.title,
+      action: 'Tablero eliminado',
+      summary: `eliminó el tablero ${boardForAudit?.title ?? 'sin título'}`,
+      severity: 'danger',
+    });
     if (selectedBoardId === boardId) {
       setSelectedBoardId(undefined);
       setActiveView('boards');
@@ -1357,7 +1684,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     });
 
     return Promise.resolve();
-  }, [activeView, boardLists, boards, reportBackgroundError, selectedBoardId]);
+  }, [activeView, boardLists, boards, recordBoardAuditEvent, reportBackgroundError, selectedBoardId]);
 
 
   const updateBoard = useCallback((boardId: string, input: UpdateBoardInput): Promise<Board | null> => {
@@ -1370,6 +1697,23 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         return optimisticBoard;
       }),
     );
+
+    const previousBoard = previousBoards.find((board) => board.id === boardId);
+    recordBoardAuditEvent({
+      boardId,
+      workspaceId: previousBoard?.workspaceId,
+      entityType: 'board',
+      entityId: boardId,
+      entityTitle: input.title ?? previousBoard?.title,
+      action: input.title ? 'Tablero renombrado' : input.visibility ? 'Visibilidad cambiada' : input.cover ? 'Fondo actualizado' : 'Tablero actualizado',
+      summary: input.title
+        ? `renombró el tablero a ${input.title}`
+        : input.visibility
+          ? `cambió la visibilidad del tablero a ${input.visibility}`
+          : input.cover
+            ? `cambió el fondo del tablero ${previousBoard?.title ?? ''}`
+            : `actualizó el tablero ${previousBoard?.title ?? ''}`,
+    });
 
     markLocalMutation([boardId]);
     void tableroFacade.updateBoard(boardId, input)
@@ -1387,7 +1731,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       });
 
     return Promise.resolve(optimisticBoard);
-  }, [boards, reportBackgroundError]);
+  }, [boards, recordBoardAuditEvent, reportBackgroundError]);
 
 
   const updateBoardVisibility = useCallback(async (boardId: string, visibility: BoardVisibility) => {
@@ -1440,6 +1784,16 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     };
 
     setBoardMessages((currentMessages) => [...currentMessages, optimisticMessage]);
+    recordBoardAuditEvent({
+      boardId,
+      workspaceId: boards.find((board) => board.id === boardId)?.workspaceId,
+      entityType: 'message',
+      entityId: tempId,
+      action: 'Mensaje enviado',
+      summary: 'envió un mensaje en la bandeja de entrada',
+      detail: cleanMessage.length > 120 ? `${cleanMessage.slice(0, 120)}...` : cleanMessage,
+      severity: 'info',
+    });
 
     markLocalMutation([tempId]);
     void tableroFacade.sendBoardMessage(boardId, cleanMessage)
@@ -1457,7 +1811,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       });
 
     return Promise.resolve();
-  }, [members, reportBackgroundError]);
+  }, [boards, members, recordBoardAuditEvent, reportBackgroundError]);
 
 
   const value = useMemo(
@@ -1482,6 +1836,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       workspaceBoards,
       selectedBoardLists,
       boardMessages,
+      boardAuditEvents,
       currentUserMember,
       currentWorkspaceRole,
       canManageCurrentWorkspace,
@@ -1518,6 +1873,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       toggleTaskCardCompleted,
       toggleWorkspaceExpanded,
       sendBoardMessage,
+      recordBoardAuditEvent,
       syncStatus,
     }),
     [
@@ -1541,6 +1897,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       workspaceBoards,
       selectedBoardLists,
       boardMessages,
+      boardAuditEvents,
       currentUserMember,
       currentWorkspaceRole,
       canManageCurrentWorkspace,
@@ -1571,6 +1928,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       toggleTaskCardCompleted,
       toggleWorkspaceExpanded,
       sendBoardMessage,
+      recordBoardAuditEvent,
       syncStatus,
     ],
   );

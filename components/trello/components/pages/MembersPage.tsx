@@ -23,6 +23,31 @@ function uniqueSystemUsers(members: WorkspaceMember[]) {
   return Array.from(users.values());
 }
 
+
+function normalizeBranchLabel(value?: string | null): string | null {
+  const clean = String(value ?? '').trim().toLowerCase();
+  return clean.length > 0 ? clean : null;
+}
+
+function getMemberBranches(member: WorkspaceMember): string[] {
+  const branches = Array.from(
+    new Set([...(member.branches ?? []), member.branch].map(normalizeBranchLabel).filter(Boolean) as string[]),
+  );
+  return branches.length > 0 ? branches : ['Sin sucursal'];
+}
+
+function formatBranchLabel(value: string) {
+  if (value === 'Sin sucursal') return value;
+  return value
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatMemberBranches(member: WorkspaceMember) {
+  return getMemberBranches(member).map(formatBranchLabel).join(', ');
+}
+
 function MemberAvatar({ member }: { member: WorkspaceMember }) {
   return (
     <span
@@ -36,7 +61,7 @@ function MemberAvatar({ member }: { member: WorkspaceMember }) {
   );
 }
 
-function MemberRow({ member, onRemove }: { member: WorkspaceMember; onRemove: (member: WorkspaceMember) => void }) {
+function MemberRow({ member, canManage, onRemove }: { member: WorkspaceMember; canManage: boolean; onRemove: (member: WorkspaceMember) => void }) {
   return (
     <article className="grid min-h-[63px] grid-cols-[minmax(260px,1fr)_minmax(190px,240px)_auto] items-center gap-4 border-b border-[#323338] py-3 text-[#d7d9df] max-lg:grid-cols-1 max-lg:items-start">
       <div className="flex min-w-0 items-center gap-3">
@@ -63,9 +88,9 @@ function MemberRow({ member, onRemove }: { member: WorkspaceMember; onRemove: (m
         <button
           className="inline-flex h-9 min-w-[136px] items-center justify-center gap-2 rounded border border-[#3c3f45] bg-transparent px-3 text-base font-semibold text-[#cdd1da] transition hover:bg-white/[.055] hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
-          disabled={member.isCurrentUser}
+          disabled={member.isCurrentUser || !canManage}
           onClick={() => onRemove(member)}
-          title={member.isCurrentUser ? 'No podés quitarte desde esta maqueta' : 'Quitar miembro'}
+          title={member.isCurrentUser ? 'No podés quitarte desde esta maqueta' : !canManage ? 'Solo un administrador del espacio puede quitar miembros' : 'Quitar miembro'}
         >
           {member.isCurrentUser ? <LogOut size={18} /> : <X size={19} />}
           {member.isCurrentUser ? 'Dejar' : 'Quitar'}
@@ -79,6 +104,7 @@ function WorkspaceInviteModal({
   open,
   users,
   workspaceMembers,
+  canManage,
   onInvite,
   onRemove,
   onClose,
@@ -86,21 +112,20 @@ function WorkspaceInviteModal({
   open: boolean;
   users: WorkspaceMember[];
   workspaceMembers: WorkspaceMember[];
+  canManage: boolean;
   onInvite: (userId: string) => Promise<void>;
   onRemove: (memberId: string) => Promise<void>;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
   const [branchFilter, setBranchFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
 
-  const typeOptions = useMemo(
-    () => Array.from(new Set(users.map((user) => user.userTypeName || 'Sin tipo').filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
-    [users],
-  );
   const branchOptions = useMemo(
-    () => Array.from(new Set(users.map((user) => user.branch || 'Sin sucursal').filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
+    () =>
+      Array.from(new Set(users.flatMap(getMemberBranches))).sort((a, b) =>
+        formatBranchLabel(a).localeCompare(formatBranchLabel(b), 'es'),
+      ),
     [users],
   );
   const roleOptions = useMemo(
@@ -112,16 +137,15 @@ function WorkspaceInviteModal({
 
   const cleanQuery = query.trim().toLowerCase();
   const filteredUsers = users.filter((user) => {
-    const userType = user.userTypeName || 'Sin tipo';
-    const userBranch = user.branch || 'Sin sucursal';
+    const userBranches = getMemberBranches(user);
+    const userBranchText = userBranches.map(formatBranchLabel).join(' ');
     const userRole = user.systemRole || 'Sin rol';
-    const matchesQuery = `${user.fullName} ${user.username} ${user.avatarText} ${userType} ${userBranch} ${userRole}`
+    const matchesQuery = `${user.fullName} ${user.username} ${user.avatarText} ${userBranchText} ${userRole}`
       .toLowerCase()
       .includes(cleanQuery);
     return (
       matchesQuery &&
-      (typeFilter === 'all' || userType === typeFilter) &&
-      (branchFilter === 'all' || userBranch === branchFilter) &&
+      (branchFilter === 'all' || userBranches.includes(branchFilter)) &&
       (roleFilter === 'all' || userRole === roleFilter)
     );
   });
@@ -144,25 +168,18 @@ function WorkspaceInviteModal({
         <div className="p-5">
           <input
             className="h-11 w-full rounded-lg border border-[#7a818c] bg-[#17191c] px-3 text-sm text-[#f1f2f4] outline-none placeholder:text-[#aeb6c2] focus:border-[#85b8ff] focus:ring-1 focus:ring-[#85b8ff]"
-            placeholder="Buscar usuarios por nombre, usuario, tipo, sucursal o rol..."
+            placeholder="Buscar usuarios por nombre, usuario, sucursal o rol..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             autoFocus
           />
 
-          <div className="mt-3 grid grid-cols-3 gap-2 max-sm:grid-cols-1">
-            <label className="space-y-1">
-              <span className="text-[11px] font-black uppercase tracking-wide text-[#9fadbc]">Tipo de usuario</span>
-              <select className={selectClass} value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
-                <option value="all">Todos</option>
-                {typeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
+          <div className="mt-3 grid grid-cols-2 gap-2 max-sm:grid-cols-1">
             <label className="space-y-1">
               <span className="text-[11px] font-black uppercase tracking-wide text-[#9fadbc]">Sucursal</span>
               <select className={selectClass} value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}>
                 <option value="all">Todas</option>
-                {branchOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                {branchOptions.map((option) => <option key={option} value={option}>{formatBranchLabel(option)}</option>)}
               </select>
             </label>
             <label className="space-y-1">
@@ -181,19 +198,22 @@ function WorkspaceInviteModal({
               return (
                 <button
                   key={user.id}
-                  className="grid w-full grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/10"
+                  className="grid w-full grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                   type="button"
+                  disabled={!canManage || (selected && workspaceMember?.isCurrentUser)}
                   onClick={() => {
+                    if (!canManage) return;
                     if (selected && workspaceMember && !workspaceMember.isCurrentUser) void onRemove(workspaceMember.id);
                     if (!selected) void onInvite(user.id);
                   }}
+                  title={!canManage ? 'Solo un administrador del espacio puede invitar o quitar miembros' : undefined}
                 >
                   <MemberAvatar member={user} />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black text-[#f1f2f4]">{user.fullName}</span>
                     <span className="block truncate text-xs text-[#aeb6c2]">@{user.username}</span>
                     <span className="mt-1 block truncate text-[11px] text-[#8f99a8]">
-                      {[user.userTypeName, user.branch, user.systemRole].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
+                      {[formatMemberBranches(user), user.systemRole].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
                     </span>
                   </span>
                   <span className={`inline-flex items-center gap-1 rounded px-3 py-1.5 text-sm font-black transition ${selected ? 'bg-[#1f6f4a] text-[#baf3db]' : 'bg-[#579dff] text-[#092957]'}`}>
@@ -223,6 +243,7 @@ export function MembersPage() {
     selectedWorkspaceId,
     inviteWorkspaceMember,
     removeWorkspaceMember,
+    canManageCurrentWorkspace,
   } = useBoards();
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
@@ -290,9 +311,11 @@ export function MembersPage() {
           </p>
 
           <button
-            className="inline-flex h-9 shrink-0 items-center gap-2 rounded bg-trello-blue px-4 text-base font-semibold text-[#092957] transition hover:bg-[#85b8ff]"
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded bg-trello-blue px-4 text-base font-semibold text-[#092957] transition hover:bg-[#85b8ff] disabled:cursor-not-allowed disabled:opacity-55"
             type="button"
+            disabled={!canManageCurrentWorkspace}
             onClick={() => setInviteModalOpen(true)}
+            title={!canManageCurrentWorkspace ? 'Solo un administrador del espacio puede invitar miembros' : undefined}
           >
             <UserPlus size={18} />
             Invitar a miembros del Espacio de trabajo
@@ -311,7 +334,7 @@ export function MembersPage() {
 
         <div>
           {visibleMembers.map((member) => (
-            <MemberRow key={member.id} member={member} onRemove={handleRemove} />
+            <MemberRow key={member.id} member={member} canManage={canManageCurrentWorkspace} onRemove={handleRemove} />
           ))}
 
           {visibleMembers.length === 0 && (
@@ -326,6 +349,7 @@ export function MembersPage() {
         open={inviteModalOpen}
         users={systemUsers}
         workspaceMembers={workspaceMembers}
+        canManage={canManageCurrentWorkspace}
         onInvite={handleInvite}
         onRemove={handleRemoveById}
         onClose={() => setInviteModalOpen(false)}

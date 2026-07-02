@@ -14,6 +14,7 @@ import {
   GripVertical,
   Pencil,
   Inbox,
+  History,
   LayoutPanelLeft,
   Lightbulb,
   ListChecks,
@@ -64,6 +65,7 @@ import type {
   BoardLabelOption,
   BoardList,
   BoardPanel,
+  BoardAuditEvent,
   BoardTaskActivity,
   BoardTaskCard,
   BoardTaskComment,
@@ -153,6 +155,32 @@ function Avatar({ label, className = '' }: { label: string; className?: string }
     </span>
   );
 }
+
+
+function normalizeBranchLabel(value?: string | null): string | null {
+  const clean = String(value ?? '').trim().toLowerCase();
+  return clean.length > 0 ? clean : null;
+}
+
+function getMemberBranches(member: WorkspaceMember): string[] {
+  const branches = Array.from(
+    new Set([...(member.branches ?? []), member.branch].map(normalizeBranchLabel).filter(Boolean) as string[]),
+  );
+  return branches.length > 0 ? branches : ['Sin sucursal'];
+}
+
+function formatBranchLabel(value: string) {
+  if (value === 'Sin sucursal') return value;
+  return value
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatMemberBranches(member: WorkspaceMember) {
+  return getMemberBranches(member).map(formatBranchLabel).join(', ');
+}
+
 
 function formatRelativeDate(value?: string) {
   if (!value) return 'hace unos minutos';
@@ -418,6 +446,111 @@ function InboxChatPanel({ messages, members = [], compact = false, onSend }: { m
   );
 }
 
+
+function formatAuditDateTime(value?: string) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return { date: 'Sin fecha', time: '--:--' };
+  return {
+    date: date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }),
+    time: date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+  };
+}
+
+function getAuditToneClass(severity?: BoardAuditEvent['severity']) {
+  if (severity === 'success') return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200';
+  if (severity === 'warning') return 'border-amber-300/35 bg-amber-300/10 text-amber-200';
+  if (severity === 'danger') return 'border-red-400/35 bg-red-400/10 text-red-200';
+  return 'border-[#579dff]/30 bg-[#579dff]/10 text-[#85b8ff]';
+}
+
+function AuditPanel({ events, compact = false }: { events: BoardAuditEvent[]; compact?: boolean }) {
+  const [search, setSearch] = useState('');
+  const cleanSearch = search.trim().toLowerCase();
+  const filteredEvents = events.filter((event) => {
+    if (!cleanSearch) return true;
+    return [event.actorName, event.action, event.summary, event.detail, event.entityTitle]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(cleanSearch));
+  });
+
+  return (
+    <section
+      className={`flex min-h-0 flex-col overflow-hidden border-[#3b4048] bg-[#101204]/95 text-[#d7d9df] shadow-2xl backdrop-blur ${
+        compact ? 'rounded-2xl border' : 'h-full rounded-2xl border'
+      }`}
+    >
+      <div className="flex items-start justify-between border-b border-white/10 px-5 py-4">
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#1f2024] text-[#b6c2cf] ring-1 ring-white/10">
+            <History size={19} />
+          </span>
+          <div>
+            <h2 className="text-lg font-black text-white">Auditoría</h2>
+            <p className="mt-1 text-xs leading-snug text-[#aeb6c2]">
+              Historial de movimientos, cambios y acciones del tablero.
+            </p>
+          </div>
+        </div>
+        <span className="rounded-full bg-[#579dff]/10 px-2.5 py-1 text-xs font-black text-[#85b8ff] ring-1 ring-[#579dff]/20">
+          {filteredEvents.length}
+        </span>
+      </div>
+
+      <div className="border-b border-white/10 px-5 py-4">
+        <input
+          className="h-10 w-full rounded-xl border border-white/10 bg-[#1f2024] px-3 text-sm text-white outline-none placeholder:text-[#9fa8b7] focus:border-[#579dff]"
+          placeholder="Buscar por usuario, acción o elemento..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </div>
+
+      <div className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
+        {filteredEvents.length > 0 ? (
+          filteredEvents.map((event) => {
+            const dateParts = formatAuditDateTime(event.createdAt);
+            return (
+              <article key={event.id} className="rounded-2xl border border-white/10 bg-[#1f2024]/70 p-3 shadow-lg">
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Avatar label={event.avatarText} className="h-8 w-8 text-[10px]" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-white">{event.actorName}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#8ea0b7]">{event.action}</p>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right text-[11px] text-[#9fa8b7]">
+                    <p className="font-black text-[#d7d9df]">{dateParts.time}</p>
+                    <p>{dateParts.date}</p>
+                  </div>
+                </div>
+
+                <p className="text-sm leading-snug text-[#d7d9df]">{event.summary}</p>
+                {event.detail && <p className="mt-1 text-xs leading-relaxed text-[#aeb6c2]">{event.detail}</p>}
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] ${getAuditToneClass(event.severity)}`}>
+                    {event.entityType.replace('_', ' ')}
+                  </span>
+                  {event.entityTitle && (
+                    <span className="max-w-full truncate rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-bold text-[#c6d4e8]">
+                      {event.entityTitle}
+                    </span>
+                  )}
+                </div>
+              </article>
+            );
+          })
+        ) : (
+          <div className="rounded-2xl border border-dashed border-white/15 bg-white/[.04] p-5 text-center text-sm text-[#aeb6c2]">
+            Todavía no hay movimientos para mostrar. Las acciones del tablero aparecerán en este historial.
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function BoardTask({
   card,
   onOpen,
@@ -432,6 +565,7 @@ function BoardTask({
   labelOptions: BoardLabelOption[];
 }) {
   const selectedLabelOptions = labelOptions.filter((label) => (card.labels ?? []).includes(label.id));
+  const [completionBurstKey, setCompletionBurstKey] = useState(0);
   const checklistProgress = getChecklistProgress(card.checklists ?? []);
   const cardMembers = card.members ?? [];
   const hasFooter = checklistProgress.total > 0 || cardMembers.length > 0 || Boolean(card.dueDateEnabled && card.dueDate);
@@ -469,13 +603,17 @@ function BoardTask({
           type="button"
           onClick={(event) => {
             event.stopPropagation();
+            if (!card.completed) setCompletionBurstKey((key) => key + 1);
             onToggleCompleted();
           }}
           aria-label={card.completed ? 'Marcar como pendiente' : 'Marcar como completada'}
           onPointerDown={(event) => event.stopPropagation()}
           data-no-list-drag="true"
         >
-          {card.completed ? <CheckCircle2 size={18} className="text-[#4bce97]" /> : <Circle size={18} />}
+          <span className="relative grid h-5 w-5 place-items-center">
+            {completionBurstKey > 0 && <ChecklistCompletionBurst runKey={completionBurstKey} />}
+            {card.completed ? <CheckCircle2 size={18} className="text-[#4bce97]" /> : <Circle size={18} />}
+          </span>
         </button>
 
         <p
@@ -1802,17 +1940,18 @@ function BoardShareModal({
   board,
   allMembers,
   selectedMemberIds,
+  lockedMemberIds = [],
   onToggleMember,
   onClose,
 }: {
   board: Board;
   allMembers: WorkspaceMember[];
   selectedMemberIds: string[];
+  lockedMemberIds?: string[];
   onToggleMember: (memberId: string) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
   const [branchFilter, setBranchFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
 
@@ -1824,12 +1963,11 @@ function BoardShareModal({
     return Array.from(byId.values());
   }, [allMembers]);
 
-  const typeOptions = useMemo(
-    () => Array.from(new Set(normalizedMembers.map((member) => member.userTypeName || 'Sin tipo').filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
-    [normalizedMembers],
-  );
   const branchOptions = useMemo(
-    () => Array.from(new Set(normalizedMembers.map((member) => member.branch || 'Sin sucursal').filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
+    () =>
+      Array.from(new Set(normalizedMembers.flatMap(getMemberBranches))).sort((a, b) =>
+        formatBranchLabel(a).localeCompare(formatBranchLabel(b), 'es'),
+      ),
     [normalizedMembers],
   );
   const roleOptions = useMemo(
@@ -1839,16 +1977,15 @@ function BoardShareModal({
 
   const cleanQuery = query.trim().toLowerCase();
   const filteredMembers = normalizedMembers.filter((member) => {
-    const memberType = member.userTypeName || 'Sin tipo';
-    const memberBranch = member.branch || 'Sin sucursal';
+    const memberBranches = getMemberBranches(member);
+    const memberBranchText = memberBranches.map(formatBranchLabel).join(' ');
     const memberRole = member.systemRole || 'Sin rol';
-    const matchesQuery = `${member.fullName} ${member.username} ${member.avatarText} ${memberType} ${memberBranch} ${memberRole}`
+    const matchesQuery = `${member.fullName} ${member.username} ${member.avatarText} ${memberBranchText} ${memberRole}`
       .toLowerCase()
       .includes(cleanQuery);
     return (
       matchesQuery &&
-      (typeFilter === 'all' || memberType === typeFilter) &&
-      (branchFilter === 'all' || memberBranch === branchFilter) &&
+      (branchFilter === 'all' || memberBranches.includes(branchFilter)) &&
       (roleFilter === 'all' || memberRole === roleFilter)
     );
   });
@@ -1878,25 +2015,18 @@ function BoardShareModal({
         <div className="p-5">
           <input
             className="h-11 w-full rounded-lg border border-[#7a818c] bg-[#17191c] px-3 text-sm text-[#f1f2f4] outline-none placeholder:text-[#aeb6c2] focus:border-[#85b8ff] focus:ring-1 focus:ring-[#85b8ff]"
-            placeholder="Buscar usuarios por nombre, usuario, tipo, sucursal o rol..."
+            placeholder="Buscar usuarios por nombre, usuario, sucursal o rol..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             autoFocus
           />
 
-          <div className="mt-3 grid grid-cols-3 gap-2 max-sm:grid-cols-1">
-            <label className="space-y-1">
-              <span className="text-[11px] font-black uppercase tracking-wide text-[#9fadbc]">Tipo de usuario</span>
-              <select className={selectClass} value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
-                <option value="all">Todos</option>
-                {typeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
+          <div className="mt-3 grid grid-cols-2 gap-2 max-sm:grid-cols-1">
             <label className="space-y-1">
               <span className="text-[11px] font-black uppercase tracking-wide text-[#9fadbc]">Sucursal</span>
               <select className={selectClass} value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}>
                 <option value="all">Todas</option>
-                {branchOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                {branchOptions.map((option) => <option key={option} value={option}>{formatBranchLabel(option)}</option>)}
               </select>
             </label>
             <label className="space-y-1">
@@ -1911,23 +2041,26 @@ function BoardShareModal({
           <div className="mt-4 max-h-[46dvh] space-y-1 overflow-y-auto pr-1">
             {filteredMembers.map((member) => {
               const selected = selectedMemberIds.includes(member.id);
+              const locked = selected && lockedMemberIds.includes(member.id);
               return (
                 <button
                   key={member.id}
-                  className="grid w-full grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/10"
+                  className="grid w-full grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
                   type="button"
+                  disabled={locked}
                   onClick={() => onToggleMember(member.id)}
+                  title={locked ? 'El creador del tablero siempre conserva acceso.' : undefined}
                 >
                   <Avatar label={member.avatarText} />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black text-[#f1f2f4]">{member.fullName}</span>
                     <span className="block truncate text-xs text-[#aeb6c2]">@{member.username}</span>
                     <span className="mt-1 block truncate text-[11px] text-[#8f99a8]">
-                      {[member.userTypeName, member.branch, member.systemRole].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
+                      {[formatMemberBranches(member), member.systemRole].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
                     </span>
                   </span>
-                  <span className={`rounded px-3 py-1.5 text-sm font-black transition ${selected ? 'bg-[#1f6f4a] text-[#baf3db]' : 'bg-[#579dff] text-[#092957]'}`}>
-                    {selected ? 'Invitado' : 'Añadir'}
+                  <span className={`rounded px-3 py-1.5 text-sm font-black transition ${locked ? 'bg-[#343941] text-[#dfe3ea]' : selected ? 'bg-[#1f6f4a] text-[#baf3db]' : 'bg-[#579dff] text-[#092957]'}`}>
+                    {locked ? 'Creador' : selected ? 'Invitado' : 'Añadir'}
                   </span>
                 </button>
               );
@@ -2250,6 +2383,55 @@ function EditableChecklistTitle({
   );
 }
 
+
+function ChecklistCompletionBurst({ runKey }: { runKey: number }) {
+  if (!runKey) return null;
+
+  const particles = [
+    ['-18px', '-14px', '#4bce97'],
+    ['16px', '-16px', '#9f8fef'],
+    ['22px', '2px', '#579dff'],
+    ['13px', '18px', '#e2b203'],
+    ['-13px', '18px', '#f797d2'],
+    ['-22px', '2px', '#4bce97'],
+  ];
+
+  return (
+    <span key={runKey} className="pointer-events-none absolute left-1/2 top-1/2 z-20 h-0 w-0">
+      <style>{`
+        @keyframes trello-check-ring {
+          0% { opacity: .9; transform: translate(-50%, -50%) scale(.35); }
+          72% { opacity: .55; transform: translate(-50%, -50%) scale(1.45); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(1.85); }
+        }
+        @keyframes trello-check-spark {
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(.25); }
+          18% { opacity: 1; }
+          100% { opacity: 0; transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(.12); }
+        }
+      `}</style>
+      <span
+        className="absolute left-0 top-0 h-9 w-9 rounded-full border-2 border-[#4bce97]/80"
+        style={{ animation: 'trello-check-ring 620ms ease-out forwards' }}
+      />
+      {particles.map(([x, y, color], index) => (
+        <span
+          key={`${x}-${y}`}
+          className="absolute left-0 top-0 h-1.5 w-1.5 rounded-full"
+          style={
+            {
+              '--tx': x,
+              '--ty': y,
+              backgroundColor: color,
+              animation: `trello-check-spark 680ms cubic-bezier(.16,1,.3,1) ${index * 26}ms forwards`,
+            } as CSSProperties
+          }
+        />
+      ))}
+    </span>
+  );
+}
+
 function ChecklistItemRow({
   checklistId,
   item,
@@ -2271,6 +2453,7 @@ function ChecklistItemRow({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const itemMembersRef = useRef<HTMLDivElement | null>(null);
   const itemDatesRef = useRef<HTMLDivElement | null>(null);
+  const [completionBurstKey, setCompletionBurstKey] = useState(0);
 
   useEffect(() => {
     setDraft(item.title);
@@ -2311,16 +2494,18 @@ function ChecklistItemRow({
   return (
     <div className="group/checkitem grid min-h-9 w-full grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-2 rounded px-1 text-left transition hover:bg-white/10">
       <button
-        className={`grid h-5 w-5 place-items-center rounded border transition ${
+        className={`relative grid h-5 w-5 place-items-center overflow-visible rounded border transition ${
           item.completed ? 'border-[#4bce97] bg-[#4bce97] text-[#0b1f17]' : 'border-[#9aa3b2] hover:border-[#dfe3ea]'
         }`}
         type="button"
         onClick={(event) => {
           event.stopPropagation();
+          if (!item.completed) setCompletionBurstKey(Date.now());
           onToggleItem(checklistId, item.id);
         }}
         aria-label={item.completed ? 'Marcar elemento como pendiente' : 'Marcar elemento como completado'}
       >
+        {completionBurstKey > 0 && <ChecklistCompletionBurst runKey={completionBurstKey} />}
         {item.completed && <Check size={14} />}
       </button>
 
@@ -3418,6 +3603,7 @@ export function BoardDetailPage() {
     updateBoardLabel,
     deleteBoardLabel,
     boardMessages,
+    boardAuditEvents,
     sendBoardMessage,
     syncStatus,
   } = useBoards();
@@ -3454,6 +3640,59 @@ export function BoardDetailPage() {
   );
 
   const renderedBoardLists = dragPreviewLists ?? selectedBoardLists;
+
+  const selectedBoardAuditEvents = useMemo(() => {
+    if (!selectedBoard) return [];
+
+    const persistedActivityEvents: BoardAuditEvent[] = selectedBoardLists.flatMap((list) =>
+      list.cards.flatMap((card) =>
+        (card.activities ?? []).map((activity) => ({
+          id: `activity-audit-${activity.id}`,
+          boardId: selectedBoard.id,
+          workspaceId: selectedBoard.workspaceId,
+          actorName: activity.actorName,
+          avatarText: activity.avatarText,
+          action: 'Actividad de tarjeta',
+          summary: activity.message,
+          detail: `Tarjeta: ${card.title} · Lista: ${list.title}`,
+          entityType: 'card' as const,
+          entityId: card.id,
+          entityTitle: card.title,
+          createdAt: activity.createdAt,
+          severity: 'info' as const,
+        })),
+      ),
+    );
+
+    const messageAuditEvents: BoardAuditEvent[] = boardMessages.map((message) => ({
+      id: `message-audit-${message.id}`,
+      boardId: selectedBoard.id,
+      workspaceId: selectedBoard.workspaceId,
+      actorName: message.senderName,
+      avatarText: message.avatarText,
+      action: 'Mensaje enviado',
+      summary: 'envió un mensaje en la bandeja de entrada',
+      detail: message.message,
+      entityType: 'message' as const,
+      entityId: message.id,
+      entityTitle: 'Bandeja de entrada',
+      createdAt: new Date().toISOString(),
+      severity: 'info' as const,
+    }));
+
+    const selectedEvents = boardAuditEvents.filter(
+      (event) => event.boardId === selectedBoard.id || event.workspaceId === selectedBoard.workspaceId,
+    );
+
+    const eventsById = new Map<string, BoardAuditEvent>();
+    [...selectedEvents, ...persistedActivityEvents, ...messageAuditEvents].forEach((event) => {
+      if (!eventsById.has(event.id)) eventsById.set(event.id, event);
+    });
+
+    return Array.from(eventsById.values()).sort(
+      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    );
+  }, [boardAuditEvents, boardMessages, selectedBoard, selectedBoardLists]);
 
   const activeCardPreview = activeDrag?.type === 'card' ? findCardLocation(renderedBoardLists, activeDrag.cardId)?.card ?? null : null;
   const activeListPreview = activeDrag?.type === 'list' ? renderedBoardLists.find((list) => list.id === activeDrag.listId) ?? null : null;
@@ -3589,7 +3828,17 @@ export function BoardDetailPage() {
 
   const handleToggleBoardMember = async (memberId: string) => {
     if (!selectedBoard) return;
+    if (!canManageSelectedBoard) {
+      window.alert('Solo el creador del tablero o un administrador del tablero puede invitar o quitar miembros.');
+      return;
+    }
+
     const currentMemberIds = selectedBoard.memberIds && selectedBoard.memberIds.length > 0 ? selectedBoard.memberIds : [];
+    if (selectedBoard.createdBy === memberId && currentMemberIds.includes(memberId)) {
+      window.alert('El creador del tablero siempre conserva acceso. Podés cambiar roles de otros miembros desde Colaboradores.');
+      return;
+    }
+
     const nextMemberIds = currentMemberIds.includes(memberId)
       ? currentMemberIds.filter((currentMemberId) => currentMemberId !== memberId)
       : [...currentMemberIds, memberId];
@@ -3688,8 +3937,12 @@ export function BoardDetailPage() {
   const VisibilityIcon = selectedBoard.visibility === 'publico' ? Globe2 : LockKeyhole;
 
   return (
-    <main className="relative grid h-full grid-cols-[305px_minmax(0,1fr)] gap-3 overflow-hidden bg-[#1d1d1f] p-3 font-sans text-[#d7d9df]">
-      <InboxChatPanel messages={boardMessages} members={boardMembers} onSend={(message) => selectedBoard ? sendBoardMessage(selectedBoard.id, message) : Promise.resolve()} />
+    <main className="relative grid h-full grid-cols-[340px_minmax(0,1fr)] gap-3 overflow-hidden bg-[#1d1d1f] p-3 font-sans text-[#d7d9df]">
+      {activePanel === 'audit' ? (
+        <AuditPanel events={selectedBoardAuditEvents} />
+      ) : (
+        <InboxChatPanel messages={boardMessages} members={boardMembers} onSend={(message) => selectedBoard ? sendBoardMessage(selectedBoard.id, message) : Promise.resolve()} />
+      )}
 
       <section className="relative min-w-0 overflow-hidden rounded-2xl border border-white/10" style={getBoardCoverStyle(selectedBoard.cover, { overlay: true, contain: selectedBoard.cover.value.startsWith('/trello-backgrounds/') })}>
         <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-sky-950/10 to-black/45" />
@@ -3756,9 +4009,8 @@ export function BoardDetailPage() {
         </header>
 
         <div className="relative z-10 h-[calc(100%-72px)] overflow-hidden px-5 py-4">
-          {activePanel === 'board' ? (
-            <>
-              {listSelectionMode && (
+          <>
+            {listSelectionMode && (
                 <div className="absolute left-5 top-4 z-30 flex items-center gap-3 rounded-xl border border-white/15 bg-[#1b1d22]/95 px-3 py-2 text-sm font-bold text-[#dfe3ea] shadow-2xl backdrop-blur">
                   <span>{selectedListIdsForDelete.length} lista{selectedListIdsForDelete.length === 1 ? '' : 's'} marcada{selectedListIdsForDelete.length === 1 ? '' : 's'}</span>
                   <button
@@ -3819,14 +4071,7 @@ export function BoardDetailPage() {
                 {!activeCardPreview && activeListPreview ? <BoardListDragPreview list={activeListPreview} /> : null}
               </DragOverlay>
             </DndContext>
-            </>
-          ) : (
-            <div className="grid h-full place-items-center pb-20">
-              <div className="h-[min(72dvh,760px)] w-full max-w-3xl">
-                <InboxChatPanel messages={boardMessages} members={boardMembers} onSend={(message) => selectedBoard ? sendBoardMessage(selectedBoard.id, message) : Promise.resolve()} />
-              </div>
-            </div>
-          )}
+          </>
         </div>
 
         <nav className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-white/15 bg-[#1b1d22]/90 p-1.5 text-sm font-bold shadow-2xl backdrop-blur" aria-label="Navegación del tablero">
@@ -3849,6 +4094,16 @@ export function BoardDetailPage() {
           >
             <Archive size={17} />
             Tablero
+          </button>
+          <button
+            className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 transition ${
+              activePanel === 'audit' ? 'bg-[#1f3555] text-[#579dff]' : 'text-[#d5d9e2] hover:bg-white/10'
+            }`}
+            type="button"
+            onClick={() => setActivePanel('audit')}
+          >
+            <History size={17} />
+            Auditoría
           </button>
           <button
             className="inline-flex h-10 items-center gap-2 rounded-lg px-4 text-[#d5d9e2] transition hover:bg-white/10"
@@ -3885,6 +4140,7 @@ export function BoardDetailPage() {
           board={selectedBoard}
           allMembers={uniqueMembers}
           selectedMemberIds={boardMemberIds}
+          lockedMemberIds={selectedBoard.createdBy ? [selectedBoard.createdBy] : []}
           onToggleMember={(memberId) => void handleToggleBoardMember(memberId)}
           onClose={() => setIsShareModalOpen(false)}
         />

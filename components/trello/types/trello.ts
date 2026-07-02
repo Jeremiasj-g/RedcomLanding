@@ -1,7 +1,7 @@
 export type WorkspaceVisibility = 'privado' | 'publico';
 export type BoardVisibility = 'privado' | 'publico';
 export type AppView = 'boards' | 'members' | 'settings' | 'board';
-export type BoardPanel = 'board' | 'inbox';
+export type BoardPanel = 'board' | 'inbox' | 'audit';
 export type WorkspaceMemberRole = 'Administrador' | 'Miembro' | 'Observador';
 export type PermissionScope = 'workspace' | 'board';
 export type WorkspaceMemberStatus = 'member' | 'single-board-guest' | 'multi-board-guest' | 'join-request';
@@ -29,6 +29,7 @@ export interface Board {
   favorite: boolean;
   memberIds?: string[];
   memberRoles?: Record<string, WorkspaceMemberRole>;
+  createdBy?: string;
   createdAt: string;
   updatedAt: string;
   position?: number;
@@ -81,6 +82,7 @@ export interface WorkspaceMember {
   isCurrentUser?: boolean;
   systemRole?: string | null;
   branch?: string | null;
+  branches?: string[];
   branchId?: number | null;
   userTypeId?: number | null;
   userTypeName?: string | null;
@@ -229,6 +231,47 @@ export interface UpdateBoardTaskCardInput {
   comments?: BoardTaskComment[];
   activities?: BoardTaskActivity[];
   checklists?: BoardTaskChecklist[];
+}
+
+
+export type BoardAuditEntityType =
+  | 'workspace'
+  | 'board'
+  | 'list'
+  | 'card'
+  | 'checklist'
+  | 'checklist_item'
+  | 'member'
+  | 'label'
+  | 'message'
+  | 'system';
+
+export interface BoardAuditEvent {
+  id: string;
+  boardId?: string;
+  workspaceId?: string;
+  actorName: string;
+  avatarText: string;
+  action: string;
+  summary: string;
+  detail?: string;
+  entityType: BoardAuditEntityType;
+  entityId?: string;
+  entityTitle?: string;
+  createdAt: string;
+  severity?: 'info' | 'success' | 'warning' | 'danger';
+}
+
+export interface CreateBoardAuditEventInput {
+  boardId?: string;
+  workspaceId?: string;
+  action: string;
+  summary: string;
+  detail?: string;
+  entityType: BoardAuditEntityType;
+  entityId?: string;
+  entityTitle?: string;
+  severity?: BoardAuditEvent['severity'];
 }
 
 export interface ChatMessage {
