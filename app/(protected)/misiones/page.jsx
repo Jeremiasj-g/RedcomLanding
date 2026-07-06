@@ -84,6 +84,9 @@ export default function Misiones() {
             tabs={lookerTabs}
             defaultTab="dashboard"
             className="mt-14"
+            eyebrow="Inteligencia comercial · Misiones"
+            title="Ventas y mapa de calor"
+            description="Revisá el desempeño comercial de Misiones desde las vistas oficiales: tablero de ventas y lectura territorial por zona."
           >
             {({ activeTab }) => (
               <LookerEmbed

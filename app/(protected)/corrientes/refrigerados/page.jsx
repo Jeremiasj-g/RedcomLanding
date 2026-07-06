@@ -103,6 +103,9 @@ export default function CorrientesRefrigerados() {
               tabs={lookerTabs}
               defaultTab="dashboard"
               className="mt-14"
+              eyebrow="Inteligencia comercial · Corrientes Refrigerados"
+              title="Dashboard volumen y mapa de calor"
+              description="Revisá el desempeño comercial de Refrigerados desde las vistas oficiales: tablero de volumen y lectura territorial por zona."
             >
               {({ activeTab }) => (
                 <LookerEmbed
@@ -117,6 +120,9 @@ export default function CorrientesRefrigerados() {
               tabs={lookerTabsKilos}
               defaultTab="dashboard"
               className="mt-14"
+              eyebrow="Análisis operativo · Refrigerados"
+              title="Dashboard de kilos y bultos"
+              description="Consultá la lectura específica de kilos y bultos para controlar objetivos, volumen físico y comportamiento operativo del canal."
             >
               {({ activeTab }) => (
                 <LookerEmbed

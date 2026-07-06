@@ -91,6 +91,9 @@ export default function Gerencia() {
           tabs={lookerTabs}
           defaultTab="dashboard"
           className="mt-14"
+          eyebrow="Inteligencia comercial · Gerencia"
+          title="Panel ejecutivo y mapa de calor"
+          description="Consultá las vistas consolidadas de Gerencia para seguir desempeño general, distribución territorial y lectura comercial de alto nivel."
         >
           {({ activeTab }) => (
             <LookerEmbed

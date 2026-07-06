@@ -7,6 +7,9 @@ export default function LookerTabs({
   tabs = [],
   defaultTab,
   className = '',
+  eyebrow = 'Panel comercial',
+  title = 'Dashboard y mapa de calor',
+  description = 'Consultá las visualizaciones principales de la sucursal y alterná entre tablero ejecutivo y lectura territorial sin salir de la pantalla.',
   children,
 }) {
   const safeTabs = useMemo(() => tabs ?? [], [tabs]);
@@ -27,46 +30,59 @@ export default function LookerTabs({
   if (!safeTabs.length) return null;
 
   return (
-    <div className={className}>
-      <div className="relative z-30 mt-6 flex justify-center">
-        <div className="relative inline-flex rounded-full border border-white/10 bg-slate-800 p-1 shadow-[0_10px_40px_rgba(0,0,0,0.25)] backdrop-blur-xl">
-          {safeTabs.map((tab) => {
-            const isActive = activeTab?.key === tab.key;
+    <section className={className}>
+      <div className="mx-auto max-w-7xl px-4">
+        <div className="rounded-[2rem]">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
+                {eyebrow}
+              </div>
+              <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                {title}
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
+                {description}
+              </p>
+            </div>
 
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTabKey(tab.key)}
-                className="relative z-10"
-              >
-                <div className="relative px-4 py-2.5 sm:px-5">
-                  {isActive && (
-                    <motion.div
-                      layoutId="looker-active-pill"
-                      className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500/20 via-sky-500/20 to-blue-500/20 ring-1 ring-cyan-400/20"
-                      transition={{
-                        type: 'spring',
-                        stiffness: 380,
-                        damping: 30,
-                      }}
-                    />
-                  )}
+            <div className="w-full lg:w-auto">
+              <div className="grid rounded-2xl border border-slate-200 bg-gray-100/80 p-1 shadow-inner sm:inline-grid sm:grid-flow-col">
+                {safeTabs.map((tab) => {
+                  const isActive = activeTab?.key === tab.key;
 
-                  <div
-                    className={`relative flex items-center gap-2 text-lg font-medium transition-colors ${
-                      isActive
-                        ? 'text-white'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {tab.icon}
-                    <span>{tab.label}</span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setActiveTabKey(tab.key)}
+                      className={`relative isolate flex min-h-[46px] items-center justify-center gap-2 rounded-xl px-4 text-sm font-black transition focus:outline-none focus:ring-4 focus:ring-slate-900/10 sm:min-w-[170px] ${
+                        isActive
+                          ? 'text-white'
+                          : 'text-slate-600 hover:bg-white hover:text-slate-950'
+                      }`}
+                    >
+                      {isActive && (
+                        <motion.span
+                          layoutId="looker-active-tab"
+                          className="absolute inset-0 -z-10 rounded-xl bg-slate-950 shadow-lg shadow-slate-900/20"
+                          transition={{
+                            type: 'spring',
+                            stiffness: 420,
+                            damping: 34,
+                          }}
+                        />
+                      )}
+                      <span className={isActive ? 'text-sky-200' : 'text-slate-500'}>
+                        {tab.icon}
+                      </span>
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -85,6 +101,6 @@ export default function LookerTabs({
             })
           : children}
       </motion.div>
-    </div>
+    </section>
   );
 }

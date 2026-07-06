@@ -71,10 +71,10 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
     <section className="relative z-0 mx-auto max-w-7xl px-4 py-8">
       <div className="relative">
         {/* glow / blur de fondo */}
-        <div
+        {/* <div
           className="pointer-events-none absolute inset-0 -z-10 scale-[1.2] rounded-[2rem] bg-cover bg-center blur-3xl saturate-150"
           style={{ backgroundImage }}
-        />
+        /> */}
 
         {/* card principal */}
         <div className="relative isolate h-[1000px] w-full overflow-hidden rounded-2xl bg-slate-950 shadow-2xl">

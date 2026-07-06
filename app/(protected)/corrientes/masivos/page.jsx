@@ -83,6 +83,9 @@ export default function CorrientesMasivos() {
             tabs={lookerTabs}
             defaultTab="dashboard"
             className="mt-14"
+            eyebrow="Inteligencia comercial · Corrientes Masivos"
+            title="Ventas y mapa de calor"
+            description="Revisá el desempeño comercial de Corrientes Masivos desde las vistas oficiales: tablero de ventas y lectura territorial por zona."
           >
             {({ activeTab }) => (
               <LookerEmbed
