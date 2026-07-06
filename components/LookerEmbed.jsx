@@ -7,7 +7,7 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
   const LOOKER_LINKS = {
     masivos: {
       dashboard: 'https://datastudio.google.com/embed/reporting/2ecfc88c-9070-4498-8a28-75a1fb347c26/page/9jv2F',
-      heatmap: '',
+      heatmap: 'https://datastudio.google.com/embed/reporting/8b4b18c4-21b2-4fba-b1d1-be4dd1b28c51/page/uLA3F',
     },
     refrigerados: {
       dashboard: 'https://datastudio.google.com/embed/reporting/02c9a8a8-1e04-46ab-a655-14f32933d372/page/VQ02F',
@@ -19,7 +19,7 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
     },
     chaco: {
       dashboard: 'https://datastudio.google.com/embed/reporting/0ade1098-b0d4-464d-8921-ce34ee5aa6ca/page/35y2F',
-      heatmap: '',
+      heatmap: 'https://datastudio.google.com/embed/reporting/e7c3de2e-a16b-4a6f-99dc-57a858c25549/page/5TA3F',
     },
     misiones: {
       dashboard: 'https://datastudio.google.com/embed/reporting/fea1c84b-03f7-40f4-bd9f-59b362e5ed1f/page/BKz2F',
