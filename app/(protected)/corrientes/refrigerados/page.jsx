@@ -104,7 +104,7 @@ export default function CorrientesRefrigerados() {
               defaultTab="dashboard"
               className="mt-14"
               eyebrow="Inteligencia comercial · Corrientes Refrigerados"
-              title="Dashboard volumen y mapa de calor"
+              title="Dashboard y mapa de calor"
               description="Revisá el desempeño comercial de Refrigerados desde las vistas oficiales: tablero de volumen y lectura territorial por zona."
             >
               {({ activeTab }) => (
@@ -116,7 +116,7 @@ export default function CorrientesRefrigerados() {
               )}
             </LookerTabs>
 
-            <LookerTabs
+            {/* <LookerTabs
               tabs={lookerTabsKilos}
               defaultTab="dashboard"
               className="mt-14"
@@ -131,7 +131,7 @@ export default function CorrientesRefrigerados() {
                   bgImage={activeTab.bgImage}
                 />
               )}
-            </LookerTabs>
+            </LookerTabs> */}
           </>
         )}
       </div>

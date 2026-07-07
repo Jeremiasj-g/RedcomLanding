@@ -23,11 +23,11 @@ export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) 
     },
     misiones: {
       dashboard: 'https://datastudio.google.com/embed/reporting/fea1c84b-03f7-40f4-bd9f-59b362e5ed1f/page/BKz2F',
-      heatmap: '',
+      heatmap: 'https://datastudio.google.com/embed/reporting/53d95184-a8df-42fd-983a-ca944a7622dd/page/8tA3F',
     },
     obera: {
       dashboard: 'https://datastudio.google.com/embed/reporting/5d398019-4654-4c01-b587-03f5137b71a2/page/Cdz2F',
-      heatmap: '',
+      heatmap: 'https://datastudio.google.com/embed/reporting/151511b7-a341-4061-8605-2598e26d1cf3/page/75A3F',
     },
     gerencia: {
       dashboard: '',
