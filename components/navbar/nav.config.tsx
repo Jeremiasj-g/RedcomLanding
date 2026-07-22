@@ -9,6 +9,7 @@ import {
   Hammer,
   Building2,
   LayoutDashboard,
+  BadgeCheck,
 } from 'lucide-react';
 
 export type NavRuleCtx = {
@@ -155,6 +156,15 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         enabledReason: () => '',
         // ✅ color original
         className: 'text-red-300 hover:text-red-200',
+      },
+      {
+        id: 'ccc-calificados',
+        label: 'CCC Calificados',
+        href: '/ccc-calificados',
+        icon: <BadgeCheck className="h-4 w-4" />,
+        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && ['admin', 'jdv', 'supervisor'].includes(ctx.role),
+        enabledReason: () => 'Solo Admin / JDV / Supervisor',
+        className: 'text-orange-300 hover:text-orange-200 hover:bg-orange-500/10',
       },
     ],
   },
