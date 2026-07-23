@@ -3,7 +3,7 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
-import { Database, FileSpreadsheet, RefreshCw } from "lucide-react";
+import { BarChart3, Boxes, Database, FileSpreadsheet, type LucideIcon, RefreshCw, UsersRound } from "lucide-react";
 import { useAuth } from "@/app/auth/AuthProvider";
 import DualSpinner from "@/components/ui/DualSpinner";
 import { clientesCalificadosCss } from "./clientes-calificados.css";
@@ -21,6 +21,38 @@ import {
 } from "./ccc-client-base.service";
 
 const ALLOWED_ROLES = new Set(["admin", "jdv", "supervisor"]);
+
+type CccWorkspaceTab = "ccc" | "mix" | "dropsize";
+
+const CCC_WORKSPACE_TABS: Array<{
+  id: CccWorkspaceTab;
+  label: string;
+  title: string;
+  subtitle: string;
+  icon: LucideIcon;
+}> = [
+  {
+    id: "ccc",
+    label: "CCC Calificados",
+    title: "CLIENTES CALIFICADOS",
+    subtitle: "REDCOM S.A. · Seguimiento por Supervisor y Vendedor",
+    icon: UsersRound,
+  },
+  {
+    id: "mix",
+    label: "MIX de artículos",
+    title: "MIX DE ARTÍCULOS",
+    subtitle: "REDCOM S.A. · Cobertura de mix por Supervisor y Vendedor",
+    icon: Boxes,
+  },
+  {
+    id: "dropsize",
+    label: "DROPSIZE",
+    title: "DROPSIZE",
+    subtitle: "REDCOM S.A. · Seguimiento logístico por Supervisor y Vendedor",
+    icon: BarChart3,
+  },
+];
 
 type DashboardUser = {
   id: string;
@@ -161,7 +193,9 @@ function ClientBaseStatus({
 function DashboardContent({ me }: { me: DashboardUser }) {
   const initialized = useRef(false);
   const selectedBranchRef = useRef("");
+  const activeTabRef = useRef<CccWorkspaceTab>("ccc");
   const clientBaseMetaRef = useRef<CccClientBaseMeta | null>(null);
+  const [activeTab, setActiveTab] = useState<CccWorkspaceTab>("ccc");
   const [xlsxReady, setXlsxReady] = useState(false);
   const [availableBranches, setAvailableBranches] = useState<string[]>([]);
   const [selectedBranch, setSelectedBranch] = useState("");
@@ -177,8 +211,45 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   }, [selectedBranch]);
 
   useEffect(() => {
+    activeTabRef.current = activeTab;
+    window.dispatchEvent(new Event("ccc:active-tab-changed"));
+  }, [activeTab]);
+
+  useEffect(() => {
+    const emptyState = (icon: string, title: string, description: string) => `
+      <div class="report-empty">
+        <div class="report-empty-icon">${icon}</div>
+        <h2>${title}</h2>
+        <p>${description}</p>
+      </div>`;
+
     const reportArea = document.getElementById("reportArea");
-    if (reportArea) reportArea.innerHTML = "";
+    if (reportArea) {
+      reportArea.innerHTML = emptyState(
+        "▦",
+        "Importá los archivos para generar el dashboard",
+        "La carga se conserva al cambiar entre CCC Calificados, MIX de artículos y DROPSIZE.",
+      );
+    }
+
+    const mixReportArea = document.getElementById("mixReportArea");
+    if (mixReportArea) {
+      mixReportArea.innerHTML = emptyState(
+        "▦",
+        "Importá los archivos para generar el dashboard",
+        "El análisis de MIX se procesa con el mismo archivo de ventas y queda disponible sin volver a cargarlo.",
+      );
+    }
+
+    const dropsizeReportArea = document.getElementById("dropsizeReportArea");
+    if (dropsizeReportArea) {
+      dropsizeReportArea.innerHTML = emptyState(
+        "↕",
+        "Importá los archivos para generar el dashboard",
+        "DROPSIZE utiliza el archivo de ventas compartido y requiere además Detalle personal.",
+      );
+    }
+
     const updatedBadge = document.getElementById("updatedBadge");
     if (updatedBadge) updatedBadge.style.display = "none";
     window.dispatchEvent(new Event("ccc:padron-status-changed"));
@@ -274,6 +345,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           CCC_BRANCH_SUCURSAL_NAMES[selectedBranchRef.current] || "",
         getSelectedBranchLabel: () =>
           CCC_BRANCH_LABELS[selectedBranchRef.current] || selectedBranchRef.current,
+        getActiveTab: () => activeTabRef.current,
         resolvePadronFile: async () => {
           const branch = selectedBranchRef.current;
           if (!branch) throw new Error("Seleccioná una sucursal.");
@@ -329,6 +401,11 @@ function DashboardContent({ me }: { me: DashboardUser }) {
     [selectedBranch],
   );
 
+  const activeTabMeta = useMemo(
+    () => CCC_WORKSPACE_TABS.find((tab) => tab.id === activeTab) ?? CCC_WORKSPACE_TABS[0],
+    [activeTab],
+  );
+
   return (
     <div className="ccc-page">
       <Script
@@ -344,23 +421,24 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           <div className="logo-box">
             <img src="/logo_ic.png" alt="REDCOM Inteligencia Comercial" />
           </div>
-          <div>
-            <h1>CLIENTES CALIFICADOS</h1>
-            <p>REDCOM S.A. · Seguimiento por Supervisor y Vendedor</p>
+          <div className="brand-copy" aria-live="polite">
+            <h1>{activeTabMeta.title}</h1>
+            <p>{activeTabMeta.subtitle}</p>
           </div>
         </div>
+
         <div className="updated-badge" id="updatedBadge" style={{ display: "none" }}>
           <span className="dot" /> Datos actualizados al <b id="updatedDate">—</b>
         </div>
       </div>
 
       <div className="ccc-main">
-        <div className="upload-panel">
+        <div className="upload-panel shared-upload-panel">
           <div className="upload-heading-row">
             <div>
-              <h2>Cargar datos</h2>
+              <h2>Prepará los datos para los dashboards</h2>
               <p className="sub">
-                El archivo de ventas se procesa contra la última base de clientes guardada para la sucursal seleccionada.
+                Cargá una sola vez los archivos compartidos. Al cambiar de pestaña se conservan la selección y los resultados procesados.
               </p>
             </div>
 
@@ -384,12 +462,12 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             </label>
           </div>
 
-          <div className="upload-grid upload-grid-3">
+          <div className={`upload-grid shared-upload-grid ${activeTab === "dropsize" ? "is-dropsize" : ""}`}>
             <label className="drop" id="dropBase">
               <input type="file" id="fileBase" accept=".xlsx,.xls" />
               <div className="ico"><FileSpreadsheet aria-hidden="true" /></div>
               <div className="label">Archivo de ventas (requerido)</div>
-              <div className="hint">Export transaccional del período — .xlsx</div>
+              <div className="hint">Se utiliza en los tres dashboards — .xlsx</div>
               <div className="filename" id="fileBaseName" />
             </label>
 
@@ -432,6 +510,18 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                 {clientBaseMeta?.original_name || "Seleccioná el Excel para cargar o actualizar"}
               </div>
             </label>
+
+            <label
+              className={`drop detail-personal-drop ${activeTab === "dropsize" ? "" : "is-hidden"}`}
+              id="dropDetalle"
+              aria-hidden={activeTab !== "dropsize"}
+            >
+              <input type="file" id="fileDetalle" accept=".xlsx,.xls" tabIndex={activeTab === "dropsize" ? 0 : -1} />
+              <div className="ico"><UsersRound aria-hidden="true" /></div>
+              <div className="label">Detalle personal (requerido para DROPSIZE)</div>
+              <div className="hint">Relaciona vendedor con superior/supervisor — .xlsx</div>
+              <div className="filename" id="fileDetalleName" />
+            </label>
           </div>
 
           <div className="refresh-rule">
@@ -449,7 +539,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
 
           <div className="actions">
             <button className="primary" id="btnProcess" disabled>
-              Procesar dashboard
+              Procesar dashboards
             </button>
             <button className="ghost" id="btnReset">Reiniciar</button>
             <span className="status" id="statusMsg">
@@ -458,7 +548,54 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           </div>
         </div>
 
-        <div id="reportArea" />
+        <nav className="ccc-tabs" aria-label="Secciones de clientes calificados" role="tablist">
+          {CCC_WORKSPACE_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const selected = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                id={`ccc-tab-${tab.id}`}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls={`ccc-panel-${tab.id}`}
+                className={selected ? "is-active" : ""}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <Icon aria-hidden="true" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <section
+          id="ccc-panel-ccc"
+          role="tabpanel"
+          aria-labelledby="ccc-tab-ccc"
+          className={`ccc-tab-panel ${activeTab === "ccc" ? "is-active" : ""}`}
+        >
+          <div id="reportArea" />
+        </section>
+
+        <section
+          id="ccc-panel-mix"
+          role="tabpanel"
+          aria-labelledby="ccc-tab-mix"
+          className={`ccc-tab-panel ${activeTab === "mix" ? "is-active" : ""}`}
+        >
+          <div id="mixReportArea" />
+        </section>
+
+        <section
+          id="ccc-panel-dropsize"
+          role="tabpanel"
+          aria-labelledby="ccc-tab-dropsize"
+          className={`ccc-tab-panel ${activeTab === "dropsize" ? "is-active" : ""}`}
+        >
+          <div id="dropsizeReportArea" />
+        </section>
       </div>
 
       <div className="ccc-footer">REDCOM S.A. · Gerencia Comercial · Herramienta interna de seguimiento comercial</div>

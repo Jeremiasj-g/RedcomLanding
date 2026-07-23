@@ -1,9 +1,12 @@
+import { processDropsizeDashboard, resetDropsizeDashboard, setDropsizeEmptyState } from "./dropsize-runtime";
+
 export function initClientesCalificadosDashboard(options = {}){
   const {
     hasStoredPadron = () => false,
     getSelectedBranch = () => '',
     getSelectedSucursalName = () => '',
     getSelectedBranchLabel = () => '',
+    getActiveTab = () => 'ccc',
     resolvePadronFile = async () => null,
   } = options;
   const XLSX = window.XLSX;
@@ -30,7 +33,7 @@ export function initClientesCalificadosDashboard(options = {}){
       "QUENTO SNACK": { key:"quento", label:"Quento Snacks", umbral:12, cls:"quento" },
       "HEROE":        { key:"heroe",  label:"Heroe Limpieza", umbral:8,  cls:"heroe"  },
     };
-    let baseFile = null, listadoFile = null;
+    let baseFile = null, listadoFile = null, detalleFile = null;
     let lastReportData = null;
     function normSuc(s){
       s = String(s||"").trim().toUpperCase();
@@ -103,25 +106,43 @@ export function initClientesCalificadosDashboard(options = {}){
       document.getElementById('fileListadoName').textContent = f.name + ' (reemplaza el precargado)';
       document.getElementById('dropListado').classList.add('filled');
     });
+    document.getElementById('fileDetalle').addEventListener('change', (e) => {
+      const f = e.target.files[0];
+      if(!f) return;
+      detalleFile = f;
+      document.getElementById('fileDetalleName').textContent = f.name;
+      document.getElementById('dropDetalle').classList.add('filled');
+      checkReady();
+    });
     function checkReady(){
       const hasBranch = Boolean(getSelectedBranch());
       const hasPadron = Boolean(hasStoredPadron());
-      document.getElementById('btnProcess').disabled = !baseFile || !hasBranch || !hasPadron;
+      const needsDetalle = getActiveTab() === 'dropsize';
+      const ready = Boolean(baseFile && hasBranch && hasPadron && (!needsDetalle || detalleFile));
+      document.getElementById('btnProcess').disabled = !ready;
       if (!hasBranch) setStatus('Seleccioná una sucursal.');
       else if (!hasPadron) setStatus('La sucursal no tiene una base de clientes guardada.', true);
-      else setStatus(baseFile ? 'Listo para procesar.' : 'Esperando archivo de ventas…');
+      else if (!baseFile) setStatus('Esperando archivo de ventas…');
+      else if (needsDetalle && !detalleFile) setStatus('Cargá Detalle personal para generar DROPSIZE.');
+      else setStatus('Listo para procesar.');
     }
     window.addEventListener('ccc:padron-status-changed', checkReady);
+    window.addEventListener('ccc:active-tab-changed', checkReady);
     checkReady();
     document.getElementById('btnReset').addEventListener('click', () => {
-      baseFile = null; listadoFile = null; lastReportData = null;
+      baseFile = null; listadoFile = null; detalleFile = null; lastReportData = null;
       document.getElementById('fileBase').value = '';
       document.getElementById('fileListado').value = '';
+      document.getElementById('fileDetalle').value = '';
       document.getElementById('fileBaseName').textContent = '';
       document.getElementById('fileListadoName').textContent = '';
+      document.getElementById('fileDetalleName').textContent = '';
       document.getElementById('dropBase').classList.remove('filled');
       document.getElementById('dropListado').classList.remove('filled');
-      document.getElementById('reportArea').innerHTML = '';
+      document.getElementById('dropDetalle').classList.remove('filled');
+      setDashboardEmptyState('reportArea', 'Importá los archivos para generar el dashboard', 'La carga se conserva al cambiar entre las tres secciones.');
+      setMixEmptyState();
+      resetDropsizeDashboard();
       document.getElementById('updatedBadge').style.display = 'none';
       checkReady();
     });
@@ -149,12 +170,26 @@ export function initClientesCalificadosDashboard(options = {}){
         const lineasDetectadas = Array.from(new Set(rows.map(row => row.linea)));
         lastReportData = { rows, periodo, lineasDetectadas, selectedLineaCode: lineasDetectadas[0] || Object.keys(LINEAS)[0] };
         renderReport(rows, periodo, lineasDetectadas, lastReportData.selectedLineaCode);
-        setStatus('Dashboard actualizado.');
+
+        if (detalleFile){
+          const wbDetalle = await readWorkbook(detalleFile);
+          await processDropsizeDashboard({
+            XLSX,
+            salesWorkbook: wbB,
+            detailWorkbook: wbDetalle,
+            selectedSucursal,
+            branchLabel: getSelectedBranchLabel() || selectedBranch,
+          });
+        } else {
+          setDropsizeEmptyState('Importá Detalle personal para generar el dashboard');
+        }
+
+        setStatus(detalleFile ? 'Los tres dashboards fueron actualizados.' : 'CCC Calificados y MIX fueron actualizados.');
       }catch(err){
         console.error(err);
         setStatus('Error al procesar: ' + err.message, true);
       }
-      document.getElementById('btnProcess').disabled = !baseFile || !getSelectedBranch() || !hasStoredPadron();
+      checkReady();
     });
     /* ---------- Parse Listado ---------- */
     function parseListado(wb){
@@ -252,6 +287,7 @@ export function initClientesCalificadosDashboard(options = {}){
       idx.ruta        = rutaIdx >= 0 ? rutaIdx + 1 : -1; // descripción de la ruta de venta (columna siguiente a "Ruta")
       idx.cantidad    = headers.indexOf('Cantidades CON Cargo');
       const articulosIdx = headers.indexOf('Artículos');
+      idx.articulos = articulosIdx;
       idx.descArticulo = articulosIdx >= 0 ? articulosIdx + 2 : headers.indexOf('Descripción.2');
       const marcaIdx = headers.indexOf('Marca');
       idx.linea = marcaIdx >= 0 ? marcaIdx + 1 : headers.indexOf('Descripción.3');
@@ -282,6 +318,10 @@ export function initClientesCalificadosDashboard(options = {}){
         // se redondea por línea para evitar ruido de precisión del bulto de origen (4 decimales)
         const cantidad = Math.round(cantidadBultos * pack);
         const ruta = String(r[idx.ruta] || '').trim();
+        const artDescTxt = String(r[idx.descArticulo] || '').trim();
+        const artKey = (idx.articulos >= 0 && r[idx.articulos] !== null && r[idx.articulos] !== undefined && r[idx.articulos] !== '')
+          ? String(r[idx.articulos]).trim()
+          : artDescTxt;
         rows.push({
           sucursal: suc,
           cliente: String(cliente),
@@ -290,6 +330,8 @@ export function initClientesCalificadosDashboard(options = {}){
           ruta,
           linea,
           cantidad,
+          artKey,
+          artDesc: artDescTxt || artKey,
         });
       }
       if (!rows.length) throw new Error('No se encontraron filas válidas de Quento/Heroe en el archivo.');
@@ -346,6 +388,28 @@ export function initClientesCalificadosDashboard(options = {}){
       selectedRows.forEach(r => {
         ventasPorCliente.set(r.cliente, (ventasPorCliente.get(r.cliente)||0) + r.cantidad);
       });
+
+      const articulosPorCliente = new Map();
+      const articulosPorSucursal = new Map();
+      const artLabels = new Map();
+      const cantidadPorArticuloCliente = new Map();
+      const cantidadPorArticuloSucursal = new Map();
+      selectedRows.forEach(r => {
+        if (!r.artKey) return;
+        if (!articulosPorCliente.has(r.cliente)) articulosPorCliente.set(r.cliente, new Set());
+        articulosPorCliente.get(r.cliente).add(r.artKey);
+        if (!articulosPorSucursal.has(r.sucursal)) articulosPorSucursal.set(r.sucursal, new Set());
+        articulosPorSucursal.get(r.sucursal).add(r.artKey);
+        if (!artLabels.has(r.artKey)) artLabels.set(r.artKey, r.artDesc || r.artKey);
+
+        if (!cantidadPorArticuloCliente.has(r.cliente)) cantidadPorArticuloCliente.set(r.cliente, new Map());
+        const clientQty = cantidadPorArticuloCliente.get(r.cliente);
+        clientQty.set(r.artKey, (clientQty.get(r.artKey) || 0) + r.cantidad);
+
+        if (!cantidadPorArticuloSucursal.has(r.sucursal)) cantidadPorArticuloSucursal.set(r.sucursal, new Map());
+        const branchQty = cantidadPorArticuloSucursal.get(r.sucursal);
+        branchQty.set(r.artKey, (branchQty.get(r.artKey) || 0) + r.cantidad);
+      });
     
       const padronIdx = buildPadronIndex();
       const baseIdx = buildBaseIndex(selectedRows);
@@ -368,7 +432,16 @@ export function initClientesCalificadosDashboard(options = {}){
           rutas: src.rutas, // rutaNombre -> Map(cliente -> nombre)
         };
       });
-      return { supervisores, ventasPorCliente, selectedRows };
+      return {
+        supervisores,
+        ventasPorCliente,
+        selectedRows,
+        articulosPorCliente,
+        articulosPorSucursal,
+        artLabels,
+        cantidadPorArticuloCliente,
+        cantidadPorArticuloSucursal,
+      };
     }
     
     /* ---------- Render ---------- */
@@ -639,6 +712,418 @@ export function initClientesCalificadosDashboard(options = {}){
         .sort((a,b) => b.total - a.total);
     }
     
+    function setDashboardEmptyState(areaId, title, description){
+      const area = document.getElementById(areaId);
+      if (!area) return;
+      area.innerHTML = `
+        <div class="report-empty">
+          <div class="report-empty-icon">▦</div>
+          <h2>${title}</h2>
+          <p>${description}</p>
+        </div>`;
+    }
+    function setMixEmptyState(){
+      const area = document.getElementById('mixReportArea');
+      if (!area) return;
+      area.innerHTML = `
+        <div class="report-empty">
+          <div class="report-empty-icon">▦</div>
+          <h2>Importá los archivos para generar el dashboard</h2>
+          <p>El análisis de MIX utiliza el mismo archivo de ventas y conserva el resultado al navegar entre pestañas.</p>
+        </div>`;
+    }
+
+    function qtyTableHTML(qtyMap, artLabels){
+      if (!qtyMap || qtyMap.size === 0){
+        return '<div style="font-size:12px;color:var(--grayL);padding:6px 0;">Sin unidades registradas.</div>';
+      }
+      const rows = [...qtyMap.entries()].sort((a,b) => b[1] - a[1]);
+      return `<table class="qty-mini-table">
+        <thead><tr><th>Artículo</th><th class="num">Cantidad c/cargo</th></tr></thead>
+        <tbody>${rows.map(([key, quantity]) => `<tr><td>${artLabels.get(key) || key}</td><td class="num">${Math.round(quantity).toLocaleString('es-AR')}</td></tr>`).join('')}</tbody>
+      </table>`;
+    }
+
+    function clientRowHTMLMix(cliente, nombre, compradosSet, universo, artLabels, qtyMap){
+      const compradosEnUniverso = [...compradosSet].filter(article => universo.has(article));
+      const logrados = compradosEnUniverso.length;
+      const total = universo.size;
+      const pct = total ? Math.max(2, Math.min(100, (logrados / total) * 100)) : 0;
+      const faltantesKeys = [...universo].filter(article => !compradosSet.has(article));
+      const completo = total > 0 && logrados >= total;
+      const quantities = qtyMap || new Map();
+      const compradosOrdenados = [...compradosEnUniverso].sort(
+        (a,b) => (quantities.get(b) || 0) - (quantities.get(a) || 0),
+      );
+      const compradosTxt = compradosOrdenados.length
+        ? compradosOrdenados.map(article => `${artLabels.get(article) || article} (${Math.round(quantities.get(article) || 0).toLocaleString('es-AR')})`).join(', ')
+        : 'No compró ningún artículo del mix este período.';
+      const faltantesTxt = faltantesKeys.length
+        ? faltantesKeys.map(article => artLabels.get(article) || article).join(', ')
+        : 'Compró todos los artículos del mix de la sucursal.';
+
+      return `<tr class="clickable-row ${completo ? 'row-cumplido' : ''}">
+        <td>${nombre} <span class="cli-code">#${cliente}</span></td>
+        <td class="actual mix">${logrados}/${total}</td>
+        <td class="bar-cell"><div class="bar-track"><div class="bar-fill ${completo ? 'cumplido' : 'mix'}" style="width:${pct}%"></div></div></td>
+        <td class="${completo ? 'cumplido-tag' : 'falta'}">${completo ? '✓ Mix completo' : (total - logrados) + ' (ver detalle ▾)'}</td>
+      </tr>
+      <tr class="detail-row"><td colspan="4"><div class="mix-detail">
+        <div class="mix-detail-col"><b>Compró (${logrados})</b>${compradosTxt}</div>
+        <div class="mix-detail-col faltan"><b>No compró (${faltantesKeys.length})</b>${faltantesTxt}</div>
+      </div></td></tr>`;
+    }
+
+    function computeVendedorMixStats(vendedor, articulosPorCliente, articulosPorSucursal){
+      const universo = articulosPorSucursal.get(vendedor.sucursal) || new Set();
+      const unionSet = new Set();
+      Object.values(vendedor.rutas).forEach(clienteMap => {
+        clienteMap.forEach((nombre, cliente) => {
+          const articles = articulosPorCliente.get(cliente);
+          if (articles) articles.forEach(article => unionSet.add(article));
+        });
+      });
+      const logrados = [...unionSet].filter(article => universo.has(article)).length;
+      const total = universo.size;
+      return { total, logrados, pct: total ? (logrados / total * 100) : 0, unionSet };
+    }
+
+    function computeGeneralMixStats(structure, articulosPorCliente, articulosPorSucursal){
+      let totalSum = 0;
+      let logradosSum = 0;
+      let clientesConDatos = 0;
+      Object.values(structure).forEach(supBucket => {
+        Object.values(supBucket.vendedores).forEach(vendedor => {
+          if (!vendedor.tienePadron) return;
+          const universo = articulosPorSucursal.get(vendedor.sucursal) || new Set();
+          Object.values(vendedor.rutas).forEach(clienteMap => {
+            clienteMap.forEach((nombre, cliente) => {
+              const comprados = articulosPorCliente.get(cliente) || new Set();
+              logradosSum += [...comprados].filter(article => universo.has(article)).length;
+              totalSum += universo.size;
+              clientesConDatos++;
+            });
+          });
+        });
+      });
+      return { pct: totalSum ? (logradosSum / totalSum * 100) : 0, clientesConDatos };
+    }
+
+    function computeSucursalMixStats(structure, articulosPorCliente, articulosPorSucursal){
+      const byBranch = new Map();
+      Object.values(structure).forEach(supBucket => {
+        Object.values(supBucket.vendedores).forEach(vendedor => {
+          if (!vendedor.tienePadron) return;
+          if (!byBranch.has(vendedor.sucursal)){
+            byBranch.set(vendedor.sucursal, { sucursal: vendedor.sucursal, totalSum: 0, logradosSum: 0 });
+          }
+          const acc = byBranch.get(vendedor.sucursal);
+          const universo = articulosPorSucursal.get(vendedor.sucursal) || new Set();
+          Object.values(vendedor.rutas).forEach(clienteMap => {
+            clienteMap.forEach((nombre, cliente) => {
+              const comprados = articulosPorCliente.get(cliente) || new Set();
+              acc.totalSum += universo.size;
+              acc.logradosSum += [...comprados].filter(article => universo.has(article)).length;
+            });
+          });
+        });
+      });
+      return Array.from(byBranch.values())
+        .map(row => ({
+          sucursal: row.sucursal,
+          articulosDistintos: (articulosPorSucursal.get(row.sucursal) || new Set()).size,
+          pct: row.totalSum ? (row.logradosSum / row.totalSum * 100) : 0,
+        }))
+        .sort((a,b) => b.articulosDistintos - a.articulosDistintos);
+    }
+
+    function bindMixInteractions(area){
+      area.querySelectorAll('[data-qty-target]').forEach(button => {
+        button.addEventListener('click', event => {
+          event.stopPropagation();
+          const targetId = button.getAttribute('data-qty-target');
+          if (targetId) document.getElementById(targetId)?.classList.toggle('open');
+        });
+      });
+      area.querySelectorAll('tr.clickable-row').forEach(row => {
+        row.addEventListener('click', () => row.nextElementSibling?.classList.toggle('open'));
+      });
+    }
+
+    function renderMixReport({
+      rows,
+      periodo,
+      lineasDetectadas,
+      lineaCode,
+      lineaInfo,
+      structure,
+      articulosPorCliente,
+      articulosPorSucursal,
+      artLabels,
+      cantidadPorArticuloCliente,
+      cantidadPorArticuloSucursal,
+    }){
+      const area = document.getElementById('mixReportArea');
+      if (!area) return;
+      area.innerHTML = '';
+
+      const controls = document.createElement('div');
+      controls.className = 'mix-line-controls';
+      controls.innerHTML = `
+        <div class="linea-selector-panel">
+          <label for="mixLineaObjetivoSelect">Línea objetivo</label>
+          <select id="mixLineaObjetivoSelect">
+            ${Object.entries(LINEAS).map(([code, info]) => `
+              <option value="${code}" ${code === lineaCode ? 'selected' : ''}>${info.label} · mix de artículos</option>
+            `).join('')}
+          </select>
+        </div>
+        <div class="linea-badge ${lineaInfo.cls}">Línea seleccionada: ${lineaInfo.label} · Mix de artículos del período</div>`;
+      area.appendChild(controls);
+      controls.querySelector('select').addEventListener('change', event => {
+        renderReport(rows, periodo, lineasDetectadas, event.target.value);
+      });
+
+      if (!lineasDetectadas.includes(lineaCode)){
+        const info = document.createElement('div');
+        info.style.cssText = 'background:#F2F7FB;border:1px solid #D6E3EE;border-radius:8px;padding:10px 14px;font-size:12.5px;color:#0C5E9D;margin-bottom:14px;';
+        info.textContent = `No se detectaron movimientos de ${lineaInfo.label} en el archivo. El universo de artículos se muestra vacío para esta línea.`;
+        area.appendChild(info);
+      }
+
+      const generalMix = computeGeneralMixStats(structure, articulosPorCliente, articulosPorSucursal);
+      const totalArticulosGlobal = new Set();
+      articulosPorSucursal.forEach(set => set.forEach(article => totalArticulosGlobal.add(article)));
+      const kpiWrap = document.createElement('div');
+      kpiWrap.className = 'kpi-summary';
+      kpiWrap.innerHTML = `
+        <div class="kpi-card" style="--kc:var(--dark)">
+          <div class="k-label">% Cobertura de Mix promedio</div>
+          <div class="k-value">${generalMix.pct.toFixed(1)}%</div>
+          <div class="k-sub">promedio ponderado por cliente, vs. el universo de su sucursal</div>
+        </div>
+        <div class="kpi-card" style="--kc:var(--gray)">
+          <div class="k-label">Artículos distintos vendidos</div>
+          <div class="k-value">${totalArticulosGlobal.size.toLocaleString('es-AR')}</div>
+          <div class="k-sub">en todas las sucursales del archivo, este período</div>
+        </div>
+        <div class="kpi-card" style="--kc:var(--green)">
+          <div class="k-label">Sucursales con datos</div>
+          <div class="k-value">${articulosPorSucursal.size.toLocaleString('es-AR')}</div>
+          <div class="k-sub">cada una con su propio universo de artículos</div>
+        </div>
+        <div class="kpi-card" style="--kc:var(--red)">
+          <div class="k-label">Clientes con compra evaluados</div>
+          <div class="k-value">${generalMix.clientesConDatos.toLocaleString('es-AR')}</div>
+          <div class="k-sub">clientes de padrón activo comparados contra su universo</div>
+        </div>`;
+      area.appendChild(kpiWrap);
+
+      const sucursalMix = computeSucursalMixStats(structure, articulosPorCliente, articulosPorSucursal);
+      if (sucursalMix.length){
+        const branchWrap = document.createElement('div');
+        branchWrap.className = 'sup-card';
+        branchWrap.style.marginBottom = '18px';
+        branchWrap.innerHTML = `
+          <div class="sup-head" style="cursor:default;">
+            <div class="sup-title"><h3>Mix por Sucursal</h3><span class="badge-n">${sucursalMix.length} sucursal(es)</span></div>
+          </div>
+          <div style="padding:2px 20px 16px;overflow-x:auto;">
+            <table class="sup-mini-table">
+              <thead><tr><th>Sucursal</th><th class="num">Artículos distintos vendidos</th><th class="num">% Cobertura promedio</th><th></th></tr></thead>
+              <tbody>
+                ${sucursalMix.map((branch, index) => {
+                  const qtyId = `mixQtyBranch_${index}`;
+                  return `<tr>
+                    <td>${branch.sucursal}</td>
+                    <td class="num">${branch.articulosDistintos.toLocaleString('es-AR')}</td>
+                    <td class="num" style="font-weight:700;">${branch.pct.toFixed(1)}%</td>
+                    <td class="num"><button class="qty-toggle" type="button" data-qty-target="${qtyId}">📊 Unidades por artículo</button></td>
+                  </tr>
+                  <tr><td colspan="4" style="padding:0;"><div class="qty-panel" id="${qtyId}" style="padding:6px 10px 14px;">
+                    ${qtyTableHTML(cantidadPorArticuloSucursal.get(branch.sucursal), artLabels)}
+                  </div></td></tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>`;
+        area.appendChild(branchWrap);
+      }
+
+      const legend = document.createElement('div');
+      legend.className = 'legend';
+      legend.innerHTML = `<div>
+        El universo de referencia de cada sucursal es el total de artículos distintos vendidos en esa sucursal durante el período del archivo cargado (no requiere una lista adicional).
+        Cliente: artículos distintos que compró sobre ese universo. Vendedor y Supervisor: unión de artículos distintos comprados por todos sus clientes, sobre el mismo universo.
+        Hacé clic en una fila de cliente para ver el detalle de qué artículos compró (con cantidad) y cuáles le faltan. El botón "Unidades por artículo" muestra, en cada nivel, la cantidad con cargo vendida de cada artículo.
+        Los vendedores sin supervisor asignado se agrupan aparte, al final. Clientes cuyo vendedor no figura en el listado no se incluyen en el reporte.
+      </div>`;
+      area.appendChild(legend);
+
+      const supervisorNames = Object.keys(structure).filter(name => name !== '__SIN_SUPERVISOR__').sort();
+      const hasNoSupervisor = Boolean(structure['__SIN_SUPERVISOR__']);
+      const toolbar = document.createElement('div');
+      toolbar.className = 'toolbar';
+      toolbar.innerHTML = `<div>
+          <div class="title">Detalle por Supervisor — Mix de Artículos</div>
+          <div class="subtitle">${supervisorNames.length} supervisores${hasNoSupervisor ? ' + vendedores sin supervisor asignado' : ''}</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="ghost" type="button" id="btnExpandAllMix">Expandir todo</button>
+          <button class="ghost" type="button" id="btnCollapseAllMix">Colapsar todo</button>
+        </div>`;
+      area.appendChild(toolbar);
+
+      let qtyPanelCounter = 0;
+      function buildSupervisorCard(supervisorName, supervisorBucket, isNoSupervisor){
+        const vendedores = Object.values(supervisorBucket.vendedores);
+        const supervisorUniverse = new Set();
+        const supervisorUnion = new Set();
+        const supervisorQty = new Map();
+
+        const vendorData = vendedores.map(vendedor => {
+          const vendorMix = computeVendedorMixStats(vendedor, articulosPorCliente, articulosPorSucursal);
+          if (vendedor.tienePadron){
+            (articulosPorSucursal.get(vendedor.sucursal) || new Set()).forEach(article => supervisorUniverse.add(article));
+            vendorMix.unionSet.forEach(article => supervisorUnion.add(article));
+          }
+
+          const vendorQty = new Map();
+          const routeData = Object.entries(vendedor.rutas).map(([routeName, clientMap]) => {
+            const universe = articulosPorSucursal.get(vendedor.sucursal) || new Set();
+            const routeQty = new Map();
+            const clientes = Array.from(clientMap.entries()).map(([cliente, nombre]) => {
+              const comprados = articulosPorCliente.get(cliente) || new Set();
+              const logrados = [...comprados].filter(article => universe.has(article)).length;
+              const clientQty = cantidadPorArticuloCliente.get(cliente) || new Map();
+              clientQty.forEach((quantity, article) => routeQty.set(article, (routeQty.get(article) || 0) + quantity));
+              return { cliente, nombre, comprados, logrados, total: universe.size, clientQty };
+            }).sort((a,b) => b.logrados - a.logrados);
+
+            routeQty.forEach((quantity, article) => vendorQty.set(article, (vendorQty.get(article) || 0) + quantity));
+            const pendientesCount = clientes.filter(cliente => cliente.total > 0 && cliente.logrados < cliente.total).length;
+            return { routeName, clientes, pendientesCount, universe, routeQty };
+          }).filter(route => route.clientes.length > 0)
+            .sort((a,b) => a.routeName.localeCompare(b.routeName));
+
+          vendorQty.forEach((quantity, article) => supervisorQty.set(article, (supervisorQty.get(article) || 0) + quantity));
+          const pendingClients = routeData.reduce((total, route) => total + route.pendientesCount, 0);
+          const totalClients = routeData.reduce((total, route) => total + route.clientes.length, 0);
+          return { vendedor, vendorMix, routeData, pendingClients, totalClients, vendorQty };
+        }).filter(row => row.routeData.length > 0)
+          .sort((a,b) => a.vendedor.nombre.localeCompare(b.vendedor.nombre));
+
+        if (!vendorData.length) return null;
+        const supervisorAchieved = [...supervisorUnion].filter(article => supervisorUniverse.has(article)).length;
+        const supervisorPct = supervisorUniverse.size ? (supervisorAchieved / supervisorUniverse.size * 100) : 0;
+        const supervisorQtyId = `mixQty_${qtyPanelCounter++}`;
+        const card = document.createElement('div');
+        card.className = 'sup-card' + (isNoSupervisor ? ' no-sup' : '');
+        card.innerHTML = `
+          <div class="sup-head">
+            <div class="sup-title">
+              <span class="arrow">▶</span>
+              <h3>${isNoSupervisor ? '⚠ Sin supervisor asignado' : supervisorName}</h3>
+              <span class="badge-n">${vendorData.length} vendedores</span>
+            </div>
+            <div class="sup-metric-row">
+              <button class="qty-toggle" type="button" data-qty-target="${supervisorQtyId}">📊 Unidades por artículo</button>
+              <div class="sup-metric">
+                <span class="lbl">Mix (${supervisorAchieved}/${supervisorUniverse.size})</span>
+                <span class="val">${supervisorPct.toFixed(1)}%</span>
+              </div>
+            </div>
+          </div>
+          <div class="qty-panel" id="${supervisorQtyId}">${qtyTableHTML(supervisorQty, artLabels)}</div>
+          <div class="sup-body"></div>`;
+
+        const supervisorBody = card.querySelector('.sup-body');
+        vendorData.forEach(({ vendedor, vendorMix, routeData, pendingClients, totalClients, vendorQty }) => {
+          const vendorCard = document.createElement('div');
+          vendorCard.className = 'vend-card';
+          const withoutPadron = vendedor.tienePadron ? '' : ' <span style="color:var(--amber);font-weight:700;">(sin padrón)</span>';
+          const coverage = vendedor.tienePadron ? ` · ${vendorMix.pct.toFixed(1)}% mix (${vendorMix.logrados}/${vendorMix.total})` : '';
+          const vendorQtyId = `mixQty_${qtyPanelCounter++}`;
+          vendorCard.innerHTML = `
+            <div class="vend-head">
+              <div class="vend-title">
+                <span class="arrow">▶</span>
+                <h4>${vendedor.nombre}${withoutPadron} <span style="color:var(--grayL);font-weight:400;">(#${vendedor.codigo})</span></h4>
+                <span class="badge-n">${routeData.length} rutas · ${totalClients} clientes · ${pendingClients} con mix incompleto${coverage}</span>
+              </div>
+              <button class="qty-toggle" type="button" data-qty-target="${vendorQtyId}">📊 Unidades por artículo</button>
+            </div>
+            <div class="qty-panel" id="${vendorQtyId}">${qtyTableHTML(vendorQty, artLabels)}</div>
+            <div class="vend-body"></div>`;
+
+          const vendorBody = vendorCard.querySelector('.vend-body');
+          routeData.forEach(({ routeName, clientes, pendientesCount, universe, routeQty }) => {
+            const routeCard = document.createElement('div');
+            routeCard.className = 'ruta-card';
+            const routeQtyId = `mixQty_${qtyPanelCounter++}`;
+            routeCard.innerHTML = `
+              <div class="ruta-head">
+                <div class="ruta-title">
+                  <span class="arrow">▶</span>
+                  <h5>${routeName}</h5>
+                  <span class="badge-n">${clientes.length} clientes · ${pendientesCount} con mix incompleto</span>
+                </div>
+                <button class="qty-toggle" type="button" data-qty-target="${routeQtyId}">📊 Unidades por artículo</button>
+              </div>
+              <div class="qty-panel" id="${routeQtyId}">${qtyTableHTML(routeQty, artLabels)}</div>
+              <div class="ruta-body"></div>`;
+
+            const routeBody = routeCard.querySelector('.ruta-body');
+            routeBody.innerHTML = `<table class="cli-table">
+              <thead><tr><th>Cliente</th><th>Artículos comprados</th><th>Progreso</th><th>Faltantes</th></tr></thead>
+              <tbody>${clientes.map(cliente => clientRowHTMLMix(
+                cliente.cliente,
+                cliente.nombre,
+                cliente.comprados,
+                universe,
+                artLabels,
+                cliente.clientQty,
+              )).join('')}</tbody>
+            </table>`;
+            routeCard.querySelector('.ruta-head').addEventListener('click', () => routeCard.classList.toggle('open'));
+            vendorBody.appendChild(routeCard);
+          });
+
+          vendorCard.querySelector('.vend-head').addEventListener('click', () => vendorCard.classList.toggle('open'));
+          supervisorBody.appendChild(vendorCard);
+        });
+
+        card.querySelector('.sup-head').addEventListener('click', () => card.classList.toggle('open'));
+        return card;
+      }
+
+      supervisorNames.forEach(supervisorName => {
+        const card = buildSupervisorCard(supervisorName, structure[supervisorName], false);
+        if (card) area.appendChild(card);
+      });
+      if (hasNoSupervisor){
+        const card = buildSupervisorCard(null, structure['__SIN_SUPERVISOR__'], true);
+        if (card) area.appendChild(card);
+      }
+
+      if (area.querySelectorAll('.sup-card').length === 0){
+        const empty = document.createElement('div');
+        empty.className = 'report-empty';
+        empty.innerHTML = '<div class="report-empty-icon">▦</div><h2>Sin datos de mix</h2><p>No se encontraron artículos para la línea seleccionada.</p>';
+        area.appendChild(empty);
+      }
+
+      bindMixInteractions(area);
+      area.querySelector('#btnExpandAllMix')?.addEventListener('click', () => {
+        area.querySelectorAll('.sup-card, .vend-card, .ruta-card').forEach(card => card.classList.add('open'));
+      });
+      area.querySelector('#btnCollapseAllMix')?.addEventListener('click', () => {
+        area.querySelectorAll('.sup-card, .vend-card, .ruta-card').forEach(card => card.classList.remove('open'));
+      });
+      const first = Array.from(area.querySelectorAll('.sup-card')).find(card => card.querySelector('.sup-body'));
+      if (first) first.classList.add('open');
+    }
+
     function renderReport(rows, periodo, lineasDetectadas, selectedLineaCode){
       const area = document.getElementById('reportArea');
       area.innerHTML = '';
@@ -685,7 +1170,15 @@ export function initClientesCalificadosDashboard(options = {}){
       }
     
       const umbral = lineaInfo.umbral, cls = lineaInfo.cls;
-      const { supervisores: structure, ventasPorCliente } = aggregate(rows, lineaCode);
+      const {
+        supervisores: structure,
+        ventasPorCliente,
+        articulosPorCliente,
+        articulosPorSucursal,
+        artLabels,
+        cantidadPorArticuloCliente,
+        cantidadPorArticuloSucursal,
+      } = aggregate(rows, lineaCode);
     
       // ---- KPI general ----
       const general = computeGeneralStats(structure, ventasPorCliente, umbral);
@@ -934,13 +1427,27 @@ export function initClientesCalificadosDashboard(options = {}){
         area.appendChild(empty);
       }
       document.getElementById('btnExpandAll').addEventListener('click', () => {
-        document.querySelectorAll('.ccc-page .sup-card, .ccc-page .vend-card, .ccc-page .ruta-card').forEach(c => c.classList.add('open'));
+        area.querySelectorAll('.sup-card, .vend-card, .ruta-card').forEach(c => c.classList.add('open'));
       });
       document.getElementById('btnCollapseAll').addEventListener('click', () => {
-        document.querySelectorAll('.ccc-page .sup-card, .ccc-page .vend-card, .ccc-page .ruta-card').forEach(c => c.classList.remove('open'));
+        area.querySelectorAll('.sup-card, .vend-card, .ruta-card').forEach(c => c.classList.remove('open'));
       });
       const firstDetail = Array.from(area.querySelectorAll('.sup-card')).find(c => c.querySelector('.sup-body'));
       if (firstDetail) firstDetail.classList.add('open');
+
+      renderMixReport({
+        rows,
+        periodo,
+        lineasDetectadas,
+        lineaCode,
+        lineaInfo,
+        structure,
+        articulosPorCliente,
+        articulosPorSucursal,
+        artLabels,
+        cantidadPorArticuloCliente,
+        cantidadPorArticuloSucursal,
+      });
     }
   } finally {
     EventTarget.prototype.addEventListener = nativeAddEventListener;
