@@ -342,7 +342,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       <div className="topbar">
         <div className="brand">
           <div className="logo-box">
-            <img src="/LogoRedcom.png" alt="REDCOM Inteligencia Comercial" />
+            <img src="/logo_ic.png" alt="REDCOM Inteligencia Comercial" />
           </div>
           <div>
             <h1>CLIENTES CALIFICADOS</h1>

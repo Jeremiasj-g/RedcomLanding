@@ -11,15 +11,14 @@ export const clientesCalificadosCss = `
     font-family:Arial,Helvetica,sans-serif;
   }
   .ccc-page,.ccc-page *{box-sizing:border-box;}
-  .ccc-page .topbar{background:var(--dark);padding:22px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
-  .ccc-page .brand{display:flex;align-items:center;gap:14px;}
-  .ccc-page .brand .logo-box{background:#fff;border-radius:8px;padding:8px 14px;display:flex;align-items:center;flex:none;}
-  .ccc-page .brand .logo-box img{height:52px;width:52px;object-fit:contain;display:block;}
-  .ccc-page .brand h1{font-size:17px;margin:0;color:#fff;font-weight:700;}
+  .ccc-page .topbar{padding:22px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px; max-width:1200px;margin:0 auto;}
+  .ccc-page .brand{width:100%;display:flex;align-items:center;gap:14px;justify-content:space-between;}
+  .ccc-page .brand .logo-box{border-radius:8px;padding:8px 14px;display:flex;align-items:center;flex:none; width:250px;justify-content:center;}
+  .ccc-page .brand .logo-box img{object-fit:contain;display:block;}
+  .ccc-page .brand h1{font-size:20px;margin:0;font-weight:900; color:var(--red);}
   .ccc-page .brand p{margin:2px 0 0;font-size:12px;color:#B9B7B2;}
-  .ccc-page .updated-badge{background:#3A3A37;border:1px solid #4d4d49;border-radius:8px;padding:9px 16px;font-size:12.5px;color:#E4E1D9;display:flex;align-items:center;gap:8px;}
-  .ccc-page .updated-badge b{color:#fff;}
-  .ccc-page .updated-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:none;}
+  .ccc-page .updated-badge{width:100%;padding:9px 16px;font-size:12.5px;display:flex;align-items:center;gap:8px; justify-content:end;}
+  .ccc-page .updated-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
   .ccc-page .ccc-main{max-width:1200px;margin:0 auto;padding:24px 28px 60px;}
   .ccc-page .upload-panel{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:22px 24px;margin-bottom:20px;}
   .ccc-page .upload-heading-row{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px;}
