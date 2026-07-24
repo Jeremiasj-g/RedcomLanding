@@ -220,6 +220,19 @@ export const clientesCalificadosCss = `
   .ccc-page .dropsize-supervisor-card>.sup-head .metrics-chips,
   .ccc-page .dropsize-vendor-card>.vend-head .metrics-chips,
   .ccc-page .dropsize-route-card>.ruta-head .metrics-chips{margin-left:auto;}
+  .ccc-page .dropsize-line-selector{margin-bottom:10px;}
+  .ccc-page .dropsize-line-warning{margin-top:0;margin-bottom:14px;}
+  .ccc-page .report-empty.compact{min-height:220px;margin-top:14px;}
+  .ccc-page .hierarchy-role{display:block;margin-bottom:2px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--grayL);}
+  .ccc-page .dropsize-manager-body>.dropsize-supervisor-card{margin-top:10px;margin-bottom:8px;}
+  .ccc-page .dropsize-manager-card>.sup-body,
+  .ccc-page .dropsize-supervisor-card>.sup-body{display:block;height:0;opacity:0;overflow:hidden;padding:0 16px;will-change:height,opacity,padding;}
+  .ccc-page .dropsize-manager-card.open>.sup-body,
+  .ccc-page .dropsize-supervisor-card.open>.sup-body{height:auto;opacity:1;overflow:visible;padding:2px 16px 16px;}
+  .ccc-page .dropsize-vendor-card>.vend-body{display:block;height:0;opacity:0;overflow:hidden;padding:0 10px;will-change:height,opacity,padding;}
+  .ccc-page .dropsize-vendor-card.open>.vend-body{height:auto;opacity:1;overflow:visible;padding:0 10px 10px;}
+  .ccc-page .dropsize-route-card>.ruta-body{display:block;height:0;opacity:0;overflow:hidden;padding:0 8px;will-change:height,opacity,padding;}
+  .ccc-page .dropsize-route-card.open>.ruta-body{height:auto;opacity:1;overflow:visible;padding:0 8px 8px;}
   .ccc-page .dropsize-table-wrap{overflow-x:auto;}
   .ccc-page .dropsize-table{min-width:620px;}
   .ccc-page .dropsize-table td:last-child{font-weight:800;}
