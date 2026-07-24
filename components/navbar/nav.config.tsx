@@ -159,7 +159,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
       },
       {
         id: 'ccc-calificados',
-        label: 'CCC Calificados',
+        label: 'Indicadores trimestrales',
         href: '/ccc-calificados',
         icon: <BadgeCheck className="h-4 w-4" />,
         enabledWhen: (ctx) => mustBeLoggedActive(ctx) && ['admin', 'jdv', 'supervisor'].includes(ctx.role),
