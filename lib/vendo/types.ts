@@ -1,0 +1,31 @@
+export type VendoMovementType = 'alta' | 'baja';
+export type VendoRequestStatus = 'pending' | 'seen';
+export type VendoEmailStatus = 'pending' | 'sent' | 'failed' | 'no_recipients';
+
+export type VendoRequest = {
+  id: string;
+  branch_code: string;
+  branch_name: string;
+  first_name: string;
+  last_name: string;
+  movement_type: VendoMovementType;
+  imei: string;
+  phone: string;
+  vendor_email: string;
+  reason: string;
+  requested_by: string;
+  requester_name: string;
+  requester_email: string;
+  requester_role: string | null;
+  requester_branches: string[];
+  status: VendoRequestStatus;
+  seen_at: string | null;
+  seen_by: string | null;
+  email_status: VendoEmailStatus;
+  email_sent_at: string | null;
+  email_recipients: string[];
+  resend_email_id: string | null;
+  email_error: string | null;
+  created_at: string;
+  updated_at: string;
+};

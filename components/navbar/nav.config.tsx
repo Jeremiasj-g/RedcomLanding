@@ -10,6 +10,7 @@ import {
   Building2,
   LayoutDashboard,
   BadgeCheck,
+  Smartphone,
 } from 'lucide-react';
 
 export type NavRuleCtx = {
@@ -165,6 +166,15 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         enabledWhen: (ctx) => mustBeLoggedActive(ctx) && ['admin', 'jdv', 'supervisor'].includes(ctx.role),
         enabledReason: () => 'Solo Admin / JDV / Supervisor',
         className: 'text-orange-300 hover:text-orange-200 hover:bg-orange-500/10',
+      },
+      {
+        id: 'alta-vendo',
+        label: 'Alta de Vendo',
+        href: '/alta-vendo',
+        icon: <Smartphone className="h-4 w-4" />,
+        enabledWhen: (ctx) => mustBeLoggedActive(ctx),
+        enabledReason: () => 'Debés iniciar sesión para registrar una solicitud',
+        className: 'text-cyan-300 hover:text-cyan-200 hover:bg-cyan-500/10',
       },
     ],
   },
