@@ -21,6 +21,8 @@ import { getNavModel } from './getNavModel';
 
 import { Skeleton } from '@/components/ui/skeleton';
 
+type VendoPendingSummary = { total: number; altas: number; bajas: number };
+
 type TaskNotification = {
   id: number;
   title: string;
@@ -91,6 +93,7 @@ export default function Navbar() {
 
   // Notificaciones
   const [notifications, setNotifications] = useState<TaskNotification[]>([]);
+  const [vendoPending, setVendoPending] = useState<VendoPendingSummary>({ total: 0, altas: 0, bajas: 0 });
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Dropdown notificaciones
@@ -105,6 +108,7 @@ export default function Navbar() {
   const isActive = !!me?.is_active;
   const isVendor = role === 'vendedor';
   const isAdmin = role === 'admin';
+  const bellCount = unreadCount + (isAdmin ? vendoPending.total : 0);
 
   // Campanita solo usuarios internos activos (no vendedor)
   const canSeeNotifs = logged && isActive && !isVendor;
@@ -179,6 +183,49 @@ export default function Navbar() {
     const channel = supabase
       .channel('signup_requests_admin_badge')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'signup_requests' }, () => fetchCount())
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [me, role]);
+
+  // ─────────────────────────────────────────
+  // Solicitudes VENDO pendientes en la campanita (administración)
+  // ─────────────────────────────────────────
+  useEffect(() => {
+    if (!me || role !== 'admin') {
+      setVendoPending({ total: 0, altas: 0, bajas: 0 });
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchVendoPending = async () => {
+      const { data, error } = await supabase
+        .from('vendo_requests')
+        .select('movement_type')
+        .eq('status', 'pending');
+
+      if (cancelled) return;
+      if (error) {
+        console.error('Error contando solicitudes VENDO pendientes', error);
+        setVendoPending({ total: 0, altas: 0, bajas: 0 });
+        return;
+      }
+
+      const rows = data ?? [];
+      const altas = rows.filter((row: any) => row.movement_type === 'alta').length;
+      const bajas = rows.filter((row: any) => row.movement_type === 'baja').length;
+      setVendoPending({ total: rows.length, altas, bajas });
+    };
+
+    fetchVendoPending();
+
+    const channel = supabase
+      .channel('vendo_requests_navbar_badge')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vendo_requests' }, () => fetchVendoPending())
       .subscribe();
 
     return () => {
@@ -374,9 +421,9 @@ export default function Navbar() {
                     aria-label="Notificaciones"
                   >
                     <Bell className="h-5 w-5" />
-                    {unreadCount > 0 && (
+                    {bellCount > 0 && (
                       <span className="absolute -right-1 -top-1 inline-flex min-h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-slate-50">
-                        {unreadCount > 9 ? '9+' : unreadCount}
+                        {bellCount > 99 ? '99+' : bellCount}
                       </span>
                     )}
                   </button>
@@ -391,61 +438,62 @@ export default function Navbar() {
                         className="absolute right-0 mt-2 w-[360px] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/95 backdrop-blur p-2 text-xs text-slate-100 shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="mb-1 flex items-center justify-between gap-4 px-2 pb-1">
-                          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                            Proyectos asignados
-                          </span>
+                        <div className="flex items-center justify-between gap-4 px-2 pb-2">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notificaciones</span>
+                          {notifications.length > 0 && unreadCount > 0 && (
+                            <button type="button" onClick={handleMarkAllRead} className="text-[10px] text-slate-300 hover:text-white">Marcar proyectos</button>
+                          )}
+                        </div>
 
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={handleMarkAllRead}
-                              disabled={notifications.length === 0 || unreadCount === 0}
-                              className="text-[10px] text-slate-100 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              Marcar todo
-                            </button>
+                        {isAdmin && (
+                          <Link
+                            href="/admin/vendo"
+                            onClick={() => setNotifOpen(false)}
+                            className={cn(
+                              'mb-2 block rounded-xl border px-3 py-3 transition',
+                              vendoPending.total > 0
+                                ? 'border-red-400/30 bg-red-500/10 hover:bg-red-500/15'
+                                : 'border-slate-800 bg-slate-900/50 hover:bg-slate-900/80',
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-[11px] font-bold text-slate-100">Solicitudes VENDO</p>
+                                <p className="mt-0.5 text-[10px] text-slate-400">
+                                  {vendoPending.total > 0
+                                    ? `${vendoPending.total} pendiente${vendoPending.total === 1 ? '' : 's'} de revisión`
+                                    : 'No hay solicitudes pendientes'}
+                                </p>
+                              </div>
+                              {vendoPending.total > 0 && (
+                                <span className="grid h-7 min-w-7 place-items-center rounded-full bg-red-500 px-2 text-[11px] font-extrabold text-white">{vendoPending.total}</span>
+                              )}
+                            </div>
+                            <div className="mt-2 flex gap-2">
+                              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">Altas {vendoPending.altas}</span>
+                              <span className="rounded-full border border-rose-400/20 bg-rose-400/10 px-2 py-0.5 text-[10px] font-semibold text-rose-300">Bajas {vendoPending.bajas}</span>
+                            </div>
+                          </Link>
+                        )}
 
-                            <Link
-                              href="/proyectos"
-                              className="text-[11px] text-emerald-300 hover:text-emerald-200"
-                              onClick={() => setNotifOpen(false)}
-                            >
-                              Ver todo
-                            </Link>
-                          </div>
+                        <div className="mb-1 flex items-center justify-between gap-4 border-t border-slate-800 px-2 pt-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Proyectos asignados</span>
+                          <Link href="/proyectos" className="text-[10px] text-emerald-300 hover:text-emerald-200" onClick={() => setNotifOpen(false)}>Ver todo</Link>
                         </div>
 
                         {notifications.length === 0 ? (
-                          <div className="px-2 py-3 text-[11px] text-slate-500">
-                            No tenés proyectos asignados por ahora.
-                          </div>
+                          <div className="px-2 py-3 text-[11px] text-slate-500">No tenés proyectos asignados por ahora.</div>
                         ) : (
-                          <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+                          <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
                             {notifications.map((n) => (
-                              <div
-                                key={n.id}
-                                className={cn(
-                                  'relative rounded-xl border px-3 py-2 transition',
-                                  n.read
-                                    ? 'border-slate-900 bg-slate-900/40'
-                                    : 'border-slate-700 bg-slate-900/80',
-                                )}
-                              >
+                              <div key={n.id} className={cn('relative rounded-xl border px-3 py-2 transition', n.read ? 'border-slate-900 bg-slate-900/40' : 'border-slate-700 bg-slate-900/80')}>
                                 {!n.read && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleMarkOneRead(n.id)}
-                                    className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-500/60 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/30"
-                                    aria-label="Marcar como leída"
-                                  >
+                                  <button type="button" onClick={() => handleMarkOneRead(n.id)} className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-500/60 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/30" aria-label="Marcar como leída">
                                     <Check className="h-3 w-3" />
                                   </button>
                                 )}
                                 <div className="pr-6 text-[11px] font-semibold text-slate-100">{n.title}</div>
-                                <div className="text-[10px] text-slate-400 line-clamp-2">
-                                  {n.summary || 'Sin descripción.'}
-                                </div>
+                                <div className="line-clamp-2 text-[10px] text-slate-400">{n.summary || 'Sin descripción.'}</div>
                               </div>
                             ))}
                           </div>

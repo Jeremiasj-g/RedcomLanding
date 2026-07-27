@@ -1,42 +1,70 @@
-# Módulo Alta de Vendo
+# Alta de VENDO · instalación y actualización
 
-## 1. Crear tablas y políticas
+## 1. Base de datos
 
-Ejecutá en el SQL Editor de Supabase:
+Para una instalación nueva, ejecutar en Supabase:
 
-`supabase/migrations/20260725_vendo_requests.sql`
-
-La migración crea:
-
-- `public.vendo_requests`: solicitudes, datos del vendedor/dispositivo, solicitante, estado de revisión y resultado del correo.
-- `public.vendo_notification_recipients`: usuarios activos elegidos desde **Administración > Vendo** para recibir cada correo.
-- Políticas RLS: cada usuario ve su propio historial; el administrador ve todo y puede marcar solicitudes como vistas/configurar destinatarios.
-
-## 2. Configurar Resend
-
-Agregá estas variables al archivo `.env.local` y también a Vercel:
-
-```env
-SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
-RESEND_API_KEY=re_xxxxxxxxx
-RESEND_FROM_EMAIL=Redcom VENDO <vendo@tu-dominio-verificado.com>
+```sql
+supabase/migrations/20260725_vendo_requests.sql
 ```
 
-- `SUPABASE_SERVICE_ROLE_KEY` se usa solamente en la ruta del servidor y nunca llega al navegador.
-- El dominio de `RESEND_FROM_EMAIL` debe estar verificado en Resend para enviar a destinatarios reales.
-- No publiques ni subas estas claves a Git.
+Para la base actual incluida en `REDCOM_BUCKUP.sql`, ejecutar:
 
-## 3. Configurar destinatarios
+```sql
+supabase/migrations/20260727_vendo_actual_database_fix.sql
+```
 
-1. Ingresá como administrador.
-2. Abrí **Panel de administrador > Vendo**.
-3. Seleccioná los usuarios de la base de datos que recibirán las nuevas solicitudes.
-4. Presioná **Guardar destinatarios**.
+Esta migración es obligatoria para aceptar o rechazar solicitudes. La base actual todavía limita `status` a `pending` y `seen`. La migración elimina primero esa restricción, convierte los registros `seen` a `accepted` y recién después instala los estados nuevos:
 
-## 4. Flujo
+```text
+pending
+accepted
+rejected
+```
 
-- El usuario abre **Espacio de trabajo > Alta de Vendo**.
-- Las sucursales se consultan dinámicamente desde `public.branches`.
-- Al enviar, la API valida la sesión, guarda la solicitud y envía el correo mediante Resend.
-- Aunque Resend falle o no haya destinatarios, la solicitud queda guardada y el panel muestra el estado del correo.
-- El usuario ve todo su historial; administración visualiza todas las solicitudes y puede marcarlas como vistas.
+El orden es importante: intentar convertir `seen` antes de retirar la restricción antigua hace que PostgreSQL cancele toda la transacción.
+
+## 2. Web3Forms
+
+La integración envía desde el navegador a `https://api.web3forms.com/submit`.
+
+La Access Key incluida es:
+
+```env
+NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY=ee2bb86c-251a-41d0-82d2-29c6e92c00a8
+```
+
+La variable es opcional porque existe un valor por defecto en el proyecto. Para cambiar el correo receptor hay que crear otra Access Key en Web3Forms y reemplazarla.
+
+## 3. Variables de servidor
+
+La API que guarda, resuelve y elimina solicitudes necesita:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+## 4. Flujo administrativo
+
+Administración puede:
+
+- Aceptar solicitudes.
+- Rechazarlas con una observación opcional.
+- Responder al solicitante desde el cliente de correo del equipo.
+- Eliminar una o varias solicitudes definitivamente.
+
+El usuario ve el resultado en su historial personal.
+
+## 5. Notificaciones de la barra superior
+
+La campana del administrador suma las solicitudes VENDO pendientes y muestra cuántas corresponden a altas y cuántas a bajas. El contador se actualiza en tiempo real cuando se crea, resuelve o elimina una solicitud.
+
+## 6. Eliminación
+
+El solicitante puede eliminar definitivamente sus propias solicitudes. Administración puede eliminar cualquier solicitud. La ruta `DELETE /api/vendo/requests` acepta hasta 200 IDs por petición.
+
+## 7. Correo y respuestas
+
+Web3Forms recibe un único campo `message`, con asunto y contenido generados dinámicamente. El campo `replyto` utiliza `requester_email`, por lo que al responder desde Gmail u Outlook la respuesta se dirige al usuario que cargó la solicitud.

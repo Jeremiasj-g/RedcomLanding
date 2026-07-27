@@ -1,6 +1,6 @@
 -- Solicitudes de alta/baja de dispositivos VENDO.
 -- Guarda el formulario, una instantánea del solicitante, el seguimiento administrativo
--- y la configuración de usuarios que reciben el correo de Resend.
+-- y el estado de la notificación enviada mediante Web3Forms.
 
 begin;
 
@@ -23,20 +23,25 @@ create table if not exists public.vendo_requests (
   requester_branches text[] not null default '{}',
 
   status text not null default 'pending',
+  reviewed_at timestamptz,
+  reviewed_by uuid references public.profiles(id) on delete set null,
+  reviewed_by_name text,
+  review_note text,
+  -- Campos anteriores conservados para compatibilidad con instalaciones previas.
   seen_at timestamptz,
   seen_by uuid references public.profiles(id) on delete set null,
 
+  -- Se conservan estos nombres genéricos para compatibilidad con instalaciones anteriores.
   email_status text not null default 'pending',
   email_sent_at timestamptz,
   email_recipients text[] not null default '{}',
-  resend_email_id text,
   email_error text,
 
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
 
   constraint vendo_requests_movement_check check (movement_type in ('alta', 'baja')),
-  constraint vendo_requests_status_check check (status in ('pending', 'seen')),
+  constraint vendo_requests_status_check check (status in ('pending', 'accepted', 'rejected')),
   constraint vendo_requests_email_status_check check (email_status in ('pending', 'sent', 'failed', 'no_recipients')),
   constraint vendo_requests_name_check check (char_length(trim(first_name)) >= 2 and char_length(trim(last_name)) >= 2),
   constraint vendo_requests_imei_check check (char_length(trim(imei)) >= 6),
@@ -51,14 +56,6 @@ create index if not exists vendo_requests_status_idx
   on public.vendo_requests (status, created_at desc);
 create index if not exists vendo_requests_branch_idx
   on public.vendo_requests (branch_code, created_at desc);
-
-create table if not exists public.vendo_notification_recipients (
-  user_id uuid primary key references public.profiles(id) on delete cascade,
-  is_active boolean not null default true,
-  configured_by uuid references public.profiles(id) on delete set null,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
 
 create or replace function public.set_vendo_updated_at()
 returns trigger
@@ -77,13 +74,7 @@ create trigger vendo_requests_set_updated_at
 before update on public.vendo_requests
 for each row execute function public.set_vendo_updated_at();
 
-drop trigger if exists vendo_recipients_set_updated_at on public.vendo_notification_recipients;
-create trigger vendo_recipients_set_updated_at
-before update on public.vendo_notification_recipients
-for each row execute function public.set_vendo_updated_at();
-
 alter table public.vendo_requests enable row level security;
-alter table public.vendo_notification_recipients enable row level security;
 
 -- Cada usuario ve únicamente su historial. Administración ve todas las solicitudes.
 drop policy if exists vendo_requests_select_own_or_admin on public.vendo_requests;
@@ -104,7 +95,7 @@ for insert
 to authenticated
 with check (requested_by = auth.uid());
 
--- Solo administración puede marcar solicitudes como vistas.
+-- Solo administración puede aceptar o rechazar solicitudes.
 drop policy if exists vendo_requests_update_admin on public.vendo_requests;
 create policy vendo_requests_update_admin
 on public.vendo_requests
@@ -113,38 +104,7 @@ to authenticated
 using (public.my_role() = 'admin')
 with check (public.my_role() = 'admin');
 
--- La lista de destinatarios solamente se administra desde el panel de administrador.
-drop policy if exists vendo_recipients_select_admin on public.vendo_notification_recipients;
-create policy vendo_recipients_select_admin
-on public.vendo_notification_recipients
-for select
-to authenticated
-using (public.my_role() = 'admin');
-
-drop policy if exists vendo_recipients_insert_admin on public.vendo_notification_recipients;
-create policy vendo_recipients_insert_admin
-on public.vendo_notification_recipients
-for insert
-to authenticated
-with check (public.my_role() = 'admin');
-
-drop policy if exists vendo_recipients_update_admin on public.vendo_notification_recipients;
-create policy vendo_recipients_update_admin
-on public.vendo_notification_recipients
-for update
-to authenticated
-using (public.my_role() = 'admin')
-with check (public.my_role() = 'admin');
-
-drop policy if exists vendo_recipients_delete_admin on public.vendo_notification_recipients;
-create policy vendo_recipients_delete_admin
-on public.vendo_notification_recipients
-for delete
-to authenticated
-using (public.my_role() = 'admin');
-
 grant select, insert, update on public.vendo_requests to authenticated;
-grant select, insert, update, delete on public.vendo_notification_recipients to authenticated;
 
 -- Habilita las actualizaciones en tiempo real del historial y el panel administrativo.
 do $$
