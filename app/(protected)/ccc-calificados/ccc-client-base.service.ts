@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 
 export const CCC_CLIENT_BASE_BUCKET = "ccc-client-bases";
+export const CCC_WORKSPACE_FILES_BUCKET = "ccc-workspace-files";
 export const CCC_REFRESH_DAYS = 15;
 
 export const CCC_BRANCH_LABELS: Record<string, string> = {
@@ -18,6 +19,30 @@ export const CCC_BRANCH_SUCURSAL_NAMES: Record<string, string> = {
   obera: "SUCURSAL OBERA",
   refrigerados: "REFRIGERADOS",
 };
+
+
+export type CccWorkspaceFileKind =
+  | "sales"
+  | "seller_supervisor"
+  | "personal_detail";
+
+export type CccWorkspaceFileMeta = {
+  id: string;
+  branch_key: string;
+  file_kind: CccWorkspaceFileKind;
+  storage_path: string;
+  original_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  uploaded_by: string | null;
+  uploaded_by_name: string | null;
+  uploaded_at: string;
+  updated_at: string;
+};
+
+export type CccWorkspaceFilesMap = Partial<
+  Record<CccWorkspaceFileKind, CccWorkspaceFileMeta>
+>;
 
 export type CccClientBaseMeta = {
   id: string;
@@ -155,6 +180,116 @@ export async function downloadClientBase(
   if (error) throw error;
 
   const file = new File([data], meta.original_name || "base-clientes.xlsx", {
+    type:
+      meta.mime_type ||
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    lastModified: new Date(meta.uploaded_at).getTime(),
+  });
+
+  return { file, meta };
+}
+
+export async function getWorkspaceFilesMeta(
+  branch: string,
+): Promise<CccWorkspaceFilesMap> {
+  const branchKey = normalizeBranch(branch);
+  if (!branchKey) return {};
+
+  const { data, error } = await supabase
+    .from("ccc_workspace_files")
+    .select("*")
+    .eq("branch_key", branchKey);
+
+  if (error) throw error;
+
+  return (data ?? []).reduce<CccWorkspaceFilesMap>((acc, row) => {
+    const meta = row as CccWorkspaceFileMeta;
+    acc[meta.file_kind] = meta;
+    return acc;
+  }, {});
+}
+
+export async function getWorkspaceFileMeta(
+  branch: string,
+  kind: CccWorkspaceFileKind,
+): Promise<CccWorkspaceFileMeta | null> {
+  const branchKey = normalizeBranch(branch);
+  if (!branchKey) return null;
+
+  const { data, error } = await supabase
+    .from("ccc_workspace_files")
+    .select("*")
+    .eq("branch_key", branchKey)
+    .eq("file_kind", kind)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as CccWorkspaceFileMeta | null) ?? null;
+}
+
+export async function uploadWorkspaceFile(params: {
+  branch: string;
+  kind: CccWorkspaceFileKind;
+  file: File;
+  userId: string;
+  uploaderName?: string | null;
+}): Promise<CccWorkspaceFileMeta> {
+  const branchKey = normalizeBranch(params.branch);
+  if (!branchKey) throw new Error("Seleccioná una sucursal antes de subir el archivo.");
+
+  const extension = params.file.name.toLowerCase().endsWith(".xls") ? "xls" : "xlsx";
+  const storagePath = `${branchKey}/${params.kind}.${extension}`;
+  const uploadedAt = new Date().toISOString();
+
+  const { error: storageError } = await supabase.storage
+    .from(CCC_WORKSPACE_FILES_BUCKET)
+    .upload(storagePath, params.file, {
+      upsert: true,
+      contentType:
+        params.file.type ||
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      cacheControl: "0",
+    });
+
+  if (storageError) throw storageError;
+
+  const payload = {
+    branch_key: branchKey,
+    file_kind: params.kind,
+    storage_path: storagePath,
+    original_name: params.file.name,
+    mime_type: params.file.type || null,
+    size_bytes: params.file.size,
+    uploaded_by: params.userId,
+    uploaded_by_name: params.uploaderName || null,
+    uploaded_at: uploadedAt,
+    updated_at: uploadedAt,
+  };
+
+  const { data, error } = await supabase
+    .from("ccc_workspace_files")
+    .upsert(payload, { onConflict: "branch_key,file_kind" })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data as CccWorkspaceFileMeta;
+}
+
+export async function downloadWorkspaceFile(
+  branch: string,
+  kind: CccWorkspaceFileKind,
+): Promise<{ file: File; meta: CccWorkspaceFileMeta }> {
+  const meta = await getWorkspaceFileMeta(branch, kind);
+  if (!meta) throw new Error("No hay un archivo guardado para la sucursal seleccionada.");
+
+  const { data, error } = await supabase.storage
+    .from(CCC_WORKSPACE_FILES_BUCKET)
+    .download(meta.storage_path);
+
+  if (error) throw error;
+
+  const file = new File([data], meta.original_name || `${kind}.xlsx`, {
     type:
       meta.mime_type ||
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

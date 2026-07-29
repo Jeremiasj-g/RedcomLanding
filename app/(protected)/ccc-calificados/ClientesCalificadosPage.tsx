@@ -12,15 +12,23 @@ import {
   CCC_BRANCH_SUCURSAL_NAMES,
   CCC_REFRESH_DAYS,
   CccClientBaseMeta,
+  CccWorkspaceFileKind,
+  CccWorkspaceFileMeta,
+  CccWorkspaceFilesMap,
   downloadClientBase,
+  downloadWorkspaceFile,
   getAllBranches,
   getBranchesForUser,
   getClientBaseFreshness,
   getClientBaseMeta,
+  getWorkspaceFilesMeta,
   uploadClientBase,
+  uploadWorkspaceFile,
 } from "./ccc-client-base.service";
 
 const ALLOWED_ROLES = new Set(["admin", "jdv", "supervisor"]);
+const CCC_LAST_BRANCH_KEY = "redcom:ccc:last-branch";
+const CCC_LAST_TAB_KEY = "redcom:ccc:last-tab";
 
 type CccWorkspaceTab = "ccc" | "mix" | "dropsize";
 
@@ -78,6 +86,28 @@ function formatBytes(value?: number | null) {
   if (!value) return "";
   if (value < 1024 * 1024) return `${Math.ceil(value / 1024)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function fileMetaLine(meta?: {
+  uploaded_at: string;
+  uploaded_by_name: string | null;
+  size_bytes: number | null;
+} | null) {
+  if (!meta) return null;
+  return [
+    `Última carga: ${formatDate(meta.uploaded_at)}`,
+    meta.uploaded_by_name ? `por ${meta.uploaded_by_name}` : null,
+    meta.size_bytes ? formatBytes(meta.size_bytes) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function validateExcelExtension(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (!extension || !["xlsx", "xls"].includes(extension)) {
+    throw new Error("El archivo debe tener formato .xlsx o .xls.");
+  }
 }
 
 async function validateClientBaseFile(file: File) {
@@ -190,13 +220,36 @@ function ClientBaseStatus({
   );
 }
 
+function StoredFileStatus({
+  meta,
+  icon: Icon = FileSpreadsheet,
+}: {
+  meta?: CccWorkspaceFileMeta | null;
+  icon?: LucideIcon;
+}) {
+  if (!meta) return null;
+
+  return (
+    <div className="client-base-status stored-file-status is-fresh">
+      <Icon className="status-icon" aria-hidden="true" />
+      <div className="client-base-status-copy">
+        <strong>{meta.original_name}</strong>
+        <span>{fileMetaLine(meta)}</span>
+      </div>
+    </div>
+  );
+}
+
 function DashboardContent({ me }: { me: DashboardUser }) {
   const initialized = useRef(false);
+  const lastAutoProcessFingerprintRef = useRef("");
   const selectedBranchRef = useRef("");
   const activeTabRef = useRef<CccWorkspaceTab>("ccc");
   const clientBaseMetaRef = useRef<CccClientBaseMeta | null>(null);
+  const workspaceFilesRef = useRef<CccWorkspaceFilesMap>({});
   const [activeTab, setActiveTab] = useState<CccWorkspaceTab>("ccc");
   const [xlsxReady, setXlsxReady] = useState(false);
+  const [runtimeReady, setRuntimeReady] = useState(false);
   const [availableBranches, setAvailableBranches] = useState<string[]>([]);
   const [selectedBranch, setSelectedBranch] = useState("");
   const [branchesLoading, setBranchesLoading] = useState(true);
@@ -205,15 +258,30 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   const [clientBaseUploading, setClientBaseUploading] = useState(false);
   const [clientBaseMessage, setClientBaseMessage] = useState<string | null>(null);
   const [clientBaseError, setClientBaseError] = useState<string | null>(null);
+  const [workspaceFiles, setWorkspaceFiles] = useState<CccWorkspaceFilesMap>({});
+  const [workspaceFilesLoading, setWorkspaceFilesLoading] = useState(false);
+  const [workspaceUploadingKind, setWorkspaceUploadingKind] = useState<CccWorkspaceFileKind | null>(null);
+  const [workspaceMessage, setWorkspaceMessage] = useState<string | null>(null);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
 
   useEffect(() => {
     selectedBranchRef.current = selectedBranch;
+    if (selectedBranch) window.localStorage.setItem(CCC_LAST_BRANCH_KEY, selectedBranch);
+    window.dispatchEvent(new Event("ccc:branch-changed"));
   }, [selectedBranch]);
 
   useEffect(() => {
     activeTabRef.current = activeTab;
+    window.localStorage.setItem(CCC_LAST_TAB_KEY, activeTab);
     window.dispatchEvent(new Event("ccc:active-tab-changed"));
   }, [activeTab]);
+
+  useEffect(() => {
+    const storedTab = window.localStorage.getItem(CCC_LAST_TAB_KEY);
+    if (storedTab && CCC_WORKSPACE_TABS.some((tab) => tab.id === storedTab)) {
+      setActiveTab(storedTab as CccWorkspaceTab);
+    }
+  }, []);
 
   useEffect(() => {
     const emptyState = (icon: string, title: string, description: string) => `
@@ -261,6 +329,11 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   }, [clientBaseMeta]);
 
   useEffect(() => {
+    workspaceFilesRef.current = workspaceFiles;
+    window.dispatchEvent(new Event("ccc:workspace-files-changed"));
+  }, [workspaceFiles]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadBranches() {
@@ -278,9 +351,12 @@ function DashboardContent({ me }: { me: DashboardUser }) {
 
         if (cancelled) return;
         setAvailableBranches(branches);
-        setSelectedBranch((current) =>
-          current && branches.includes(current) ? current : branches[0] ?? "",
-        );
+        const storedBranch = window.localStorage.getItem(CCC_LAST_BRANCH_KEY) || "";
+        setSelectedBranch((current) => {
+          if (current && branches.includes(current)) return current;
+          if (storedBranch && branches.includes(storedBranch)) return storedBranch;
+          return branches[0] ?? "";
+        });
       } catch (error) {
         console.error(error);
         if (!cancelled) {
@@ -323,12 +399,89 @@ function DashboardContent({ me }: { me: DashboardUser }) {
     }
   }, []);
 
+  const refreshWorkspaceFiles = useCallback(async (branch: string) => {
+    if (!branch) {
+      setWorkspaceFiles({});
+      return;
+    }
+
+    setWorkspaceFilesLoading(true);
+    setWorkspaceError(null);
+    try {
+      const files = await getWorkspaceFilesMeta(branch);
+      if (selectedBranchRef.current === branch) setWorkspaceFiles(files);
+    } catch (error: any) {
+      console.error(error);
+      if (selectedBranchRef.current === branch) {
+        setWorkspaceFiles({});
+        setWorkspaceError(
+          error?.message || "No se pudieron consultar los archivos guardados de la sucursal.",
+        );
+      }
+    } finally {
+      if (selectedBranchRef.current === branch) setWorkspaceFilesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     setClientBaseMeta(null);
+    setWorkspaceFiles({});
     setClientBaseMessage(null);
     setClientBaseError(null);
+    setWorkspaceMessage(null);
+    setWorkspaceError(null);
     refreshClientBaseMeta(selectedBranch);
-  }, [refreshClientBaseMeta, selectedBranch]);
+    refreshWorkspaceFiles(selectedBranch);
+  }, [refreshClientBaseMeta, refreshWorkspaceFiles, selectedBranch]);
+
+  const autoProcessFingerprint = useMemo(() => {
+    if (!selectedBranch || !clientBaseMeta || !workspaceFiles.sales) return "";
+
+    return [
+      selectedBranch,
+      clientBaseMeta.updated_at || clientBaseMeta.uploaded_at,
+      workspaceFiles.sales.updated_at || workspaceFiles.sales.uploaded_at,
+      workspaceFiles.seller_supervisor?.updated_at ||
+        workspaceFiles.seller_supervisor?.uploaded_at ||
+        "default-listado",
+      workspaceFiles.personal_detail?.updated_at ||
+        workspaceFiles.personal_detail?.uploaded_at ||
+        "without-personal-detail",
+    ].join("|");
+  }, [clientBaseMeta, selectedBranch, workspaceFiles]);
+
+  useEffect(() => {
+    if (
+      !runtimeReady ||
+      !autoProcessFingerprint ||
+      clientBaseLoading ||
+      workspaceFilesLoading ||
+      clientBaseUploading ||
+      workspaceUploadingKind
+    ) {
+      return;
+    }
+
+    if (lastAutoProcessFingerprintRef.current === autoProcessFingerprint) return;
+
+    const timeoutId = window.setTimeout(() => {
+      lastAutoProcessFingerprintRef.current = autoProcessFingerprint;
+      window.dispatchEvent(
+        new CustomEvent("ccc:auto-process", {
+          detail: { fingerprint: autoProcessFingerprint },
+        }),
+      );
+    }, 180);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    autoProcessFingerprint,
+    clientBaseLoading,
+    clientBaseUploading,
+    runtimeReady,
+    workspaceFilesLoading,
+    workspaceUploadingKind,
+  ]);
 
   useEffect(() => {
     if (!xlsxReady || initialized.current) return;
@@ -340,6 +493,8 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       if (cancelled || initialized.current) return;
       cleanup = initClientesCalificadosDashboard({
         hasStoredPadron: () => Boolean(clientBaseMetaRef.current),
+        hasStoredWorkspaceFile: (kind: CccWorkspaceFileKind) =>
+          Boolean(workspaceFilesRef.current[kind]),
         getSelectedBranch: () => selectedBranchRef.current,
         getSelectedSucursalName: () =>
           CCC_BRANCH_SUCURSAL_NAMES[selectedBranchRef.current] || "",
@@ -351,17 +506,32 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           if (!branch) throw new Error("Seleccioná una sucursal.");
           const { file, meta } = await downloadClientBase(branch);
           clientBaseMetaRef.current = meta;
-          setClientBaseMeta(meta);
+          setClientBaseMeta((current) =>
+            current?.updated_at === meta.updated_at ? current : meta,
+          );
+          return file;
+        },
+        resolveWorkspaceFile: async (kind: CccWorkspaceFileKind) => {
+          const branch = selectedBranchRef.current;
+          if (!branch) throw new Error("Seleccioná una sucursal.");
+          const { file, meta } = await downloadWorkspaceFile(branch, kind);
+          setWorkspaceFiles((current) =>
+            current[kind]?.updated_at === meta.updated_at
+              ? current
+              : { ...current, [kind]: meta },
+          );
           return file;
         },
       });
       initialized.current = true;
+      setRuntimeReady(true);
     });
 
     return () => {
       cancelled = true;
       cleanup?.();
       initialized.current = false;
+      setRuntimeReady(false);
     };
   }, [xlsxReady]);
 
@@ -395,6 +565,42 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       setClientBaseUploading(false);
     }
   };
+
+  const handleWorkspaceFileUpload =
+    (kind: CccWorkspaceFileKind) =>
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file || !selectedBranch) return;
+
+      setWorkspaceUploadingKind(kind);
+      setWorkspaceMessage(null);
+      setWorkspaceError(null);
+
+      try {
+        validateExcelExtension(file);
+        const meta = await uploadWorkspaceFile({
+          branch: selectedBranch,
+          kind,
+          file,
+          userId: me.id,
+          uploaderName: me.full_name,
+        });
+        setWorkspaceFiles((current) => ({ ...current, [kind]: meta }));
+
+        const labels: Record<CccWorkspaceFileKind, string> = {
+          sales: "Archivo de ventas",
+          seller_supervisor: "Listado Vendedor–Supervisor",
+          personal_detail: "Detalle personal",
+        };
+        setWorkspaceMessage(`${labels[kind]} guardado correctamente para ${selectedBranchLabel}.`);
+      } catch (error: any) {
+        console.error(error);
+        setWorkspaceError(error?.message || "No se pudo guardar el archivo.");
+      } finally {
+        setWorkspaceUploadingKind(null);
+      }
+    };
 
   const selectedBranchLabel = useMemo(
     () => CCC_BRANCH_LABELS[selectedBranch] ?? selectedBranch,
@@ -438,7 +644,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             <div>
               <h2>Prepará los datos para los dashboards</h2>
               <p className="sub">
-                Cargá una sola vez los archivos compartidos. Al cambiar de pestaña se conservan la selección y los resultados procesados.
+                Cargá una sola vez los archivos compartidos. Al volver a esta página se recuperan y procesan automáticamente para la última sucursal utilizada.
               </p>
             </div>
 
@@ -446,7 +652,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
               <span>Sucursal de trabajo</span>
               <select
                 value={selectedBranch}
-                disabled={branchesLoading || clientBaseUploading}
+                disabled={branchesLoading || clientBaseUploading || Boolean(workspaceUploadingKind)}
                 onChange={(event) => setSelectedBranch(event.target.value)}
               >
                 {availableBranches.length === 0 ? (
@@ -463,20 +669,48 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           </div>
 
           <div className={`upload-grid shared-upload-grid ${activeTab === "dropsize" ? "is-dropsize" : ""}`}>
-            <label className="drop" id="dropBase">
-              <input type="file" id="fileBase" accept=".xlsx,.xls" />
-              <div className="ico"><FileSpreadsheet aria-hidden="true" /></div>
+            <label
+              className={`drop stored-file-drop ${workspaceFiles.sales ? "filled" : ""} ${workspaceUploadingKind === "sales" ? "is-uploading" : ""}`}
+              id="dropBase"
+            >
+              <input
+                type="file"
+                id="fileBase"
+                accept=".xlsx,.xls"
+                disabled={!selectedBranch || Boolean(workspaceUploadingKind)}
+                onChange={handleWorkspaceFileUpload("sales")}
+              />
+              <div className="ico">
+                {workspaceUploadingKind === "sales" ? <RefreshCw className="spin" aria-hidden="true" /> : <FileSpreadsheet aria-hidden="true" />}
+              </div>
               <div className="label">Archivo de ventas (requerido)</div>
-              <div className="hint">Se utiliza en los tres dashboards — .xlsx</div>
-              <div className="filename" id="fileBaseName" />
+              <div className="hint">Se guarda por sucursal y se utiliza en los tres dashboards</div>
+              <div className="filename" id="fileBaseName">
+                {workspaceFiles.sales?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
+              </div>
+              {workspaceFiles.sales && <div className="upload-meta">{fileMetaLine(workspaceFiles.sales)}</div>}
             </label>
 
-            <label className="drop" id="dropListado">
-              <input type="file" id="fileListado" accept=".xlsx,.xls" />
-              <div className="ico">👥</div>
+            <label
+              className={`drop stored-file-drop ${workspaceFiles.seller_supervisor ? "filled" : ""} ${workspaceUploadingKind === "seller_supervisor" ? "is-uploading" : ""}`}
+              id="dropListado"
+            >
+              <input
+                type="file"
+                id="fileListado"
+                accept=".xlsx,.xls"
+                disabled={!selectedBranch || Boolean(workspaceUploadingKind)}
+                onChange={handleWorkspaceFileUpload("seller_supervisor")}
+              />
+              <div className="ico">
+                {workspaceUploadingKind === "seller_supervisor" ? <RefreshCw className="spin" aria-hidden="true" /> : <UsersRound aria-hidden="true" />}
+              </div>
               <div className="label">Listado Vendedor–Supervisor (opcional)</div>
-              <div className="hint">Ya precargado — subí solo si cambió la estructura</div>
-              <div className="filename" id="fileListadoName" />
+              <div className="hint">Se guarda por sucursal; si no existe se utiliza el listado precargado</div>
+              <div className="filename" id="fileListadoName">
+                {workspaceFiles.seller_supervisor?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
+              </div>
+              {workspaceFiles.seller_supervisor && <div className="upload-meta">{fileMetaLine(workspaceFiles.seller_supervisor)}</div>}
             </label>
 
             <label
@@ -509,18 +743,31 @@ function DashboardContent({ me }: { me: DashboardUser }) {
               <div className="filename">
                 {clientBaseMeta?.original_name || "Seleccioná el Excel para cargar o actualizar"}
               </div>
+              {clientBaseMeta && <div className="upload-meta">{fileMetaLine(clientBaseMeta)}</div>}
             </label>
 
             <label
-              className={`drop detail-personal-drop ${activeTab === "dropsize" ? "" : "is-hidden"}`}
+              className={`drop stored-file-drop detail-personal-drop ${workspaceFiles.personal_detail ? "filled" : ""} ${workspaceUploadingKind === "personal_detail" ? "is-uploading" : ""} ${activeTab === "dropsize" ? "" : "is-hidden"}`}
               id="dropDetalle"
               aria-hidden={activeTab !== "dropsize"}
             >
-              <input type="file" id="fileDetalle" accept=".xlsx,.xls" tabIndex={activeTab === "dropsize" ? 0 : -1} />
-              <div className="ico"><UsersRound aria-hidden="true" /></div>
+              <input
+                type="file"
+                id="fileDetalle"
+                accept=".xlsx,.xls"
+                disabled={!selectedBranch || Boolean(workspaceUploadingKind)}
+                tabIndex={activeTab === "dropsize" ? 0 : -1}
+                onChange={handleWorkspaceFileUpload("personal_detail")}
+              />
+              <div className="ico">
+                {workspaceUploadingKind === "personal_detail" ? <RefreshCw className="spin" aria-hidden="true" /> : <UsersRound aria-hidden="true" />}
+              </div>
               <div className="label">Detalle personal (requerido para DROPSIZE)</div>
-              <div className="hint">Relaciona vendedor con superior/supervisor — .xlsx</div>
-              <div className="filename" id="fileDetalleName" />
+              <div className="hint">Se guarda por sucursal y relaciona vendedor con superior/supervisor</div>
+              <div className="filename" id="fileDetalleName">
+                {workspaceFiles.personal_detail?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
+              </div>
+              {workspaceFiles.personal_detail && <div className="upload-meta">{fileMetaLine(workspaceFiles.personal_detail)}</div>}
             </label>
           </div>
 
@@ -528,12 +775,30 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             <strong>Actualización obligatoria:</strong> la base de clientes debe renovarse cada {CCC_REFRESH_DAYS} días. El dashboard reutiliza automáticamente la última versión guardada de la sucursal.
           </div>
 
-          <ClientBaseStatus
-            meta={clientBaseMeta}
-            loading={clientBaseLoading}
-            branch={selectedBranch}
-          />
+          <div className="stored-file-status-list" aria-live="polite">
+            <StoredFileStatus meta={workspaceFiles.sales} />
+            <StoredFileStatus
+              meta={workspaceFiles.seller_supervisor}
+              icon={UsersRound}
+            />
+            <ClientBaseStatus
+              meta={clientBaseMeta}
+              loading={clientBaseLoading}
+              branch={selectedBranch}
+            />
+            {activeTab === "dropsize" && (
+              <StoredFileStatus
+                meta={workspaceFiles.personal_detail}
+                icon={UsersRound}
+              />
+            )}
+          </div>
 
+          {workspaceFilesLoading && (
+            <div className="database-message neutral">Consultando los archivos guardados de {selectedBranchLabel}…</div>
+          )}
+          {workspaceMessage && <div className="database-message success">{workspaceMessage}</div>}
+          {workspaceError && <div className="database-message error">{workspaceError}</div>}
           {clientBaseMessage && <div className="database-message success">{clientBaseMessage}</div>}
           {clientBaseError && <div className="database-message error">{clientBaseError}</div>}
 
@@ -543,7 +808,9 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             </button>
             <button className="ghost" id="btnReset">Reiniciar</button>
             <span className="status" id="statusMsg">
-              Esperando archivo de ventas…
+              {workspaceFilesLoading || clientBaseLoading
+                ? "Consultando archivos guardados…"
+                : "Esperando archivo de ventas…"}
             </span>
           </div>
         </div>

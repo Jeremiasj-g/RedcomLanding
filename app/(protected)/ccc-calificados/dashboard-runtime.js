@@ -3,11 +3,13 @@ import { processDropsizeDashboard, resetDropsizeDashboard, setDropsizeEmptyState
 export function initClientesCalificadosDashboard(options = {}){
   const {
     hasStoredPadron = () => false,
+    hasStoredWorkspaceFile = () => false,
     getSelectedBranch = () => '',
     getSelectedSucursalName = () => '',
     getSelectedBranchLabel = () => '',
     getActiveTab = () => 'ccc',
     resolvePadronFile = async () => null,
+    resolveWorkspaceFile = async () => null,
   } = options;
   const XLSX = window.XLSX;
   if (!XLSX) throw new Error('No se pudo cargar el motor de archivos Excel.');
@@ -25,6 +27,7 @@ export function initClientesCalificadosDashboard(options = {}){
        DATOS POR DEFECTO — Listado Vendedor-Supervisor (precargado)
     ============================================================ */
     let LISTADO = [{"sucursal": "CASA CENTRAL", "codigo": 1, "nombre": "MATIAS VILLORDO", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "CASA CENTRAL", "codigo": 2, "nombre": "NAZIR MAIDANA", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 3, "nombre": "BELEN ESCALANTE", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "CASA CENTRAL", "codigo": 4, "nombre": "GUSTAVO MOLINA", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "CASA CENTRAL", "codigo": 5, "nombre": "MARTIN FERNANDEZ", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 6, "nombre": "FACUNDO ZAMORA", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 7, "nombre": "DIEGO VALENZUELA", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 8, "nombre": "MATIAS ALTAMIRANO", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "CASA CENTRAL", "codigo": 9, "nombre": "SEBASTIAN SOTO", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 10, "nombre": "NAHUEL VALLEJOS", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 11, "nombre": "MILAGROS ALMIRON", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 12, "nombre": "GONZALO QUIROGA", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 13, "nombre": "RICARDO FERNANDEZ", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 14, "nombre": "DANIEL GONZALEZ", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 15, "nombre": "LEANDRO ORTIZ", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "CASA CENTRAL", "codigo": 16, "nombre": "GABRIEL GOMEZ", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 17, "nombre": "JONATAN GARRIDO", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 18, "nombre": "JULIO CESAR ROMERO", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 19, "nombre": "ENZO ROBINEAU", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 20, "nombre": "ALAN AYALA", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "CASA CENTRAL", "codigo": 21, "nombre": "ENCINAS NICOLAS", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 51, "nombre": "ETECHEBARNE TOBIAS", "supervisor": "FABIAN ROMERO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 52, "nombre": "LUIS NUÑEZ", "supervisor": "GLADYS BENITEZ"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 53, "nombre": "ANTONIO SANCHEZ", "supervisor": "MAXIMILIANO MARECO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 54, "nombre": "AGUSTIN ALEGRE", "supervisor": "MAXIMILIANO MARECO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 55, "nombre": "GASTON MONZON", "supervisor": "GLADYS BENITEZ"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 56, "nombre": "DIAZ CRISTIAN", "supervisor": "FABIAN ROMERO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 57, "nombre": "RODRIGUEZ MAXIMILIANO", "supervisor": "GLADYS BENITEZ"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 58, "nombre": "JUAN CORRALES", "supervisor": "MAXIMILIANO MARECO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 59, "nombre": "NAYLA MACHUCA", "supervisor": "MAXIMILIANO MARECO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 60, "nombre": "GUSTAVO FRIAS", "supervisor": "FABIAN ROMERO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 62, "nombre": "AGUSTINA GUZMAN", "supervisor": "FABIAN ROMERO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 63, "nombre": "INT. LUIS ROMAN", "supervisor": "SERGIO JONATTA SUP. INTERIOR"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 65, "nombre": "INT. ADRIAN ALEGRE", "supervisor": "SERGIO JONATTA SUP. INTERIOR"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 66, "nombre": "VEIDA SILVESTRI", "supervisor": "FABIAN ROMERO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 67, "nombre": "ESQUEMA INTERIOR", "supervisor": null}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 70, "nombre": "INT. LUCAS AGUIRRE", "supervisor": "SERGIO JONATTA SUP. INTERIOR"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 71, "nombre": "SAUCEDO JAVIER", "supervisor": "MAXIMILIANO MARECO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 72, "nombre": "INT. SANCHEZ AGUSTIN", "supervisor": "SERGIO JONATTA SUP. INTERIOR"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 73, "nombre": "LUCAS CABRERA", "supervisor": "GLADYS BENITEZ"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 74, "nombre": "ARIEL MARTINEZ", "supervisor": "GLADYS BENITEZ"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 75, "nombre": "CRISTIAN ARMUA", "supervisor": "GLADYS BENITEZ"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 76, "nombre": "ALAN RODRIGUEZ", "supervisor": "MAXIMILIANO MARECO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 214, "nombre": "INT. CASTILLO MIGUEL", "supervisor": "SERGIO JONATTA SUP. INTERIOR"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 1, "nombre": "NICOLAS MACHADO (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 2, "nombre": "MATIAS ALBRECHT (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 3, "nombre": "NICOLAS DOGLIOLI (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 4, "nombre": "YENISE LEDESMA (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 5, "nombre": "GERMAN ORTIZ (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 6, "nombre": "TAMARA INCHAUSTI (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 7, "nombre": "JARA MAURICIO (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 8, "nombre": "KATHERINE RODRIGUEZ (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 9, "nombre": "FACUNDO FERNANDEZ  (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 10, "nombre": "SEBASTIAN SANABRIA (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 11, "nombre": "BEATRIZ SILVA (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 12, "nombre": "ALEJANDRO MOSQUEDA (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 13, "nombre": "DANTE PARRA (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 14, "nombre": "ISAIAS RODRIGUEZ (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 15, "nombre": "FLORENCIA FLORENTIN (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 16, "nombre": "LEONARDO SILKE (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 17, "nombre": "ARIEL BEITELEZTN (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 18, "nombre": "FERNANDO LAYES (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 20, "nombre": "ALEJANDRO MATTOSO (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 21, "nombre": "RODRIGO AGUIRRE (APOS)", "supervisor": null}, {"sucursal": "SUCURSAL POSADAS", "codigo": 22, "nombre": "NATALIA ROMERO (APOS)", "supervisor": null}, {"sucursal": "SUCURSAL POSADAS", "codigo": 30, "nombre": "MARTIN GARCIA (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 31, "nombre": "GAUVRY GONZALO (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL OBERA", "codigo": 125, "nombre": "IVAN PRYTULA", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 126, "nombre": "DIEGO FICHTNER", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 127, "nombre": "CENTURION SEBASTIAN", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 128, "nombre": "YGLESIAS GONZALO", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 129, "nombre": "HUGO RIBERO", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 207, "nombre": "SALGADO RODRIGO", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 208, "nombre": "SEBASTIAN CACERES", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 209, "nombre": "ANDREA DE ALMEIDA", "supervisor": "HAHN MAURO"}];
+    const LISTADO_PREDETERMINADO = LISTADO;
     let PADRON = [];
     /* ============================================================
        CONFIG
@@ -35,6 +38,7 @@ export function initClientesCalificadosDashboard(options = {}){
     };
     let baseFile = null, listadoFile = null, detalleFile = null;
     let lastReportData = null;
+    let processing = false;
     function normSuc(s){
       s = String(s||"").trim().toUpperCase();
       if (s.includes(" - ")) s = s.split(" - ").slice(-1)[0].trim();
@@ -117,52 +121,74 @@ export function initClientesCalificadosDashboard(options = {}){
     function checkReady(){
       const hasBranch = Boolean(getSelectedBranch());
       const hasPadron = Boolean(hasStoredPadron());
+      const hasSales = Boolean(baseFile || hasStoredWorkspaceFile('sales'));
+      const hasDetalle = Boolean(detalleFile || hasStoredWorkspaceFile('personal_detail'));
       const needsDetalle = getActiveTab() === 'dropsize';
-      const ready = Boolean(baseFile && hasBranch && hasPadron && (!needsDetalle || detalleFile));
-      document.getElementById('btnProcess').disabled = !ready;
+      const ready = Boolean(hasSales && hasBranch && hasPadron && (!needsDetalle || hasDetalle));
+      const processButton = document.getElementById('btnProcess');
+      processButton.disabled = processing || !ready;
+      if (processing) return;
       if (!hasBranch) setStatus('Seleccioná una sucursal.');
       else if (!hasPadron) setStatus('La sucursal no tiene una base de clientes guardada.', true);
-      else if (!baseFile) setStatus('Esperando archivo de ventas…');
-      else if (needsDetalle && !detalleFile) setStatus('Cargá Detalle personal para generar DROPSIZE.');
+      else if (!hasSales) setStatus('La sucursal no tiene un archivo de ventas guardado.');
+      else if (needsDetalle && !hasDetalle) setStatus('Cargá Detalle personal para generar DROPSIZE.');
       else setStatus('Listo para procesar.');
     }
+    function clearLocalSelections(){
+      baseFile = null; listadoFile = null; detalleFile = null; lastReportData = null;
+      const baseInput = document.getElementById('fileBase');
+      const listadoInput = document.getElementById('fileListado');
+      const detalleInput = document.getElementById('fileDetalle');
+      if (baseInput) baseInput.value = '';
+      if (listadoInput) listadoInput.value = '';
+      if (detalleInput) detalleInput.value = '';
+    }
     window.addEventListener('ccc:padron-status-changed', checkReady);
+    window.addEventListener('ccc:workspace-files-changed', checkReady);
     window.addEventListener('ccc:active-tab-changed', checkReady);
+    window.addEventListener('ccc:branch-changed', () => {
+      clearLocalSelections();
+      checkReady();
+    });
     checkReady();
     document.getElementById('btnReset').addEventListener('click', () => {
-      baseFile = null; listadoFile = null; detalleFile = null; lastReportData = null;
-      document.getElementById('fileBase').value = '';
-      document.getElementById('fileListado').value = '';
-      document.getElementById('fileDetalle').value = '';
-      document.getElementById('fileBaseName').textContent = '';
-      document.getElementById('fileListadoName').textContent = '';
-      document.getElementById('fileDetalleName').textContent = '';
-      document.getElementById('dropBase').classList.remove('filled');
-      document.getElementById('dropListado').classList.remove('filled');
-      document.getElementById('dropDetalle').classList.remove('filled');
-      setDashboardEmptyState('reportArea', 'Importá los archivos para generar el dashboard', 'La carga se conserva al cambiar entre las tres secciones.');
+      clearLocalSelections();
+      setDashboardEmptyState('reportArea', 'Importá los archivos para generar el dashboard', 'Los archivos guardados de la sucursal quedan disponibles para volver a procesar.');
       setMixEmptyState();
       resetDropsizeDashboard();
       document.getElementById('updatedBadge').style.display = 'none';
       checkReady();
     });
-    document.getElementById('btnProcess').addEventListener('click', async () => {
-      setStatus('Procesando…');
+    async function processDashboards({ automatic = false } = {}){
+      if (processing) return;
+      processing = true;
+      setStatus(automatic ? 'Actualizando dashboards automáticamente…' : 'Procesando…');
       document.getElementById('btnProcess').disabled = true;
+      let finalStatus = '';
+      let processError = null;
       try{
-        if (listadoFile){
-          const wbL = await readWorkbook(listadoFile);
-          LISTADO = parseListado(wbL);
-        }
         const selectedBranch = getSelectedBranch();
         const selectedSucursal = getSelectedSucursalName();
         if (!selectedBranch || !selectedSucursal) throw new Error('Seleccioná una sucursal válida.');
+
+        LISTADO = LISTADO_PREDETERMINADO;
+        let effectiveListadoFile = listadoFile;
+        if (!effectiveListadoFile && hasStoredWorkspaceFile('seller_supervisor')){
+          effectiveListadoFile = await resolveWorkspaceFile('seller_supervisor');
+        }
+        if (effectiveListadoFile){
+          const wbL = await readWorkbook(effectiveListadoFile);
+          LISTADO = parseListado(wbL);
+        }
+
         const storedPadronFile = await resolvePadronFile();
         if (!storedPadronFile) throw new Error('No se encontró una base de clientes guardada para ' + (getSelectedBranchLabel() || selectedBranch) + '.');
         const wbP = await readWorkbook(storedPadronFile);
         PADRON = parsePadron(wbP, selectedSucursal);
 
-        const wbB = await readWorkbook(baseFile);
+        const effectiveSalesFile = baseFile || (hasStoredWorkspaceFile('sales') ? await resolveWorkspaceFile('sales') : null);
+        if (!effectiveSalesFile) throw new Error('No hay un archivo de ventas guardado para la sucursal seleccionada.');
+        const wbB = await readWorkbook(effectiveSalesFile);
         const parsedBase = parseBase(wbB);
         const rows = parsedBase.rows.filter(row => row.sucursal === selectedSucursal);
         if (!rows.length) throw new Error('El archivo de ventas no contiene movimientos de la sucursal ' + (getSelectedBranchLabel() || selectedBranch) + '.');
@@ -171,8 +197,9 @@ export function initClientesCalificadosDashboard(options = {}){
         lastReportData = { rows, periodo, lineasDetectadas, selectedLineaCode: lineasDetectadas[0] || Object.keys(LINEAS)[0] };
         renderReport(rows, periodo, lineasDetectadas, lastReportData.selectedLineaCode);
 
-        if (detalleFile){
-          const wbDetalle = await readWorkbook(detalleFile);
+        const effectiveDetalleFile = detalleFile || (hasStoredWorkspaceFile('personal_detail') ? await resolveWorkspaceFile('personal_detail') : null);
+        if (effectiveDetalleFile){
+          const wbDetalle = await readWorkbook(effectiveDetalleFile);
           await processDropsizeDashboard({
             XLSX,
             salesWorkbook: wbB,
@@ -184,12 +211,33 @@ export function initClientesCalificadosDashboard(options = {}){
           setDropsizeEmptyState('Importá Detalle personal para generar el dashboard');
         }
 
-        setStatus(detalleFile ? 'Los tres dashboards fueron actualizados.' : 'CCC Calificados y MIX fueron actualizados.');
+        if (effectiveDetalleFile){
+          finalStatus = automatic
+            ? 'Los tres dashboards se actualizaron automáticamente y quedan disponibles al volver a la página.'
+            : 'Los tres dashboards fueron actualizados.';
+        } else {
+          finalStatus = automatic
+            ? 'CCC Calificados y MIX se actualizaron automáticamente. Cargá Detalle personal para completar DROPSIZE.'
+            : 'CCC Calificados y MIX fueron actualizados. Cargá Detalle personal para completar DROPSIZE.';
+        }
       }catch(err){
         console.error(err);
-        setStatus('Error al procesar: ' + err.message, true);
+        processError = err;
+      }finally{
+        processing = false;
+        checkReady();
       }
-      checkReady();
+      if (processError){
+        setStatus('Error al procesar: ' + processError.message, true);
+      } else if (finalStatus){
+        setStatus(finalStatus);
+      }
+    }
+    document.getElementById('btnProcess').addEventListener('click', () => {
+      processDashboards({ automatic: false });
+    });
+    window.addEventListener('ccc:auto-process', () => {
+      processDashboards({ automatic: true });
     });
     /* ---------- Parse Listado ---------- */
     function parseListado(wb){

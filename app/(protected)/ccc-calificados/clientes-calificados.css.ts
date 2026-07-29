@@ -53,6 +53,7 @@ export const clientesCalificadosCss = `
   .ccc-page .drop{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:.15s;background:var(--cream);min-height:142px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
   .ccc-page .drop:hover{border-color:var(--red);background:var(--redTint);}
   .ccc-page .drop.filled{border-style:solid;border-color:var(--green);background:#F0F9F3;}
+  .ccc-page .drop.filled:hover,.ccc-page .detail-personal-drop.filled:hover{border-color:var(--greenDark);background:var(--greenTint);}
   .ccc-page .drop.is-uploading{cursor:wait;opacity:.78;}
   .ccc-page .drop .ico{height:24px;font-size:22px;margin-bottom:7px;display:flex;align-items:center;justify-content:center;}
   .ccc-page .drop .ico svg{width:23px;height:23px;}
@@ -60,7 +61,9 @@ export const clientesCalificadosCss = `
   .ccc-page .drop .hint{font-size:11px;color:var(--grayL);margin-top:4px;line-height:1.35;}
   .ccc-page .drop input{display:none;}
   .ccc-page .drop .filename{font-size:11.5px;color:var(--green);font-weight:700;margin-top:7px;word-break:break-word;}
-  .ccc-page .database-drop:hover{border-color:var(--green);background:var(--greenTint);}
+  .ccc-page .drop .upload-meta{font-size:10.5px;color:var(--grayL);font-weight:500;line-height:1.35;margin-top:5px;max-width:100%;word-break:break-word;}
+  .ccc-page .drop.filled .upload-meta{color:#39745A;}
+  .ccc-page .stored-file-drop:hover,.ccc-page .database-drop:hover{border-color:var(--green);background:var(--greenTint);}
   .ccc-page .refresh-rule{margin-top:14px;border:1px solid #EAD6B5;background:#FFF9EF;border-radius:9px;padding:10px 13px;font-size:11.5px;color:#86600E;line-height:1.45;}
   .ccc-page .client-base-status{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;align-items:flex-start;gap:11px;font-size:12px;}
   .ccc-page .client-base-status .status-icon{width:19px;height:19px;flex:none;margin-top:1px;}
@@ -72,9 +75,15 @@ export const clientesCalificadosCss = `
   .ccc-page .client-base-status.is-warning{background:var(--amberTint);border-color:#F1CCA5;color:#A75A08;}
   .ccc-page .client-base-status.is-expired,.ccc-page .client-base-status.is-missing{background:var(--redTint);border-color:#F0BBC5;color:var(--red);}
   .ccc-page .client-base-status.is-loading{background:#F5F4F1;color:var(--gray);}
+  .ccc-page .stored-file-status-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+  .ccc-page .stored-file-status-list:empty{display:none;}
+  .ccc-page .stored-file-status-list .client-base-status{margin-top:0;}
+  .ccc-page .stored-file-status{margin-top:0;}
+  .ccc-page .stored-file-status strong{word-break:break-word;}
   .ccc-page .database-message{margin-top:8px;border-radius:8px;padding:9px 12px;font-size:12px;font-weight:700;}
   .ccc-page .database-message.success{background:var(--greenTint);color:#087B45;}
   .ccc-page .database-message.error{background:var(--redTint);color:var(--red);}
+  .ccc-page .database-message.neutral{background:#F5F4F1;color:var(--gray);border:1px solid var(--line);}
   .ccc-page .actions{display:flex;gap:12px;align-items:center;margin-top:18px;flex-wrap:wrap;}
   .ccc-page button.primary{background:var(--red);color:#fff;border:none;border-radius:8px;padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;transition:.15s;}
   .ccc-page button.primary:hover{background:var(--redDark);}
