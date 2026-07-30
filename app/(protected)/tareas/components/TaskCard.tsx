@@ -42,16 +42,18 @@ export default function TaskCard({
   /* =======================
      Drag & Drop (toda la card)
      ======================= */
-  const { setNodeRef, attributes, listeners, transform, isDragging } = useDraggable({
+  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
     id: dndId,
   });
 
-  // ✅ SOLO translate: sin scale, sin deformación
+  // El movimiento visual lo realiza DragOverlay desde TasksGrid.
+  // Mantener la tarjeta original quieta evita que React la cambie de columna
+  // mientras dnd-kit todavía conserva referencias al nodo arrastrado.
   const dragStyle: React.CSSProperties = {
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transform: undefined,
     transformOrigin: '0 0',
-    willChange: 'transform',
-    opacity: isDragging ? 0.75 : 1,
+    willChange: isDragging ? 'opacity' : undefined,
+    opacity: isDragging ? 0 : 1,
   };
 
   const [notes, setNotes] = useState(task.notes ?? '');

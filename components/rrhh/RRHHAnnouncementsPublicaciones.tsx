@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AnnouncementEditor } from '@/components/rrhh/announcements/AnnouncementEditor';
+import { errorMessage, notify } from '@/lib/notifications';
 
 import {
   rrhhArchiveAnnouncement,
@@ -119,7 +120,7 @@ export default function RRHHAnnouncementsPublicaciones({
       setEditing(full);
     } catch (e) {
       console.error('[RRHHAnnouncementsPublicaciones] openEdit error', e);
-      alert('No se pudo abrir la publicación para editar (ver consola).');
+      notify.error(errorMessage(e, 'No se pudo abrir la publicación para editar.'));
     } finally {
       setEditLoadingId(null);
     }
@@ -280,8 +281,13 @@ export default function RRHHAnnouncementsPublicaciones({
     const ok = confirm(`Eliminar "${it.title}"? Esta acción no se puede deshacer.`);
     if (!ok) return;
     const annId = getAnnouncementId(it);
-    await rrhhDeleteAnnouncement(annId);
-    await onReload();
+    try {
+      await rrhhDeleteAnnouncement(annId);
+      await onReload();
+      notify.success('Publicación eliminada.');
+    } catch (error) {
+      notify.error(errorMessage(error, 'No se pudo eliminar la publicación.'));
+    }
   };
 
   // Bulk: delete selected (ids reales)
@@ -298,6 +304,9 @@ export default function RRHHAnnouncementsPublicaciones({
       await Promise.all(Array.from(selectedIds).map((id) => rrhhDeleteAnnouncement(id)));
       clearSelection();
       await onReload();
+      notify.success(`${selectedIds.size} publicación${selectedIds.size === 1 ? '' : 'es'} eliminada${selectedIds.size === 1 ? '' : 's'}.`);
+    } catch (error) {
+      notify.error(errorMessage(error, 'No se pudieron eliminar las publicaciones.'));
     } finally {
       setBulkDeleting(false);
     }
@@ -316,6 +325,9 @@ export default function RRHHAnnouncementsPublicaciones({
       await Promise.all(filtered.map((it) => rrhhDeleteAnnouncement(getAnnouncementId(it))));
       clearSelection();
       await onReload();
+      notify.success(`${filtered.length} publicación${filtered.length === 1 ? '' : 'es'} eliminada${filtered.length === 1 ? '' : 's'}.`);
+    } catch (error) {
+      notify.error(errorMessage(error, 'No se pudieron eliminar las publicaciones filtradas.'));
     } finally {
       setBulkDeleting(false);
     }

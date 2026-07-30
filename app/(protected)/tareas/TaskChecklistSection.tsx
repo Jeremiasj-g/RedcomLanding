@@ -30,6 +30,7 @@ import {
 } from '@dnd-kit/core';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchTaskItems, createTaskItem, toggleTaskItem, deleteTaskItem } from '@/lib/tasks';
+import { errorMessage, notify } from '@/lib/notifications';
 
 type TaskItem = {
   id: number;
@@ -277,6 +278,7 @@ export default function TaskChecklistSection({
       });
     } catch (err) {
       console.error('Error creating item', err);
+      notify.error(errorMessage(err, 'No se pudo crear el ítem.'));
     } finally {
       setSavingItem(false);
     }
@@ -291,6 +293,7 @@ export default function TaskChecklistSection({
       );
     } catch (err) {
       console.error('Error toggling item', err);
+      notify.error(errorMessage(err, 'No se pudo actualizar el ítem.'));
     }
   };
 
@@ -300,8 +303,10 @@ export default function TaskChecklistSection({
     try {
       await deleteTaskItem(item.id);
       setItems((prev) => prev.filter((it) => it.id !== item.id));
+      notify.success('Ítem eliminado.');
     } catch (err) {
       console.error('Error deleting item', err);
+      notify.error(errorMessage(err, 'No se pudo eliminar el ítem.'));
     }
   };
 

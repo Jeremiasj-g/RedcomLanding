@@ -15,6 +15,7 @@ import DualSpinner from '@/components/ui/DualSpinner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { buildVendoEmailSubject } from '@/lib/vendo/web3forms';
 import type { VendoRequest, VendoRequestStatus } from '@/lib/vendo/types';
+import { errorMessage, notify } from '@/lib/notifications';
 
 type MovementFilter = 'all' | 'alta' | 'baja';
 type StatusFilter = 'all' | VendoRequestStatus;
@@ -35,13 +36,6 @@ export default function AdminVendoPage() {
   const [movementFilter, setMovementFilter] = useState<MovementFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [branchFilter, setBranchFilter] = useState('all');
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-  const showToast = (type: 'success' | 'error', message: string) => {
-    setToast({ type, message });
-    window.setTimeout(() => setToast(null), 4500);
-  };
-
   const getAccessToken = async () => {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
@@ -56,7 +50,7 @@ export default function AdminVendoPage() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) showToast('error', error.message);
+    if (error) notify.error( error.message);
     const next = (data ?? []) as VendoRequest[];
     setRequests(next);
     setSelectedIds((current) => {
@@ -155,9 +149,9 @@ export default function AdminVendoPage() {
     try {
       const updated = await patchRequest({ action: 'review', requestId: request.id, status, note });
       setRequests((current) => current.map((row) => row.id === updated.id ? updated : row));
-      showToast('success', status === 'accepted' ? 'Solicitud aceptada.' : 'Solicitud rechazada.');
+      notify.success( status === 'accepted' ? 'Solicitud aceptada.' : 'Solicitud rechazada.');
     } catch (error) {
-      showToast('error', error instanceof Error ? error.message : 'No se pudo resolver la solicitud.');
+      notify.error( error instanceof Error ? error.message : 'No se pudo resolver la solicitud.');
     } finally {
       setReviewingId(null);
     }
@@ -183,9 +177,9 @@ export default function AdminVendoPage() {
       const deletedSet = new Set(deletedIds);
       setRequests((current) => current.filter((row) => !deletedSet.has(row.id)));
       setSelectedIds((current) => new Set([...current].filter((id) => !deletedSet.has(id))));
-      showToast('success', 'Solicitud eliminada definitivamente.');
+      notify.success( 'Solicitud eliminada definitivamente.');
     } catch (error) {
-      showToast('error', error instanceof Error ? error.message : 'No se pudo eliminar la solicitud.');
+      notify.error( error instanceof Error ? error.message : 'No se pudo eliminar la solicitud.');
     } finally {
       setDeletingId(null);
     }
@@ -202,9 +196,9 @@ export default function AdminVendoPage() {
       const deletedSet = new Set(deletedIds);
       setRequests((current) => current.filter((row) => !deletedSet.has(row.id)));
       setSelectedIds(new Set());
-      showToast('success', `${deletedIds.length} solicitud${deletedIds.length === 1 ? '' : 'es'} eliminada${deletedIds.length === 1 ? '' : 's'}.`);
+      notify.success( `${deletedIds.length} solicitud${deletedIds.length === 1 ? '' : 'es'} eliminada${deletedIds.length === 1 ? '' : 's'}.`);
     } catch (error) {
-      showToast('error', error instanceof Error ? error.message : 'No se pudieron eliminar las solicitudes.');
+      notify.error( error instanceof Error ? error.message : 'No se pudieron eliminar las solicitudes.');
     } finally {
       setBulkDeleting(false);
     }
@@ -243,8 +237,6 @@ export default function AdminVendoPage() {
 
   return (
     <div className="space-y-6">
-      {toast && <div className={`fixed right-5 top-20 z-50 max-w-lg rounded-xl border px-4 py-3 text-sm font-semibold shadow-lg ${toast.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}>{toast.message}</div>}
-
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="mb-2 inline-flex items-center rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-red-700">Solicitudes VENDO</div>

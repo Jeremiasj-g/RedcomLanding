@@ -11,6 +11,11 @@ export function initClientesCalificadosDashboard(options = {}){
     resolvePadronFile = async () => null,
     resolveWorkspaceFile = async () => null,
   } = options;
+  const runtimeNotify = (type, message) => {
+    const notifier = window.__redcomToast?.[type];
+    if (typeof notifier === 'function') notifier(String(message));
+    else console[type === 'error' ? 'error' : 'info']('[CCC]', message);
+  };
   const XLSX = window.XLSX;
   if (!XLSX) throw new Error('No se pudo cargar el motor de archivos Excel.');
   const registeredListeners = [];
@@ -158,6 +163,7 @@ export function initClientesCalificadosDashboard(options = {}){
       resetDropsizeDashboard();
       document.getElementById('updatedBadge').style.display = 'none';
       checkReady();
+      runtimeNotify('info', 'Resultados reiniciados. Los archivos guardados permanecen disponibles.');
     });
     async function processDashboards({ automatic = false } = {}){
       if (processing) return;
@@ -228,9 +234,12 @@ export function initClientesCalificadosDashboard(options = {}){
         checkReady();
       }
       if (processError){
-        setStatus('Error al procesar: ' + processError.message, true);
+        const message = 'Error al procesar: ' + (processError?.message || processError);
+        setStatus(message, true);
+        runtimeNotify('error', message);
       } else if (finalStatus){
         setStatus(finalStatus);
+        if (!automatic) runtimeNotify('success', finalStatus);
       }
     }
     document.getElementById('btnProcess').addEventListener('click', () => {
@@ -570,7 +579,7 @@ export function initClientesCalificadosDashboard(options = {}){
     async function exportRutaPendientes({ rutaNombre, clientes, vendedor, supervisor, lineaInfo, periodo }){
       const pendientes = clientes.filter(c => (Number(c.val) || 0) < lineaInfo.umbral);
       if (!pendientes.length){
-        alert('Esta ruta no tiene clientes pendientes: todos cumplieron la cuota.');
+        runtimeNotify('info', 'Esta ruta no tiene clientes pendientes: todos cumplieron la cuota.');
         return;
       }
     
@@ -606,16 +615,17 @@ export function initClientesCalificadosDashboard(options = {}){
     
         const fileName = `Pendientes_${safeFilePart(rutaNombre)}_${safeFilePart(lineaInfo.label)}.xlsx`;
         XLSX.writeFile(workbook, fileName, { compression: true });
+        runtimeNotify('success', `Excel generado: ${fileName}`);
       }catch(err){
         console.error(err);
-        alert('Ocurrió un error al generar el Excel: ' + (err?.message || err));
+        runtimeNotify('error', 'Ocurrió un error al generar el Excel: ' + (err?.message || err));
       }
     }
     
     async function exportRutaPendientesPdf({ rutaNombre, clientes, vendedor, supervisor, lineaInfo, periodo }){
       const pendientes = clientes.filter(c => (Number(c.val) || 0) < lineaInfo.umbral);
       if (!pendientes.length){
-        alert('Esta ruta no tiene clientes pendientes: todos cumplieron la cuota.');
+        runtimeNotify('info', 'Esta ruta no tiene clientes pendientes: todos cumplieron la cuota.');
         return;
       }
 
@@ -706,9 +716,10 @@ export function initClientesCalificadosDashboard(options = {}){
 
         const fileName = `Pendientes_${safeFilePart(rutaNombre)}_${safeFilePart(lineaInfo.label)}.pdf`;
         doc.save(fileName);
+        runtimeNotify('success', `PDF generado: ${fileName}`);
       }catch(err){
         console.error(err);
-        alert('Ocurrió un error al generar el PDF: ' + (err?.message || err));
+        runtimeNotify('error', 'Ocurrió un error al generar el PDF: ' + (err?.message || err));
       }
     }
 

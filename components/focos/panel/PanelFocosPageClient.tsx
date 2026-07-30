@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { errorMessage, notify } from '@/lib/notifications';
 
 import { useMe } from '@/hooks/useMe';
 import { RequireAuth } from '@/components/RouteGuards';
@@ -121,10 +122,10 @@ export default function PanelFocosPageClient() {
     try {
       await duplicateFoco(row.id);
       await load();
-      alert('Duplicado ✅');
+      notify.success('Foco duplicado.');
     } catch (e: any) {
       console.error('[FOCOS] duplicate error', e);
-      alert(e?.message ?? 'No se pudo duplicar.');
+      notify.error(errorMessage(e, 'No se pudo duplicar.'));
     } finally {
       setBusyId(null);
     }
@@ -137,9 +138,10 @@ export default function PanelFocosPageClient() {
     try {
       await closeFoco(row.id);
       await load();
+      notify.success('Foco cerrado.');
     } catch (e: any) {
       console.error('[FOCOS] close error', e);
-      alert(e?.message ?? 'No se pudo cerrar.');
+      notify.error(errorMessage(e, 'No se pudo cerrar.'));
     } finally {
       setBusyId(null);
     }
@@ -150,9 +152,10 @@ export default function PanelFocosPageClient() {
     try {
       await reopenFoco(row.id);
       await load();
+      notify.success('Foco reabierto.');
     } catch (e: any) {
       console.error('[FOCOS] reopen error', e);
-      alert(e?.message ?? 'No se pudo reabrir.');
+      notify.error(errorMessage(e, 'No se pudo reabrir.'));
     } finally {
       setBusyId(null);
     }
@@ -167,9 +170,10 @@ export default function PanelFocosPageClient() {
     try {
       await deleteFoco(row.id);
       await load();
+      notify.success('Foco eliminado.');
     } catch (e: any) {
       console.error('[FOCOS] delete one error', e);
-      alert(e?.message ?? 'No se pudo eliminar.');
+      notify.error(errorMessage(e, 'No se pudo eliminar.'));
     } finally {
       setBusyId(null);
     }
@@ -188,9 +192,10 @@ export default function PanelFocosPageClient() {
       await deleteFocos(ids);
       setSelectedIds(new Set());
       await load();
+      notify.success(`${ids.length} foco${ids.length === 1 ? '' : 's'} eliminado${ids.length === 1 ? '' : 's'}.`);
     } catch (e: any) {
       console.error('[FOCOS] delete selected error', e);
-      alert(e?.message ?? 'No se pudieron eliminar.');
+      notify.error(errorMessage(e, 'No se pudieron eliminar.'));
     } finally {
       setBusyId(null);
     }
@@ -207,9 +212,10 @@ export default function PanelFocosPageClient() {
       await deleteAllFocos();
       setSelectedIds(new Set());
       await load();
+      notify.success('Todos los focos fueron eliminados.');
     } catch (e: any) {
       console.error('[FOCOS] delete all error', e);
-      alert(e?.message ?? 'No se pudieron eliminar todos.');
+      notify.error(errorMessage(e, 'No se pudieron eliminar todos.'));
     } finally {
       setBusyId(null);
     }

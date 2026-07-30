@@ -4,6 +4,7 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
+import { errorMessage, notify } from '@/lib/notifications';
 
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -501,7 +502,7 @@ export default function PanelFocoUpsertDialog({
           setLabelsById({});
         } catch (e: any) {
           console.error('[FOCOS] upload assets error', e);
-          alert(`El foco se guardó, pero no se pudieron subir las imágenes: ${e?.message ?? 'Error desconocido'}`);
+          notify.warning(`El foco se guardó, pero no se pudieron subir las imágenes: ${errorMessage(e)}`);
         } finally {
           setUploadingAssets(false);
         }
@@ -509,10 +510,11 @@ export default function PanelFocoUpsertDialog({
 
       onSaved?.();
       onOpenChange(false);
+      notify.success('Foco guardado correctamente.');
       reset();
     } catch (e: any) {
       console.error('[FOCOS] save foco error', e);
-      alert(`No se pudo guardar el foco: ${e?.message ?? 'Error desconocido'}`);
+      notify.error(`No se pudo guardar el foco: ${errorMessage(e)}`);
     } finally {
       setLoading(false);
     }

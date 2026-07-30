@@ -7,6 +7,7 @@ import { BarChart3, Boxes, Database, FileSpreadsheet, type LucideIcon, RefreshCw
 import { useAuth } from "@/app/auth/AuthProvider";
 import DualSpinner from "@/components/ui/DualSpinner";
 import { clientesCalificadosCss } from "./clientes-calificados.css";
+import { errorMessage, notify } from "@/lib/notifications";
 import {
   CCC_BRANCH_LABELS,
   CCC_BRANCH_SUCURSAL_NAMES,
@@ -553,14 +554,14 @@ function DashboardContent({ me }: { me: DashboardUser }) {
         uploaderName: me.full_name,
       });
       setClientBaseMeta(meta);
-      setClientBaseMessage(
-        `Base de ${CCC_BRANCH_LABELS[selectedBranch] ?? selectedBranch} guardada correctamente.`,
-      );
+      const message = `Base de ${CCC_BRANCH_LABELS[selectedBranch] ?? selectedBranch} guardada correctamente.`;
+      setClientBaseMessage(message);
+      notify.success(message);
     } catch (error: any) {
       console.error(error);
-      setClientBaseError(
-        error?.message || "No se pudo guardar la base de clientes.",
-      );
+      const message = errorMessage(error, "No se pudo guardar la base de clientes.");
+      setClientBaseError(message);
+      notify.error(message);
     } finally {
       setClientBaseUploading(false);
     }
@@ -593,10 +594,14 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           seller_supervisor: "Listado Vendedor–Supervisor",
           personal_detail: "Detalle personal",
         };
-        setWorkspaceMessage(`${labels[kind]} guardado correctamente para ${selectedBranchLabel}.`);
+        const message = `${labels[kind]} guardado correctamente para ${selectedBranchLabel}.`;
+        setWorkspaceMessage(message);
+        notify.success(message);
       } catch (error: any) {
         console.error(error);
-        setWorkspaceError(error?.message || "No se pudo guardar el archivo.");
+        const message = errorMessage(error, "No se pudo guardar el archivo.");
+        setWorkspaceError(message);
+        notify.error(message);
       } finally {
         setWorkspaceUploadingKind(null);
       }

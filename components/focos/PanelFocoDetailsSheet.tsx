@@ -4,6 +4,7 @@ import * as React from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ExternalLink, Loader2 } from 'lucide-react';
+import { notify } from '@/lib/notifications';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
@@ -499,7 +500,7 @@ export default function PanelFocoDetailsSheet({
                       console.log('[FOCOS] foco_assets', assets);
                       console.log('[FOCOS] foco_completion_users', rows);
                       console.log('[FOCOS] foco_target_users', targetsUsers);
-                      alert('Listo. Mirá la consola (assets / rows / targetsUsers).');
+                      notify.info('Datos de depuración enviados a la consola.');
                     }}
                   >
                     <ExternalLink className="mr-2 h-4 w-4" />

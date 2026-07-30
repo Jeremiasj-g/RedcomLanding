@@ -17,6 +17,7 @@ import DualSpinner from '@/components/ui/DualSpinner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { submitVendoWeb3Forms, type VendoWeb3FormsPayload } from '@/lib/vendo/web3forms';
 import type { VendoMovementType, VendoRequest } from '@/lib/vendo/types';
+import { errorMessage, notify } from '@/lib/notifications';
 
 const initialForm = {
   branchCode: '',
@@ -80,7 +81,6 @@ export default function AltaVendoPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [notice, setNotice] = useState<{ type: 'success' | 'warning' | 'error'; message: string } | null>(null);
 
   const orderedBranches = useMemo(() => {
     const own = new Set((me?.branches ?? []).map((branch) => branch.toLowerCase()));
@@ -107,7 +107,7 @@ export default function AltaVendoPage() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      setNotice({ type: 'error', message: `No se pudo cargar el historial: ${error.message}` });
+      notify.error(`No se pudo cargar el historial: ${error.message}`);
       setRequests([]);
     } else {
       const next = (data ?? []) as VendoRequest[];
@@ -169,7 +169,6 @@ export default function AltaVendoPage() {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setNotice(null);
     setSubmitting(true);
 
     try {
@@ -190,28 +189,22 @@ export default function AltaVendoPage() {
           const result = await submitVendoWeb3Forms(payload.notificationPayload as VendoWeb3FormsPayload);
           await updateNotificationStatus(token, savedRequest.id, 'sent');
           notificationMessage = result.message;
-          setNotice({
-            type: 'success',
-            message: `La solicitud se registró correctamente. Web3Forms confirmó: ${result.message}`,
-          });
+          notify.success(`La solicitud se registró correctamente. Web3Forms confirmó: ${result.message}`);
         } catch (notificationError) {
           const message = notificationError instanceof Error ? notificationError.message : 'Error desconocido de Web3Forms.';
           await updateNotificationStatus(token, savedRequest.id, 'failed', message).catch(() => null);
           notificationMessage = message;
-          setNotice({
-            type: 'warning',
-            message: `La solicitud quedó guardada, pero Web3Forms no pudo enviar la notificación: ${message}`,
-          });
+          notify.warning(`La solicitud quedó guardada, pero Web3Forms no pudo enviar la notificación: ${message}`);
         }
       } else {
-        setNotice({ type: 'warning', message: payload.warning ?? 'La solicitud se guardó sin enviar notificación.' });
+        notify.warning(payload.warning ?? 'La solicitud se guardó sin enviar notificación.');
       }
 
       console.info('[vendo] Web3Forms', notificationMessage);
       setForm((current) => ({ ...initialForm, branchCode: current.branchCode, movementType: current.movementType }));
       await loadHistory();
     } catch (error) {
-      setNotice({ type: 'error', message: error instanceof Error ? error.message : 'Ocurrió un error inesperado.' });
+      notify.error(errorMessage(error));
     } finally {
       setSubmitting(false);
     }
@@ -236,15 +229,14 @@ export default function AltaVendoPage() {
     if (!confirmed) return;
 
     setDeletingId(request.id);
-    setNotice(null);
     try {
       const deletedIds = await deleteRequestIds([request.id]);
       const deletedSet = new Set(deletedIds);
       setRequests((current) => current.filter((row) => !deletedSet.has(row.id)));
       setSelectedIds((current) => new Set([...current].filter((id) => !deletedSet.has(id))));
-      setNotice({ type: 'success', message: 'La solicitud se eliminó definitivamente.' });
+      notify.success('La solicitud se eliminó definitivamente.');
     } catch (error) {
-      setNotice({ type: 'error', message: error instanceof Error ? error.message : 'No se pudo eliminar la solicitud.' });
+      notify.error(errorMessage(error, 'No se pudo eliminar la solicitud.'));
     } finally {
       setDeletingId(null);
     }
@@ -256,15 +248,14 @@ export default function AltaVendoPage() {
     if (!window.confirm(`¿Eliminar definitivamente ${ids.length} solicitud${ids.length === 1 ? '' : 'es'}? Esta acción no se puede deshacer.`)) return;
 
     setBulkDeleting(true);
-    setNotice(null);
     try {
       const deletedIds = await deleteRequestIds(ids);
       const deletedSet = new Set(deletedIds);
       setRequests((current) => current.filter((row) => !deletedSet.has(row.id)));
       setSelectedIds(new Set());
-      setNotice({ type: 'success', message: `${deletedIds.length} solicitud${deletedIds.length === 1 ? '' : 'es'} eliminada${deletedIds.length === 1 ? '' : 's'}.` });
+      notify.success(`${deletedIds.length} solicitud${deletedIds.length === 1 ? '' : 'es'} eliminada${deletedIds.length === 1 ? '' : 's'}.`);
     } catch (error) {
-      setNotice({ type: 'error', message: error instanceof Error ? error.message : 'No se pudieron eliminar las solicitudes.' });
+      notify.error(errorMessage(error, 'No se pudieron eliminar las solicitudes.'));
     } finally {
       setBulkDeleting(false);
     }
@@ -344,8 +335,6 @@ export default function AltaVendoPage() {
                 <div className="md:col-span-2"><Field label="Motivo del movimiento"><textarea required minLength={3} maxLength={1000} rows={4} value={form.reason} onChange={(event) => setField('reason', event.target.value)} placeholder="Describa la razón del alta o baja" className="min-h-[108px] w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-red-500 focus:ring-4 focus:ring-red-100" /></Field></div>
               </div>
             </div>
-
-            {notice && <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : notice.type === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-red-200 bg-red-50 text-red-800'}`}>{notice.message}</div>}
 
             <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-end">
               <button type="button" onClick={() => setForm((current) => ({ ...initialForm, branchCode: current.branchCode }))} disabled={submitting} className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">Limpiar</button>

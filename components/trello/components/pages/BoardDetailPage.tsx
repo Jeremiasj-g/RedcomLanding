@@ -76,6 +76,7 @@ import type {
   UpdateBoardTaskCardInput,
 } from '../../types/trello';
 import { boardCovers, getBoardCoverStyle } from '../../utils/trelloDesignData';
+import { errorMessage, notify } from '@/lib/notifications';
 
 const defaultBoardGradient = 'linear-gradient(135deg, #075985 0%, #0369a1 50%, #0f172a 100%)';
 
@@ -753,9 +754,11 @@ function AddCardComposer({ listId, onCreate }: { listId: string; onCreate: (list
 
     setTitle('');
     window.setTimeout(() => textareaRef.current?.focus(), 0);
-    void onCreate(listId, cleanTitle).catch((error) => {
+    void onCreate(listId, cleanTitle)
+      .then(() => notify.success('Tarjeta creada.'))
+      .catch((error) => {
       console.error('[Tableros] No se pudo crear la tarjeta', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudo crear la tarjeta.');
+      notify.error(errorMessage(error, 'No se pudo crear la tarjeta.'));
     });
   };
 
@@ -847,9 +850,11 @@ function AddListComposer({ boardId, onCreate }: { boardId: string; onCreate: (bo
 
     setTitle('');
     window.setTimeout(() => inputRef.current?.focus(), 0);
-    void onCreate(boardId, cleanTitle).catch((error) => {
+    void onCreate(boardId, cleanTitle)
+      .then(() => notify.success('Lista creada.'))
+      .catch((error) => {
       console.error('[Tableros] No se pudo crear la lista', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudo crear la lista.');
+      notify.error(errorMessage(error, 'No se pudo crear la lista.'));
     });
   };
 
@@ -1080,7 +1085,7 @@ function EditableBoardListTitle({
   const save = async () => {
     const cleanTitle = draft.trim();
     if (!cleanTitle) {
-      window.alert('El nombre de la lista no puede quedar vacío.');
+      notify.warning('El nombre de la lista no puede quedar vacío.');
       setDraft(title);
       setEditing(false);
       return;
@@ -1212,15 +1217,17 @@ function BoardListColumn({
     const confirmed = window.confirm(`¿Querés eliminar la lista "${list.title}" y todas sus tarjetas? Esta acción no se puede deshacer.`);
     if (!confirmed) return;
     setIsOptionsOpen(false);
-    void onDeleteList(list.id).catch((error) => {
+    void onDeleteList(list.id)
+      .then(() => notify.success('Lista eliminada.'))
+      .catch((error) => {
       console.error('[Tableros] No se pudo eliminar lista', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudo eliminar la lista.');
+      notify.error(errorMessage(error, 'No se pudo eliminar la lista.'));
     });
   };
 
   const handleEmptyList = () => {
     if (list.cards.length === 0) {
-      window.alert('Esta lista ya está vacía.');
+      notify.warning('Esta lista ya está vacía.');
       setIsOptionsOpen(false);
       return;
     }
@@ -1228,9 +1235,11 @@ function BoardListColumn({
     const confirmed = window.confirm(`¿Querés vaciar la lista "${list.title}"? Se eliminarán ${list.cards.length} tarjeta${list.cards.length === 1 ? '' : 's'}.`);
     if (!confirmed) return;
     setIsOptionsOpen(false);
-    void onEmptyList(list.id).catch((error) => {
+    void onEmptyList(list.id)
+      .then(() => notify.success('Lista vaciada.'))
+      .catch((error) => {
       console.error('[Tableros] No se pudo vaciar lista', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudo vaciar la lista.');
+      notify.error(errorMessage(error, 'No se pudo vaciar la lista.'));
     });
   };
 
@@ -2466,7 +2475,7 @@ function ChecklistItemRow({
   const saveTitle = () => {
     const cleanTitle = draft.trim();
     if (!cleanTitle) {
-      window.alert('El elemento no puede quedar vacío. Para quitarlo usá el botón eliminar.');
+      notify.warning('El elemento no puede quedar vacío. Para quitarlo usá el botón eliminar.');
       setDraft(item.title);
       setEditing(false);
       return;
@@ -2846,7 +2855,7 @@ function BoardTitleEditor({
   const save = async () => {
     const cleanTitle = draft.trim();
     if (!cleanTitle) {
-      window.alert('El nombre del tablero no puede quedar vacío.');
+      notify.warning('El nombre del tablero no puede quedar vacío.');
       setDraft(board.title);
       setEditing(false);
       return;
@@ -3087,7 +3096,7 @@ function CardDetailModal({
 
     void applyLocalCardUpdate({ labels: nextLabels }).catch((error) => {
       console.error('[Tableros] No se pudieron actualizar etiquetas', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudieron actualizar las etiquetas.');
+      notify.error(errorMessage(error, 'No se pudieron actualizar las etiquetas.'));
     });
   };
 
@@ -3098,7 +3107,7 @@ function CardDetailModal({
 
     void applyLocalCardUpdate({ members: nextMembers }).catch((error) => {
       console.error('[Tableros] No se pudieron actualizar miembros', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudieron actualizar los miembros.');
+      notify.error(errorMessage(error, 'No se pudieron actualizar los miembros.'));
     });
   };
 
@@ -3108,7 +3117,7 @@ function CardDetailModal({
     setActivePopover(null);
     void updateCardWithActivity(input, 'ha actualizado las fechas de esta tarjeta').catch((error) => {
       console.error('[Tableros] No se pudieron guardar fechas', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudieron guardar las fechas.');
+      notify.error(errorMessage(error, 'No se pudieron guardar las fechas.'));
     });
   };
 
@@ -3126,7 +3135,7 @@ function CardDetailModal({
       'ha quitado las fechas de esta tarjeta',
     ).catch((error) => {
       console.error('[Tableros] No se pudieron quitar fechas', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudieron quitar las fechas.');
+      notify.error(errorMessage(error, 'No se pudieron quitar las fechas.'));
     });
   };
 
@@ -3157,7 +3166,7 @@ function CardDetailModal({
       `ha añadido ${newChecklist.title} a esta tarjeta`,
     ).catch((error) => {
       console.error('[Tableros] No se pudo crear checklist', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudo crear el checklist.');
+      notify.error(errorMessage(error, 'No se pudo crear el checklist.'));
     });
   };
 
@@ -3172,7 +3181,7 @@ function CardDetailModal({
       `ha quitado ${checklist?.title ?? 'un checklist'} de esta tarjeta`,
     ).catch((error) => {
       console.error('[Tableros] No se pudo eliminar checklist', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudo eliminar el checklist.');
+      notify.error(errorMessage(error, 'No se pudo eliminar el checklist.'));
     });
   };
 
@@ -3187,7 +3196,7 @@ function CardDetailModal({
 
     void updateCardWithActivity({ checklists: nextChecklists }, 'ha actualizado un checklist de esta tarjeta').catch((error) => {
       console.error('[Tableros] No se pudo renombrar checklist', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudo renombrar el checklist.');
+      notify.error(errorMessage(error, 'No se pudo renombrar el checklist.'));
     });
   };
 
@@ -3218,7 +3227,7 @@ function CardDetailModal({
 
     void applyLocalCardUpdate({ checklists: nextChecklists }).catch((error) => {
       console.error('[Tableros] No se pudo actualizar checklist', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el checklist.');
+      notify.error(errorMessage(error, 'No se pudo actualizar el checklist.'));
     });
   };
 
@@ -3239,7 +3248,7 @@ function CardDetailModal({
 
     void applyLocalCardUpdate({ checklists: nextChecklists }).catch((error) => {
       console.error('[Tableros] No se pudo actualizar checklist', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el checklist.');
+      notify.error(errorMessage(error, 'No se pudo actualizar el checklist.'));
     });
   };
 
@@ -3249,7 +3258,7 @@ function CardDetailModal({
     input: Partial<Pick<BoardTaskChecklistItem, 'title' | 'assignedTo' | 'dueDate' | 'dueTime' | 'dueDateEnabled'>>,
   ) => {
     if (input.title !== undefined && !input.title.trim()) {
-      window.alert('El elemento no puede quedar vacío.');
+      notify.warning('El elemento no puede quedar vacío.');
       return;
     }
 
@@ -3275,7 +3284,7 @@ function CardDetailModal({
 
     void applyLocalCardUpdate({ checklists: nextChecklists }).catch((error) => {
       console.error('[Tableros] No se pudo actualizar checklist', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el checklist.');
+      notify.error(errorMessage(error, 'No se pudo actualizar el checklist.'));
     });
   };
 
@@ -3299,7 +3308,7 @@ function CardDetailModal({
 
     void applyLocalCardUpdate({ checklists: nextChecklists }).catch((error) => {
       console.error('[Tableros] No se pudo actualizar checklist', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el checklist.');
+      notify.error(errorMessage(error, 'No se pudo actualizar el checklist.'));
     });
   };
 
@@ -3807,9 +3816,11 @@ export function BoardDetailPage() {
         })();
 
     clearDndState();
-    void pendingAction?.catch((error) => {
+    void pendingAction
+      ?.then(() => notify.success('Movimiento guardado.'))
+      .catch((error) => {
       console.error('[Tableros] No se pudo guardar drag and drop', error);
-      window.alert(error instanceof Error ? error.message : 'No se pudo guardar el movimiento.');
+      notify.error(errorMessage(error, 'No se pudo guardar el movimiento.'));
     });
   };
 
@@ -3829,13 +3840,13 @@ export function BoardDetailPage() {
   const handleToggleBoardMember = async (memberId: string) => {
     if (!selectedBoard) return;
     if (!canManageSelectedBoard) {
-      window.alert('Solo el creador del tablero o un administrador del tablero puede invitar o quitar miembros.');
+      notify.warning('Solo el creador del tablero o un administrador del tablero puede invitar o quitar miembros.');
       return;
     }
 
     const currentMemberIds = selectedBoard.memberIds && selectedBoard.memberIds.length > 0 ? selectedBoard.memberIds : [];
     if (selectedBoard.createdBy === memberId && currentMemberIds.includes(memberId)) {
-      window.alert('El creador del tablero siempre conserva acceso. Podés cambiar roles de otros miembros desde Colaboradores.');
+      notify.warning('El creador del tablero siempre conserva acceso. Podés cambiar roles de otros miembros desde Colaboradores.');
       return;
     }
 
@@ -3849,23 +3860,24 @@ export function BoardDetailPage() {
   const handleDeleteCurrentBoard = async () => {
     if (!selectedBoard) return;
     if (!canManageSelectedBoard) {
-      window.alert('Solo un administrador del tablero o del espacio puede eliminar este tablero.');
+      notify.warning('Solo un administrador del tablero o del espacio puede eliminar este tablero.');
       return;
     }
     const confirmed = window.confirm(`¿Querés eliminar el tablero "${selectedBoard.title}"? Esta acción no se puede deshacer.`);
     if (!confirmed) return;
     setIsBoardOptionsOpen(false);
     await deleteBoard(selectedBoard.id);
+    notify.success('Tablero eliminado.');
   };
 
   const handleEmptyCurrentBoard = async () => {
     if (!selectedBoard) return;
     if (!canManageSelectedBoard) {
-      window.alert('Solo un administrador puede vaciar este tablero.');
+      notify.warning('Solo un administrador puede vaciar este tablero.');
       return;
     }
     if (selectedBoardLists.length === 0) {
-      window.alert('Este tablero ya está vacío.');
+      notify.warning('Este tablero ya está vacío.');
       setIsBoardOptionsOpen(false);
       return;
     }
@@ -3881,7 +3893,7 @@ export function BoardDetailPage() {
 
   const handleToggleListSelectionMode = () => {
     if (!canManageSelectedBoard) {
-      window.alert('Solo un administrador puede marcar listas para eliminarlas.');
+      notify.warning('Solo un administrador puede marcar listas para eliminarlas.');
       return;
     }
     setListSelectionMode((current) => {
@@ -3900,7 +3912,7 @@ export function BoardDetailPage() {
   const handleToggleBoardVisibility = async () => {
     if (!selectedBoard) return;
     if (!canManageSelectedBoard) {
-      window.alert('Solo un administrador puede cambiar la visibilidad del tablero.');
+      notify.warning('Solo un administrador puede cambiar la visibilidad del tablero.');
       return;
     }
     await updateBoard(selectedBoard.id, { visibility: selectedBoard.visibility === 'publico' ? 'privado' : 'publico' });
@@ -3909,7 +3921,7 @@ export function BoardDetailPage() {
   const handleChangeBoardCover = async (coverIndex: number) => {
     if (!selectedBoard) return;
     if (!canManageSelectedBoard) {
-      window.alert('Solo un administrador puede cambiar el fondo del tablero.');
+      notify.warning('Solo un administrador puede cambiar el fondo del tablero.');
       return;
     }
     await updateBoard(selectedBoard.id, { cover: boardCovers[coverIndex] ?? boardCovers[0] });

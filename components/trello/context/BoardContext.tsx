@@ -33,6 +33,7 @@ import { boardCovers } from '../utils/trelloDesignData';
 import { trelloSocketClient } from '../lib/socket/trelloSocketClient';
 import { TrelloOperationQueue, type TrelloSyncStatus } from '../lib/sync/trelloOperationQueue';
 import { filterBoards, filterMembers } from '../utils/trelloUtils';
+import { errorMessage, notify } from '@/lib/notifications';
 
 interface BoardContextValue {
   activeView: AppView;
@@ -337,7 +338,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   const reportBackgroundError = useCallback((error: unknown, fallbackMessage: string) => {
     console.error('[Tableros] Mutación en segundo plano fallida', error);
     if (typeof window !== 'undefined') {
-      window.alert(error instanceof Error ? error.message : fallbackMessage);
+      notify.error(errorMessage(error, fallbackMessage));
     }
   }, []);
 

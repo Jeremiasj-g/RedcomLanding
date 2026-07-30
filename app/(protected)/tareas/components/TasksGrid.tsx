@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
@@ -12,8 +13,7 @@ import {
   type DragStartEvent,
   useDroppable,
 } from '@dnd-kit/core';
-import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, Copy, Loader2, Trash2 } from 'lucide-react';
+import { CheckCircle2, Loader2, Pencil, StickyNote, Trash2 } from 'lucide-react';
 import { deleteTask } from '@/lib/tasks';
 import { useTasks } from '../TasksContext';
 import type { Task } from '@/lib/tasks';
@@ -21,6 +21,8 @@ import TaskCard from './TaskCard';
 import { useTasksGrouping } from '../hooks/useTasksGrouping';
 import { useTaskDuplicator } from '../hooks/useTaskDuplicator';
 import { useTaskRescheduler } from '../hooks/useTaskRescheduler';
+import { isoToLocalYMD, toYMD } from '../date';
+import { notify } from '@/lib/notifications';
 
 type Props = {
   statusFilter: 'all' | Task['status'];
@@ -106,9 +108,9 @@ const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
 
 // Columna (día) activa para pegar (click en el contenedor/encabezado)
 const [activeDayKey, setActiveDayKey] = useState<string | null>(() => {
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const fromKey = range.from.toISOString().slice(0, 10);
-  const toKey = range.to.toISOString().slice(0, 10);
+  const todayKey = toYMD(new Date());
+  const fromKey = toYMD(range.from);
+  const toKey = toYMD(range.to);
   if (todayKey >= fromKey && todayKey <= toKey) return todayKey;
   return fromKey;
 });
@@ -122,15 +124,8 @@ const ctrlPressedRef = useRef(false);
 const [dragCopyTaskId, setDragCopyTaskId] = useState<number | null>(null);
 const [dragCopyDays, setDragCopyDays] = useState<Set<string>>(() => new Set());
 const dragCopyStartDayRef = useRef<string | null>(null);
-
-const [toastMsg, setToastMsg] = useState<string | null>(null);
-const toastTimerRef = useRef<number | null>(null);
-
-function showToast(msg: string) {
-  setToastMsg(msg);
-  if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-  toastTimerRef.current = window.setTimeout(() => setToastMsg(null), 2400);
-}
+const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
+const [activeDragWidth, setActiveDragWidth] = useState<number | null>(null);
 
 function isEditableTarget(el: EventTarget | null) {
   if (!el || !(el instanceof HTMLElement)) return false;
@@ -140,10 +135,6 @@ function isEditableTarget(el: EventTarget | null) {
   // por si el click cae dentro de un editor rich-text
   if (el.closest?.('[contenteditable="true"]')) return true;
   return false;
-}
-
-function ymd(d: Date) {
-  return d.toISOString().slice(0, 10);
 }
 
 function isSameYMD(a: string, b: string) {
@@ -162,14 +153,14 @@ function betweenInclusive(dayKeys: string[], a: string, b: string) {
 
 useEffect(() => {
   // Si cambia el rango y el día activo queda fuera, lo reubicamos
-  const fromKey = range.from.toISOString().slice(0, 10);
-  const toKey = range.to.toISOString().slice(0, 10);
+  const fromKey = toYMD(range.from);
+  const toKey = toYMD(range.to);
   if (!activeDayKey) {
     setActiveDayKey(fromKey);
     return;
   }
   if (activeDayKey < fromKey || activeDayKey > toKey) {
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = toYMD(new Date());
     if (todayKey >= fromKey && todayKey <= toKey) setActiveDayKey(todayKey);
     else setActiveDayKey(fromKey);
   }
@@ -207,7 +198,7 @@ useEffect(() => {
       if (!t) return;
       ev.preventDefault();
       clipboardRef.current = { task: t, timeHHmm: hhmmFromISO(t.scheduled_at) };
-      showToast('Tarea copiada');
+      notify.info('Tarea copiada');
       return;
     }
 
@@ -219,7 +210,7 @@ useEffect(() => {
       const { task, timeHHmm } = clipboardRef.current;
 
       // destino: día activo (si no hay, usamos el día del task copiado)
-      const fallbackDayKey = task.scheduled_at.slice(0, 10);
+      const fallbackDayKey = isoToLocalYMD(task.scheduled_at);
       const targetDayKey = activeDayKey ?? fallbackDayKey;
 
       try {
@@ -230,9 +221,10 @@ useEffect(() => {
         setSelectedTaskId(created.id);
         // también activamos la columna destino
         setActiveDayKey(targetDayKey);
-        showToast(`Tarea pegada en ${targetDayKey}`);
+        notify.success(`Tarea pegada en ${targetDayKey}`);
       } catch (err) {
         console.error('Error pasting task', err);
+      notify.error('No se pudo pegar la tarea.');
       }
       return;
     }
@@ -247,9 +239,10 @@ useEffect(() => {
       try {
         await deleteTask(last.taskId);
         setTasks((prev) => prev.filter((t) => t.id !== last.taskId));
-        showToast('Pegado deshecho');
+        notify.info('Pegado deshecho');
       } catch (err) {
         console.error('Error undo paste', err);
+        notify.error('No se pudo deshacer el pegado.');
       }
     }
   };
@@ -262,7 +255,7 @@ useEffect(() => {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
 
-  const dayKeysInRange = daysInRange.map(ymd);
+  const dayKeysInRange = daysInRange.map(toYMD);
 
   const resolveDayKeyFromOverId = (overId: string | null) => {
     if (!overId) return null;
@@ -270,7 +263,7 @@ useEffect(() => {
     if (overId.startsWith('task:')) {
       const overTaskId = Number(overId.replace('task:', ''));
       const overTask = allTasksById[overTaskId];
-      return overTask ? overTask.scheduled_at.slice(0, 10) : null;
+      return overTask ? isoToLocalYMD(overTask.scheduled_at) : null;
     }
     return null;
   };
@@ -282,9 +275,14 @@ useEffect(() => {
     const t = allTasksById[taskId];
     if (!t) return;
 
+    // Guardamos una instantánea estable para el overlay y para onDragEnd.
+    // Así no dependemos de que la lista filtrada cambie mientras arrastramos.
+    setActiveDragTask(t);
+    setActiveDragWidth(e.active.rect.current.initial?.width ?? null);
+
     if (ctrlPressedRef.current) {
       setDragCopyTaskId(taskId);
-      dragCopyStartDayRef.current = t.scheduled_at.slice(0, 10);
+      dragCopyStartDayRef.current = isoToLocalYMD(t.scheduled_at);
       setDragCopyDays(new Set());
     }
   };
@@ -304,7 +302,9 @@ useEffect(() => {
     setDragCopyDays(next);
   };
 
-  const clearDragCopy = () => {
+  const clearDragState = () => {
+    setActiveDragTask(null);
+    setActiveDragWidth(null);
     setDragCopyTaskId(null);
     dragCopyStartDayRef.current = null;
     setDragCopyDays(new Set());
@@ -313,50 +313,47 @@ useEffect(() => {
   const onDragEnd = async (e: DragEndEvent) => {
     const activeId = String(e.active.id);
     const overId = e.over?.id ? String(e.over.id) : null;
-    if (!overId) {
-      clearDragCopy();
-      return;
-    }
 
-    if (!activeId.startsWith('task:')) {
-      clearDragCopy();
+    if (!activeId.startsWith('task:') || !overId) {
+      clearDragState();
       return;
     }
 
     const taskId = Number(activeId.replace('task:', ''));
-    const activeTask = allTasksById[taskId];
-    if (!activeTask) {
-      clearDragCopy();
-      return;
-    }
-
+    const activeTask =
+      activeDragTask?.id === taskId
+        ? activeDragTask
+        : allTasksById[taskId];
     const targetDayKey = resolveDayKeyFromOverId(overId);
 
-    if (!targetDayKey) {
-      clearDragCopy();
+    if (!activeTask || !targetDayKey) {
+      clearDragState();
       return;
     }
 
-    const sameDay = activeTask.scheduled_at.slice(0, 10) === targetDayKey;
+    const sourceDayKey = isoToLocalYMD(activeTask.scheduled_at);
+    const sameDay = sourceDayKey === targetDayKey;
+    const copyMode = ctrlPressedRef.current;
+    const copyDaysSnapshot = dragCopyDays.size
+      ? Array.from(dragCopyDays)
+      : [targetDayKey].filter((dayKey) => dayKey !== sourceDayKey);
+
+    // DragOverlay mantiene estable el nodo arrastrado. Podemos cerrar el drag
+    // y actualizar el estado optimista de inmediato, sin la demora visual anterior.
+    clearDragState();
 
     try {
-      // ✅ Ctrl/Cmd + Drag => copiar al soltar (la original queda)
-      if (ctrlPressedRef.current) {
+      if (copyMode) {
         const timeHHmm = hhmmFromISO(activeTask.scheduled_at);
-
-        // Si construimos rastro (range), copiamos a todos esos días.
-        const startDay = activeTask.scheduled_at.slice(0, 10);
-        const daysToCopy = dragCopyDays.size
-          ? Array.from(dragCopyDays)
-          : [targetDayKey].filter((k) => !isSameYMD(k, startDay));
-
         let createdLast: Task | null = null;
-        for (const dayKey of daysToCopy) {
-          // evitamos duplicar en el mismo día de origen
-          if (isSameYMD(dayKey, startDay)) continue;
+        let createdCount = 0;
+
+        for (const dayKey of copyDaysSnapshot) {
+          if (dayKey === sourceDayKey) continue;
           const created = await duplicate(activeTask, dayKey, timeHHmm);
           undoStackRef.current.push({ type: 'paste', taskId: created.id });
           createdLast = created;
+          createdCount += 1;
         }
 
         if (createdLast) {
@@ -364,60 +361,46 @@ useEffect(() => {
           setActiveDayKey(targetDayKey);
         }
 
-        const n = daysToCopy.length;
-        showToast(
-          n <= 1
-            ? `Tarea copiada a ${targetDayKey}`
-            : `Tarea copiada en ${n} días`,
-        );
+        if (createdCount > 0) {
+          notify.success(
+            createdCount === 1
+              ? `Tarea copiada a ${targetDayKey}`
+              : `Tarea copiada en ${createdCount} días`,
+          );
+        }
         return;
       }
 
-      // normal: mover
       if (sameDay) return;
+
       await moveTaskToDay(activeTask, targetDayKey);
+      setActiveDayKey(targetDayKey);
+      notify.success(`Tarea movida a ${targetDayKey}`);
     } catch (err) {
       console.error('Error moving task via DnD', err);
-    } finally {
-      clearDragCopy();
+      notify.error('No se pudo mover la tarea. Se restauró su ubicación anterior.');
     }
   };
+
 
   return (
     <DndContext
       sensors={sensors}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
-      onDragCancel={clearDragCopy}
+      onDragCancel={clearDragState}
       onDragEnd={onDragEnd}
     >
-      <AnimatePresence initial={false}>
-        {toastMsg && (
-          <motion.div
-            key="toast"
-            aria-live="polite"
-            initial={{ opacity: 0, y: -10, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.98 }}
-            transition={{ duration: 0.18 }}
-            className="fixed left-1/2 top-5 z-[70] -translate-x-1/2"
-          >
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-700/60 bg-gradient-to-b from-slate-950/90 to-slate-900/80 px-4 py-2 text-sm text-slate-50 shadow-2xl shadow-black/50 backdrop-blur">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-sky-500/15 text-sky-200 ring-1 ring-sky-400/30">
-                {toastMsg.toLowerCase().includes('copiad') ? (
-                  <Copy className="h-4 w-4" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-              </span>
-              <span className="font-medium">{toastMsg}</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+      <DragOverlay dropAnimation={null} zIndex={80}>
+        {activeDragTask ? (
+          <TaskDragOverlayCard task={activeDragTask} width={activeDragWidth} />
+        ) : null}
+      </DragOverlay>
+
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {daysInRange.map((day) => {
-          const dayKey = day.toISOString().slice(0, 10);
+          const dayKey = toYMD(day);
           const list = tasksByDay[dayKey] || [];
 
           const label = day.toLocaleDateString('es-AR', {
@@ -426,7 +409,7 @@ useEffect(() => {
             month: 'short',
           });
 
-          const isToday = new Date().toISOString().slice(0, 10) === dayKey;
+          const isToday = toYMD(new Date()) === dayKey;
 
           return (
             <DayColumn
@@ -448,34 +431,33 @@ useEffect(() => {
                 !!dragCopyTaskId && dragCopyDays.has(dayKey)
               }
             >
-              <AnimatePresence initial={false}>
-                {list.map((task) => (
-                  <motion.div
-                    key={task.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.16 }}
-                  >
-                    <TaskCard
-                      dndId={taskDragId(task.id)}
-                      task={task}
-                      BRIEF_STATUS={BRIEF_STATUS}
-                      changingStatusId={changingStatusId}
-                      savingNotesId={savingNotesId}
-                      deletingId={deletingId}
-                      onToggleStatus={onToggleStatus}
-                      onSaveNotes={onSaveNotes}
-                      onDelete={onDelete}onOpenDetail={() => { setSelectedTaskId(task.id); onSelectTask(task); }}
-                      onQuickCopy={(t: Task) => {
-                        clipboardRef.current = { task: t, timeHHmm: hhmmFromISO(t.scheduled_at) };
-                        setSelectedTaskId(t.id);
-                        showToast('Tarea copiada');
-                      }}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+              {list.map((task) => (
+                <div key={task.id}>
+                  <TaskCard
+                    dndId={taskDragId(task.id)}
+                    task={task}
+                    BRIEF_STATUS={BRIEF_STATUS}
+                    changingStatusId={changingStatusId}
+                    savingNotesId={savingNotesId}
+                    deletingId={deletingId}
+                    onToggleStatus={onToggleStatus}
+                    onSaveNotes={onSaveNotes}
+                    onDelete={onDelete}
+                    onOpenDetail={() => {
+                      setSelectedTaskId(task.id);
+                      onSelectTask(task);
+                    }}
+                    onQuickCopy={(t: Task) => {
+                      clipboardRef.current = {
+                        task: t,
+                        timeHHmm: hhmmFromISO(t.scheduled_at),
+                      };
+                      setSelectedTaskId(t.id);
+                      notify.info('Tarea copiada');
+                    }}
+                  />
+                </div>
+              ))}
             </DayColumn>
           );
         })}
@@ -564,6 +546,74 @@ function DayColumn({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function TaskDragOverlayCard({
+  task,
+  width,
+}: {
+  task: Task;
+  width: number | null;
+}) {
+  const statusPill =
+    task.status === 'done'
+      ? 'bg-emerald-500/15 text-emerald-300'
+      : task.status === 'in_progress'
+        ? 'bg-sky-500/15 text-sky-300'
+        : task.status === 'cancelled'
+          ? 'bg-rose-500/15 text-rose-300'
+          : 'bg-slate-700/60 text-slate-200';
+
+  const statusLabel =
+    task.status === 'done'
+      ? 'Completada'
+      : task.status === 'in_progress'
+        ? 'En progreso'
+        : task.status === 'cancelled'
+          ? 'Cancelada'
+          : 'Pendiente';
+
+  return (
+    <div
+      style={{ width: width ?? 260 }}
+      className="pointer-events-none select-none rounded-xl border border-slate-800 bg-gray-700/70 p-2 text-xs text-slate-100 opacity-75 shadow-sm shadow-slate-950/60"
+    >
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusPill}`}
+        >
+          <CheckCircle2 className="h-3 w-3" />
+          {statusLabel}
+        </span>
+        <span className="text-[10px] text-slate-400">
+          {hhmmFromISO(task.scheduled_at)}
+        </span>
+      </div>
+
+      <div className="text-[11px] font-medium leading-tight">{task.title}</div>
+      {task.description ? (
+        <div className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">
+          {task.description}
+        </div>
+      ) : null}
+
+      <div className="mt-2 flex items-center gap-1">
+        <StickyNote className="h-3 w-3 text-slate-500" />
+        <div className="min-w-0 flex-1 truncate rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-[11px] text-slate-400">
+          {task.notes?.trim() || 'Notas / observaciones...'}
+        </div>
+        <span className="rounded-lg bg-slate-800 px-2 py-1 text-[10px] text-slate-200">
+          OK
+        </span>
+        <span className="rounded-lg bg-slate-900/80 p-1 text-slate-400">
+          <Pencil className="h-3 w-3" />
+        </span>
+        <span className="rounded-lg bg-slate-900/80 p-1 text-slate-500">
+          <Trash2 className="h-3 w-3" />
+        </span>
+      </div>
     </div>
   );
 }

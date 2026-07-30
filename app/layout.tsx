@@ -1,10 +1,12 @@
 import './globals.css';
+import 'react-toastify/dist/ReactToastify.css';
 import { Montserrat } from 'next/font/google';
 import type { Metadata } from 'next';
 import Navbar from '@/components/navbar/Navbar';
 import Footer from '@/components/Footer';
 import FloatingTelegramButton from '@/components/Icons/FloatingTelegramButton';
 import AuthProvider from '@/app/auth/AuthProvider';
+import ReactToastProvider from '@/components/providers/ReactToastProvider';
 
 const montserrat = Montserrat({
   subsets: ['latin'],
@@ -41,6 +43,7 @@ export default function RootLayout({
           {/* Botón flotante de Telegram */}
           {/* <FloatingTelegramButton /> */}
           <Footer />
+          <ReactToastProvider />
         </AuthProvider>
       </body>
     </html>

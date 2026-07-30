@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { notify } from '@/lib/notifications';
 import {
   Users,
   UserCheck,
@@ -150,13 +151,6 @@ export default function AdminUsersPage() {
   const [pwdUserId, setPwdUserId] = useState<string | null>(null);
   const [pwdUserEmail, setPwdUserEmail] = useState<string | undefined>(undefined);
 
-  // Toast simple
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
-  const showToast = (t: 'success' | 'error', msg: string) => {
-    setToast({ type: t, msg });
-    setTimeout(() => setToast(null), 3000);
-  };
-
   const load = async () => {
     setError(null);
 
@@ -246,10 +240,10 @@ export default function AdminUsersPage() {
       if (!res.ok) throw new Error(j.error ?? 'Error al guardar cambios');
 
       await load();
-      showToast('success', 'Cambios guardados');
+      notify.success( 'Cambios guardados');
     } catch (e: any) {
       console.error('admin_update_user error', e);
-      showToast('error', e.message ?? 'Error al guardar cambios');
+      notify.error( e.message ?? 'Error al guardar cambios');
     } finally {
       setSaving(null);
     }
@@ -257,7 +251,7 @@ export default function AdminUsersPage() {
 
   const openToggleModal = (u: Row) => {
     if (isSelf(u)) {
-      showToast('error', 'No podés cambiar tu propio estado.');
+      notify.error( 'No podés cambiar tu propio estado.');
       return;
     }
     setTargetUser(u);
@@ -296,10 +290,10 @@ export default function AdminUsersPage() {
 
       setConfirmOpen(false);
       await load();
-      showToast('success', desired ? 'Usuario activado' : 'Usuario desactivado');
+      notify.success( desired ? 'Usuario activado' : 'Usuario desactivado');
     } catch (e: any) {
       console.error('admin_update_user toggle error', e);
-      showToast('error', e.message ?? 'Error al actualizar usuario');
+      notify.error( e.message ?? 'Error al actualizar usuario');
     } finally {
       setActing(false);
     }
@@ -365,19 +359,6 @@ export default function AdminUsersPage() {
   return (
     <RequireAuth roles={['admin']}>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        {/* Toast */}
-        {toast && (
-          <div
-            className={`fixed right-4 top-4 z-[60] rounded-lg px-4 py-3 shadow-lg border ${
-              toast.type === 'success'
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                : 'bg-red-50 border-red-200 text-red-800'
-            }`}
-          >
-            {toast.msg}
-          </div>
-        )}
-
         {/* Modal activar/desactivar */}
         {confirmOpen && targetUser && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">

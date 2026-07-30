@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useMe } from '@/hooks/useMe';
 import { RequireAuth } from '@/components/RouteGuards';
+import { errorMessage, notify } from '@/lib/notifications';
 
 import FocosToolbar from '@/components/focos/FocosToolbar';
 import FocoCard from '@/components/focos/FocoCard';
@@ -141,7 +142,7 @@ export default function FocosFeed() {
       }
     } catch (e) {
       console.error('[FOCOS] toggleCompleted error', e);
-      alert('No se pudo actualizar el estado. Revisá consola.');
+      notify.error(errorMessage(e, 'No se pudo actualizar el estado.'));
     } finally {
       setBusyId(null);
     }

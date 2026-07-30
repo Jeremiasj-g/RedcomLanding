@@ -2,6 +2,7 @@ import { Globe2, LockKeyhole, MoreHorizontal, Pencil, Star, Trash2 } from 'lucid
 import { KeyboardEvent, useEffect, useRef, useState } from 'react';
 import type { Board } from '../../types/trello';
 import { getBoardCoverStyle } from '../../utils/trelloDesignData';
+import { errorMessage, notify } from '@/lib/notifications';
 
 interface BoardCardProps {
   board: Board;
@@ -44,7 +45,7 @@ export function BoardCard({ board, onOpen, onRename, onDelete, canManage = false
   const saveTitle = async () => {
     const cleanTitle = draft.trim();
     if (!cleanTitle) {
-      window.alert('El nombre del tablero no puede quedar vacío.');
+      notify.warning('El nombre del tablero no puede quedar vacío.');
       setDraft(board.title);
       setEditing(false);
       return;
@@ -58,7 +59,12 @@ export function BoardCard({ board, onOpen, onRename, onDelete, canManage = false
     const confirmed = window.confirm(`¿Querés eliminar el tablero "${board.title}"? Esta acción no se puede deshacer.`);
     if (!confirmed) return;
     setOptionsOpen(false);
-    await onDelete(board.id);
+    try {
+      await onDelete(board.id);
+      notify.success('Tablero eliminado.');
+    } catch (error) {
+      notify.error(errorMessage(error, 'No se pudo eliminar el tablero.'));
+    }
   };
 
   return (

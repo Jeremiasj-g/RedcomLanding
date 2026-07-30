@@ -3,10 +3,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
-import { Check, AlertCircle, Eye, EyeOff, Copy, BadgeCheck, ShieldCheck, Building2 } from 'lucide-react';
+import { Eye, EyeOff, Copy, BadgeCheck, ShieldCheck, Building2 } from 'lucide-react';
 import DualSpinner from '@/components/ui/DualSpinner';
-
-type Toast = { type: 'ok' | 'err'; text: string } | null;
+import { notify } from '@/lib/notifications';
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
@@ -52,12 +51,6 @@ export default function MiPerfilPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [showPwd2, setShowPwd2] = useState(false);
 
-  // Toast
-  const [msg, setMsg] = useState<Toast>(null);
-  const show = (type: 'ok' | 'err', text: string) => {
-    setMsg({ type, text });
-    window.setTimeout(() => setMsg(null), 3500);
-  };
 
   useEffect(() => {
     if (me?.full_name) setFullName(me.full_name);
@@ -78,7 +71,7 @@ export default function MiPerfilPage() {
   // Guardar nombre
   const saveName = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim()) return show('err', 'El nombre no puede estar vacío.');
+    if (!fullName.trim()) return notify.warning('El nombre no puede estar vacío.');
 
     setSavingName(true);
     const { data: auth } = await supabase.auth.getUser();
@@ -86,42 +79,42 @@ export default function MiPerfilPage() {
 
     if (!userId) {
       setSavingName(false);
-      return show('err', 'Sesión no encontrada.');
+      return notify.error('Sesión no encontrada.');
     }
 
     const { error } = await supabase.from('profiles').update({ full_name: fullName.trim() }).eq('id', userId);
 
     setSavingName(false);
-    if (error) return show('err', error.message);
-    show('ok', 'Nombre actualizado.');
+    if (error) return notify.error(error.message);
+    notify.success('Nombre actualizado.');
   };
 
   // Cambiar contraseña
   const savePwd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pwd.length < 8) return show('err', 'La contraseña debe tener al menos 8 caracteres.');
-    if (pwd !== pwd2) return show('err', 'Las contraseñas no coinciden.');
+    if (pwd.length < 8) return notify.warning('La contraseña debe tener al menos 8 caracteres.');
+    if (pwd !== pwd2) return notify.warning('Las contraseñas no coinciden.');
 
     setSavingPwd(true);
     const { error } = await supabase.auth.updateUser({ password: pwd });
     setSavingPwd(false);
 
-    if (error) return show('err', error.message);
+    if (error) return notify.error(error.message);
 
     setPwd('');
     setPwd2('');
     setShowPwd(false);
     setShowPwd2(false);
-    show('ok', 'Contraseña actualizada.');
+    notify.success('Contraseña actualizada.');
   };
 
   const copyEmail = async () => {
     try {
       if (!me?.email) return;
       await navigator.clipboard.writeText(me.email);
-      show('ok', 'Email copiado.');
+      notify.success('Email copiado.');
     } catch {
-      show('err', 'No se pudo copiar el email.');
+      notify.error('No se pudo copiar el email.');
     }
   };
 
@@ -135,21 +128,6 @@ export default function MiPerfilPage() {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-white to-slate-50">
-      {/* Toast */}
-      {msg && (
-        <div
-          className={cn(
-            'fixed right-4 top-4 z-50 flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg',
-            msg.type === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : 'border-red-200 bg-red-50 text-red-800',
-          )}
-        >
-          {msg.type === 'ok' ? <Check className="mt-0.5 h-5 w-5" /> : <AlertCircle className="mt-0.5 h-5 w-5" />}
-          <span className="text-sm">{msg.text}</span>
-        </div>
-      )}
-
       <div className="mx-auto max-w-6xl px-4 py-8">
         {/* CARD PRINCIPAL (clara) */}
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white">

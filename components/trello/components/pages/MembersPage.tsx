@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useBoards } from '../../context/BoardContext';
 import type { WorkspaceMember } from '../../types/trello';
+import { errorMessage, notify } from '@/lib/notifications';
 
 const avatarClasses: Record<WorkspaceMember['avatarColor'], string> = {
   orange: 'bg-[#ff9f1a] text-[#172b4d]',
@@ -267,13 +268,18 @@ export function MembersPage() {
 
   const handleRemove = async (member: WorkspaceMember) => {
     if (member.isCurrentUser) {
-      window.alert('No podés quitar tu propio usuario desde esta maqueta.');
+      notify.warning('No podés quitar tu propio usuario.');
       return;
     }
 
     const confirmed = window.confirm(`¿Querés quitar a ${member.fullName} de este espacio de trabajo?`);
     if (!confirmed) return;
-    await removeWorkspaceMember(member.id);
+    try {
+      await removeWorkspaceMember(member.id);
+      notify.success(`${member.fullName} fue quitado del espacio de trabajo.`);
+    } catch (error) {
+      notify.error(errorMessage(error, 'No se pudo quitar al usuario.'));
+    }
   };
 
   const handleRemoveById = async (memberId: string) => {

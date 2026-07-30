@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { notify } from '@/lib/notifications';
 
 import {
   CATEGORIAS,
@@ -127,9 +128,10 @@ export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props
 
     try {
       await downloadCategoriaPdf({ row, computed, activeTab });
+      notify.success('PDF generado correctamente.');
     } catch (error) {
       console.error('Error al generar PDF:', error);
-      window.alert('No se pudo generar el PDF. Intentá nuevamente.');
+      notify.error('No se pudo generar el PDF. Intentá nuevamente.');
     } finally {
       setIsDownloadingPdf(false);
     }

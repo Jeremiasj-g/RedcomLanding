@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import DualSpinner from '@/components/ui/DualSpinner';
+import { notify } from '@/lib/notifications';
 
 type Req = {
   id: string;
@@ -42,12 +43,6 @@ export default function AdminSolicitudesPage() {
   const [approvers, setApprovers] = useState<Record<string, Approver>>({});
   const [myUserId, setMyUserId] = useState<string | null>(null);
 
-  const [toast, setToast] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
-  const show = (t: 'ok' | 'err', msg: string) => {
-    setToast({ type: t, msg });
-    setTimeout(() => setToast(null), 3000);
-  };
-
   // Modal rechazar
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<Req | null>(null);
@@ -70,11 +65,11 @@ export default function AdminSolicitudesPage() {
     setRejectOpen(false);
 
     if (error) {
-      show('err', error.message);
+      notify.error( error.message);
       return;
     }
     setRows((prev) => prev.filter((x) => x.id !== rejectTarget.id));
-    show('ok', 'Solicitud rechazada');
+    notify.success( 'Solicitud rechazada');
   };
 
   const load = async () => {
@@ -149,11 +144,11 @@ export default function AdminSolicitudesPage() {
   const approve = async () => {
     if (!target) return;
     if (password.length < 8) {
-      show('err', 'La contraseña debe tener al menos 8 caracteres');
+      notify.error( 'La contraseña debe tener al menos 8 caracteres');
       return;
     }
     if (branches.length === 0) {
-      show('err', 'Seleccioná al menos una sucursal');
+      notify.error( 'Seleccioná al menos una sucursal');
       return;
     }
 
@@ -201,16 +196,16 @@ export default function AdminSolicitudesPage() {
       setOpen(false);
 
       if (error) {
-        show('err', error.message);
+        notify.error( error.message);
         return;
       }
 
-      show('ok', 'Usuario creado y solicitud aprobada');
+      notify.success( 'Usuario creado y solicitud aprobada');
       await load();
     } catch (e: any) {
       console.error('admin_create_user desde solicitudes', e);
       setSaving(false);
-      show('err', e.message ?? 'No se pudo crear el usuario');
+      notify.error( e.message ?? 'No se pudo crear el usuario');
     }
   };
 
@@ -225,10 +220,10 @@ export default function AdminSolicitudesPage() {
       })
       .eq('id', r.id);
     if (error) {
-      show('err', error.message);
+      notify.error( error.message);
       return;
     }
-    show('ok', 'Solicitud rechazada');
+    notify.success( 'Solicitud rechazada');
     await load();
   };
 
@@ -260,26 +255,15 @@ export default function AdminSolicitudesPage() {
   const reopen = async (r: Req) => {
     const { error } = await supabase.rpc('admin_reopen_signup', { p_id: r.id });
     if (error) {
-      show('err', error.message);
+      notify.error( error.message);
       return;
     }
-    show('ok', 'Solicitud reabierta');
+    notify.success( 'Solicitud reabierta');
     await load();
   };
 
   return (
     <div className="max-w-7xl mx-auto py-6">
-      {toast && (
-        <div
-          className={`fixed right-4 top-4 z-50 rounded-lg px-4 py-2 shadow ${toast.type === 'ok'
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
-        >
-          {toast.msg}
-        </div>
-      )}
-
       <div className="mb-6 flex items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Solicitudes de acceso</h1>

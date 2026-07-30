@@ -30,6 +30,7 @@ import ProjectTaskFilters, {
   ProjectTaskFiltersState,
 } from './ProjectTaskFilters';
 import DualSpinner from '@/components/ui/DualSpinner';
+import { errorMessage, notify } from '@/lib/notifications';
 
 // ─────────────────────────────────────────
 //  Tailwind helpers
@@ -519,8 +520,10 @@ export default function ProyectosPage() {
       setSelectedTask((prev) =>
         prev && prev.id === task.id ? updated : prev
       );
+      notify.success('Tarea cerrada correctamente.');
     } catch (err) {
       console.error('Error al cerrar tarea', err);
+      notify.error(errorMessage(err, 'No se pudo cerrar la tarea.'));
     } finally {
       setClosingTask(false);
       closeAllPopovers();
@@ -555,13 +558,12 @@ export default function ProyectosPage() {
         .delete()
         .eq('id', task.id);
 
-      if (error) {
-        console.error('Error deleting task', error);
-        return;
-      }
+      if (error) throw error;
       removeTask(task.id);
+      notify.success('Tarea eliminada.');
     } catch (err) {
       console.error('Error deleting task', err);
+      notify.error(errorMessage(err, 'No se pudo eliminar la tarea.'));
     } finally {
       setAssigneesOpenFor(null);
     }

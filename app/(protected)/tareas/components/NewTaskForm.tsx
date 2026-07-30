@@ -7,6 +7,7 @@ import { CalendarDays, Clock3, Loader2, Plus } from 'lucide-react';
 import { es } from 'date-fns/locale';
 
 import { useTaskCreator } from '../hooks/useTaskCreator';
+import { errorMessage, notify } from '@/lib/notifications';
 
 function buildTimeOptions(stepMinutes = 30) {
   const out: string[] = [];
@@ -118,7 +119,7 @@ export default function NewTaskForm() {
 
     try {
       setCreating(true);
-      await createByRange({
+      const created = await createByRange({
         title: newTask.title.trim(),
         description: newTask.description.trim() || undefined,
         time: newTask.time,
@@ -126,8 +127,14 @@ export default function NewTaskForm() {
         to,
       });
       setNewTask((p) => ({ ...p, title: '', description: '' }));
+      notify.success(
+        created.length === 1
+          ? 'Tarea creada correctamente.'
+          : `${created.length} tareas creadas correctamente.`,
+      );
     } catch (err) {
       console.error('Error creating tasks', err);
+      notify.error(errorMessage(err, 'No se pudo crear la tarea.'));
     } finally {
       setCreating(false);
     }

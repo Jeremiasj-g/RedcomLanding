@@ -8,6 +8,7 @@ import {
   updateTaskStatus,
 } from '@/lib/tasks';
 import { useTasks } from '../TasksContext';
+import { errorMessage, notify } from '@/lib/notifications';
 
 const BRIEF_STATUS: Record<Task['status'], string> = {
   pending: 'Pendiente',
@@ -39,7 +40,11 @@ export function useTaskActions() {
         setChangingStatusId(task.id);
         const updated = await updateTaskStatus(task.id, newStatus);
         setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+        notify.success(`Estado actualizado: ${BRIEF_STATUS[newStatus]}.`);
         return updated;
+      } catch (error) {
+        notify.error(errorMessage(error, 'No se pudo actualizar el estado.'));
+        throw error;
       } finally {
         setChangingStatusId(null);
       }
@@ -53,7 +58,11 @@ export function useTaskActions() {
         setSavingNotesId(task.id);
         const updated = await updateTaskNotes(task.id, notes);
         setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+        notify.success('Notas guardadas.');
         return updated;
+      } catch (error) {
+        notify.error(errorMessage(error, 'No se pudieron guardar las notas.'));
+        throw error;
       } finally {
         setSavingNotesId(null);
       }
@@ -68,7 +77,11 @@ export function useTaskActions() {
         setDeletingId(task.id);
         await deleteTask(task.id);
         setTasks((prev) => prev.filter((t) => t.id !== task.id));
+        notify.success('Tarea eliminada.');
         return true;
+      } catch (error) {
+        notify.error(errorMessage(error, 'No se pudo eliminar la tarea.'));
+        return false;
       } finally {
         setDeletingId(null);
       }
@@ -90,7 +103,11 @@ export function useTaskActions() {
         setDeletingDayKey(dayKey);
         await Promise.all(dayTasks.map((t) => deleteTask(t.id)));
         setTasks((prev) => prev.filter((t) => t.scheduled_at.slice(0, 10) !== dayKey));
+        notify.success(`${dayTasks.length} tarea${dayTasks.length === 1 ? '' : 's'} eliminada${dayTasks.length === 1 ? '' : 's'}.`);
         return true;
+      } catch (error) {
+        notify.error(errorMessage(error, 'No se pudieron eliminar las tareas del día.'));
+        return false;
       } finally {
         setDeletingDayKey(null);
       }
@@ -105,7 +122,11 @@ export function useTaskActions() {
         setChangingStatusId(task.id);
         const updated = await updateTaskStatus(task.id, 'done');
         setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+        notify.success('Tarea completada.');
         return updated;
+      } catch (error) {
+        notify.error(errorMessage(error, 'No se pudo completar la tarea.'));
+        throw error;
       } finally {
         setChangingStatusId(null);
       }

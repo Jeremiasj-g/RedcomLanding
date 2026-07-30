@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Task } from '@/lib/tasks';
 import { supabase } from '@/lib/supabaseClient';
+import { errorMessage, notify } from '@/lib/notifications';
 
 import TaskChecklistSection from '../TaskChecklistSection';
 import { buildISOFromLocal, toYMD } from '../date';
@@ -285,7 +286,7 @@ export default function TaskDetailModal({
 
     const normalizedTime = normalizeTimeInput(time);
     if (!normalizedTime || !/^\d{2}:\d{2}$/.test(normalizedTime)) {
-      alert('Hora inválida. Ejemplo válido: 13:00 ó 09:30');
+      notify.warning('Hora inválida. Ejemplo válido: 13:00 ó 09:30.');
       return;
     }
 
@@ -314,9 +315,10 @@ export default function TaskDetailModal({
       setEditTitle(false);
       setEditDescription(false);
       setEditTime(false);
+      notify.success('Tarea guardada correctamente.');
     } catch (err) {
       console.error('Error al editar tarea', err);
-      alert('No se pudo guardar la tarea. Intentá nuevamente.');
+      notify.error(errorMessage(err, 'No se pudo guardar la tarea. Intentá nuevamente.'));
     } finally {
       setSaving(false);
     }
