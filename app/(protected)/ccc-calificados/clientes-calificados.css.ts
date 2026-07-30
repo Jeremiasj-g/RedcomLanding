@@ -277,4 +277,40 @@ export const clientesCalificadosCss = `
     .ccc-page table.cli-table{min-width:650px;}
     .ccc-page .ruta-body{overflow-x:auto;}
   }
+
+  .ccc-page .ccc-toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+  .ccc-page .ccc-export-matrix-button,.ccc-page .ccc-export-confirm{border:1px solid var(--greenDark);background:var(--green);color:#fff;border-radius:8px;padding:10px 15px;font-size:12.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:.15s;}
+  .ccc-page .ccc-export-matrix-button:hover,.ccc-page .ccc-export-confirm:hover{background:var(--greenDark);transform:translateY(-1px);}
+  .ccc-page .ccc-export-matrix-button svg,.ccc-page .ccc-export-confirm svg{width:17px;height:17px;flex:none;}
+  .ccc-page .ccc-export-modal-backdrop{position:fixed;inset:0;z-index:160;background:rgba(20,23,28,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:22px;}
+  .ccc-page .ccc-export-modal{width:min(720px,100%);max-height:min(780px,calc(100vh - 44px));overflow:auto;background:var(--white);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 70px rgba(20,23,28,.28);padding:22px;}
+  .ccc-page .ccc-export-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-bottom:16px;border-bottom:1px solid var(--line);}
+  .ccc-page .ccc-export-kicker{display:inline-flex;background:var(--greenTint);color:#087B45;border:1px solid #B9E2CB;border-radius:999px;padding:4px 9px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.45px;margin-bottom:8px;}
+  .ccc-page .ccc-export-modal h3{margin:0;font-size:20px;line-height:1.2;color:var(--dark);}
+  .ccc-page .ccc-export-modal-head p{margin:7px 0 0;color:var(--grayL);font-size:12.5px;line-height:1.5;max-width:590px;}
+  .ccc-page .ccc-export-close{width:34px;height:34px;border:1px solid var(--line);border-radius:9px;background:var(--white);color:var(--gray);font-size:23px;line-height:1;cursor:pointer;display:grid;place-items:center;flex:none;}
+  .ccc-page .ccc-export-close:hover{border-color:var(--red);color:var(--red);background:var(--redTint);}
+  .ccc-page .ccc-export-summary{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:15px 0;padding:11px 13px;border-radius:10px;background:var(--cream);border:1px solid var(--line);font-size:11.5px;color:var(--gray);}
+  .ccc-page .ccc-export-summary strong{color:var(--dark);}
+  .ccc-page .ccc-export-summary span{border-left:1px solid var(--line);padding-left:9px;}
+  .ccc-page .ccc-export-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .ccc-page .ccc-export-option{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:11px;padding:12px 13px;background:var(--white);cursor:pointer;transition:.15s;min-height:70px;}
+  .ccc-page .ccc-export-option:hover{border-color:#9CCEB4;background:#F7FCF9;}
+  .ccc-page .ccc-export-option.is-fixed{background:var(--greenTint);border-color:#B9E2CB;cursor:default;}
+  .ccc-page .ccc-export-option-wide{grid-column:1/-1;}
+  .ccc-page .ccc-export-option input{margin-top:2px;width:17px;height:17px;accent-color:var(--green);flex:none;}
+  .ccc-page .ccc-export-option div{display:flex;flex-direction:column;gap:4px;}
+  .ccc-page .ccc-export-option strong{font-size:12.5px;color:var(--dark);}
+  .ccc-page .ccc-export-option span{font-size:11px;line-height:1.35;color:var(--grayL);}
+  .ccc-page .ccc-export-modal-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line);}
+  .ccc-page .ccc-export-modal-actions .ghost{padding:10px 16px;}
+  @media(max-width:700px){
+    .ccc-page .ccc-toolbar-actions{width:100%;justify-content:flex-start;}
+    .ccc-page .ccc-export-matrix-button{width:100%;}
+    .ccc-page .ccc-export-options{grid-template-columns:1fr;}
+    .ccc-page .ccc-export-option-wide{grid-column:auto;}
+    .ccc-page .ccc-export-modal-backdrop{padding:12px;align-items:flex-end;}
+    .ccc-page .ccc-export-modal{border-radius:18px 18px 0 0;max-height:90vh;padding:18px;}
+    .ccc-page .ccc-export-summary span{border-left:0;padding-left:0;}
+  }
 `;

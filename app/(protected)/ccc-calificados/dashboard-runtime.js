@@ -622,6 +622,360 @@ export function initClientesCalificadosDashboard(options = {}){
       }
     }
     
+    function vendorExportKey(vendedor){
+      return [
+        normSuc(vendedor?.sucursal),
+        String(vendedor?.codigo ?? ''),
+        String(vendedor?.nombre || '').trim().toUpperCase(),
+      ].join('|');
+    }
+
+    function exportLineLabel(lineCode){
+      return lineCode === 'QUENTO SNACK' ? 'Quento' : 'Héroes';
+    }
+
+    function collectVendorMatrixData(rows){
+      const vendorsByKey = new Map();
+      const lineResults = {};
+
+      Object.entries(LINEAS).forEach(([lineCode, lineInfo]) => {
+        const { supervisores, ventasPorCliente } = aggregate(rows, lineCode);
+        const metricsByVendor = new Map();
+
+        Object.entries(supervisores).forEach(([supervisorKey, supervisorBucket]) => {
+          const supervisor = supervisorKey === '__SIN_SUPERVISOR__'
+            ? 'Sin supervisor asignado'
+            : supervisorKey;
+
+          Object.values(supervisorBucket.vendedores).forEach(vendedor => {
+            const key = vendorExportKey(vendedor);
+            const clientes = [];
+            Object.values(vendedor.rutas).forEach(clienteMap => {
+              clientes.push(...rutaClientesTodos(clienteMap, ventasPorCliente));
+            });
+            const stats = computeChipStats(clientes, lineInfo.umbral);
+            const coverage = stats.clientes ? stats.cumplio / stats.clientes : 0;
+
+            if (!vendorsByKey.has(key)) {
+              vendorsByKey.set(key, {
+                key,
+                nombre: vendedor.nombre || 'Vendedor sin nombre',
+                codigo: vendedor.codigo ?? '',
+                sucursal: vendedor.sucursal || '',
+                supervisor,
+              });
+            }
+
+            metricsByVendor.set(key, {
+              ...stats,
+              coverage,
+            });
+          });
+        });
+
+        lineResults[lineCode] = { lineInfo, metricsByVendor };
+      });
+
+      const vendors = Array.from(vendorsByKey.values()).sort((a, b) => {
+        const sup = String(a.supervisor).localeCompare(String(b.supervisor), 'es');
+        if (sup !== 0) return sup;
+        return String(a.nombre).localeCompare(String(b.nombre), 'es');
+      });
+
+      const repeatedNames = vendors.reduce((map, vendor) => {
+        const nameKey = String(vendor.nombre).trim().toUpperCase();
+        map.set(nameKey, (map.get(nameKey) || 0) + 1);
+        return map;
+      }, new Map());
+      vendors.forEach(vendor => {
+        const nameKey = String(vendor.nombre).trim().toUpperCase();
+        vendor.displayName = repeatedNames.get(nameKey) > 1 && vendor.codigo !== ''
+          ? `${vendor.nombre} (#${vendor.codigo})`
+          : vendor.nombre;
+      });
+
+      return { vendors, lineResults };
+    }
+
+    function styleCell(sheet, address, style, numberFormat){
+      if (!sheet[address]) sheet[address] = { t: 's', v: '' };
+      sheet[address].s = style;
+      if (numberFormat) sheet[address].z = numberFormat;
+    }
+
+    function exportVendorObjectiveMatrix({ rows, periodo, selectedMetrics, includeDirectory }){
+      const model = collectVendorMatrixData(rows);
+      if (!model.vendors.length){
+        runtimeNotify('info', 'No hay vendedores disponibles para generar la matriz.');
+        return;
+      }
+
+      const optionalMetrics = {
+        clientes: { label: 'Total clientes', value: stats => stats.clientes, format: '#,##0' },
+        unidades: { label: 'Unidades', value: stats => stats.unidades, format: '#,##0' },
+        enProgreso: { label: 'En progreso', value: stats => stats.enProgreso, format: '#,##0' },
+        sinCompra: { label: 'Sin compra', value: stats => stats.sinCompra, format: '#,##0' },
+        coverage: { label: 'Cobertura %', value: stats => stats.coverage, format: '0.0%' },
+      };
+      const metrics = [
+        { key: 'cumplio', label: 'Clientes que cumplieron', value: stats => stats.cumplio, format: '#,##0' },
+        ...selectedMetrics.map(key => ({ key, ...optionalMetrics[key] })).filter(metric => metric.value),
+      ];
+      const multipleMetrics = metrics.length > 1;
+      const lineCodes = Object.keys(LINEAS);
+      const dataRows = [];
+      const dataMeta = [];
+
+      lineCodes.forEach(lineCode => {
+        metrics.forEach(metric => {
+          const lineName = exportLineLabel(lineCode);
+          const label = multipleMetrics ? `${lineName} · ${metric.label}` : lineName;
+          const metricsByVendor = model.lineResults[lineCode]?.metricsByVendor || new Map();
+          const values = model.vendors.map(vendor => {
+            const stats = metricsByVendor.get(vendor.key) || {
+              clientes: 0,
+              unidades: 0,
+              cumplio: 0,
+              enProgreso: 0,
+              sinCompra: 0,
+              coverage: 0,
+            };
+            return metric.value(stats);
+          });
+          dataRows.push([label, ...values]);
+          dataMeta.push({ lineCode, metric });
+        });
+      });
+
+      const branch = getSelectedBranchLabel() || getSelectedSucursalName() || getSelectedBranch() || 'Sucursal';
+      const now = new Date();
+      const generatedAt = now.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+      const header = ['Línea objetivo / indicador', ...model.vendors.map(vendor => vendor.displayName)];
+      const aoa = [
+        ['CCC CALIFICADOS · CUMPLIMIENTO POR VENDEDOR'],
+        [`Sucursal: ${branch} · Período: ${periodo || '—'} · Generado: ${generatedAt}`],
+        [],
+        header,
+        ...dataRows,
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+      const lastColumn = XLSX.utils.encode_col(header.length - 1);
+      const lastRow = 4 + dataRows.length;
+      worksheet['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: header.length - 1 } },
+      ];
+      worksheet['!autofilter'] = { ref: `A4:${lastColumn}${lastRow}` };
+      worksheet['!cols'] = [
+        { wch: 31 },
+        ...model.vendors.map(() => ({ wch: 14 })),
+      ];
+      worksheet['!rows'] = [
+        { hpt: 28 },
+        { hpt: 20 },
+        { hpt: 7 },
+        { hpt: 78 },
+        ...dataRows.map(() => ({ hpt: 23 })),
+      ];
+      worksheet['!freeze'] = { xSplit: 1, ySplit: 4, topLeftCell: 'B5', activePane: 'bottomRight', state: 'frozen' };
+
+      const border = {
+        top: { style: 'thin', color: { rgb: 'D9DCE3' } },
+        bottom: { style: 'thin', color: { rgb: 'D9DCE3' } },
+        left: { style: 'thin', color: { rgb: 'D9DCE3' } },
+        right: { style: 'thin', color: { rgb: 'D9DCE3' } },
+      };
+      const titleStyle = {
+        fill: { fgColor: { rgb: 'C8102E' } },
+        font: { color: { rgb: 'FFFFFF' }, bold: true, sz: 16 },
+        alignment: { horizontal: 'left', vertical: 'center' },
+      };
+      const subtitleStyle = {
+        fill: { fgColor: { rgb: 'FCEAEA' } },
+        font: { color: { rgb: '7D0A20' }, bold: true, sz: 10 },
+        alignment: { horizontal: 'left', vertical: 'center' },
+      };
+      const headerStyle = {
+        fill: { fgColor: { rgb: '252A34' } },
+        font: { color: { rgb: 'FFFFFF' }, bold: true, sz: 10 },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true, textRotation: 45 },
+        border,
+      };
+      const firstHeaderStyle = {
+        ...headerStyle,
+        alignment: { horizontal: 'left', vertical: 'center', wrapText: true, textRotation: 0 },
+      };
+
+      styleCell(worksheet, 'A1', titleStyle);
+      styleCell(worksheet, 'A2', subtitleStyle);
+      for (let col = 0; col < header.length; col++) {
+        const address = XLSX.utils.encode_cell({ r: 3, c: col });
+        styleCell(worksheet, address, col === 0 ? firstHeaderStyle : headerStyle);
+      }
+
+      dataRows.forEach((row, rowIndex) => {
+        const excelRow = rowIndex + 5;
+        const { lineCode, metric } = dataMeta[rowIndex];
+        const isQuento = lineCode === 'QUENTO SNACK';
+        const labelFill = isQuento ? 'FDF0E3' : 'E8F2FA';
+        const labelColor = isQuento ? 'B85B00' : '155C8C';
+        const rowFill = rowIndex % 2 === 0 ? 'FFFFFF' : 'F8F9FB';
+
+        for (let col = 0; col < header.length; col++) {
+          const address = XLSX.utils.encode_cell({ r: excelRow - 1, c: col });
+          const isLabel = col === 0;
+          const style = {
+            fill: { fgColor: { rgb: isLabel ? labelFill : rowFill } },
+            font: {
+              color: { rgb: isLabel ? labelColor : (metric.key === 'cumplio' ? '087B45' : '252A34') },
+              bold: isLabel || metric.key === 'cumplio',
+              sz: 10,
+            },
+            alignment: {
+              horizontal: isLabel ? 'left' : 'center',
+              vertical: 'center',
+              wrapText: true,
+            },
+            border,
+          };
+          styleCell(worksheet, address, style, isLabel ? undefined : metric.format);
+        }
+      });
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'CCC vendedores');
+
+      if (includeDirectory){
+        const directoryRows = model.vendors.map(vendor => ({
+          'Vendedor': vendor.nombre,
+          'Código': vendor.codigo,
+          'Supervisor': vendor.supervisor,
+          'Sucursal': vendor.sucursal,
+        }));
+        const directory = XLSX.utils.json_to_sheet(directoryRows);
+        directory['!autofilter'] = { ref: directory['!ref'] };
+        directory['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 28 }, { wch: 23 }];
+        const range = XLSX.utils.decode_range(directory['!ref']);
+        for (let row = range.s.r; row <= range.e.r; row++) {
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            const address = XLSX.utils.encode_cell({ r: row, c: col });
+            const isHeader = row === 0;
+            styleCell(directory, address, {
+              fill: { fgColor: { rgb: isHeader ? '252A34' : (row % 2 ? 'FFFFFF' : 'F8F9FB') } },
+              font: { color: { rgb: isHeader ? 'FFFFFF' : '252A34' }, bold: isHeader, sz: 10 },
+              alignment: { horizontal: isHeader ? 'center' : 'left', vertical: 'center', wrapText: true },
+              border,
+            });
+          }
+        }
+        XLSX.utils.book_append_sheet(workbook, directory, 'Vendedores');
+      }
+
+      const fileName = `CCC_Cumplimiento_Vendedores_${safeFilePart(branch)}_${now.toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(workbook, fileName, { compression: true, cellStyles: true });
+      runtimeNotify('success', `Excel generado: ${fileName}`);
+    }
+
+    function openVendorMatrixExportModal({ area, rows, periodo }){
+      const model = collectVendorMatrixData(rows);
+      if (!model.vendors.length){
+        runtimeNotify('info', 'No hay vendedores disponibles para exportar.');
+        return;
+      }
+
+      area.querySelector('.ccc-export-modal-backdrop')?.remove();
+      const backdrop = document.createElement('div');
+      backdrop.className = 'ccc-export-modal-backdrop';
+      backdrop.innerHTML = `
+        <div class="ccc-export-modal" role="dialog" aria-modal="true" aria-labelledby="cccExportTitle">
+          <div class="ccc-export-modal-head">
+            <div>
+              <span class="ccc-export-kicker">Exportación Excel</span>
+              <h3 id="cccExportTitle">Matriz de cumplimiento por vendedor</h3>
+              <p>La exportación base incluye Quento y Héroes en filas, todos los vendedores en columnas y la cantidad de clientes que cumplieron la cuota.</p>
+            </div>
+            <button class="ccc-export-close" type="button" aria-label="Cerrar">×</button>
+          </div>
+          <div class="ccc-export-summary">
+            <strong>2 líneas objetivo</strong>
+            <span>${model.vendors.length} vendedores</span>
+            <span>Período: ${periodo || '—'}</span>
+          </div>
+          <div class="ccc-export-options">
+            <div class="ccc-export-option is-fixed">
+              <input type="checkbox" checked disabled />
+              <div><strong>Clientes que cumplieron</strong><span>Incluido por defecto.</span></div>
+            </div>
+            <label class="ccc-export-option">
+              <input type="checkbox" data-export-metric="clientes" />
+              <div><strong>Total de clientes</strong><span>Padrón evaluado por vendedor.</span></div>
+            </label>
+            <label class="ccc-export-option">
+              <input type="checkbox" data-export-metric="unidades" />
+              <div><strong>Unidades</strong><span>Total de unidades con cargo.</span></div>
+            </label>
+            <label class="ccc-export-option">
+              <input type="checkbox" data-export-metric="enProgreso" />
+              <div><strong>En progreso</strong><span>Clientes con compra que aún no alcanzaron la cuota.</span></div>
+            </label>
+            <label class="ccc-export-option">
+              <input type="checkbox" data-export-metric="sinCompra" />
+              <div><strong>Sin compra</strong><span>Clientes sin unidades en la línea.</span></div>
+            </label>
+            <label class="ccc-export-option">
+              <input type="checkbox" data-export-metric="coverage" />
+              <div><strong>Cobertura %</strong><span>Porcentaje de cumplimiento por vendedor.</span></div>
+            </label>
+            <label class="ccc-export-option ccc-export-option-wide">
+              <input type="checkbox" id="cccExportDirectory" />
+              <div><strong>Agregar hoja de vendedores</strong><span>Incluye código, supervisor y sucursal en una segunda hoja.</span></div>
+            </label>
+          </div>
+          <div class="ccc-export-modal-actions">
+            <button class="ghost ccc-export-cancel" type="button">Cancelar</button>
+            <button class="ccc-export-confirm" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M10 9H8"/>
+              </svg>
+              Exportar Excel
+            </button>
+          </div>
+        </div>`;
+      area.appendChild(backdrop);
+
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      const close = () => {
+        document.body.style.overflow = previousOverflow;
+        window.removeEventListener('keydown', onKeyDown);
+        backdrop.remove();
+      };
+      const onKeyDown = event => {
+        if (event.key === 'Escape') close();
+      };
+      window.addEventListener('keydown', onKeyDown);
+      backdrop.addEventListener('click', event => {
+        if (event.target === backdrop) close();
+      });
+      backdrop.querySelector('.ccc-export-close').addEventListener('click', close);
+      backdrop.querySelector('.ccc-export-cancel').addEventListener('click', close);
+      backdrop.querySelector('.ccc-export-confirm').addEventListener('click', () => {
+        const selectedMetrics = Array.from(backdrop.querySelectorAll('[data-export-metric]:checked'))
+          .map(input => input.getAttribute('data-export-metric'));
+        const includeDirectory = backdrop.querySelector('#cccExportDirectory').checked;
+        try{
+          exportVendorObjectiveMatrix({ rows, periodo, selectedMetrics, includeDirectory });
+          close();
+        }catch(err){
+          console.error(err);
+          runtimeNotify('error', 'No se pudo generar la exportación: ' + (err?.message || err));
+        }
+      });
+      backdrop.querySelector('.ccc-export-close').focus();
+    }
+
     async function exportRutaPendientesPdf({ rutaNombre, clientes, vendedor, supervisor, lineaInfo, periodo }){
       const pendientes = clientes.filter(c => (Number(c.val) || 0) < lineaInfo.umbral);
       if (!pendientes.length){
@@ -1315,9 +1669,16 @@ export function initClientesCalificadosDashboard(options = {}){
           <div class="title">Detalle por Supervisor</div>
           <div class="subtitle">${supNames.length} supervisores${hasNoSup ? ' + vendedores sin supervisor asignado' : ''}</div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <button class="ghost" id="btnExpandAll">Expandir todo</button>
-          <button class="ghost" id="btnCollapseAll">Colapsar todo</button>
+        <div class="ccc-toolbar-actions">
+          <button class="ccc-export-matrix-button" type="button" id="btnExportVendorMatrix">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M10 9H8"/>
+            </svg>
+            Exportar Excel
+          </button>
+          <button class="ghost" type="button" id="btnExpandAll">Expandir todo</button>
+          <button class="ghost" type="button" id="btnCollapseAll">Colapsar todo</button>
         </div>`;
       area.appendChild(toolbar);
     
@@ -1485,6 +1846,9 @@ export function initClientesCalificadosDashboard(options = {}){
         empty.textContent = 'No hay clientes para mostrar en la línea seleccionada.';
         area.appendChild(empty);
       }
+      document.getElementById('btnExportVendorMatrix').addEventListener('click', () => {
+        openVendorMatrixExportModal({ area, rows, periodo });
+      });
       document.getElementById('btnExpandAll').addEventListener('click', () => {
         area.querySelectorAll('.sup-card, .vend-card, .ruta-card').forEach(c => c.classList.add('open'));
       });

@@ -620,7 +620,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   return (
     <div className="ccc-page">
       <Script
-        src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+        src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"
         strategy="afterInteractive"
         onLoad={() => setXlsxReady(true)}
         onReady={() => setXlsxReady(true)}
