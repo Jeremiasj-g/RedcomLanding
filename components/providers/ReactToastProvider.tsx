@@ -40,7 +40,6 @@ export default function ReactToastProvider() {
       limit={5}
       className="redcom-toast-container"
       toastClassName="redcom-toast"
-      bodyClassName="redcom-toast-body"
       progressClassName="redcom-toast-progress"
     />
   );
