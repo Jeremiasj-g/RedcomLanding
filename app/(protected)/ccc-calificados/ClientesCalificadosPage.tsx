@@ -27,7 +27,7 @@ import {
   uploadWorkspaceFile,
 } from "./ccc-client-base.service";
 
-const ALLOWED_ROLES = new Set(["admin", "jdv", "supervisor"]);
+const ALLOWED_ROLES = new Set(["admin", "jdv", "supervisor", "rrhh"]);
 const CCC_LAST_BRANCH_KEY = "redcom:ccc:last-branch";
 const CCC_LAST_TAB_KEY = "redcom:ccc:last-tab";
 
