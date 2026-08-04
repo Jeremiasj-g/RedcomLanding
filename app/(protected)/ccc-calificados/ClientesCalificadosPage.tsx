@@ -8,6 +8,7 @@ import { useAuth } from "@/app/auth/AuthProvider";
 import DualSpinner from "@/components/ui/DualSpinner";
 import { clientesCalificadosCss } from "./clientes-calificados.css";
 import { errorMessage, notify } from "@/lib/notifications";
+import { useModulePermissions } from "@/components/permissions/ModulePermissionsProvider";
 import {
   CCC_BRANCH_LABELS,
   CCC_BRANCH_SUCURSAL_NAMES,
@@ -27,7 +28,6 @@ import {
   uploadWorkspaceFile,
 } from "./ccc-client-base.service";
 
-const ALLOWED_ROLES = new Set(["admin", "jdv", "supervisor", "rrhh"]);
 const CCC_LAST_BRANCH_KEY = "redcom:ccc:last-branch";
 const CCC_LAST_TAB_KEY = "redcom:ccc:last-tab";
 
@@ -66,7 +66,7 @@ const CCC_WORKSPACE_TABS: Array<{
 type DashboardUser = {
   id: string;
   full_name: string | null;
-  role: "admin" | "jdv" | "supervisor" | "vendedor" | "rrhh";
+  role: string;
   branches: string[];
 };
 
@@ -877,14 +877,15 @@ function DashboardContent({ me }: { me: DashboardUser }) {
 
 export default function ClientesCalificadosPage() {
   const { me, loading } = useAuth();
+  const { loading: permissionsLoading, canAccessModule } = useModulePermissions();
   const router = useRouter();
-  const allowed = Boolean(me && ALLOWED_ROLES.has(me.role));
+  const allowed = Boolean(me && canAccessModule("quarterly_indicators"));
 
   useEffect(() => {
-    if (!loading && me && !allowed) router.replace("/acceso-denegado");
-  }, [allowed, loading, me, router]);
+    if (!loading && !permissionsLoading && me && !allowed) router.replace("/acceso-denegado");
+  }, [allowed, loading, me, permissionsLoading, router]);
 
-  if (loading) {
+  if (loading || permissionsLoading) {
     return (
       <div className="grid min-h-[75vh] place-items-center">
         <DualSpinner size={60} thickness={4} />

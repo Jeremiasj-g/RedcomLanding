@@ -6,12 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 /* ---------------------------------------------
  * Roles del sistema
  * ------------------------------------------- */
-export type UserRole =
-  | 'admin'
-  | 'jdv'
-  | 'supervisor'
-  | 'vendedor'
-  | 'rrhh';
+export type UserRole = string;
 
 /* ---------------------------------------------
  * Tipo Me

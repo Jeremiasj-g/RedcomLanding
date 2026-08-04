@@ -18,6 +18,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import SidebarDrawer from './SidebarDrawer';
 import { getNavModel } from './getNavModel';
+import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
 
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -42,7 +43,10 @@ function roleLabel(role: string) {
   if (r === 'jdv') return 'JDV';
   if (r === 'supervisor') return 'Supervisor';
   if (r === 'rrhh') return 'RRHH';
-  return 'Vendedor';
+  if (!r) return 'Usuario';
+  return r
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function roleChipClass(role: string) {
@@ -88,8 +92,10 @@ function roleChipClass(role: string) {
 
 export default function Navbar() {
   const { me, loading } = useMe();
+  const { canAccessModule, overrides } = useModulePermissions();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [roleDisplayName, setRoleDisplayName] = useState<string>('');
 
   // Notificaciones
   const [notifications, setNotifications] = useState<TaskNotification[]>([]);
@@ -127,6 +133,27 @@ export default function Navbar() {
 
   // ✅ no parpadea al volver a la pestaña
   const showSkeleton = loading && !me;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!me?.role) {
+      setRoleDisplayName('');
+      return;
+    }
+
+    supabase
+      .from('user_types')
+      .select('name')
+      .eq('code', me.role)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setRoleDisplayName(String(data?.name || ''));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [me?.role]);
 
   // ─────────────────────────────────────────
   // Cerrar dropdowns por click fuera / ESC
@@ -324,13 +351,14 @@ export default function Navbar() {
         isActive,
         role,
         branches,
+        canAccessModule,
       },
       {
         pendingCount,
         unreadNotifs: unreadCount,
       },
     );
-  }, [logged, isActive, role, branches, pendingCount, unreadCount]);
+  }, [logged, isActive, role, branches, pendingCount, unreadCount, canAccessModule, overrides]);
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-[#1d1d1f] backdrop-blur">
@@ -400,10 +428,10 @@ export default function Navbar() {
                       'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-extrabold',
                       roleChipClass(role),
                     )}
-                    title={`Rol: ${roleLabel(role)}`}
+                    title={`Rol: ${roleDisplayName || roleLabel(role)}`}
                   >
                     <BadgeCheck className="h-4 w-4" />
-                    {roleLabel(role)}
+                    {roleDisplayName || roleLabel(role)}
                   </span>
                 </div>
               )}

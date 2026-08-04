@@ -37,7 +37,9 @@ export default function NewUser() {
     try {
       const { data, error } = await supabase
         .from('user_types')
-        .select('code,name')
+        .select('code,name,is_active,sort_order')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
         .order('id', { ascending: true });
 
       if (error) throw error;

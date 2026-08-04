@@ -1,62 +1,73 @@
 'use client';
 
-import { useAuth } from '../app/auth/AuthProvider'; // ajustá el path si hace falta
+import { useAuth } from '../app/auth/AuthProvider';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
-
-type RoleCode = 'admin' | 'supervisor' | 'vendedor' | 'rrhh' | 'jdv';
+import { useEffect, useMemo } from 'react';
+import { getModulePermissionForPath } from '@/lib/module-permissions';
+import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
 
 type RequireAuthProps = {
   children: React.ReactNode;
   /** roles permitidos, si se omite cualquier rol logueado pasa */
-  roles?: RoleCode[];
+  roles?: string[];
   /** sucursales permitidas, si se omite se ignora */
   branches?: string[];
 };
 
 export function RequireAuth({ children, roles, branches }: RequireAuthProps) {
   const { me, loading } = useAuth();
+  const { loading: permissionsLoading, canAccessModule } = useModulePermissions();
   const router = useRouter();
   const pathname = usePathname();
+  const moduleKey = useMemo(() => getModulePermissionForPath(pathname), [pathname]);
+
+  // Un permiso de módulo, ya sea heredado del rol o configurado como
+  // excepción individual, puede habilitar una ruta aunque el componente
+  // histórico todavía tenga una lista fija de roles.
+  const modulePermissionGrant = Boolean(moduleKey && canAccessModule(moduleKey));
+  const roleAllowed = Boolean(
+    !roles || roles.length === 0 || (me && roles.includes(me.role)) || modulePermissionGrant,
+  );
+  const branchAllowed = Boolean(
+    !branches ||
+      branches.length === 0 ||
+      me?.role === 'admin' ||
+      me?.branches.some((branch) =>
+        branches.map((value) => value.toLowerCase()).includes(branch.toLowerCase()),
+      ),
+  );
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || (moduleKey && permissionsLoading)) return;
 
-    // 1) no logueado → al login
     if (!me) {
       const search = new URLSearchParams({ redirectTo: pathname }).toString();
       router.replace(`/login?${search}`);
       return;
     }
 
-    // 2) filtro por rol
-    if (roles && roles.length > 0 && !roles.includes(me.role)) {
-      router.replace('/acceso-denegado'); // o '/'
-      return;
+    if (!roleAllowed || !branchAllowed) {
+      router.replace('/acceso-denegado');
     }
+  }, [
+    branchAllowed,
+    loading,
+    me,
+    moduleKey,
+    pathname,
+    permissionsLoading,
+    roleAllowed,
+    router,
+  ]);
 
-    // 3) filtro por sucursal (admin siempre pasa)
-    if (branches && branches.length > 0 && me.role !== 'admin') {
-      const hasBranch = me.branches.some(b =>
-        branches.map(x => x.toLowerCase()).includes(b.toLowerCase())
-      );
-      if (!hasBranch) {
-        router.replace('/acceso-denegado');
-        return;
-      }
-    }
-  }, [me, loading, roles, branches, router, pathname]);
-
-  if (loading) {
+  if (loading || (moduleKey && permissionsLoading)) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="h-10 w-10 rounded-full border-4 border-slate-200 border-t-slate-600 animate-spin" />
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-slate-600" />
       </div>
     );
   }
 
-  // Mientras hace el redirect no mostramos nada
-  if (!me) return null;
-
+  if (!me || !roleAllowed || !branchAllowed) return null;
   return <>{children}</>;
 }

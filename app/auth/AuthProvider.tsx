@@ -9,7 +9,7 @@ type Me = {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'admin' | 'jdv' | 'supervisor' | 'vendedor' | 'rrhh';
+  role: string;
   is_active: boolean;
   branches: string[];
   last_active?: string | null; // opcional, por si lo querés usar en el cliente

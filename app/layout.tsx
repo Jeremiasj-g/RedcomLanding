@@ -7,6 +7,7 @@ import Footer from '@/components/Footer';
 import FloatingTelegramButton from '@/components/Icons/FloatingTelegramButton';
 import AuthProvider from '@/app/auth/AuthProvider';
 import ReactToastProvider from '@/components/providers/ReactToastProvider';
+import ModulePermissionsProvider from '@/components/permissions/ModulePermissionsProvider';
 
 const montserrat = Montserrat({
   subsets: ['latin'],
@@ -38,12 +39,14 @@ export default function RootLayout({
       
       <body className={montserrat.variable}>
         <AuthProvider>
-          <Navbar />
-          <main>{children}</main>
-          {/* Botón flotante de Telegram */}
-          {/* <FloatingTelegramButton /> */}
-          <Footer />
-          <ReactToastProvider />
+          <ModulePermissionsProvider>
+            <Navbar />
+            <main>{children}</main>
+            {/* Botón flotante de Telegram */}
+            {/* <FloatingTelegramButton /> */}
+            <Footer />
+            <ReactToastProvider />
+          </ModulePermissionsProvider>
         </AuthProvider>
       </body>
     </html>

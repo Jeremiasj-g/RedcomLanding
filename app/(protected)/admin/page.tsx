@@ -98,7 +98,9 @@ async function fetchRoleOptionsFromUserTypes(): Promise<RoleOption[] | null> {
   try {
     const { data, error } = await supabase
       .from('user_types')
-      .select('code,name')
+      .select('code,name,is_active,sort_order')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
       .order('id', { ascending: true });
 
     if (error) return null;
@@ -177,7 +179,12 @@ export default function AdminUsersPage() {
         new Set((usersSnapshot ?? rows).map((u) => String(u.role ?? '').trim()).filter(Boolean))
       ).map((v) => ({ value: v, label: prettyRoleLabel(v) }));
 
-      const finalOpts = (fromDb && fromDb.length ? fromDb : fromUsers).slice().sort((a, b) => {
+      const merged = [...(fromDb ?? []), ...fromUsers].reduce<RoleOption[]>((acc, option) => {
+        if (!acc.some((item) => item.value === option.value)) acc.push(option);
+        return acc;
+      }, []);
+
+      const finalOpts = merged.slice().sort((a, b) => {
         // admin primero, resto alfabético (opcional)
         if (a.value === 'admin' && b.value !== 'admin') return -1;
         if (b.value === 'admin' && a.value !== 'admin') return 1;

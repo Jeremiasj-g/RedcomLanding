@@ -1,5 +1,6 @@
 // components/navbar/nav.config.tsx
 import React from 'react';
+import type { ModulePermissionKey } from '@/lib/module-permissions';
 import {
   Sparkles,
   CalendarDays,
@@ -18,6 +19,7 @@ export type NavRuleCtx = {
   isActive: boolean;
   role: string; // 'admin' | 'supervisor' | 'jdv' | 'rrhh' | 'vendedor' | etc
   branches: string[]; // lower-case
+  canAccessModule: (key: ModulePermissionKey) => boolean;
 };
 
 export type NavItemConfig = {
@@ -48,6 +50,9 @@ const roleIn = (roles: string[]) => (ctx: NavRuleCtx) => roles.includes(ctx.role
 const hasBranch = (branch: string) => (ctx: NavRuleCtx) =>
   ctx.branches.includes(branch.toLowerCase());
 
+const canUse = (key: ModulePermissionKey) => (ctx: NavRuleCtx) =>
+  mustBeLoggedActive(ctx) && ctx.canAccessModule(key);
+
 export const NAV_SECTIONS: NavSectionConfig[] = [
   // 1) Sucursales
   {
@@ -60,7 +65,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Corrientes',
         href: '/corrientes/masivos',
         icon: <Building2 className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && hasBranch('corrientes')(ctx),
+        enabledWhen: (ctx) => canUse('branch_dashboards')(ctx) && hasBranch('corrientes')(ctx),
         enabledReason: () => 'No tenés la sucursal Corrientes',
         className: 'text-slate-100',
       },
@@ -69,7 +74,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Refrigerados',
         href: '/corrientes/refrigerados',
         icon: <Building2 className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && hasBranch('refrigerados')(ctx),
+        enabledWhen: (ctx) => canUse('branch_dashboards')(ctx) && hasBranch('refrigerados')(ctx),
         enabledReason: () => 'No tenés la sucursal Refrigerados',
         className: 'text-slate-100',
       },
@@ -78,7 +83,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Chaco',
         href: '/chaco',
         icon: <Building2 className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && hasBranch('chaco')(ctx),
+        enabledWhen: (ctx) => canUse('branch_dashboards')(ctx) && hasBranch('chaco')(ctx),
         enabledReason: () => 'No tenés la sucursal Chaco',
         className: 'text-slate-100',
       },
@@ -87,7 +92,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Misiones',
         href: '/misiones',
         icon: <Building2 className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && hasBranch('misiones')(ctx),
+        enabledWhen: (ctx) => canUse('branch_dashboards')(ctx) && hasBranch('misiones')(ctx),
         enabledReason: () => 'No tenés la sucursal Misiones',
         className: 'text-slate-100',
       },
@@ -96,7 +101,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Oberá',
         href: '/obera',
         icon: <Building2 className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && hasBranch('obera')(ctx),
+        enabledWhen: (ctx) => canUse('branch_dashboards')(ctx) && hasBranch('obera')(ctx),
         enabledReason: () => 'No tenés la sucursal Oberá',
         className: 'text-slate-100',
       },
@@ -114,7 +119,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Novedades',
         href: '/novedades',
         icon: <Sparkles className="h-4 w-4" />,
-        enabledWhen: () => true, // visible siempre (pública)
+        enabledWhen: (ctx) => canUse('news')(ctx),
         enabledReason: () => '',
         // ✅ color original
         className: 'text-violet-300 hover:text-violet-100 hover:bg-violet-500/10',
@@ -133,8 +138,8 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Mis tareas',
         href: '/tareas',
         icon: <CalendarDays className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && ['admin', 'supervisor', 'jdv'].includes(ctx.role),
-        enabledReason: () => 'Solo Admin / Supervisor / JDV',
+        enabledWhen: (ctx) => canUse('personal_tasks')(ctx),
+        enabledReason: () => 'Sin permiso para Mis tareas',
         // ✅ color original
         className: 'text-sky-300 hover:text-sky-200',
       },
@@ -143,8 +148,8 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Proyectos',
         href: '/proyectos',
         icon: <ListChecks className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && ['admin', 'supervisor', 'jdv'].includes(ctx.role),
-        enabledReason: () => 'Solo Admin / Supervisor / JDV',
+        enabledWhen: (ctx) => canUse('projects')(ctx),
+        enabledReason: () => 'Sin permiso para Proyectos',
         // ✅ color original
         className: 'text-emerald-300 hover:text-emerald-200',
       },
@@ -153,8 +158,8 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Focos',
         href: '/focos',
         icon: <ListChecks className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx),
-        enabledReason: () => '',
+        enabledWhen: (ctx) => canUse('focus')(ctx),
+        enabledReason: () => 'Sin permiso para Focos',
         // ✅ color original
         className: 'text-red-300 hover:text-red-200',
       },
@@ -163,8 +168,8 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Indicadores trimestrales',
         href: '/ccc-calificados',
         icon: <BadgeCheck className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && ['admin', 'jdv', 'supervisor', 'rrhh'].includes(ctx.role),
-        enabledReason: () => 'Solo Admin / JDV / Supervisor / RRHH',
+        enabledWhen: (ctx) => canUse('quarterly_indicators')(ctx),
+        enabledReason: () => 'Sin permiso para Indicadores trimestrales',
         className: 'text-orange-300 hover:text-orange-200 hover:bg-orange-500/10',
       },
       {
@@ -172,8 +177,8 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Alta de Vendo',
         href: '/alta-vendo',
         icon: <Smartphone className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && ['admin', 'jdv', 'supervisor', 'rrhh'].includes(ctx.role),
-        enabledReason: () => 'Solo Admin / JDV / Supervisor / RRHH',
+        enabledWhen: (ctx) => canUse('vendo_requests')(ctx),
+        enabledReason: () => 'Sin permiso para Alta de Vendo',
         className: 'text-cyan-300 hover:text-cyan-200 hover:bg-cyan-500/10',
       },
     ],
@@ -190,8 +195,8 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Panel de recursos humanos',
         href: '/rrhh',
         icon: <Sparkles className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && ['admin', 'rrhh'].includes(ctx.role),
-        enabledReason: () => 'Solo Admin o RRHH',
+        enabledWhen: (ctx) => canUse('hr_panel')(ctx),
+        enabledReason: () => 'Sin permiso para el panel de RRHH',
         // ✅ color original RRHH
         className: 'text-violet-300 hover:text-violet-100 hover:bg-violet-500/10',
       },
@@ -200,8 +205,8 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Panel de tareas',
         href: '/tareas/panel-tareas',
         icon: <ListChecks className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && ['admin', 'jdv'].includes(ctx.role),
-        enabledReason: () => 'Solo Admin / Supervisor',
+        enabledWhen: (ctx) => canUse('tasks_panel')(ctx),
+        enabledReason: () => 'Sin permiso para el Panel de tareas',
         // ✅ color original panel tareas
         className: 'text-sky-300 hover:text-sky-200',
       },
@@ -220,8 +225,8 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Panel de focos',
         href: '/focos/panel',
         icon: <Shield className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && roleIn(['admin','supervisor', 'jdv'])(ctx),
-        enabledReason: () => 'Solo Admin / Supervisor',
+        enabledWhen: (ctx) => canUse('focus_panel')(ctx),
+        enabledReason: () => 'Sin permiso para el Panel de focos',
         // ✅ color original admin panel
         className: 'text-red-300 hover:text-red-200',
       },
@@ -248,8 +253,8 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Recursos',
         href: '/gerencia',
         icon: <Hammer className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && roleIn(['admin'])(ctx),
-        enabledReason: () => 'Solo Admin',
+        enabledWhen: (ctx) => canUse('management_resources')(ctx),
+        enabledReason: () => 'Sin permiso para Recursos de gerencia',
         className: 'text-slate-100',
       },
     ],
