@@ -297,6 +297,8 @@ export const clientesCalificadosCss = `
   .ccc-page .ccc-export-option{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:11px;padding:12px 13px;background:var(--white);cursor:pointer;transition:.15s;min-height:70px;}
   .ccc-page .ccc-export-option:hover{border-color:#9CCEB4;background:#F7FCF9;}
   .ccc-page .ccc-export-option.is-fixed{background:var(--greenTint);border-color:#B9E2CB;cursor:default;}
+  .ccc-page .ccc-export-option.is-primary-option{background:var(--greenTint);border-color:#B9E2CB;}
+  .ccc-page .ccc-export-option.is-primary-option:hover{background:#E7F7EE;border-color:#8FD0AA;}
   .ccc-page .ccc-export-option-wide{grid-column:1/-1;}
   .ccc-page .ccc-export-option input{margin-top:2px;width:17px;height:17px;accent-color:var(--green);flex:none;}
   .ccc-page .ccc-export-option div{display:flex;flex-direction:column;gap:4px;}

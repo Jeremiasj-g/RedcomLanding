@@ -682,14 +682,6 @@ export function initClientesCalificadosDashboard(options = {}){
         return String(a.nombre).localeCompare(String(b.nombre), 'es');
       });
 
-      // En la matriz exportada siempre identificamos al vendedor por código + nombre.
-      // Esto evita ambigüedades aunque no existan nombres repetidos.
-      vendors.forEach(vendor => {
-        const codigo = String(vendor.codigo ?? '').trim();
-        const nombre = String(vendor.nombre || 'Vendedor sin nombre').trim();
-        vendor.displayName = codigo ? `${codigo} - ${nombre}` : nombre;
-      });
-
       return { vendors, lineResults };
     }
 
@@ -699,7 +691,18 @@ export function initClientesCalificadosDashboard(options = {}){
       if (numberFormat) sheet[address].z = numberFormat;
     }
 
-    function exportVendorObjectiveMatrix({ rows, periodo, selectedMetrics, includeDirectory }){
+    function vendorExportLabel(vendor, includeVendorName){
+      const codigo = String(vendor.codigo ?? '').trim();
+      const nombre = String(vendor.nombre || 'Vendedor sin nombre').trim();
+
+      // Formato solicitado para la matriz:
+      // - por defecto: "62"
+      // - opcional: "62 AGUSTINA GUZMAN"
+      if (includeVendorName) return codigo ? `${codigo} ${nombre}` : nombre;
+      return codigo || nombre;
+    }
+
+    function exportVendorObjectiveMatrix({ rows, periodo, selectedMetrics, includeDirectory, includeVendorName }){
       const model = collectVendorMatrixData(rows);
       if (!model.vendors.length){
         runtimeNotify('info', 'No hay vendedores disponibles para generar la matriz.');
@@ -746,7 +749,10 @@ export function initClientesCalificadosDashboard(options = {}){
       const branch = getSelectedBranchLabel() || getSelectedSucursalName() || getSelectedBranch() || 'Sucursal';
       const now = new Date();
       const generatedAt = now.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
-      const header = ['Línea objetivo / indicador', ...model.vendors.map(vendor => vendor.displayName)];
+      const header = [
+        'Línea objetivo / indicador',
+        ...model.vendors.map(vendor => vendorExportLabel(vendor, includeVendorName)),
+      ];
       const aoa = [
         ['CCC CALIFICADOS · CUMPLIMIENTO POR VENDEDOR'],
         [`Sucursal: ${branch} · Período: ${periodo || '—'} · Generado: ${generatedAt}`],
@@ -844,14 +850,19 @@ export function initClientesCalificadosDashboard(options = {}){
 
       if (includeDirectory){
         const directoryRows = model.vendors.map(vendor => ({
-          'Vendedor': vendor.displayName,
+          'Vendedor': vendorExportLabel(vendor, includeVendorName),
           'Código': vendor.codigo,
           'Supervisor': vendor.supervisor,
           'Sucursal': vendor.sucursal,
         }));
         const directory = XLSX.utils.json_to_sheet(directoryRows);
         directory['!autofilter'] = { ref: directory['!ref'] };
-        directory['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 28 }, { wch: 23 }];
+        directory['!cols'] = [
+          { wch: includeVendorName ? 30 : 14 },
+          { wch: 12 },
+          { wch: 28 },
+          { wch: 23 },
+        ];
         const range = XLSX.utils.decode_range(directory['!ref']);
         for (let row = range.s.r; row <= range.e.r; row++) {
           for (let col = range.s.c; col <= range.e.c; col++) {
@@ -889,7 +900,7 @@ export function initClientesCalificadosDashboard(options = {}){
             <div>
               <span class="ccc-export-kicker">Exportación Excel</span>
               <h3 id="cccExportTitle">Matriz de cumplimiento por vendedor</h3>
-              <p>La exportación base incluye Quento y Héroes en filas, todos los vendedores en columnas y la cantidad de clientes que cumplieron la cuota.</p>
+              <p>La exportación base incluye Quento y Héroes en filas, los códigos de vendedor en columnas y la cantidad de clientes que cumplieron la cuota.</p>
             </div>
             <button class="ccc-export-close" type="button" aria-label="Cerrar">×</button>
           </div>
@@ -903,6 +914,13 @@ export function initClientesCalificadosDashboard(options = {}){
               <input type="checkbox" checked disabled />
               <div><strong>Clientes que cumplieron</strong><span>Incluido por defecto.</span></div>
             </div>
+            <label class="ccc-export-option is-primary-option">
+              <input type="checkbox" id="cccExportVendorName" />
+              <div>
+                <strong>Concatenar nombre del vendedor</strong>
+                <span>Opcional. Cambia "62" por "62 AGUSTINA GUZMAN".</span>
+              </div>
+            </label>
             <label class="ccc-export-option">
               <input type="checkbox" data-export-metric="clientes" />
               <div><strong>Total de clientes</strong><span>Padrón evaluado por vendedor.</span></div>
@@ -961,8 +979,15 @@ export function initClientesCalificadosDashboard(options = {}){
         const selectedMetrics = Array.from(backdrop.querySelectorAll('[data-export-metric]:checked'))
           .map(input => input.getAttribute('data-export-metric'));
         const includeDirectory = backdrop.querySelector('#cccExportDirectory').checked;
+        const includeVendorName = backdrop.querySelector('#cccExportVendorName').checked;
         try{
-          exportVendorObjectiveMatrix({ rows, periodo, selectedMetrics, includeDirectory });
+          exportVendorObjectiveMatrix({
+            rows,
+            periodo,
+            selectedMetrics,
+            includeDirectory,
+            includeVendorName,
+          });
           close();
         }catch(err){
           console.error(err);
