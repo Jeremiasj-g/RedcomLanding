@@ -369,10 +369,12 @@ export function initClientesCalificadosDashboard(options = {}){
         if (cliente === null || cliente === undefined) continue;
         const clienteTexto = String(r[idx.clientesId]||'').trim();
         const clienteNombre = clienteTexto.replace(/^\(\s*\d+\s*\)\s*/, '').trim() || ('Cliente ' + cliente);
-        const cantidadBultos = Number(r[idx.cantidad]) || 0;
+        const cantidadBultosRaw = Number(r[idx.cantidad]);
+        const cantidadBultos = Number.isFinite(cantidadBultosRaw) ? cantidadBultosRaw : 0;
         const pack = extractPack(r[idx.descArticulo]);
-        // las unidades reales son siempre un entero (no se compran fracciones de un artículo);
-        // se redondea por línea para evitar ruido de precisión del bulto de origen (4 decimales)
+        // las unidades reales usadas por el dashboard son siempre un entero
+        // (no se compran fracciones de un artículo); se redondea por línea para
+        // evitar ruido de precisión del bulto de origen (4 decimales).
         const cantidad = Math.round(cantidadBultos * pack);
         const ruta = String(r[idx.ruta] || '').trim();
         const artDescTxt = String(r[idx.descArticulo] || '').trim();
@@ -389,6 +391,16 @@ export function initClientesCalificadosDashboard(options = {}){
           cantidad,
           artKey,
           artDesc: artDescTxt || artKey,
+          // Datos originales conservados para la hoja opcional "Análisis detallado".
+          // No se redondea la multiplicación porque debe reflejar exactamente
+          // Cantidades CON Cargo × Unidades por caja, como en el archivo fuente.
+          detalleCliente: clienteTexto,
+          detalleVendedor: String(r[idx.vendedorNom] || '').trim(),
+          detalleArticulo: artKey,
+          detalleDescripcion: String(r[idx.linea] || '').trim(),
+          detalleCantidadConCargo: cantidadBultos,
+          detalleUnidadesPorCaja: pack,
+          detalleUnidadesCompradas: cantidadBultos * pack,
         });
       }
       if (!rows.length) throw new Error('No se encontraron filas válidas de Quento/Heroe en el archivo.');
@@ -702,7 +714,14 @@ export function initClientesCalificadosDashboard(options = {}){
       return codigo || nombre;
     }
 
-    function exportVendorObjectiveMatrix({ rows, periodo, selectedMetrics, includeDirectory, includeVendorName }){
+    function exportVendorObjectiveMatrix({
+      rows,
+      periodo,
+      selectedMetrics,
+      includeDirectory,
+      includeVendorName,
+      includeDetailedAnalysis,
+    }){
       const model = collectVendorMatrixData(rows);
       if (!model.vendors.length){
         runtimeNotify('info', 'No hay vendedores disponibles para generar la matriz.');
@@ -879,6 +898,101 @@ export function initClientesCalificadosDashboard(options = {}){
         XLSX.utils.book_append_sheet(workbook, directory, 'Vendedores');
       }
 
+      if (includeDetailedAnalysis){
+        const detailHeaders = [
+          'Clientes',
+          'Descripción Vendedor',
+          'Artículos',
+          'Descripción',
+          'Cantidades CON Cargo',
+          'Unidades por caja',
+          'Unidades compradas por el cliente',
+        ];
+        const detailRows = rows.map(row => [
+          row.detalleCliente || `(${String(row.cliente || '').padStart(6, '0')}) ${row.clienteNombre || ''}`.trim(),
+          row.detalleVendedor || '',
+          row.detalleArticulo || row.artKey || row.artDesc || '',
+          row.detalleDescripcion || row.linea || '',
+          Number(row.detalleCantidadConCargo) || 0,
+          Number(row.detalleUnidadesPorCaja) || 1,
+          Number(row.detalleUnidadesCompradas) || 0,
+        ]);
+
+        const detailSheet = XLSX.utils.aoa_to_sheet([detailHeaders, ...detailRows]);
+        const detailLastRow = detailRows.length + 1;
+        detailSheet['!autofilter'] = { ref: `A1:G${detailLastRow}` };
+        detailSheet['!freeze'] = {
+          xSplit: 0,
+          ySplit: 1,
+          topLeftCell: 'A2',
+          activePane: 'bottomLeft',
+          state: 'frozen',
+        };
+        detailSheet['!cols'] = [
+          { wch: 42 },
+          { wch: 27 },
+          { wch: 45 },
+          { wch: 20 },
+          { wch: 23 },
+          { wch: 18 },
+          { wch: 32 },
+        ];
+        detailSheet['!rows'] = [
+          { hpt: 24 },
+          ...detailRows.map(() => ({ hpt: 20 })),
+        ];
+
+        const detailHeaderStyle = {
+          fill: { fgColor: { rgb: 'E9EDF3' } },
+          font: { color: { rgb: '161A22' }, bold: true, sz: 10 },
+          alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
+          border,
+        };
+        const detailTextStyle = rowIndex => ({
+          fill: { fgColor: { rgb: rowIndex % 2 === 0 ? 'FFFFFF' : 'F8F9FB' } },
+          font: { color: { rgb: '252A34' }, sz: 10 },
+          alignment: { horizontal: 'left', vertical: 'center', wrapText: false },
+          border,
+        });
+        const detailNumberStyle = rowIndex => ({
+          ...detailTextStyle(rowIndex),
+          alignment: { horizontal: 'right', vertical: 'center' },
+        });
+
+        detailHeaders.forEach((_, colIndex) => {
+          styleCell(
+            detailSheet,
+            XLSX.utils.encode_cell({ r: 0, c: colIndex }),
+            detailHeaderStyle,
+          );
+        });
+
+        detailRows.forEach((row, rowIndex) => {
+          const excelRow = rowIndex + 2;
+          for (let colIndex = 0; colIndex < detailHeaders.length; colIndex++) {
+            const address = XLSX.utils.encode_cell({ r: excelRow - 1, c: colIndex });
+            const isNumeric = colIndex >= 4;
+            styleCell(
+              detailSheet,
+              address,
+              isNumeric ? detailNumberStyle(rowIndex) : detailTextStyle(rowIndex),
+              colIndex === 4 || colIndex === 6 ? '0.####' : (colIndex === 5 ? '0' : undefined),
+            );
+          }
+
+          // La última columna queda como fórmula real de Excel:
+          // Unidades compradas = Cantidades CON Cargo × Unidades por caja.
+          const formulaCell = detailSheet[`G${excelRow}`] || { t: 'n', v: row[6] };
+          formulaCell.t = 'n';
+          formulaCell.f = `E${excelRow}*F${excelRow}`;
+          formulaCell.v = row[6];
+          formulaCell.z = '0.####';
+          detailSheet[`G${excelRow}`] = formulaCell;
+        });
+
+        XLSX.utils.book_append_sheet(workbook, detailSheet, 'Análisis detallado');
+      }
+
       const fileName = `CCC_Cumplimiento_Vendedores_${safeFilePart(branch)}_${now.toISOString().slice(0, 10)}.xlsx`;
       XLSX.writeFile(workbook, fileName, { compression: true, cellStyles: true });
       runtimeNotify('success', `Excel generado: ${fileName}`);
@@ -945,6 +1059,13 @@ export function initClientesCalificadosDashboard(options = {}){
               <input type="checkbox" id="cccExportDirectory" />
               <div><strong>Agregar hoja de vendedores</strong><span>Incluye código, supervisor y sucursal en una segunda hoja.</span></div>
             </label>
+            <label class="ccc-export-option ccc-export-option-wide">
+              <input type="checkbox" id="cccExportDetailedAnalysis" />
+              <div>
+                <strong>Agregar hoja de análisis detallado</strong>
+                <span>Incluye cliente, vendedor, artículo, línea, bultos con cargo, unidades por caja y unidades compradas.</span>
+              </div>
+            </label>
           </div>
           <div class="ccc-export-modal-actions">
             <button class="ghost ccc-export-cancel" type="button">Cancelar</button>
@@ -980,6 +1101,7 @@ export function initClientesCalificadosDashboard(options = {}){
           .map(input => input.getAttribute('data-export-metric'));
         const includeDirectory = backdrop.querySelector('#cccExportDirectory').checked;
         const includeVendorName = backdrop.querySelector('#cccExportVendorName').checked;
+        const includeDetailedAnalysis = backdrop.querySelector('#cccExportDetailedAnalysis').checked;
         try{
           exportVendorObjectiveMatrix({
             rows,
@@ -987,6 +1109,7 @@ export function initClientesCalificadosDashboard(options = {}){
             selectedMetrics,
             includeDirectory,
             includeVendorName,
+            includeDetailedAnalysis,
           });
           close();
         }catch(err){
