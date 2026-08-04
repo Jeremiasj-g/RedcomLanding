@@ -682,16 +682,12 @@ export function initClientesCalificadosDashboard(options = {}){
         return String(a.nombre).localeCompare(String(b.nombre), 'es');
       });
 
-      const repeatedNames = vendors.reduce((map, vendor) => {
-        const nameKey = String(vendor.nombre).trim().toUpperCase();
-        map.set(nameKey, (map.get(nameKey) || 0) + 1);
-        return map;
-      }, new Map());
+      // En la matriz exportada siempre identificamos al vendedor por código + nombre.
+      // Esto evita ambigüedades aunque no existan nombres repetidos.
       vendors.forEach(vendor => {
-        const nameKey = String(vendor.nombre).trim().toUpperCase();
-        vendor.displayName = repeatedNames.get(nameKey) > 1 && vendor.codigo !== ''
-          ? `${vendor.nombre} (#${vendor.codigo})`
-          : vendor.nombre;
+        const codigo = String(vendor.codigo ?? '').trim();
+        const nombre = String(vendor.nombre || 'Vendedor sin nombre').trim();
+        vendor.displayName = codigo ? `${codigo} - ${nombre}` : nombre;
       });
 
       return { vendors, lineResults };
@@ -848,7 +844,7 @@ export function initClientesCalificadosDashboard(options = {}){
 
       if (includeDirectory){
         const directoryRows = model.vendors.map(vendor => ({
-          'Vendedor': vendor.nombre,
+          'Vendedor': vendor.displayName,
           'Código': vendor.codigo,
           'Supervisor': vendor.supervisor,
           'Sucursal': vendor.sucursal,

@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { useAuth } from '@/app/auth/AuthProvider';
@@ -46,16 +47,23 @@ export default function ModulePermissionsProvider({ children }: { children: Reac
   const [loading, setLoading] = useState(true);
   const [overrides, setOverrides] = useState<PermissionMap>({});
   const [roleDefaults, setRoleDefaults] = useState<ModulePermissionMap | null>(null);
+  const hasLoadedRef = useRef(false);
+  const requestSequenceRef = useRef(0);
 
   const refreshPermissions = useCallback(async () => {
+    const requestSequence = ++requestSequenceRef.current;
+
     if (!me?.id) {
       setOverrides({});
       setRoleDefaults(null);
+      hasLoadedRef.current = true;
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    // Solo mostramos el loader en el primer ingreso o cuando cambia realmente
+    // el usuario/rol. Las actualizaciones Realtime y manuales son silenciosas.
+    if (!hasLoadedRef.current) setLoading(true);
 
     const [userPermissionsResult, rolePermissionsResult] = await Promise.all([
       supabase
@@ -68,23 +76,21 @@ export default function ModulePermissionsProvider({ children }: { children: Reac
         .eq('role_key', me.role),
     ]);
 
+    if (requestSequence !== requestSequenceRef.current) return;
+
     if (userPermissionsResult.error) {
-      // La aplicación conserva el comportamiento por rol mientras la migración
-      // todavía no haya sido aplicada, evitando bloquear el sistema existente.
       console.warn(
         '[module-permissions] No se pudieron cargar los permisos individuales:',
         userPermissionsResult.error.message,
       );
       setOverrides({});
     } else {
-      const nextOverrides = (userPermissionsResult.data ?? []).reduce<PermissionMap>(
-        (acc, row: any) => {
+      setOverrides(
+        (userPermissionsResult.data ?? []).reduce<PermissionMap>((acc, row: any) => {
           acc[row.module_key as ModulePermissionKey] = Boolean(row.can_access);
           return acc;
-        },
-        {},
+        }, {}),
       );
-      setOverrides(nextOverrides);
     }
 
     if (rolePermissionsResult.error) {
@@ -94,7 +100,6 @@ export default function ModulePermissionsProvider({ children }: { children: Reac
           rolePermissionsResult.error.message,
         );
       }
-      // Fallback seguro: mantiene los accesos históricos definidos en el código.
       setRoleDefaults(getDefaultModulePermissions(me.role));
     } else {
       setRoleDefaults(
@@ -105,13 +110,21 @@ export default function ModulePermissionsProvider({ children }: { children: Reac
       );
     }
 
+    hasLoadedRef.current = true;
     setLoading(false);
   }, [me?.id, me?.role]);
 
   useEffect(() => {
     if (authLoading) return;
-    refreshPermissions();
-  }, [authLoading, refreshPermissions]);
+
+    // Cuando cambia la identidad sí corresponde validar desde cero. Esto no se
+    // ejecuta al cambiar de pestaña ni al volver desde otra aplicación.
+    hasLoadedRef.current = false;
+    setLoading(true);
+    setOverrides({});
+    setRoleDefaults(null);
+    void refreshPermissions();
+  }, [authLoading, me?.id, me?.role, refreshPermissions]);
 
   useEffect(() => {
     if (!me?.id) return;
@@ -126,7 +139,9 @@ export default function ModulePermissionsProvider({ children }: { children: Reac
           table: 'user_module_permissions',
           filter: `user_id=eq.${me.id}`,
         },
-        () => refreshPermissions(),
+        () => {
+          void refreshPermissions();
+        },
       )
       .subscribe();
 
@@ -140,23 +155,22 @@ export default function ModulePermissionsProvider({ children }: { children: Reac
           table: 'role_module_permissions',
           filter: `role_key=eq.${me.role}`,
         },
-        () => refreshPermissions(),
+        () => {
+          void refreshPermissions();
+        },
       )
       .subscribe();
 
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') refreshPermissions();
+    const onManualRefresh = () => {
+      void refreshPermissions();
     };
-    const onManualRefresh = () => refreshPermissions();
 
-    document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('redcom:module-permissions-changed', onManualRefresh);
     window.addEventListener('redcom:role-module-permissions-changed', onManualRefresh);
 
     return () => {
       supabase.removeChannel(userChannel);
       supabase.removeChannel(roleChannel);
-      document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('redcom:module-permissions-changed', onManualRefresh);
       window.removeEventListener('redcom:role-module-permissions-changed', onManualRefresh);
     };

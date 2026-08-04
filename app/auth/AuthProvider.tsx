@@ -1,10 +1,17 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
-// 👇 Ahora coincide con la BD: admin | supervisor | vendedor
 type Me = {
   id: string;
   email: string;
@@ -12,32 +19,63 @@ type Me = {
   role: string;
   is_active: boolean;
   branches: string[];
-  last_active?: string | null; // opcional, por si lo querés usar en el cliente
+  last_active?: string | null;
 } | null;
 
 type AuthCtx = {
   me: Me;
-  loading: boolean;                   // solo true en el primer boot
+  loading: boolean;
   signOut: () => Promise<void>;
-  refreshMe: () => Promise<void>;     // revalida sin flicker
+  refreshMe: () => Promise<void>;
 };
 
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
+function normalizeBranches(values?: Array<string | null>) {
+  return Array.from(
+    new Set(
+      (values ?? [])
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase()),
+    ),
+  ).sort();
+}
+
+function sameUserState(previous: Me, next: Me) {
+  if (previous === next) return true;
+  if (!previous || !next) return false;
+
+  return (
+    previous.id === next.id &&
+    previous.email === next.email &&
+    previous.full_name === next.full_name &&
+    previous.role === next.role &&
+    previous.is_active === next.is_active &&
+    previous.last_active === next.last_active &&
+    previous.branches.length === next.branches.length &&
+    previous.branches.every((branch, index) => branch === next.branches[index])
+  );
+}
+
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [me, setMe] = useState<Me>(null);
-  const [loading, setLoading] = useState(true);      // solo para el arranque
-  const bootstrapped = useRef(false);                // evita flashes luego del primer load
+  const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(true);
 
-  // -------------------------------
-  // Carga de datos del usuario
-  // -------------------------------
-  const fetchMe = async () => {
+  const commitMe = useCallback((next: Me) => {
+    if (!mountedRef.current) return;
+    setMe((previous) => (sameUserState(previous, next) ? previous : next));
+  }, []);
+
+  const fetchMe = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
-    if (!auth?.user) { setMe(null); return; }
 
-    // 1) Vista preferida (incluye last_sign_in_at / created_at y ahora last_active si actualizaste la view)
+    if (!auth?.user) {
+      commitMe(null);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('v_user_with_branches')
       .select('*')
@@ -45,20 +83,19 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       .single();
 
     if (!error && data) {
-      setMe({
+      commitMe({
         id: data.id,
         email: data.email,
         full_name: data.full_name,
-        role: data.role, // 'admin' | 'supervisor' | 'vendedor'
+        role: data.role,
         is_active: data.is_active,
-        branches: (data.branches ?? []).map((x: string) => x?.toLowerCase?.() ?? x),
+        branches: normalizeBranches(data.branches),
         last_active: data.last_active ?? null,
       });
       return;
     }
 
-    // 2) Fallback profiles + user_branches
-    const [{ data: p }, { data: ub }] = await Promise.all([
+    const [{ data: profile }, { data: userBranches }] = await Promise.all([
       supabase
         .from('profiles')
         .select('id,email,full_name,role,is_active,last_active')
@@ -67,71 +104,66 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       supabase.from('user_branches').select('branch').eq('user_id', auth.user.id),
     ]);
 
-    if (p) {
-      setMe({
-        id: p.id,
-        email: p.email,
-        full_name: p.full_name,
-        role: p.role, // 'admin' | 'supervisor' | 'vendedor'
-        is_active: p.is_active,
-        branches: (ub ?? []).map((r: any) => String(r.branch).toLowerCase()),
-        last_active: p.last_active ?? null,
-      });
-    } else {
-      setMe(null);
+    if (!profile) {
+      commitMe(null);
+      return;
     }
-  };
 
-  const loadFirstTime = async () => {
-    await fetchMe();
-    setLoading(false);
-    bootstrapped.current = true;
-  };
+    commitMe({
+      id: profile.id,
+      email: profile.email,
+      full_name: profile.full_name,
+      role: profile.role,
+      is_active: profile.is_active,
+      branches: normalizeBranches(
+        (userBranches ?? []).map((row: { branch?: string | null }) => row.branch ?? null),
+      ),
+      last_active: profile.last_active ?? null,
+    });
+  }, [commitMe]);
 
   useEffect(() => {
-    loadFirstTime();
+    mountedRef.current = true;
 
-    // Eventos de autenticación: revalida suave al cambiar sesión
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+    const bootstrap = async () => {
+      try {
+        await fetchMe();
+      } finally {
+        if (mountedRef.current) setLoading(false);
+      }
+    };
+
+    bootstrap();
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
-        setMe(null);
+        commitMe(null);
         return;
       }
-      // SIGNED_IN / TOKEN_REFRESHED → revalida suave
-      fetchMe();
+
+      // TOKEN_REFRESHED ocurre de forma automática, frecuentemente al volver a una
+      // pestaña. La identidad y el perfil no cambiaron, por lo que no recargamos
+      // el árbol completo de la aplicación.
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        window.setTimeout(() => {
+          void fetchMe();
+        }, 0);
+      }
     });
 
-    // Al volver a la pestaña, revalida sin flicker
-    const onVis = () => {
-      if (document.visibilityState === 'visible' && bootstrapped.current) {
-        fetchMe();
-      }
-    };
-    document.addEventListener('visibilitychange', onVis);
-
     return () => {
-      sub.subscription.unsubscribe();
-      document.removeEventListener('visibilitychange', onVis);
+      mountedRef.current = false;
+      subscription.subscription.unsubscribe();
     };
-  }, []);
+  }, [commitMe, fetchMe]);
 
-  // -------------------------------
-  // Actualizador de última actividad
-  // Actualiza profiles.last_active:
-  // - al montar si hay usuario
-  // - cada 2 minutos
-  // - al volver a la pestaña
-  // - ante actividad del usuario (throttle 60s)
-  // -------------------------------
   useEffect(() => {
     if (!me?.id) return;
 
     let lastSent = 0;
-    let interval: ReturnType<typeof setInterval> | null = null;
-
     const updateLastActive = async (force = false) => {
       const now = Date.now();
-      if (!force && now - lastSent < 60_000) return; // throttle 60s
+      if (!force && now - lastSent < 60_000) return;
       lastSent = now;
 
       try {
@@ -140,44 +172,36 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
           .update({ last_active: new Date().toISOString() })
           .eq('id', me.id);
       } catch {
-        // silencioso: no rompemos UX si falla una vez
+        // La actividad es informativa y nunca debe interrumpir la interfaz.
       }
     };
 
-    // 1) al montar (force)
-    updateLastActive(true);
+    void updateLastActive(true);
+    const interval = window.setInterval(() => {
+      void updateLastActive(false);
+    }, 120_000);
 
-    // 2) cada 2 minutos
-    interval = setInterval(() => updateLastActive(false), 120_000);
-
-    // 3) visibilidad y actividad del usuario
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') updateLastActive(true);
+    const onActivity = () => {
+      void updateLastActive(false);
     };
-    const onActivity = () => updateLastActive(false);
 
-    document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('scroll', onActivity, { passive: true });
     window.addEventListener('pointermove', onActivity, { passive: true });
     window.addEventListener('keydown', onActivity);
 
     return () => {
-      if (interval) clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisibility);
+      window.clearInterval(interval);
       window.removeEventListener('scroll', onActivity);
       window.removeEventListener('pointermove', onActivity);
       window.removeEventListener('keydown', onActivity);
     };
   }, [me?.id]);
 
-  // -------------------------------
-  // Sign out
-  // -------------------------------
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    setMe(null);
-    router.push('/login'); // evita reload duro
-  };
+    commitMe(null);
+    router.push('/login');
+  }, [commitMe, router]);
 
   const value = useMemo<AuthCtx>(
     () => ({
@@ -186,7 +210,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       signOut,
       refreshMe: fetchMe,
     }),
-    [me, loading]
+    [fetchMe, loading, me, signOut],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

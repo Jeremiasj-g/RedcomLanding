@@ -1,16 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
-/* ---------------------------------------------
- * Roles del sistema
- * ------------------------------------------- */
 export type UserRole = string;
 
-/* ---------------------------------------------
- * Tipo Me
- * ------------------------------------------- */
 export type Me = {
   id: string;
   email: string;
@@ -20,160 +14,155 @@ export type Me = {
   branches: string[];
 };
 
-/* ---------------------------------------------
- * Utils
- * ------------------------------------------- */
 const normalizeBranches = (arr?: Array<string | null>) =>
   Array.from(
     new Set(
       (arr ?? [])
         .filter(Boolean)
-        .map(b => String(b).toLowerCase())
-    )
+        .map((branch) => String(branch).toLowerCase()),
+    ),
   ).sort();
 
-/* ---------------------------------------------
- * Hook principal
- * ------------------------------------------- */
+function sameProfile(previous: Me | null, next: Me | null) {
+  if (previous === next) return true;
+  if (!previous || !next) return false;
+
+  return (
+    previous.id === next.id &&
+    previous.email === next.email &&
+    previous.full_name === next.full_name &&
+    previous.role === next.role &&
+    previous.is_active === next.is_active &&
+    previous.branches.length === next.branches.length &&
+    previous.branches.every((branch, index) => branch === next.branches[index])
+  );
+}
+
 export function useMe() {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(true);
+  const initialLoadFinishedRef = useRef(false);
 
-  const load = async () => {
-    try {
-      const { data: auth } = await supabase.auth.getUser();
+  const commitProfile = useCallback((next: Me | null) => {
+    if (!mountedRef.current) return;
+    setMe((previous) => (sameProfile(previous, next) ? previous : next));
+  }, []);
 
-      if (!auth?.user) {
-        setMe(null);
-        setLoading(false);
-        return;
-      }
+  const load = useCallback(
+    async (showLoader = false) => {
+      if (showLoader && mountedRef.current) setLoading(true);
 
-      /* ---------------------------------------------
-       * 1) Intentar desde la VIEW (camino feliz)
-       * ------------------------------------------- */
-      const { data: vData, error: vErr } = await supabase
-        .from('v_user_with_branches')
-        .select('*')
-        .eq('id', auth.user.id)
-        .single();
+      try {
+        const { data: auth } = await supabase.auth.getUser();
 
-      if (!vErr && vData) {
-        const profile: Me = {
-          id: vData.id,
-          email: vData.email,
-          full_name: vData.full_name,
-          role: vData.role as UserRole,
-          is_active: vData.is_active,
-          branches: normalizeBranches(vData.branches),
-        };
-
-        if (!profile.is_active) {
-          await supabase.auth.signOut();
-          setMe(null);
-          setLoading(false);
+        if (!auth?.user) {
+          commitProfile(null);
           return;
         }
 
-        setMe(profile);
-        setLoading(false);
-        return;
-      }
-
-      /* ---------------------------------------------
-       * 2) Fallback: profiles + user_branches
-       * ------------------------------------------- */
-      const [{ data: p, error: pErr }, { data: ub }] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('id,email,full_name,role,is_active')
+        const { data: viewProfile, error: viewError } = await supabase
+          .from('v_user_with_branches')
+          .select('*')
           .eq('id', auth.user.id)
-          .single(),
-        supabase
-          .from('user_branches')
-          .select('branch')
-          .eq('user_id', auth.user.id),
-      ]);
+          .single();
 
-      if (pErr || !p) {
-        // Perfil inconsistente => cerramos sesión
-        await supabase.auth.signOut();
-        setMe(null);
-        setLoading(false);
-        return;
-      }
+        let profile: Me | null = null;
 
-      const profile: Me = {
-        id: p.id,
-        email: p.email,
-        full_name: p.full_name,
-        role: p.role as UserRole,
-        is_active: p.is_active,
-        branches: normalizeBranches(ub?.map(r => r.branch)),
-      };
+        if (!viewError && viewProfile) {
+          profile = {
+            id: viewProfile.id,
+            email: viewProfile.email,
+            full_name: viewProfile.full_name,
+            role: viewProfile.role as UserRole,
+            is_active: viewProfile.is_active,
+            branches: normalizeBranches(viewProfile.branches),
+          };
+        } else {
+          const [{ data: fallbackProfile, error: profileError }, { data: userBranches }] =
+            await Promise.all([
+              supabase
+                .from('profiles')
+                .select('id,email,full_name,role,is_active')
+                .eq('id', auth.user.id)
+                .single(),
+              supabase.from('user_branches').select('branch').eq('user_id', auth.user.id),
+            ]);
 
-      if (!profile.is_active) {
-        await supabase.auth.signOut();
-        setMe(null);
-        setLoading(false);
-        return;
-      }
-
-      setMe(profile);
-      setLoading(false);
-    } catch (err) {
-      console.error('[useMe] error:', err);
-      setMe(null);
-      setLoading(false);
-    }
-  };
-
-  /* ---------------------------------------------
-   * Lifecycle
-   * ------------------------------------------- */
-  useEffect(() => {
-    // carga inicial
-    load();
-
-    // reaccionar a auth changes
-    const { data: sub } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          setLoading(true);
-          load();
-        } else if (event === 'SIGNED_OUT' || !session) {
-          setMe(null);
-          setLoading(false);
+          if (!profileError && fallbackProfile) {
+            profile = {
+              id: fallbackProfile.id,
+              email: fallbackProfile.email,
+              full_name: fallbackProfile.full_name,
+              role: fallbackProfile.role as UserRole,
+              is_active: fallbackProfile.is_active,
+              branches: normalizeBranches(
+                (userBranches ?? []).map(
+                  (row: { branch?: string | null }) => row.branch ?? null,
+                ),
+              ),
+            };
+          }
         }
+
+        if (!profile || !profile.is_active) {
+          if (profile && !profile.is_active) await supabase.auth.signOut();
+          commitProfile(null);
+          return;
+        }
+
+        commitProfile(profile);
+      } catch (error) {
+        console.error('[useMe] error:', error);
+        // Una falla de red temporal no debe borrar una sesión ya cargada.
+        if (!initialLoadFinishedRef.current) commitProfile(null);
+      } finally {
+        initialLoadFinishedRef.current = true;
+        if (mountedRef.current) setLoading(false);
       }
-    );
+    },
+    [commitProfile],
+  );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    void load(true);
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        commitProfile(null);
+        if (mountedRef.current) setLoading(false);
+        return;
+      }
+
+      // Supabase puede emitir TOKEN_REFRESHED al recuperar el foco de la pestaña.
+      // No activamos loaders ni reconstruimos la página por ese evento.
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        window.setTimeout(() => {
+          void load(false);
+        }, 0);
+      }
+    });
 
     return () => {
-      sub.subscription.unsubscribe();
+      mountedRef.current = false;
+      subscription.subscription.unsubscribe();
     };
-  }, []);
+  }, [commitProfile, load]);
 
-  /* ---------------------------------------------
-   * Derivados útiles
-   * ------------------------------------------- */
   const firstName = useMemo(() => {
     if (!me?.full_name) return '';
     return me.full_name.split(' ').filter(Boolean)[0] ?? '';
   }, [me?.full_name]);
 
-  const isAdmin = me?.role === 'admin';
-  const isJDV = me?.role === 'jdv';
-  const isRRHH = me?.role === 'rrhh';
-  const isSupervisor = me?.role === 'supervisor';
-
   return {
     me,
     firstName,
     loading,
-    isAdmin,
-    isJDV,
-    isRRHH,
-    isSupervisor,
-    refetch: load,
+    isAdmin: me?.role === 'admin',
+    isJDV: me?.role === 'jdv',
+    isRRHH: me?.role === 'rrhh',
+    isSupervisor: me?.role === 'supervisor',
+    refetch: () => load(false),
   };
 }
