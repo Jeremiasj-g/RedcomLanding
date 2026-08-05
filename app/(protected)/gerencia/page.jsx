@@ -5,42 +5,17 @@ import Link from 'next/link';
 import { ArrowRight, BarChart3, Building2, Flame, MapPinned, Table, TrendingUp } from 'lucide-react';
 import BranchResourcesSection from '@/components/BranchResourcesSection';
 import Container from '@/components/Container';
-import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
+import ConfiguredWorkbookCard from '@/components/analytics/ConfiguredWorkbookCard';
+import { useAnalyticsConfig } from '@/components/analytics/AnalyticsConfigProvider';
 import LookerTabs from '@/components/LookerTabs';
 import PageHeader from '@/components/PageHeader';
 import { RequireAuth } from '@/components/RouteGuards';
-import { gerenciaProducts, urls } from '@/lib/data';
-
-const GERENCIA_LOOKER_VIEWS = {
-  gerencia: {
-    dashboard: 'https://datastudio.google.com/embed/reporting/448cb6d2-7c09-4ceb-8205-bb71ad87f355/page/knZ3F',
-    heatmap: '',
-  },
-  masivos: {
-    dashboard: 'https://datastudio.google.com/embed/reporting/2ecfc88c-9070-4498-8a28-75a1fb347c26/page/9jv2F',
-    heatmap: 'https://datastudio.google.com/embed/reporting/8b4b18c4-21b2-4fba-b1d1-be4dd1b28c51/page/uLA3F',
-  },
-  refrigerados: {
-    dashboard: 'https://datastudio.google.com/embed/reporting/02c9a8a8-1e04-46ab-a655-14f32933d372/page/VQ02F',
-    heatmap: '',
-  },
-  chaco: {
-    dashboard: 'https://datastudio.google.com/embed/reporting/0ade1098-b0d4-464d-8921-ce34ee5aa6ca/page/35y2F',
-    heatmap: 'https://datastudio.google.com/embed/reporting/e7c3de2e-a16b-4a6f-99dc-57a858c25549/page/5TA3F',
-  },
-  misiones: {
-    dashboard: 'https://datastudio.google.com/embed/reporting/fea1c84b-03f7-40f4-bd9f-59b362e5ed1f/page/BKz2F',
-    heatmap: 'https://datastudio.google.com/embed/reporting/53d95184-a8df-42fd-983a-ca944a7622dd/page/8tA3F',
-  },
-  obera: {
-    dashboard: 'https://datastudio.google.com/embed/reporting/5d398019-4654-4c01-b587-03f5137b71a2/page/Cdz2F',
-    heatmap: 'https://datastudio.google.com/embed/reporting/151511b7-a341-4061-8605-2598e26d1cf3/page/75A3F',
-  },
-};
+import { gerenciaProducts } from '@/lib/data';
 
 const LOOKER_BRANCHES = [
   {
     key: 'gerencia',
+    scopeKey: 'gerencia',
     label: 'Consolidado',
     shortLabel: 'General',
     icon: <Building2 className="h-4 w-4" />,
@@ -51,6 +26,7 @@ const LOOKER_BRANCHES = [
   },
   {
     key: 'masivos',
+    scopeKey: 'corrientes_masivos',
     label: 'Corrientes · Masivos',
     shortLabel: 'Ctes. Masivos',
     icon: <MapPinned className="h-4 w-4" />,
@@ -61,6 +37,7 @@ const LOOKER_BRANCHES = [
   },
   {
     key: 'refrigerados',
+    scopeKey: 'corrientes_refrigerados',
     label: 'Corrientes · Refrigerados',
     shortLabel: 'Refrigerados',
     icon: <MapPinned className="h-4 w-4" />,
@@ -71,6 +48,7 @@ const LOOKER_BRANCHES = [
   },
   {
     key: 'chaco',
+    scopeKey: 'chaco',
     label: 'Chaco · Masivos',
     shortLabel: 'Chaco',
     icon: <MapPinned className="h-4 w-4" />,
@@ -81,6 +59,7 @@ const LOOKER_BRANCHES = [
   },
   {
     key: 'misiones',
+    scopeKey: 'misiones',
     label: 'Misiones · Masivos',
     shortLabel: 'Misiones',
     icon: <MapPinned className="h-4 w-4" />,
@@ -91,6 +70,7 @@ const LOOKER_BRANCHES = [
   },
   {
     key: 'obera',
+    scopeKey: 'obera',
     label: 'Oberá · Masivos',
     shortLabel: 'Oberá',
     icon: <MapPinned className="h-4 w-4" />,
@@ -102,8 +82,6 @@ const LOOKER_BRANCHES = [
 ];
 
 export default function Gerencia() {
-  const gerenciaTablero = urls.tableros[2].gerencia;
-
   const lookerTabs = useMemo(
     () => [
       {
@@ -172,7 +150,7 @@ export default function Gerencia() {
 
         <section className="bg-white py-12 sm:py-14">
           <Container>
-            <FullScreenEmbedCard {...gerenciaTablero} icon={<Table />} />
+            <ConfiguredWorkbookCard scopeKey="gerencia" icon={<Table />} />
           </Container>
         </section>
 
@@ -192,11 +170,12 @@ export default function Gerencia() {
 }
 
 function GerenciaLookerBranchExplorer({ activeTab }) {
+  const { getUrl } = useAnalyticsConfig();
   const currentType = activeTab?.key ?? 'dashboard';
 
   const availableBranches = useMemo(() => {
-    return LOOKER_BRANCHES.filter((branch) => Boolean(GERENCIA_LOOKER_VIEWS[branch.key]?.[currentType]));
-  }, [currentType]);
+    return LOOKER_BRANCHES.filter((branch) => Boolean(getUrl(currentType, branch.scopeKey)));
+  }, [currentType, getUrl]);
 
   const [activeByType, setActiveByType] = useState({
     dashboard: 'gerencia',
@@ -261,8 +240,9 @@ function GerenciaLookerBranchExplorer({ activeTab }) {
 }
 
 function GerenciaLookerDeck({ activeBranch, activeType }) {
+  const { getUrl } = useAnalyticsConfig();
   const activeEmbedKey = `${activeBranch.key}:${activeType}`;
-  const activeUrl = GERENCIA_LOOKER_VIEWS[activeBranch.key]?.[activeType];
+  const activeUrl = getUrl(activeType, activeBranch.scopeKey);
 
   const [visitedEmbeds, setVisitedEmbeds] = useState(() => {
     return activeUrl ? [activeEmbedKey] : [];
@@ -280,7 +260,7 @@ function GerenciaLookerDeck({ activeBranch, activeType }) {
   const getEmbedByKey = (embedKey) => {
     const [branchKey, type] = embedKey.split(':');
     const branch = LOOKER_BRANCHES.find((item) => item.key === branchKey);
-    const url = GERENCIA_LOOKER_VIEWS[branchKey]?.[type];
+    const url = branch ? getUrl(type, branch.scopeKey) : '';
 
     return {
       branch,

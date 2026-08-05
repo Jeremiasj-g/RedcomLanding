@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { BarChart3, Flame, Table } from 'lucide-react';
 import BranchResourcesSection from '@/components/BranchResourcesSection';
 import Container from '@/components/Container';
-import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
+import ConfiguredWorkbookCard from '@/components/analytics/ConfiguredWorkbookCard';
 import LookerEmbed from '@/components/LookerEmbed';
 import LookerTabs from '@/components/LookerTabs';
 import PageHeader from '@/components/PageHeader';
@@ -13,11 +13,9 @@ import { useModulePermissions } from '@/components/permissions/ModulePermissions
 import {
   corrientesRefrigerados,
   corrientesRefrigeradosKilosBultos,
-  urls,
 } from '@/lib/data';
 
 export default function CorrientesRefrigerados() {
-  const refrigeradosTablero = urls.tableros[1].refrigerados;
   const { canAccessModule } = useModulePermissions();
 
   const visibleProducts = useMemo(
@@ -74,7 +72,7 @@ export default function CorrientesRefrigerados() {
         {canSeeAnalytics && (
           <section className="bg-white py-12 sm:py-14">
             <Container>
-              <FullScreenEmbedCard {...refrigeradosTablero} icon={<Table />} />
+              <ConfiguredWorkbookCard scopeKey="corrientes_refrigerados" icon={<Table />} />
             </Container>
           </section>
         )}

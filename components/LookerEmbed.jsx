@@ -2,42 +2,20 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { DatabaseZap, LayoutDashboard, Sparkles } from 'lucide-react';
+import { useAnalyticsConfig } from '@/components/analytics/AnalyticsConfigProvider';
+import { getAnalyticsScopeForLookerId } from '@/lib/analytics-config';
 
 export default function LookerEmbed({ looker_id, type = 'dashboard', bgImage }) {
-  const LOOKER_LINKS = {
-    masivos: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/2ecfc88c-9070-4498-8a28-75a1fb347c26/page/9jv2F',
-      heatmap: 'https://datastudio.google.com/embed/reporting/8b4b18c4-21b2-4fba-b1d1-be4dd1b28c51/page/uLA3F',
-    },
-    refrigerados: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/02c9a8a8-1e04-46ab-a655-14f32933d372/page/VQ02F',
-      heatmap: '',
-    },
-    refrigeradosKilos: {
-      dashboard: '',
-      heatmap: '',
-    },
-    chaco: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/0ade1098-b0d4-464d-8921-ce34ee5aa6ca/page/35y2F',
-      heatmap: 'https://datastudio.google.com/embed/reporting/e7c3de2e-a16b-4a6f-99dc-57a858c25549/page/5TA3F',
-    },
-    misiones: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/fea1c84b-03f7-40f4-bd9f-59b362e5ed1f/page/BKz2F',
-      heatmap: 'https://datastudio.google.com/embed/reporting/53d95184-a8df-42fd-983a-ca944a7622dd/page/8tA3F',
-    },
-    obera: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/5d398019-4654-4c01-b587-03f5137b71a2/page/Cdz2F',
-      heatmap: 'https://datastudio.google.com/embed/reporting/151511b7-a341-4061-8605-2598e26d1cf3/page/75A3F',
-    },
-    gerencia: {
-      dashboard: 'https://datastudio.google.com/embed/reporting/448cb6d2-7c09-4ceb-8205-bb71ad87f355/page/knZ3F',
-      heatmap: '',
-    },
-  };
+  const { getUrl } = useAnalyticsConfig();
+  const scopeKey = useMemo(() => getAnalyticsScopeForLookerId(looker_id), [looker_id]);
 
-  const branch = useMemo(() => {
-    return LOOKER_LINKS[looker_id] || LOOKER_LINKS.masivos;
-  }, [looker_id]);
+  const branch = useMemo(
+    () => ({
+      dashboard: getUrl('dashboard', scopeKey),
+      heatmap: getUrl('heatmap', scopeKey),
+    }),
+    [getUrl, scopeKey],
+  );
 
   const availableTypes = useMemo(() => {
     return Object.entries(branch)

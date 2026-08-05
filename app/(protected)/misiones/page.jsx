@@ -5,16 +5,15 @@ import { BarChart3, Flame, Table } from 'lucide-react';
 import BranchResourcesSection from '@/components/BranchResourcesSection';
 import CategoryBannerLink from '@/components/categoria/CategoryBannerLink';
 import Container from '@/components/Container';
-import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
+import ConfiguredWorkbookCard from '@/components/analytics/ConfiguredWorkbookCard';
 import LookerEmbed from '@/components/LookerEmbed';
 import LookerTabs from '@/components/LookerTabs';
 import { RequireAuth } from '@/components/RouteGuards';
 import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
-import { misionesProducts, urls } from '@/lib/data';
+import { misionesProducts } from '@/lib/data';
 import PageHeader from '@/components/PageHeader';
 
 export default function Misiones() {
-  const tableroMisiones = urls.tableros[3].misiones;
   const { canAccessModule } = useModulePermissions();
 
   const visibleProducts = useMemo(
@@ -73,7 +72,7 @@ export default function Misiones() {
 
               {canSeeAnalytics && (
                 <div className={canSeeCategories ? 'mt-8' : ''}>
-                  <FullScreenEmbedCard {...tableroMisiones} icon={<Table />} />
+                  <ConfiguredWorkbookCard scopeKey="misiones" icon={<Table />} />
                 </div>
               )}
             </Container>

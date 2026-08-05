@@ -5,16 +5,15 @@ import { BarChart3, Flame, Table } from 'lucide-react';
 import BranchResourcesSection from '@/components/BranchResourcesSection';
 import CategoryBannerLink from '@/components/categoria/CategoryBannerLink';
 import Container from '@/components/Container';
-import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
+import ConfiguredWorkbookCard from '@/components/analytics/ConfiguredWorkbookCard';
 import LookerEmbed from '@/components/LookerEmbed';
 import LookerTabs from '@/components/LookerTabs';
 import { RequireAuth } from '@/components/RouteGuards';
 import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
-import { chacoProducts, urls } from '@/lib/data';
+import { chacoProducts } from '@/lib/data';
 import PageHeader from '@/components/PageHeader';
 
 export default function Chaco() {
-  const resistenciaTablero = urls.tableros[4].resistencia;
   const { canAccessModule } = useModulePermissions();
 
   const visibleProducts = useMemo(
@@ -73,7 +72,7 @@ export default function Chaco() {
 
               {canSeeAnalytics && (
                 <div className={canSeeCategories ? 'mt-8' : ''}>
-                  <FullScreenEmbedCard {...resistenciaTablero} icon={<Table />} />
+                  <ConfiguredWorkbookCard scopeKey="chaco" icon={<Table />} />
                 </div>
               )}
             </Container>

@@ -5,16 +5,15 @@ import { BarChart3, Flame, Table } from 'lucide-react';
 import BranchResourcesSection from '@/components/BranchResourcesSection';
 import CategoryBannerLink from '@/components/categoria/CategoryBannerLink';
 import Container from '@/components/Container';
-import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
+import ConfiguredWorkbookCard from '@/components/analytics/ConfiguredWorkbookCard';
 import LookerEmbed from '@/components/LookerEmbed';
 import LookerTabs from '@/components/LookerTabs';
 import PageHeader from '@/components/PageHeader';
 import { RequireAuth } from '@/components/RouteGuards';
 import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
-import { corrientesMasivos, urls } from '@/lib/data';
+import { corrientesMasivos } from '@/lib/data';
 
 export default function CorrientesMasivos() {
-  const corrientesTablero = urls.tableros[0].corrientes;
   const { canAccessModule } = useModulePermissions();
 
   const visibleProducts = useMemo(
@@ -76,7 +75,7 @@ export default function CorrientesMasivos() {
 
               {canSeeAnalytics && (
                 <div className={canSeeCategories ? 'mt-8' : ''}>
-                  <FullScreenEmbedCard {...corrientesTablero} icon={<Table />} />
+                  <ConfiguredWorkbookCard scopeKey="corrientes_masivos" icon={<Table />} />
                 </div>
               )}
             </Container>

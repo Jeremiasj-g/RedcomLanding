@@ -4,16 +4,15 @@ import { useMemo } from 'react';
 import { BarChart3, Flame, Table } from 'lucide-react';
 import BranchResourcesSection from '@/components/BranchResourcesSection';
 import Container from '@/components/Container';
-import FullScreenEmbedCard from '@/components/FullScreenEmbedCard';
+import ConfiguredWorkbookCard from '@/components/analytics/ConfiguredWorkbookCard';
 import LookerEmbed from '@/components/LookerEmbed';
 import LookerTabs from '@/components/LookerTabs';
 import { RequireAuth } from '@/components/RouteGuards';
 import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
-import { oberaProducts, urls } from '@/lib/data';
+import { oberaProducts } from '@/lib/data';
 import PageHeader from '@/components/PageHeader';
 
 export default function Obera() {
-  const tableroObera = urls.tableros[5].obera;
   const { canAccessModule } = useModulePermissions();
 
   const visibleProducts = useMemo(
@@ -60,7 +59,7 @@ export default function Obera() {
           <>
             <section className="bg-white py-12 sm:py-14">
               <Container>
-                <FullScreenEmbedCard {...tableroObera} icon={<Table />} />
+                <ConfiguredWorkbookCard scopeKey="obera" icon={<Table />} />
               </Container>
             </section>
 
