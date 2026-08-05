@@ -1,5 +1,16 @@
 export type ModulePermissionKey =
   | 'branch_dashboards'
+  | 'branch_categories'
+  | 'branch_sigo'
+  | 'branch_buyers'
+  | 'branch_coverages'
+  | 'branch_billing'
+  | 'branch_objectives'
+  | 'branch_operational_news'
+  | 'branch_critical_accounts'
+  | 'branch_current_accounts'
+  | 'branch_kilos_bultos'
+  | 'branch_analytics'
   | 'news'
   | 'personal_tasks'
   | 'projects'
@@ -12,7 +23,11 @@ export type ModulePermissionKey =
   | 'focus_panel'
   | 'management_resources';
 
-export type ModulePermissionGroup = 'Sucursales' | 'Espacio de trabajo' | 'Paneles';
+export type ModulePermissionGroup =
+  | 'Sucursales'
+  | 'Herramientas de sucursal'
+  | 'Espacio de trabajo'
+  | 'Paneles';
 
 export type ModulePermissionDefinition = {
   key: ModulePermissionKey;
@@ -45,6 +60,8 @@ export type RoleModulePermissionRow = {
 export type ModulePermissionMap = Record<ModulePermissionKey, boolean>;
 
 const ALL_ACTIVE_ROLES = [...MODULE_PERMISSION_ROLES];
+const INTERNAL_BASE_ROLES = ['admin', 'jdv', 'supervisor', 'rrhh'];
+const ANALYTICS_BASE_ROLES = ['admin', 'jdv', 'supervisor'];
 
 export const MODULE_PERMISSION_DEFINITIONS: ModulePermissionDefinition[] = [
   {
@@ -56,6 +73,121 @@ export const MODULE_PERMISSION_DEFINITIONS: ModulePermissionDefinition[] = [
     group: 'Sucursales',
     routePrefixes: ['/corrientes', '/chaco', '/misiones', '/obera'],
     defaultRoles: ALL_ACTIVE_ROLES,
+    branchAware: true,
+  },
+  {
+    key: 'branch_categories',
+    label: 'Categorías por sucursal',
+    shortLabel: 'Categorías',
+    description:
+      'Muestra la herramienta de categorías y permite ingresar a sus páginas de ranking e histórico.',
+    group: 'Herramientas de sucursal',
+    routePrefixes: [
+      '/corrientes/masivos/categorias',
+      '/chaco/categorias',
+      '/misiones/categorias',
+    ],
+    defaultRoles: INTERNAL_BASE_ROLES,
+    branchAware: true,
+  },
+  {
+    key: 'branch_sigo',
+    label: 'Horarios SIGO',
+    shortLabel: 'SIGO',
+    description: 'Muestra las planillas operativas de horarios y seguimiento SIGO.',
+    group: 'Herramientas de sucursal',
+    routePrefixes: [],
+    defaultRoles: INTERNAL_BASE_ROLES,
+    branchAware: true,
+  },
+  {
+    key: 'branch_buyers',
+    label: 'Planilla de compradores',
+    shortLabel: 'Compradores',
+    description: 'Muestra las consultas de clientes compradores, rutas y vendedores asignados.',
+    group: 'Herramientas de sucursal',
+    routePrefixes: [],
+    defaultRoles: INTERNAL_BASE_ROLES,
+    branchAware: true,
+  },
+  {
+    key: 'branch_coverages',
+    label: 'Coberturas',
+    shortLabel: 'Coberturas',
+    description: 'Muestra las planillas de cobertura comercial de cada sucursal.',
+    group: 'Herramientas de sucursal',
+    routePrefixes: [],
+    defaultRoles: INTERNAL_BASE_ROLES,
+    branchAware: true,
+  },
+  {
+    key: 'branch_billing',
+    label: 'Facturación',
+    shortLabel: 'Facturación',
+    description: 'Muestra las herramientas y planillas de facturación de vendedores.',
+    group: 'Herramientas de sucursal',
+    routePrefixes: [],
+    defaultRoles: INTERNAL_BASE_ROLES,
+    branchAware: true,
+  },
+  {
+    key: 'branch_objectives',
+    label: 'Avance y objetivos',
+    shortLabel: 'Objetivos',
+    description: 'Muestra planillas de avance, objetivos de vendedores y supervisores.',
+    group: 'Herramientas de sucursal',
+    routePrefixes: [],
+    defaultRoles: ALL_ACTIVE_ROLES,
+    branchAware: true,
+  },
+  {
+    key: 'branch_operational_news',
+    label: 'Novedades operativas',
+    shortLabel: 'Novedades operativas',
+    description: 'Muestra planillas internas de novedades operativas y comerciales.',
+    group: 'Herramientas de sucursal',
+    routePrefixes: [],
+    defaultRoles: INTERNAL_BASE_ROLES,
+    branchAware: true,
+  },
+  {
+    key: 'branch_critical_accounts',
+    label: 'Críticos y vencimientos',
+    shortLabel: 'Críticos',
+    description: 'Muestra herramientas de artículos críticos, fechas y vencimientos.',
+    group: 'Herramientas de sucursal',
+    routePrefixes: [],
+    defaultRoles: INTERNAL_BASE_ROLES,
+    branchAware: true,
+  },
+  {
+    key: 'branch_current_accounts',
+    label: 'Cuentas corrientes',
+    shortLabel: 'Cuentas corrientes',
+    description: 'Muestra planillas de consulta y seguimiento de cuentas corrientes.',
+    group: 'Herramientas de sucursal',
+    routePrefixes: [],
+    defaultRoles: INTERNAL_BASE_ROLES,
+    branchAware: true,
+  },
+  {
+    key: 'branch_kilos_bultos',
+    label: 'Kilos y bultos',
+    shortLabel: 'Kilos y bultos',
+    description: 'Muestra análisis, objetivos y herramientas específicas de kilos y bultos.',
+    group: 'Herramientas de sucursal',
+    routePrefixes: [],
+    defaultRoles: INTERNAL_BASE_ROLES,
+    branchAware: true,
+  },
+  {
+    key: 'branch_analytics',
+    label: 'Analítica comercial',
+    shortLabel: 'Analítica',
+    description: 'Muestra tableros embebidos, dashboards y mapas de calor de las sucursales.',
+    group: 'Herramientas de sucursal',
+    routePrefixes: [],
+    defaultRoles: ANALYTICS_BASE_ROLES,
     branchAware: true,
   },
   {

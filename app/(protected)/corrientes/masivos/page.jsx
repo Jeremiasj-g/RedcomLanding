@@ -10,19 +10,23 @@ import LookerEmbed from '@/components/LookerEmbed';
 import LookerTabs from '@/components/LookerTabs';
 import PageHeader from '@/components/PageHeader';
 import { RequireAuth } from '@/components/RouteGuards';
-import { useMe } from '@/hooks/useMe';
+import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
 import { corrientesMasivos, urls } from '@/lib/data';
 
 export default function CorrientesMasivos() {
   const corrientesTablero = urls.tableros[0].corrientes;
-  const { me } = useMe();
-  const role = me?.role ?? 'vendedor';
+  const { canAccessModule } = useModulePermissions();
 
-  const visibleProducts = corrientesMasivos.filter((product) =>
-    (product.roles ?? []).includes(role),
+  const visibleProducts = useMemo(
+    () =>
+      corrientesMasivos.filter(
+        (product) => !product.permissionKey || canAccessModule(product.permissionKey),
+      ),
+    [canAccessModule],
   );
 
-  const canSeeAnalytics = ['admin', 'supervisor', 'jdv'].includes(role);
+  const canSeeCategories = canAccessModule('branch_categories');
+  const canSeeAnalytics = canAccessModule('branch_analytics');
 
   const lookerTabs = useMemo(
     () => [
@@ -43,10 +47,7 @@ export default function CorrientesMasivos() {
   );
 
   return (
-    <RequireAuth
-      roles={['admin', 'supervisor', 'jdv', 'vendedor', 'rrhh']}
-      branches={['corrientes']}
-    >
+    <RequireAuth branches={['corrientes']}>
       <PageHeader
         title="Corrientes"
         bg="bg-gradient-to-tl from-sky-700 to-transparent to-[55%]"
@@ -60,23 +61,27 @@ export default function CorrientesMasivos() {
           products={visibleProducts}
         />
 
-        <section className="bg-white py-12 sm:py-14">
-          <Container>
-            <CategoryBannerLink
-              branchLabel="Corrientes"
-              href="/corrientes/masivos/categorias"
-              title="Categorías"
-              description="Ranking por vendedor, puntajes y comparación por criterios."
-              buttonLabel="Abrir"
-            />
+        {(canSeeCategories || canSeeAnalytics) && (
+          <section className="bg-white py-12 sm:py-14">
+            <Container>
+              {canSeeCategories && (
+                <CategoryBannerLink
+                  branchLabel="Corrientes"
+                  href="/corrientes/masivos/categorias"
+                  title="Categorías"
+                  description="Ranking por vendedor, puntajes y comparación por criterios."
+                  buttonLabel="Abrir"
+                />
+              )}
 
-            {canSeeAnalytics && (
-              <div className="mt-8">
-                <FullScreenEmbedCard {...corrientesTablero} icon={<Table />} />
-              </div>
-            )}
-          </Container>
-        </section>
+              {canSeeAnalytics && (
+                <div className={canSeeCategories ? 'mt-8' : ''}>
+                  <FullScreenEmbedCard {...corrientesTablero} icon={<Table />} />
+                </div>
+              )}
+            </Container>
+          </section>
+        )}
 
         {canSeeAnalytics && (
           <LookerTabs

@@ -47,6 +47,7 @@ type ResourceProduct = {
   icon?: ResourceIcon;
   accent?: ResourceAccent;
   actionLabel?: string;
+  permissionKey?: string;
 };
 
 type BranchResourcesSectionProps = {

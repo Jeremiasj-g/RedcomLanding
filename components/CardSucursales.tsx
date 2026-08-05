@@ -54,6 +54,7 @@ type CardProps = {
   icon?: ResourceIcon;
   accent?: ResourceAccent;
   actionLabel?: string;
+  permissionKey?: string;
 };
 
 const resourceIcons: Record<ResourceIcon, LucideIcon> = {

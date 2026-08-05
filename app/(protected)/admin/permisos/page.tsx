@@ -108,10 +108,26 @@ type RoleCatalogRow = {
   sort_order?: number;
 };
 
-const GROUP_ORDER: ModulePermissionGroup[] = ['Sucursales', 'Espacio de trabajo', 'Paneles'];
+const GROUP_ORDER: ModulePermissionGroup[] = [
+  'Sucursales',
+  'Herramientas de sucursal',
+  'Espacio de trabajo',
+  'Paneles',
+];
 
 const MODULE_ICONS: Record<ModulePermissionKey, ComponentType<{ className?: string }>> = {
   branch_dashboards: Building2,
+  branch_categories: BarChart3,
+  branch_sigo: CalendarCheck2,
+  branch_buyers: Users,
+  branch_coverages: Gauge,
+  branch_billing: BriefcaseBusiness,
+  branch_objectives: CheckCircle2,
+  branch_operational_news: Sparkles,
+  branch_critical_accounts: KeyRound,
+  branch_current_accounts: ClipboardList,
+  branch_kilos_bultos: LayoutDashboard,
+  branch_analytics: BarChart3,
   news: Sparkles,
   personal_tasks: CalendarCheck2,
   projects: FolderKanban,
@@ -1317,7 +1333,12 @@ function PermissionGroup({
           </h2>
           {group === 'Sucursales' && (
             <p className="mt-1 text-xs text-slate-500">
-              Este permiso respeta las sucursales asignadas en la pestaña Usuarios.
+              Controla el ingreso general y respeta las sucursales asignadas en la pestaña Usuarios.
+            </p>
+          )}
+          {group === 'Herramientas de sucursal' && (
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
+              Configurá de forma independiente las planillas, categorías y analítica que se muestran dentro de cada sucursal. Los permisos se combinan con las sucursales asignadas al usuario.
             </p>
           )}
         </div>
