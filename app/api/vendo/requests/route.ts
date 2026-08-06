@@ -11,10 +11,10 @@ const requestSchema = z.object({
   firstName: z.string().trim().min(2).max(80),
   lastName: z.string().trim().min(2).max(80),
   movementType: z.enum(['alta', 'baja']),
-  imei: z.string().trim().min(6).max(60),
+  imei: z.string().trim().max(60).default(''),
   phone: z.string().trim().min(7).max(40),
   vendorEmail: z.string().trim().email().max(180),
-  reason: z.string().trim().min(3).max(1000),
+  reason: z.string().trim().max(1000).default(''),
 });
 
 const patchSchema = z.discriminatedUnion('action', [
@@ -150,6 +150,16 @@ export async function POST(request: NextRequest) {
 
   if (insertError || !inserted) {
     console.error('[vendo] insert', insertError);
+    const optionalFieldsMigrationRequired = ['23514'].includes(String((insertError as any)?.code ?? ''))
+      && /vendo_requests_(imei|reason)_check/i.test(insertError?.message ?? '');
+
+    if (optionalFieldsMigrationRequired) {
+      return NextResponse.json(
+        { error: 'Ejecutá la migración supabase/migrations/20260806_vendo_optional_fields.sql para habilitar los campos opcionales.' },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json(
       { error: insertError?.message ?? 'No se pudo guardar la solicitud.' },
       { status: 500 },
@@ -246,7 +256,6 @@ export async function PATCH(request: NextRequest) {
       reviewed_by: userId,
       reviewed_by_name: reviewerName,
       review_note: parsed.data.status === 'rejected' ? parsed.data.note || null : null,
-      // Compatibilidad visual con instalaciones anteriores.
       seen_at: reviewedAt,
       seen_by: userId,
     })
