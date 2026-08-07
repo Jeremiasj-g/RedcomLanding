@@ -1,14 +1,44 @@
-# CCC Calificados — instalación de la base compartida
+# CCC Calificados — instalación de archivos compartidos
 
-La página `/ccc-calificados` ya incluye la carga de la base de clientes por sucursal, reutilización automática, contador de 15 días y exportaciones Excel/PDF.
+La página `/ccc-calificados` incluye carga de archivos por sucursal, reutilización automática, contador de 15 días para la base de clientes y exportaciones Excel/PDF.
 
-## Paso obligatorio en Supabase
+## Instalación inicial en Supabase
 
-Ejecutar en **SQL Editor** el archivo:
+Ejecutar en **SQL Editor**:
 
-`supabase/migrations/20260722_ccc_client_bases.sql`
+```text
+supabase/migrations/20260722_ccc_client_bases.sql
+supabase/migrations/20260729_ccc_workspace_files.sql
+```
 
-Esto crea la tabla de metadatos, el bucket privado y las políticas RLS para `admin`, `jdv` y `supervisor` según las sucursales de `user_branches`.
+La primera migración crea la tabla `ccc_client_bases` y el bucket privado `ccc-client-bases`.
+La segunda crea `ccc_workspace_files` y el bucket privado `ccc-workspace-files`.
+
+## Permisos dinámicos y roles personalizados
+
+Si el proyecto ya tiene instalado el sistema de permisos por usuario/rol y el CRUD de roles, ejecutar también:
+
+```text
+CCC_PERMISOS_DINAMICOS_BD.sql
+```
+
+La misma corrección queda versionada como migración en:
+
+```text
+supabase/migrations/20260807_ccc_dynamic_module_rls.sql
+```
+
+Esta migración reemplaza las políticas antiguas que dependían de nombres de rol fijos (`admin`, `jdv`, `supervisor`) y hace que CCC utilice el permiso dinámico `quarterly_indicators`.
+
+El orden efectivo de autorización es:
+
+1. `admin` conserva acceso total.
+2. Si el usuario tiene una excepción individual para `quarterly_indicators`, se respeta esa excepción.
+3. Si no tiene excepción individual, se utiliza el permiso predeterminado configurado para su rol en `role_module_permissions`.
+4. Para usuarios que no son administradores, además se exige que la sucursal esté asignada al usuario mediante la lógica de `auth_has_branch`.
+5. Si el permiso no existe o el usuario está inactivo, el acceso se deniega.
+
+De esta forma, un rol personalizado creado desde el panel de administrador puede ver, descargar y reemplazar los archivos compartidos de CCC siempre que tenga habilitado **CCC Calificados / Indicadores trimestrales** y tenga asignada la sucursal correspondiente. No es necesario volver a modificar SQL al crear nuevos roles.
 
 ## Funcionamiento
 
@@ -22,13 +52,7 @@ El binario se almacena en **Supabase Storage** y su información de vigencia, au
 
 ## Archivos compartidos de ventas, listado y detalle personal
 
-Ejecutar también en Supabase SQL Editor:
-
-```text
-supabase/migrations/20260729_ccc_workspace_files.sql
-```
-
-Esta migración crea la tabla `ccc_workspace_files` y el bucket privado `ccc-workspace-files` para conservar por sucursal:
+`ccc_workspace_files` y el bucket privado `ccc-workspace-files` conservan por sucursal:
 
 - Archivo de ventas.
 - Listado Vendedor–Supervisor.
@@ -38,7 +62,7 @@ Estos tres archivos muestran autor, fecha y tamaño de la última carga, pero no
 
 ## Procesamiento automático y permanencia
 
-Los resultados no se almacenan como HTML en la base de datos. En su lugar, cuando el usuario vuelve a `/ccc-calificados`, la página consulta los metadatos de la sucursal y, si encuentra la base de clientes y el archivo de ventas, descarga las versiones vigentes y regenera automáticamente CCC Calificados y MIX.
+Los resultados no se almacenan como HTML en la base de datos. Cuando el usuario vuelve a `/ccc-calificados`, la página consulta los metadatos de la sucursal y, si encuentra la base de clientes y el archivo de ventas, descarga las versiones vigentes y regenera automáticamente CCC Calificados y MIX.
 
 Cuando también existe Detalle personal, se regenera DROPSIZE en la misma ejecución. El Listado Vendedor–Supervisor continúa siendo opcional y, si no está guardado, se usa el listado precargado.
 
