@@ -45,5 +45,8 @@ export function useBranches() {
     load();
   }, []);
 
-  return { branches, loading, errorMsg, refetch: load };
+  // `errorMsg` se conserva por compatibilidad con los consumidores existentes.
+  // `error` expone el mismo valor para componentes que usan la convención habitual
+  // `{ data, loading, error }`, como AltaVendoPage.
+  return { branches, loading, error: errorMsg, errorMsg, refetch: load };
 }
