@@ -7,7 +7,7 @@ import { useAuth } from '@/app/auth/AuthProvider';
 import { useBranches } from '@/hooks/useBranches';
 import DualSpinner from '@/components/ui/DualSpinner';
 import { notify } from '@/lib/notifications';
-import { submitVendoWeb3FormsNotification, type VendoWeb3FormsPayload } from '@/lib/vendo/web3forms';
+import { submitVendoWeb3Forms, type VendoWeb3FormsPayload } from '@/lib/vendo/web3forms';
 import type { VendoMovementType, VendoRequest } from '@/lib/vendo/types';
 import {
   HISTORY_PAGE_SIZE,
@@ -124,7 +124,7 @@ export default function AltaVendoPage() {
       let created = body.request;
       if (body.notificationPayload) {
         try {
-          await submitVendoWeb3FormsNotification(body.notificationPayload);
+          await submitVendoWeb3Forms(body.notificationPayload);
           const patch = await fetch('/api/vendo/requests', {
             method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ action: 'notification', requestId: created.id, status: 'sent', error: null }),
