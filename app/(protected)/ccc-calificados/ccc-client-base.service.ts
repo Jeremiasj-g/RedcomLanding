@@ -20,7 +20,6 @@ export const CCC_BRANCH_SUCURSAL_NAMES: Record<string, string> = {
   refrigerados: "REFRIGERADOS",
 };
 
-
 export type CccWorkspaceFileKind =
   | "sales"
   | "seller_supervisor"
@@ -73,7 +72,6 @@ export async function getAllBranches(): Promise<string[]> {
     .map((row: { code?: string | null }) => normalizeBranch(row.code ?? ""))
     .filter(Boolean);
 }
-
 
 export async function getBranchesForUser(userId: string): Promise<string[]> {
   const [{ data: assigned, error: assignedError }, { data: profile, error: profileError }] =
@@ -189,6 +187,27 @@ export async function downloadClientBase(
   return { file, meta };
 }
 
+export async function deleteClientBase(branch: string): Promise<void> {
+  const branchKey = normalizeBranch(branch);
+  if (!branchKey) throw new Error("Seleccioná una sucursal antes de eliminar la base.");
+
+  const meta = await getClientBaseMeta(branchKey);
+  if (!meta) return;
+
+  const { error: storageError } = await supabase.storage
+    .from(CCC_CLIENT_BASE_BUCKET)
+    .remove([meta.storage_path]);
+
+  if (storageError) throw storageError;
+
+  const { error } = await supabase
+    .from("ccc_client_bases")
+    .delete()
+    .eq("branch_key", branchKey);
+
+  if (error) throw error;
+}
+
 export async function getWorkspaceFilesMeta(
   branch: string,
 ): Promise<CccWorkspaceFilesMap> {
@@ -297,6 +316,31 @@ export async function downloadWorkspaceFile(
   });
 
   return { file, meta };
+}
+
+export async function deleteWorkspaceFile(
+  branch: string,
+  kind: CccWorkspaceFileKind,
+): Promise<void> {
+  const branchKey = normalizeBranch(branch);
+  if (!branchKey) throw new Error("Seleccioná una sucursal antes de eliminar el archivo.");
+
+  const meta = await getWorkspaceFileMeta(branchKey, kind);
+  if (!meta) return;
+
+  const { error: storageError } = await supabase.storage
+    .from(CCC_WORKSPACE_FILES_BUCKET)
+    .remove([meta.storage_path]);
+
+  if (storageError) throw storageError;
+
+  const { error } = await supabase
+    .from("ccc_workspace_files")
+    .delete()
+    .eq("branch_key", branchKey)
+    .eq("file_kind", kind);
+
+  if (error) throw error;
 }
 
 export function getClientBaseFreshness(meta: CccClientBaseMeta | null) {
