@@ -1,9 +1,27 @@
 "use client";
 
-import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
-import { BarChart3, Boxes, Database, FileSpreadsheet, type LucideIcon, RefreshCw, UsersRound } from "lucide-react";
+import {
+  BarChart3,
+  Boxes,
+  Database,
+  Download,
+  FileSpreadsheet,
+  type LucideIcon,
+  RefreshCw,
+  Trash2,
+  UsersRound,
+} from "lucide-react";
 import { useAuth } from "@/app/auth/AuthProvider";
 import DualSpinner from "@/components/ui/DualSpinner";
 import { clientesCalificadosCss } from "./clientes-calificados.css";
@@ -17,6 +35,8 @@ import {
   CccWorkspaceFileKind,
   CccWorkspaceFileMeta,
   CccWorkspaceFilesMap,
+  deleteClientBase,
+  deleteWorkspaceFile,
   downloadClientBase,
   downloadWorkspaceFile,
   getAllBranches,
@@ -63,6 +83,12 @@ const CCC_WORKSPACE_TABS: Array<{
   },
 ];
 
+const CCC_WORKSPACE_FILE_LABELS: Record<CccWorkspaceFileKind, string> = {
+  sales: "Archivo de ventas",
+  seller_supervisor: "Listado Vendedor–Supervisor",
+  personal_detail: "Detalle personal",
+};
+
 type DashboardUser = {
   id: string;
   full_name: string | null;
@@ -102,6 +128,18 @@ function fileMetaLine(meta?: {
   ]
     .filter(Boolean)
     .join(" · ");
+}
+
+function triggerBrowserDownload(file: File) {
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.name || "archivo.xlsx";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
 function validateExcelExtension(file: File) {
@@ -159,6 +197,78 @@ async function validateClientBaseFile(file: File) {
   if (missing.length) {
     throw new Error(`Faltan columnas obligatorias: ${missing.join(", ")}.`);
   }
+}
+
+function StoredFileActions({
+  onDownload,
+  onDelete,
+  downloading,
+  deleting,
+  disabled,
+}: {
+  onDownload: (event: ReactMouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  onDelete: (event: ReactMouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  downloading?: boolean;
+  deleting?: boolean;
+  disabled?: boolean;
+}) {
+  const busy = Boolean(downloading || deleting);
+  const buttonBaseStyle = {
+    padding: "6px 9px",
+    fontSize: "10.5px",
+    fontWeight: 800,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "5px",
+    minHeight: "31px",
+    opacity: disabled || busy ? 0.62 : 1,
+  } as const;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "7px",
+        flexWrap: "wrap",
+        marginTop: "10px",
+        width: "100%",
+      }}
+    >
+      <button
+        type="button"
+        className="ghost"
+        disabled={disabled || busy}
+        onClick={onDownload}
+        title="Descargar el archivo guardado"
+        style={{ ...buttonBaseStyle, color: "var(--greenDark)", borderColor: "#B9E2CB" }}
+      >
+        {downloading ? (
+          <RefreshCw className="spin" aria-hidden="true" style={{ width: 14, height: 14 }} />
+        ) : (
+          <Download aria-hidden="true" style={{ width: 14, height: 14 }} />
+        )}
+        {downloading ? "Descargando…" : "Descargar"}
+      </button>
+      <button
+        type="button"
+        className="ghost"
+        disabled={disabled || busy}
+        onClick={onDelete}
+        title="Eliminar el archivo guardado"
+        style={{ ...buttonBaseStyle, color: "var(--red)", borderColor: "#F0BBC5" }}
+      >
+        {deleting ? (
+          <RefreshCw className="spin" aria-hidden="true" style={{ width: 14, height: 14 }} />
+        ) : (
+          <Trash2 aria-hidden="true" style={{ width: 14, height: 14 }} />
+        )}
+        {deleting ? "Eliminando…" : "Eliminar"}
+      </button>
+    </div>
+  );
 }
 
 function ClientBaseStatus({
@@ -257,13 +367,26 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   const [clientBaseMeta, setClientBaseMeta] = useState<CccClientBaseMeta | null>(null);
   const [clientBaseLoading, setClientBaseLoading] = useState(false);
   const [clientBaseUploading, setClientBaseUploading] = useState(false);
+  const [clientBaseDownloading, setClientBaseDownloading] = useState(false);
+  const [clientBaseDeleting, setClientBaseDeleting] = useState(false);
   const [clientBaseMessage, setClientBaseMessage] = useState<string | null>(null);
   const [clientBaseError, setClientBaseError] = useState<string | null>(null);
   const [workspaceFiles, setWorkspaceFiles] = useState<CccWorkspaceFilesMap>({});
   const [workspaceFilesLoading, setWorkspaceFilesLoading] = useState(false);
   const [workspaceUploadingKind, setWorkspaceUploadingKind] = useState<CccWorkspaceFileKind | null>(null);
+  const [workspaceDownloadingKind, setWorkspaceDownloadingKind] = useState<CccWorkspaceFileKind | null>(null);
+  const [workspaceDeletingKind, setWorkspaceDeletingKind] = useState<CccWorkspaceFileKind | null>(null);
   const [workspaceMessage, setWorkspaceMessage] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+
+  const fileActionBusy = Boolean(
+    clientBaseUploading ||
+      clientBaseDownloading ||
+      clientBaseDeleting ||
+      workspaceUploadingKind ||
+      workspaceDownloadingKind ||
+      workspaceDeletingKind,
+  );
 
   useEffect(() => {
     selectedBranchRef.current = selectedBranch;
@@ -458,7 +581,9 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       clientBaseLoading ||
       workspaceFilesLoading ||
       clientBaseUploading ||
-      workspaceUploadingKind
+      clientBaseDeleting ||
+      workspaceUploadingKind ||
+      workspaceDeletingKind
     ) {
       return;
     }
@@ -477,9 +602,11 @@ function DashboardContent({ me }: { me: DashboardUser }) {
     return () => window.clearTimeout(timeoutId);
   }, [
     autoProcessFingerprint,
+    clientBaseDeleting,
     clientBaseLoading,
     clientBaseUploading,
     runtimeReady,
+    workspaceDeletingKind,
     workspaceFilesLoading,
     workspaceUploadingKind,
   ]);
@@ -589,12 +716,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
         });
         setWorkspaceFiles((current) => ({ ...current, [kind]: meta }));
 
-        const labels: Record<CccWorkspaceFileKind, string> = {
-          sales: "Archivo de ventas",
-          seller_supervisor: "Listado Vendedor–Supervisor",
-          personal_detail: "Detalle personal",
-        };
-        const message = `${labels[kind]} guardado correctamente para ${selectedBranchLabel}.`;
+        const message = `${CCC_WORKSPACE_FILE_LABELS[kind]} guardado correctamente para ${selectedBranchLabel}.`;
         setWorkspaceMessage(message);
         notify.success(message);
       } catch (error: any) {
@@ -604,6 +726,128 @@ function DashboardContent({ me }: { me: DashboardUser }) {
         notify.error(message);
       } finally {
         setWorkspaceUploadingKind(null);
+      }
+    };
+
+  const handleClientBaseDownload = async (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!selectedBranch || !clientBaseMeta) return;
+
+    setClientBaseDownloading(true);
+    setClientBaseMessage(null);
+    setClientBaseError(null);
+    try {
+      const { file } = await downloadClientBase(selectedBranch);
+      triggerBrowserDownload(file);
+      const message = `Descarga iniciada: ${file.name}.`;
+      setClientBaseMessage(message);
+      notify.success(message);
+    } catch (error: any) {
+      console.error(error);
+      const message = errorMessage(error, "No se pudo descargar la base de clientes.");
+      setClientBaseError(message);
+      notify.error(message);
+    } finally {
+      setClientBaseDownloading(false);
+    }
+  };
+
+  const handleWorkspaceFileDownload =
+    (kind: CccWorkspaceFileKind) =>
+    async (event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!selectedBranch || !workspaceFiles[kind]) return;
+
+      setWorkspaceDownloadingKind(kind);
+      setWorkspaceMessage(null);
+      setWorkspaceError(null);
+      try {
+        const { file } = await downloadWorkspaceFile(selectedBranch, kind);
+        triggerBrowserDownload(file);
+        const message = `Descarga iniciada: ${file.name}.`;
+        setWorkspaceMessage(message);
+        notify.success(message);
+      } catch (error: any) {
+        console.error(error);
+        const message = errorMessage(error, "No se pudo descargar el archivo.");
+        setWorkspaceError(message);
+        notify.error(message);
+      } finally {
+        setWorkspaceDownloadingKind(null);
+      }
+    };
+
+  const handleClientBaseDelete = async (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!selectedBranch || !clientBaseMeta) return;
+
+    const confirmed = window.confirm(
+      `¿Eliminar "${clientBaseMeta.original_name}" de ${selectedBranchLabel}?\n\nEl archivo dejará de estar disponible para todos los usuarios habilitados de esta sucursal.`,
+    );
+    if (!confirmed) return;
+
+    setClientBaseDeleting(true);
+    setClientBaseMessage(null);
+    setClientBaseError(null);
+    try {
+      await deleteClientBase(selectedBranch);
+      clientBaseMetaRef.current = null;
+      setClientBaseMeta(null);
+      lastAutoProcessFingerprintRef.current = "";
+      document.getElementById("btnReset")?.click();
+
+      const message = `Base de clientes eliminada de ${selectedBranchLabel}.`;
+      setClientBaseMessage(message);
+      notify.success(message);
+    } catch (error: any) {
+      console.error(error);
+      const message = errorMessage(error, "No se pudo eliminar la base de clientes.");
+      setClientBaseError(message);
+      notify.error(message);
+    } finally {
+      setClientBaseDeleting(false);
+    }
+  };
+
+  const handleWorkspaceFileDelete =
+    (kind: CccWorkspaceFileKind) =>
+    async (event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const meta = workspaceFiles[kind];
+      if (!selectedBranch || !meta) return;
+
+      const confirmed = window.confirm(
+        `¿Eliminar "${meta.original_name}" de ${selectedBranchLabel}?\n\nEl archivo dejará de estar disponible para todos los usuarios habilitados de esta sucursal.`,
+      );
+      if (!confirmed) return;
+
+      setWorkspaceDeletingKind(kind);
+      setWorkspaceMessage(null);
+      setWorkspaceError(null);
+      try {
+        await deleteWorkspaceFile(selectedBranch, kind);
+
+        const nextFiles = { ...workspaceFilesRef.current };
+        delete nextFiles[kind];
+        workspaceFilesRef.current = nextFiles;
+        setWorkspaceFiles(nextFiles);
+        lastAutoProcessFingerprintRef.current = "";
+        document.getElementById("btnReset")?.click();
+
+        const message = `${CCC_WORKSPACE_FILE_LABELS[kind]} eliminado de ${selectedBranchLabel}.`;
+        setWorkspaceMessage(message);
+        notify.success(message);
+      } catch (error: any) {
+        console.error(error);
+        const message = errorMessage(error, "No se pudo eliminar el archivo.");
+        setWorkspaceError(message);
+        notify.error(message);
+      } finally {
+        setWorkspaceDeletingKind(null);
       }
     };
 
@@ -657,7 +901,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
               <span>Sucursal de trabajo</span>
               <select
                 value={selectedBranch}
-                disabled={branchesLoading || clientBaseUploading || Boolean(workspaceUploadingKind)}
+                disabled={branchesLoading || fileActionBusy}
                 onChange={(event) => setSelectedBranch(event.target.value)}
               >
                 {availableBranches.length === 0 ? (
@@ -682,7 +926,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                 type="file"
                 id="fileBase"
                 accept=".xlsx,.xls"
-                disabled={!selectedBranch || Boolean(workspaceUploadingKind)}
+                disabled={!selectedBranch || fileActionBusy}
                 onChange={handleWorkspaceFileUpload("sales")}
               />
               <div className="ico">
@@ -694,6 +938,15 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                 {workspaceFiles.sales?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
               </div>
               {workspaceFiles.sales && <div className="upload-meta">{fileMetaLine(workspaceFiles.sales)}</div>}
+              {workspaceFiles.sales && (
+                <StoredFileActions
+                  onDownload={handleWorkspaceFileDownload("sales")}
+                  onDelete={handleWorkspaceFileDelete("sales")}
+                  downloading={workspaceDownloadingKind === "sales"}
+                  deleting={workspaceDeletingKind === "sales"}
+                  disabled={fileActionBusy && workspaceDownloadingKind !== "sales" && workspaceDeletingKind !== "sales"}
+                />
+              )}
             </label>
 
             <label
@@ -704,7 +957,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                 type="file"
                 id="fileListado"
                 accept=".xlsx,.xls"
-                disabled={!selectedBranch || Boolean(workspaceUploadingKind)}
+                disabled={!selectedBranch || fileActionBusy}
                 onChange={handleWorkspaceFileUpload("seller_supervisor")}
               />
               <div className="ico">
@@ -716,18 +969,27 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                 {workspaceFiles.seller_supervisor?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
               </div>
               {workspaceFiles.seller_supervisor && <div className="upload-meta">{fileMetaLine(workspaceFiles.seller_supervisor)}</div>}
+              {workspaceFiles.seller_supervisor && (
+                <StoredFileActions
+                  onDownload={handleWorkspaceFileDownload("seller_supervisor")}
+                  onDelete={handleWorkspaceFileDelete("seller_supervisor")}
+                  downloading={workspaceDownloadingKind === "seller_supervisor"}
+                  deleting={workspaceDeletingKind === "seller_supervisor"}
+                  disabled={fileActionBusy && workspaceDownloadingKind !== "seller_supervisor" && workspaceDeletingKind !== "seller_supervisor"}
+                />
+              )}
             </label>
 
             <label
               className={`drop database-drop ${clientBaseMeta ? "filled" : ""} ${clientBaseUploading ? "is-uploading" : ""}`}
               id="dropPadron"
-              aria-disabled={!selectedBranch || clientBaseUploading}
+              aria-disabled={!selectedBranch || fileActionBusy}
             >
               <input
                 type="file"
                 id="filePadron"
                 accept=".xlsx,.xls"
-                disabled={!selectedBranch || clientBaseUploading || !xlsxReady}
+                disabled={!selectedBranch || fileActionBusy || !xlsxReady}
                 onChange={handleClientBaseUpload}
               />
               <div className="ico">
@@ -749,6 +1011,15 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                 {clientBaseMeta?.original_name || "Seleccioná el Excel para cargar o actualizar"}
               </div>
               {clientBaseMeta && <div className="upload-meta">{fileMetaLine(clientBaseMeta)}</div>}
+              {clientBaseMeta && (
+                <StoredFileActions
+                  onDownload={handleClientBaseDownload}
+                  onDelete={handleClientBaseDelete}
+                  downloading={clientBaseDownloading}
+                  deleting={clientBaseDeleting}
+                  disabled={fileActionBusy && !clientBaseDownloading && !clientBaseDeleting}
+                />
+              )}
             </label>
 
             <label
@@ -760,7 +1031,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                 type="file"
                 id="fileDetalle"
                 accept=".xlsx,.xls"
-                disabled={!selectedBranch || Boolean(workspaceUploadingKind)}
+                disabled={!selectedBranch || fileActionBusy}
                 tabIndex={activeTab === "dropsize" ? 0 : -1}
                 onChange={handleWorkspaceFileUpload("personal_detail")}
               />
@@ -773,6 +1044,15 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                 {workspaceFiles.personal_detail?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
               </div>
               {workspaceFiles.personal_detail && <div className="upload-meta">{fileMetaLine(workspaceFiles.personal_detail)}</div>}
+              {workspaceFiles.personal_detail && (
+                <StoredFileActions
+                  onDownload={handleWorkspaceFileDownload("personal_detail")}
+                  onDelete={handleWorkspaceFileDelete("personal_detail")}
+                  downloading={workspaceDownloadingKind === "personal_detail"}
+                  deleting={workspaceDeletingKind === "personal_detail"}
+                  disabled={fileActionBusy && workspaceDownloadingKind !== "personal_detail" && workspaceDeletingKind !== "personal_detail"}
+                />
+              )}
             </label>
           </div>
 
