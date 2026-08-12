@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
+  AlertTriangle,
   CheckCircle2,
   Clock3,
   RefreshCw,
+  RotateCcw,
   Search,
   Smartphone,
   Trash2,
@@ -14,6 +16,7 @@ import { supabase } from '@/lib/supabaseClient';
 import DualSpinner from '@/components/ui/DualSpinner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { buildVendoEmailSubject } from '@/lib/vendo/web3forms';
+import { vendoDeletionReasonLabel } from '@/lib/vendo/deletionReasons';
 import type { VendoRequest, VendoRequestStatus } from '@/lib/vendo/types';
 import { errorMessage, notify } from '@/lib/notifications';
 
@@ -29,6 +32,7 @@ export default function AdminVendoPage() {
   const [requests, setRequests] = useState<VendoRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [resolvingDeletionId, setResolvingDeletionId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -36,6 +40,7 @@ export default function AdminVendoPage() {
   const [movementFilter, setMovementFilter] = useState<MovementFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [branchFilter, setBranchFilter] = useState('all');
+
   const getAccessToken = async () => {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
@@ -50,8 +55,16 @@ export default function AdminVendoPage() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) notify.error( error.message);
-    const next = (data ?? []) as VendoRequest[];
+    if (error) notify.error(error.message);
+    const next = ((data ?? []) as VendoRequest[]).sort((a, b) => {
+      const aDeletion = a.deletion_requested_at ? 1 : 0;
+      const bDeletion = b.deletion_requested_at ? 1 : 0;
+      if (aDeletion !== bDeletion) return bDeletion - aDeletion;
+      if (a.deletion_requested_at && b.deletion_requested_at) {
+        return new Date(b.deletion_requested_at).getTime() - new Date(a.deletion_requested_at).getTime();
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
     setRequests(next);
     setSelectedIds((current) => {
       const existing = new Set(next.map((request) => request.id));
@@ -92,6 +105,8 @@ export default function AdminVendoPage() {
         request.requester_name,
         request.requester_email,
         request.branch_name,
+        request.deletion_reason_code ? vendoDeletionReasonLabel(request.deletion_reason_code) : '',
+        request.deletion_reason_note,
       ].some((value) => String(value ?? '').toLowerCase().includes(normalized));
       return matchesQuery
         && (movementFilter === 'all' || request.movement_type === movementFilter)
@@ -149,11 +164,25 @@ export default function AdminVendoPage() {
     try {
       const updated = await patchRequest({ action: 'review', requestId: request.id, status, note });
       setRequests((current) => current.map((row) => row.id === updated.id ? updated : row));
-      notify.success( status === 'accepted' ? 'Solicitud aceptada.' : 'Solicitud rechazada.');
+      notify.success(status === 'accepted' ? 'Solicitud aceptada.' : 'Solicitud rechazada.');
     } catch (error) {
-      notify.error( error instanceof Error ? error.message : 'No se pudo resolver la solicitud.');
+      notify.error(error instanceof Error ? error.message : 'No se pudo resolver la solicitud.');
     } finally {
       setReviewingId(null);
+    }
+  };
+
+  const dismissDeletionRequest = async (request: VendoRequest) => {
+    if (!window.confirm(`¿Conservar la solicitud de ${request.first_name} ${request.last_name} y descartar la petición de eliminación?`)) return;
+    setResolvingDeletionId(request.id);
+    try {
+      const updated = await patchRequest({ action: 'dismiss_deletion', requestId: request.id });
+      setRequests((current) => current.map((row) => row.id === updated.id ? updated : row));
+      notify.success('Petición de eliminación descartada. La solicitud se conserva.');
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : 'No se pudo resolver la petición de eliminación.');
+    } finally {
+      setResolvingDeletionId(null);
     }
   };
 
@@ -170,16 +199,19 @@ export default function AdminVendoPage() {
   };
 
   const deleteRequest = async (request: VendoRequest) => {
-    if (!window.confirm(`¿Eliminar definitivamente la solicitud de ${request.first_name} ${request.last_name}? Esta acción no se puede deshacer.`)) return;
+    const message = request.deletion_requested_at
+      ? `¿Aprobar la petición y eliminar definitivamente la solicitud de ${request.first_name} ${request.last_name}? Esta acción no se puede deshacer.`
+      : `¿Eliminar definitivamente la solicitud de ${request.first_name} ${request.last_name}? Esta acción no se puede deshacer.`;
+    if (!window.confirm(message)) return;
     setDeletingId(request.id);
     try {
       const deletedIds = await deleteRequestIds([request.id]);
       const deletedSet = new Set(deletedIds);
       setRequests((current) => current.filter((row) => !deletedSet.has(row.id)));
       setSelectedIds((current) => new Set([...current].filter((id) => !deletedSet.has(id))));
-      notify.success( 'Solicitud eliminada definitivamente.');
+      notify.success(request.deletion_requested_at ? 'Petición aprobada. Solicitud eliminada definitivamente.' : 'Solicitud eliminada definitivamente.');
     } catch (error) {
-      notify.error( error instanceof Error ? error.message : 'No se pudo eliminar la solicitud.');
+      notify.error(error instanceof Error ? error.message : 'No se pudo eliminar la solicitud.');
     } finally {
       setDeletingId(null);
     }
@@ -196,9 +228,9 @@ export default function AdminVendoPage() {
       const deletedSet = new Set(deletedIds);
       setRequests((current) => current.filter((row) => !deletedSet.has(row.id)));
       setSelectedIds(new Set());
-      notify.success( `${deletedIds.length} solicitud${deletedIds.length === 1 ? '' : 'es'} eliminada${deletedIds.length === 1 ? '' : 's'}.`);
+      notify.success(`${deletedIds.length} solicitud${deletedIds.length === 1 ? '' : 'es'} eliminada${deletedIds.length === 1 ? '' : 's'}.`);
     } catch (error) {
-      notify.error( error instanceof Error ? error.message : 'No se pudieron eliminar las solicitudes.');
+      notify.error(error instanceof Error ? error.message : 'No se pudieron eliminar las solicitudes.');
     } finally {
       setBulkDeleting(false);
     }
@@ -218,6 +250,8 @@ export default function AdminVendoPage() {
       `Te escribimos por la solicitud de ${request.movement_type.toUpperCase()} del dispositivo de ${request.first_name} ${request.last_name}.`,
       `Sucursal: ${request.branch_name}`,
       `Estado actual: ${state}`,
+      request.deletion_requested_at ? `Petición de eliminación: ${vendoDeletionReasonLabel(request.deletion_reason_code)}` : '',
+      request.deletion_reason_note ? `Detalle de la petición: ${request.deletion_reason_note}` : '',
       request.review_note ? `Observación: ${request.review_note}` : '',
       '',
       'Saludos.',
@@ -231,6 +265,7 @@ export default function AdminVendoPage() {
     pending: requests.filter((request) => request.status === 'pending').length,
     accepted: requests.filter((request) => request.status === 'accepted').length,
     rejected: requests.filter((request) => request.status === 'rejected').length,
+    deletionRequested: requests.filter((request) => Boolean(request.deletion_requested_at)).length,
   }), [requests]);
 
   if (loading) return <div className="grid min-h-[65vh] place-items-center"><DualSpinner size={60} thickness={4} /></div>;
@@ -241,16 +276,17 @@ export default function AdminVendoPage() {
         <div>
           <div className="mb-2 inline-flex items-center rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-red-700">Solicitudes VENDO</div>
           <h1 className="text-3xl font-black tracking-tight text-slate-950">Altas y bajas de dispositivos</h1>
-          <p className="mt-2 text-sm text-slate-600">Revisá, aceptá o rechazá las solicitudes registradas. La gestión efectiva se realiza en VENDO.</p>
+          <p className="mt-2 text-sm text-slate-600">Revisá, aceptá o rechazá las solicitudes registradas. Las peticiones de eliminación aparecen destacadas en rojo.</p>
         </div>
         <button onClick={load} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Actualizar</button>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Metric title="Total solicitudes" value={totals.total} icon={<Smartphone className="h-5 w-5" />} className="border-slate-200 text-slate-900" />
         <Metric title="Pendientes" value={totals.pending} icon={<Clock3 className="h-5 w-5" />} className="border-amber-200 text-amber-700" />
         <Metric title="Aceptadas" value={totals.accepted} icon={<CheckCircle2 className="h-5 w-5" />} className="border-emerald-200 text-emerald-700" />
         <Metric title="Rechazadas" value={totals.rejected} icon={<XCircle className="h-5 w-5" />} className="border-red-200 text-red-700" />
+        <Metric title="Solicitan eliminar" value={totals.deletionRequested} icon={<AlertTriangle className="h-5 w-5" />} className="border-rose-300 text-rose-700" />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -298,41 +334,48 @@ export default function AdminVendoPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.map((request) => (
-                <tr key={request.id} className={`${request.status === 'pending' ? 'bg-amber-50/35' : 'bg-white'} align-top hover:bg-slate-50`}>
-                  <td className="px-2 py-4"><div className="flex justify-center"><Checkbox checked={selectedIds.has(request.id)} onCheckedChange={() => toggleSelected(request.id)} aria-label={`Seleccionar solicitud de ${request.first_name} ${request.last_name}`} /></div></td>
-                  <td className="px-3 py-4"><StatusBadge request={request} /><p className="mt-2 leading-4 text-slate-500">{dateFormatter.format(new Date(request.created_at))}</p></td>
-                  <td className="px-3 py-4"><div className="font-bold leading-4 text-slate-900">{request.branch_name}</div><span className={`mt-2 inline-flex rounded-md px-2 py-1 font-extrabold uppercase ${request.movement_type === 'alta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{request.movement_type}</span></td>
-                  <td className="px-3 py-4"><div className="font-bold leading-4 text-slate-900">{request.first_name} {request.last_name}</div><div className="mt-1 break-words leading-4 text-slate-500">{request.vendor_email}</div></td>
-                  <td className="px-3 py-4"><div className="break-all font-mono leading-4 text-slate-700">{request.imei}</div><div className="mt-2 leading-4 text-slate-500">{request.phone}</div></td>
-                  <td className="px-3 py-4"><p className="line-clamp-4 break-words leading-4 text-slate-600" title={request.reason}>{request.reason}</p></td>
-                  <td className="px-3 py-4"><div className="font-bold leading-4 text-slate-900">{request.requester_name}</div><div className="mt-1 break-words leading-4 text-slate-500">{request.requester_email}</div></td>
-                  <td className="px-3 py-4"><div className="flex justify-end"><RequestActions request={request} reviewingId={reviewingId} deletingId={deletingId} onReply={replyToRequester} onReview={reviewRequest} onDelete={deleteRequest} /></div></td>
-                </tr>
-              ))}
+              {filtered.map((request) => {
+                const deletionPending = Boolean(request.deletion_requested_at);
+                return (
+                  <tr key={request.id} className={`${deletionPending ? 'bg-red-50/80 hover:bg-red-50' : request.status === 'pending' ? 'bg-amber-50/35 hover:bg-slate-50' : 'bg-white hover:bg-slate-50'} align-top`}>
+                    <td className="px-2 py-4"><div className="flex justify-center"><Checkbox checked={selectedIds.has(request.id)} onCheckedChange={() => toggleSelected(request.id)} aria-label={`Seleccionar solicitud de ${request.first_name} ${request.last_name}`} /></div></td>
+                    <td className="px-3 py-4"><StatusBadge request={request} />{deletionPending && <DeletionBadge request={request} />}<p className="mt-2 leading-4 text-slate-500">{dateFormatter.format(new Date(request.created_at))}</p></td>
+                    <td className="px-3 py-4"><div className="font-bold leading-4 text-slate-900">{request.branch_name}</div><span className={`mt-2 inline-flex rounded-md px-2 py-1 font-extrabold uppercase ${request.movement_type === 'alta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{request.movement_type}</span></td>
+                    <td className="px-3 py-4"><div className="font-bold leading-4 text-slate-900">{request.first_name} {request.last_name}</div><div className="mt-1 break-words leading-4 text-slate-500">{request.vendor_email}</div></td>
+                    <td className="px-3 py-4"><div className="break-all font-mono leading-4 text-slate-700">{request.imei}</div><div className="mt-2 leading-4 text-slate-500">{request.phone}</div></td>
+                    <td className="px-3 py-4"><p className="line-clamp-4 break-words leading-4 text-slate-600" title={request.reason}>{request.reason}</p>{deletionPending && <DeletionRequestNotice request={request} />}</td>
+                    <td className="px-3 py-4"><div className="font-bold leading-4 text-slate-900">{request.requester_name}</div><div className="mt-1 break-words leading-4 text-slate-500">{request.requester_email}</div></td>
+                    <td className="px-3 py-4"><div className="flex justify-end"><RequestActions request={request} reviewingId={reviewingId} resolvingDeletionId={resolvingDeletionId} deletingId={deletingId} onReply={replyToRequester} onReview={reviewRequest} onDismissDeletion={dismissDeletionRequest} onDelete={deleteRequest} /></div></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
         <div className="divide-y divide-slate-100 xl:hidden">
-          {filtered.map((request) => (
-            <article key={request.id} className={`${request.status === 'pending' ? 'bg-amber-50/30' : 'bg-white'} p-4`}>
-              <div className="flex items-start gap-3">
-                <Checkbox checked={selectedIds.has(request.id)} onCheckedChange={() => toggleSelected(request.id)} aria-label={`Seleccionar solicitud de ${request.first_name} ${request.last_name}`} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2"><StatusBadge request={request} /><span className="text-xs text-slate-500">{dateFormatter.format(new Date(request.created_at))}</span></div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <InfoBlock label="Sucursal / movimiento"><div className="font-bold text-slate-900">{request.branch_name}</div><span className={`mt-1 inline-flex rounded-md px-2 py-1 text-[11px] font-extrabold uppercase ${request.movement_type === 'alta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{request.movement_type}</span></InfoBlock>
-                    <InfoBlock label="Vendedor"><div className="font-bold text-slate-900">{request.first_name} {request.last_name}</div><div className="break-all text-xs text-slate-500">{request.vendor_email}</div></InfoBlock>
-                    <InfoBlock label="Dispositivo"><div className="break-all font-mono text-xs text-slate-700">{request.imei}</div><div className="text-xs text-slate-500">{request.phone}</div></InfoBlock>
-                    <InfoBlock label="Solicitante"><div className="font-bold text-slate-900">{request.requester_name}</div><div className="break-all text-xs text-slate-500">{request.requester_email}</div></InfoBlock>
+          {filtered.map((request) => {
+            const deletionPending = Boolean(request.deletion_requested_at);
+            return (
+              <article key={request.id} className={`${deletionPending ? 'bg-red-50/80 ring-1 ring-inset ring-red-200' : request.status === 'pending' ? 'bg-amber-50/30' : 'bg-white'} p-4`}>
+                <div className="flex items-start gap-3">
+                  <Checkbox checked={selectedIds.has(request.id)} onCheckedChange={() => toggleSelected(request.id)} aria-label={`Seleccionar solicitud de ${request.first_name} ${request.last_name}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2"><StatusBadge request={request} />{deletionPending && <DeletionBadge request={request} />}</div><span className="text-xs text-slate-500">{dateFormatter.format(new Date(request.created_at))}</span></div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <InfoBlock label="Sucursal / movimiento"><div className="font-bold text-slate-900">{request.branch_name}</div><span className={`mt-1 inline-flex rounded-md px-2 py-1 text-[11px] font-extrabold uppercase ${request.movement_type === 'alta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{request.movement_type}</span></InfoBlock>
+                      <InfoBlock label="Vendedor"><div className="font-bold text-slate-900">{request.first_name} {request.last_name}</div><div className="break-all text-xs text-slate-500">{request.vendor_email}</div></InfoBlock>
+                      <InfoBlock label="Dispositivo"><div className="break-all font-mono text-xs text-slate-700">{request.imei}</div><div className="text-xs text-slate-500">{request.phone}</div></InfoBlock>
+                      <InfoBlock label="Solicitante"><div className="font-bold text-slate-900">{request.requester_name}</div><div className="break-all text-xs text-slate-500">{request.requester_email}</div></InfoBlock>
+                    </div>
+                    <div className="mt-3 rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Motivo</p><p className="mt-1 text-xs leading-5 text-slate-600">{request.reason}</p></div>
+                    {deletionPending && <DeletionRequestNotice request={request} />}
+                    <div className="mt-3 flex justify-end"><RequestActions request={request} reviewingId={reviewingId} resolvingDeletionId={resolvingDeletionId} deletingId={deletingId} onReply={replyToRequester} onReview={reviewRequest} onDismissDeletion={dismissDeletionRequest} onDelete={deleteRequest} /></div>
                   </div>
-                  <div className="mt-3 rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Motivo</p><p className="mt-1 text-xs leading-5 text-slate-600">{request.reason}</p></div>
-                  <div className="mt-3 flex justify-end"><RequestActions request={request} reviewingId={reviewingId} deletingId={deletingId} onReply={replyToRequester} onReview={reviewRequest} onDelete={deleteRequest} /></div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
 
         {filtered.length === 0 && <div className="px-6 py-14 text-center"><Smartphone className="mx-auto h-10 w-10 text-slate-300" /><p className="mt-3 font-bold text-slate-700">No hay solicitudes para los filtros seleccionados.</p></div>}
@@ -345,24 +388,57 @@ export default function AdminVendoPage() {
 function RequestActions({
   request,
   reviewingId,
+  resolvingDeletionId,
   deletingId,
   onReply,
   onReview,
+  onDismissDeletion,
   onDelete,
 }: {
   request: VendoRequest;
   reviewingId: string | null;
+  resolvingDeletionId: string | null;
   deletingId: string | null;
   onReply: (request: VendoRequest) => void;
   onReview: (request: VendoRequest, status: 'accepted' | 'rejected') => void;
+  onDismissDeletion: (request: VendoRequest) => void;
   onDelete: (request: VendoRequest) => void;
 }) {
+  const deletionPending = Boolean(request.deletion_requested_at);
   return (
-    <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white px-1.5 py-1 shadow-sm">
+    <div className={`inline-flex items-center gap-1 rounded-2xl border bg-white px-1.5 py-1 shadow-sm ${deletionPending ? 'border-red-200' : 'border-slate-200'}`}>
       <ActionIconButton label="Responder al solicitante" onClick={() => onReply(request)} icon={<ReplyMailIcon className="h-4 w-4" />} />
-      <ActionIconButton label="Aceptar solicitud" onClick={() => onReview(request, 'accepted')} disabled={reviewingId === request.id || request.status === 'accepted'} tone="success" icon={<CheckCircle2 className="h-4 w-4" />} />
-      <ActionIconButton label="Rechazar solicitud" onClick={() => onReview(request, 'rejected')} disabled={reviewingId === request.id || request.status === 'rejected'} tone="danger" icon={<XCircle className="h-4 w-4" />} />
-      <ActionIconButton label="Eliminar" onClick={() => onDelete(request)} disabled={deletingId === request.id} tone="danger" icon={deletingId === request.id ? <Spinner /> : <Trash2 className="h-4 w-4" />} />
+      {deletionPending ? (
+        <>
+          <ActionIconButton label="Conservar solicitud" onClick={() => onDismissDeletion(request)} disabled={resolvingDeletionId === request.id || deletingId === request.id} tone="success" icon={resolvingDeletionId === request.id ? <Spinner /> : <RotateCcw className="h-4 w-4" />} />
+          <ActionIconButton label="Aprobar eliminación" onClick={() => onDelete(request)} disabled={deletingId === request.id || resolvingDeletionId === request.id} tone="danger" icon={deletingId === request.id ? <Spinner /> : <Trash2 className="h-4 w-4" />} />
+        </>
+      ) : (
+        <>
+          <ActionIconButton label="Aceptar solicitud" onClick={() => onReview(request, 'accepted')} disabled={reviewingId === request.id || request.status === 'accepted'} tone="success" icon={<CheckCircle2 className="h-4 w-4" />} />
+          <ActionIconButton label="Rechazar solicitud" onClick={() => onReview(request, 'rejected')} disabled={reviewingId === request.id || request.status === 'rejected'} tone="danger" icon={<XCircle className="h-4 w-4" />} />
+          <ActionIconButton label="Eliminar" onClick={() => onDelete(request)} disabled={deletingId === request.id} tone="danger" icon={deletingId === request.id ? <Spinner /> : <Trash2 className="h-4 w-4" />} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function DeletionBadge({ request }: { request: VendoRequest }) {
+  return (
+    <div className="mt-2">
+      <span className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2.5 py-1 font-extrabold text-red-800"><AlertTriangle className="h-3.5 w-3.5" /> Pide eliminar</span>
+      {request.deletion_requested_at && <p className="mt-1 text-[10px] leading-4 text-red-700">{dateFormatter.format(new Date(request.deletion_requested_at))}</p>}
+    </div>
+  );
+}
+
+function DeletionRequestNotice({ request }: { request: VendoRequest }) {
+  return (
+    <div className="mt-3 rounded-xl border border-red-200 bg-white/80 p-3 text-red-900">
+      <div className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-wide text-red-700"><AlertTriangle className="h-3.5 w-3.5" /> Petición de eliminación</div>
+      <p className="mt-1 text-xs font-bold leading-5">{vendoDeletionReasonLabel(request.deletion_reason_code)}</p>
+      {request.deletion_reason_note && <p className="mt-1 text-xs leading-5 text-red-700">{request.deletion_reason_note}</p>}
     </div>
   );
 }
