@@ -1,13 +1,29 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Power, RefreshCw, Search, Send, Smartphone, Trash2, X } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  MessageSquareWarning,
+  Power,
+  RefreshCw,
+  Search,
+  Send,
+  Smartphone,
+  X,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/app/auth/AuthProvider';
 import { useBranches } from '@/hooks/useBranches';
 import DualSpinner from '@/components/ui/DualSpinner';
 import { notify } from '@/lib/notifications';
 import { submitVendoWeb3Forms, type VendoWeb3FormsPayload } from '@/lib/vendo/web3forms';
+import {
+  VENDO_DELETION_REASONS,
+  vendoDeletionReasonLabel,
+  type VendoDeletionReasonCode,
+} from '@/lib/vendo/deletionReasons';
 import type { VendoMovementType, VendoRequest } from '@/lib/vendo/types';
 import {
   HISTORY_PAGE_SIZE,
@@ -25,6 +41,8 @@ import {
 
 type CreateResponse = { request?: VendoRequest; notificationPayload?: VendoWeb3FormsPayload; warning?: string; error?: string };
 
+type PatchResponse = { request?: VendoRequest; error?: string };
+
 export default function AltaVendoPage() {
   const { me } = useAuth();
   const { branches, loading: branchesLoading, error: branchesError } = useBranches();
@@ -32,7 +50,10 @@ export default function AltaVendoPage() {
   const [requests, setRequests] = useState<VendoRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [requestingDeletionId, setRequestingDeletionId] = useState<string | null>(null);
+  const [deletionTarget, setDeletionTarget] = useState<VendoRequest | null>(null);
+  const [deletionReason, setDeletionReason] = useState<VendoDeletionReasonCode | ''>('');
+  const [deletionNote, setDeletionNote] = useState('');
   const [sourceId, setSourceId] = useState('');
   const [deviceSearch, setDeviceSearch] = useState('');
   const [historySearch, setHistorySearch] = useState('');
@@ -67,7 +88,7 @@ export default function AltaVendoPage() {
   const activeAltas = useMemo(() => {
     const seen = new Set<string>();
     return requests.filter((request) => {
-      if (request.status === 'rejected') return false;
+      if (request.status === 'rejected' || request.deletion_requested_at) return false;
       const key = deviceKey(request);
       if (seen.has(key)) return false;
       seen.add(key);
@@ -151,24 +172,54 @@ export default function AltaVendoPage() {
     }
   };
 
-  const deleteRequest = async (request: VendoRequest) => {
-    if (!confirm(`¿Eliminar la solicitud de ${request.first_name} ${request.last_name}?`)) return;
-    setDeletingId(request.id);
+  const openDeletionRequest = (request: VendoRequest) => {
+    if (request.deletion_requested_at) return;
+    setDeletionTarget(request);
+    setDeletionReason('');
+    setDeletionNote('');
+  };
+
+  const closeDeletionRequest = () => {
+    if (requestingDeletionId) return;
+    setDeletionTarget(null);
+    setDeletionReason('');
+    setDeletionNote('');
+  };
+
+  const requestDeletion = async () => {
+    if (!deletionTarget || !deletionReason) return;
+    if (deletionReason === 'other' && !deletionNote.trim()) {
+      notify.warning('Contanos brevemente por qué querés eliminar la solicitud.');
+      return;
+    }
+
+    setRequestingDeletionId(deletionTarget.id);
     try {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
-      if (!token) throw new Error('La sesión venció.');
+      if (!token) throw new Error('La sesión venció. Volvé a iniciar sesión.');
+
       const response = await fetch('/api/vendo/requests', {
-        method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ requestId: request.id }),
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          action: 'request_deletion',
+          requestId: deletionTarget.id,
+          reason: deletionReason,
+          note: deletionNote.trim() || null,
+        }),
       });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || 'No se pudo eliminar la solicitud.');
-      setRequests((current) => current.filter((row) => row.id !== request.id));
-      notify.success('Solicitud eliminada.');
+      const body = (await response.json().catch(() => ({}))) as PatchResponse;
+      if (!response.ok || !body.request) throw new Error(body.error || 'No se pudo enviar la petición de eliminación.');
+
+      setRequests((current) => current.map((row) => row.id === body.request!.id ? body.request! : row));
+      setDeletionTarget(null);
+      setDeletionReason('');
+      setDeletionNote('');
+      notify.success('Petición de eliminación enviada a Administración.');
     } catch (error) {
-      notify.error(errorMessage(error, 'No se pudo eliminar la solicitud.'));
+      notify.error(errorMessage(error, 'No se pudo solicitar la eliminación.'));
     } finally {
-      setDeletingId(null);
+      setRequestingDeletionId(null);
     }
   };
 
@@ -178,6 +229,8 @@ export default function AltaVendoPage() {
     return requests.filter((request) => normalizeSearch([
       request.first_name, request.last_name, request.vendor_email, request.phone, request.imei,
       request.branch_name, request.movement_type, request.status,
+      request.deletion_reason_code ? vendoDeletionReasonLabel(request.deletion_reason_code) : '',
+      request.deletion_reason_note,
     ].join(' ')).includes(query));
   }, [historySearch, requests]);
 
@@ -223,11 +276,89 @@ export default function AltaVendoPage() {
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 lg:flex-row lg:items-center lg:justify-between"><div><h2 className="text-lg font-extrabold">Mi historial</h2><p className="text-sm text-slate-500">Buscá solicitudes o reutilizá un alta para darla de baja.</p></div><div className="flex gap-2"><div className="relative w-full sm:w-80"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={historySearch} onChange={(e) => setHistorySearch(e.target.value)} placeholder="Buscar en el historial…" className="h-10 w-full rounded-xl border border-slate-300 pl-10 pr-9 text-sm" />{historySearch && <button onClick={() => setHistorySearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X className="h-4 w-4" /></button>}</div><button onClick={loadHistory} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 px-3 text-sm font-bold"><RefreshCw className="h-4 w-4" />Actualizar</button></div></div>
           {loading ? <div className="grid min-h-56 place-items-center"><DualSpinner size={48} thickness={4} /></div> : filteredHistory.length === 0 ? <div className="px-6 py-14 text-center"><Smartphone className="mx-auto h-10 w-10 text-slate-300" /><p className="mt-3 font-bold text-slate-700">No hay solicitudes para mostrar.</p></div> : <>
-            <div className="divide-y divide-slate-100">{visibleHistory.map((request) => <article key={request.id} className="grid gap-4 p-5 lg:grid-cols-[1fr_1fr_1.2fr_auto] lg:items-center"><div><span className="text-xs text-slate-500">{dateFormatter.format(new Date(request.created_at))}</span><p className="font-bold">{request.branch_name}</p></div><div><span className={`rounded-md px-2 py-1 text-[11px] font-extrabold uppercase ${request.movement_type === 'alta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{request.movement_type}</span><p className="mt-2 font-semibold">{request.first_name} {request.last_name}</p></div><div className="text-xs text-slate-500"><p>{request.vendor_email} · {request.phone}</p><p className="mt-1 font-mono">{displayImei(request.imei)}</p><div className="mt-2">{requestStatusBadge(request)} <span className="ml-2">{emailStatusLabel(request)}</span></div></div><div className="flex gap-2">{request.movement_type === 'alta' && activeAltas.some((row) => row.id === request.id) && <button onClick={() => startBaja(request)} title="Dar de baja" className="grid h-10 w-10 place-items-center rounded-xl border border-blue-200 text-blue-700 hover:bg-blue-50"><Power className="h-4 w-4" /></button>}<button onClick={() => deleteRequest(request)} disabled={deletingId === request.id} title="Eliminar" className="grid h-10 w-10 place-items-center rounded-xl border border-red-200 text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button></div></article>)}</div>
+            <div className="divide-y divide-slate-100">
+              {visibleHistory.map((request) => {
+                const deletionPending = Boolean(request.deletion_requested_at);
+                return (
+                  <article
+                    key={request.id}
+                    className={`grid gap-4 p-5 lg:grid-cols-[1fr_1fr_1.2fr_auto] lg:items-center ${deletionPending ? 'bg-red-50/70 ring-1 ring-inset ring-red-200' : 'bg-white'}`}
+                  >
+                    <div><span className="text-xs text-slate-500">{dateFormatter.format(new Date(request.created_at))}</span><p className="font-bold">{request.branch_name}</p></div>
+                    <div><span className={`rounded-md px-2 py-1 text-[11px] font-extrabold uppercase ${request.movement_type === 'alta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{request.movement_type}</span><p className="mt-2 font-semibold">{request.first_name} {request.last_name}</p></div>
+                    <div className="text-xs text-slate-500">
+                      <p>{request.vendor_email} · {request.phone}</p>
+                      <p className="mt-1 font-mono">{displayImei(request.imei)}</p>
+                      <div className="mt-2">{requestStatusBadge(request)} <span className="ml-2">{emailStatusLabel(request)}</span></div>
+                      {deletionPending && (
+                        <div className="mt-3 rounded-xl border border-red-200 bg-white/80 px-3 py-2 text-red-800">
+                          <div className="flex items-center gap-2 font-extrabold"><Clock3 className="h-4 w-4" /> Eliminación solicitada</div>
+                          <p className="mt-1 leading-5">{vendoDeletionReasonLabel(request.deletion_reason_code)}</p>
+                          {request.deletion_reason_note && <p className="mt-1 leading-5 text-red-700">{request.deletion_reason_note}</p>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {request.movement_type === 'alta' && activeAltas.some((row) => row.id === request.id) && <button onClick={() => startBaja(request)} title="Dar de baja" className="grid h-10 w-10 place-items-center rounded-xl border border-blue-200 bg-white text-blue-700 hover:bg-blue-50"><Power className="h-4 w-4" /></button>}
+                      {deletionPending ? (
+                        <button type="button" disabled className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-200 bg-red-100 px-3 text-xs font-extrabold text-red-700"><Clock3 className="h-4 w-4" /> Eliminación solicitada</button>
+                      ) : (
+                        <button type="button" onClick={() => openDeletionRequest(request)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-200 bg-white px-3 text-xs font-extrabold text-red-700 transition hover:bg-red-50"><MessageSquareWarning className="h-4 w-4" /> Solicitar eliminación</button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
             <div className="flex flex-col gap-3 border-t bg-slate-50/60 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-slate-500">Mostrando {Math.min((page - 1) * HISTORY_PAGE_SIZE + 1, filteredHistory.length)}-{Math.min(page * HISTORY_PAGE_SIZE, filteredHistory.length)} de {filteredHistory.length}</p><div className="flex items-center gap-2"><button disabled={page === 1} onClick={() => setPage((value) => value - 1)} className="inline-flex h-9 items-center gap-1 rounded-xl border bg-white px-3 text-xs font-bold disabled:opacity-40"><ChevronLeft className="h-4 w-4" />Anterior</button><span className="min-w-24 text-center text-xs font-bold">Página {page} de {pageCount}</span><button disabled={page === pageCount} onClick={() => setPage((value) => value + 1)} className="inline-flex h-9 items-center gap-1 rounded-xl border bg-white px-3 text-xs font-bold disabled:opacity-40">Siguiente<ChevronRight className="h-4 w-4" /></button></div></div>
           </>}
         </section>
       </div>
+
+      {deletionTarget && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeletionRequest(); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="vendo-delete-request-title" className="w-full max-w-lg overflow-hidden rounded-2xl border border-red-100 bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-red-700"><MessageSquareWarning className="h-4 w-4" /> Petición de eliminación</div>
+                <h3 id="vendo-delete-request-title" className="mt-3 text-xl font-black text-slate-950">¿Por qué querés eliminar esta solicitud?</h3>
+                <p className="mt-1 text-sm leading-5 text-slate-500">Administración revisará el pedido antes de borrar la solicitud definitivamente.</p>
+              </div>
+              <button type="button" onClick={closeDeletionRequest} disabled={Boolean(requestingDeletionId)} className="grid h-9 w-9 flex-none place-items-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40" aria-label="Cerrar"><X className="h-4 w-4" /></button>
+            </div>
+
+            <div className="space-y-5 p-6">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+                <p className="font-extrabold text-slate-900">{deletionTarget.first_name} {deletionTarget.last_name}</p>
+                <p className="mt-1 text-xs text-slate-500">{deletionTarget.branch_name} · {deletionTarget.movement_type.toUpperCase()} · {dateFormatter.format(new Date(deletionTarget.created_at))}</p>
+              </div>
+
+              <div className="space-y-2">
+                {VENDO_DELETION_REASONS.map((reason) => (
+                  <label key={reason.code} className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition ${deletionReason === reason.code ? 'border-red-300 bg-red-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                    <input type="radio" name="vendo-deletion-reason" value={reason.code} checked={deletionReason === reason.code} onChange={() => setDeletionReason(reason.code)} className="mt-0.5 h-4 w-4 accent-red-700" />
+                    <span className="text-sm font-semibold text-slate-800">{reason.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              <label className="block">
+                <span className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Comentario adicional {deletionReason === 'other' ? <b className="text-red-600">*</b> : <span className="font-medium normal-case tracking-normal text-slate-400">(opcional)</span>}</span>
+                <textarea value={deletionNote} onChange={(event) => setDeletionNote(event.target.value)} maxLength={500} rows={3} placeholder="Podés aclarar qué dato está mal o agregar contexto para Administración." className="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100" />
+                <span className="mt-1 block text-right text-[10px] text-slate-400">{deletionNote.length}/500</span>
+              </label>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50/70 px-6 py-4 sm:flex-row sm:justify-end">
+              <button type="button" onClick={closeDeletionRequest} disabled={Boolean(requestingDeletionId)} className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 disabled:opacity-40">Cancelar</button>
+              <button type="button" onClick={requestDeletion} disabled={!deletionReason || Boolean(requestingDeletionId) || (deletionReason === 'other' && !deletionNote.trim())} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-700 px-4 text-sm font-extrabold text-white hover:bg-red-800 disabled:bg-slate-300">
+                {requestingDeletionId ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <MessageSquareWarning className="h-4 w-4" />}
+                {requestingDeletionId ? 'Enviando petición…' : 'Enviar petición'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
