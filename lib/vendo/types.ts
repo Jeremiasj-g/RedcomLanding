@@ -1,3 +1,5 @@
+import type { VendoDeletionReasonCode } from './deletionReasons';
+
 export type VendoMovementType = 'alta' | 'baja';
 export type VendoRequestStatus = 'pending' | 'accepted' | 'rejected';
 export type VendoEmailStatus = 'pending' | 'sent' | 'partial' | 'failed' | 'no_recipients';
@@ -23,6 +25,10 @@ export type VendoRequest = {
   reviewed_by: string | null;
   reviewed_by_name: string | null;
   review_note: string | null;
+  deletion_requested_at: string | null;
+  deletion_requested_by: string | null;
+  deletion_reason_code: VendoDeletionReasonCode | null;
+  deletion_reason_note: string | null;
   // Campos anteriores conservados por compatibilidad con datos ya creados.
   seen_at: string | null;
   seen_by: string | null;
