@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { buildVendoWeb3FormsPayload, getWeb3FormsAccessKey } from '@/lib/vendo/web3forms';
+import { VENDO_DELETION_REASON_CODES } from '@/lib/vendo/deletionReasons';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,16 @@ const patchSchema = z.discriminatedUnion('action', [
     requestId: z.string().uuid(),
     status: z.enum(['accepted', 'rejected']),
     note: z.string().trim().max(1000).nullable().optional(),
+  }),
+  z.object({
+    action: z.literal('request_deletion'),
+    requestId: z.string().uuid(),
+    reason: z.enum(VENDO_DELETION_REASON_CODES),
+    note: z.string().trim().max(500).nullable().optional(),
+  }),
+  z.object({
+    action: z.literal('dismiss_deletion'),
+    requestId: z.string().uuid(),
   }),
 ]);
 
@@ -89,6 +100,11 @@ async function getAuthContext(request: NextRequest): Promise<AuthContext | NextR
 
 function isNextResponse(value: AuthContext | NextResponse): value is NextResponse {
   return value instanceof NextResponse;
+}
+
+function isDeletionMigrationError(error: any) {
+  return ['42703', 'PGRST204', '23514'].includes(String(error?.code ?? ''))
+    || /deletion_requested_|deletion_reason_|vendo_requests_deletion/i.test(error?.message ?? '');
 }
 
 export async function POST(request: NextRequest) {
@@ -211,11 +227,20 @@ export async function PATCH(request: NextRequest) {
   const { admin, profile, userId } = context;
   const { data: current, error: currentError } = await admin
     .from('vendo_requests')
-    .select('id,requested_by')
+    .select('id,requested_by,deletion_requested_at')
     .eq('id', parsed.data.requestId)
     .maybeSingle();
 
-  if (currentError || !current) {
+  if (currentError) {
+    if (isDeletionMigrationError(currentError)) {
+      return NextResponse.json({
+        error: 'La base todavía no tiene habilitadas las peticiones de eliminación. Ejecutá supabase/migrations/20260812_vendo_deletion_requests.sql.',
+      }, { status: 409 });
+    }
+    return NextResponse.json({ error: currentError.message }, { status: 500 });
+  }
+
+  if (!current) {
     return NextResponse.json({ error: 'La solicitud ya no existe.' }, { status: 404 });
   }
 
@@ -242,8 +267,64 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ request: data });
   }
 
+  if (parsed.data.action === 'request_deletion') {
+    if (current.requested_by !== userId) {
+      return NextResponse.json({ error: 'Solo podés pedir la eliminación de tus propias solicitudes.' }, { status: 403 });
+    }
+    if (current.deletion_requested_at) {
+      return NextResponse.json({ error: 'Esta solicitud ya tiene una petición de eliminación pendiente.' }, { status: 409 });
+    }
+
+    const requestedAt = new Date().toISOString();
+    const { data, error } = await admin
+      .from('vendo_requests')
+      .update({
+        deletion_requested_at: requestedAt,
+        deletion_requested_by: userId,
+        deletion_reason_code: parsed.data.reason,
+        deletion_reason_note: parsed.data.note || null,
+      })
+      .eq('id', parsed.data.requestId)
+      .select('*')
+      .single();
+
+    if (error) {
+      if (isDeletionMigrationError(error)) {
+        return NextResponse.json({
+          error: 'La base todavía no tiene habilitadas las peticiones de eliminación. Ejecutá supabase/migrations/20260812_vendo_deletion_requests.sql.',
+        }, { status: 409 });
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ request: data });
+  }
+
   if (!isAdmin) {
     return NextResponse.json({ error: 'Solo administración puede resolver solicitudes.' }, { status: 403 });
+  }
+
+  if (parsed.data.action === 'dismiss_deletion') {
+    const { data, error } = await admin
+      .from('vendo_requests')
+      .update({
+        deletion_requested_at: null,
+        deletion_requested_by: null,
+        deletion_reason_code: null,
+        deletion_reason_note: null,
+      })
+      .eq('id', parsed.data.requestId)
+      .select('*')
+      .single();
+
+    if (error) {
+      if (isDeletionMigrationError(error)) {
+        return NextResponse.json({
+          error: 'La base todavía no tiene habilitadas las peticiones de eliminación. Ejecutá supabase/migrations/20260812_vendo_deletion_requests.sql.',
+        }, { status: 409 });
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ request: data });
   }
 
   const reviewedAt = new Date().toISOString();
@@ -292,10 +373,16 @@ export async function DELETE(request: NextRequest) {
     ...(parsed.data.requestId ? [parsed.data.requestId] : []),
   ]));
 
-  const { admin, profile, userId } = context;
+  const { admin, profile } = context;
+  if (profile.role !== 'admin') {
+    return NextResponse.json({
+      error: 'Las solicitudes solo pueden ser eliminadas por Administración. Usá la opción “Solicitar eliminación” desde tu historial.',
+    }, { status: 403 });
+  }
+
   const { data: current, error: currentError } = await admin
     .from('vendo_requests')
-    .select('id,requested_by')
+    .select('id')
     .in('id', ids);
 
   if (currentError) {
@@ -305,10 +392,6 @@ export async function DELETE(request: NextRequest) {
   const existing = current ?? [];
   if (existing.length === 0) {
     return NextResponse.json({ error: 'Las solicitudes ya no existen.' }, { status: 404 });
-  }
-
-  if (profile.role !== 'admin' && existing.some((row: any) => row.requested_by !== userId)) {
-    return NextResponse.json({ error: 'No tenés permiso para eliminar una o más solicitudes.' }, { status: 403 });
   }
 
   const existingIds = existing.map((row: any) => String(row.id));
