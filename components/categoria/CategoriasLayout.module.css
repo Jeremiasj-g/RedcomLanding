@@ -3,16 +3,72 @@
 }
 
 .periodConsole :global(.shadow-xl) {
-  border-radius: 16px;
+  overflow: hidden;
   border-color: #e2e8f0;
+  border-radius: 16px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.055);
 }
 
 .periodConsole :global(.bg-gradient-to-r) {
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
+  padding-top: 13px;
+  padding-bottom: 13px;
 }
 
-.periodConsole :global(.text-white) {
+.periodConsole :global(.bg-gradient-to-r) * {
+  color: #0f172a !important;
+}
+
+.periodConsole :global(.bg-gradient-to-r) span {
+  border-color: #e2e8f0 !important;
+  background: #f8fafc !important;
+  color: #475569 !important;
+}
+
+.periodConsole :global(.bg-gradient-to-r) button {
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+}
+
+.periodConsole :global(.bg-gradient-to-r) button:hover {
+  border-color: #94a3b8 !important;
+  background: #f8fafc !important;
+}
+
+.periodConsole :global(.bg-gradient-to-r) + div {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.periodConsole input,
+.periodConsole select {
+  min-height: 42px;
+  border-color: #cbd5e1 !important;
+  font-weight: 600;
   color: #0f172a;
+}
+
+.periodConsole input:focus,
+.periodConsole select:focus {
+  border-color: #64748b !important;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.16);
+}
+
+.periodConsole button {
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .periodConsole :global(.bg-gradient-to-r) {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .periodConsole :global(.bg-gradient-to-r) + div {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
 }
