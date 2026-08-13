@@ -4,6 +4,7 @@ import { ArrowRight, History } from 'lucide-react'
 import Container from '@/components/Container'
 import { RequireAuth } from '@/components/RouteGuards'
 import CategoriasFreezeDetector from './CategoriasFreezeDetector'
+import styles from './CategoriasLayout.module.css'
 
 type Props = {
   roles: Array<'admin' | 'supervisor' | 'vendedor' | 'rrhh' | 'jdv' >
@@ -56,7 +57,9 @@ export default function CategoriasLayout({
       </div>
 
       <Container>
-        <CategoriasFreezeDetector />
+        <div className={styles.periodConsole}>
+          <CategoriasFreezeDetector />
+        </div>
 
         {historyHref ? (
           <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] sm:flex-row sm:items-center sm:justify-between">
