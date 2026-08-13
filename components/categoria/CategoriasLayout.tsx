@@ -1,5 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
+import { ArrowRight, History } from 'lucide-react'
 import Container from '@/components/Container'
 import { RequireAuth } from '@/components/RouteGuards'
 import CategoriasFreezeDetector from './CategoriasFreezeDetector'
@@ -58,28 +59,23 @@ export default function CategoriasLayout({
         <CategoriasFreezeDetector />
 
         {historyHref ? (
-          <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-red-600">
-                  Histórico de categorías
-                </p>
-                <h2 className="mt-2 text-xl font-black text-slate-950 md:text-2xl">
-                  Analizá la evolución mensual de un vendedor
-                </h2>
-                <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                  Consultá la evolución por ID de vendedor, compará meses cerrados y revisá
-                  categorías, eficiencia, efectividad, facturación, volumen y cobertura.
-                </p>
+          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
+                <History className="h-4 w-4" />
               </div>
-
-              <Link
-                href={historyHref}
-                className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-red-600"
-              >
-                Analizar histórico
-              </Link>
+              <p className="text-sm font-medium text-slate-600">
+                Compará la evolución mensual por vendedor.
+              </p>
             </div>
+
+            <Link
+              href={historyHref}
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-extrabold text-white transition hover:bg-red-600"
+            >
+              Analizar histórico
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
         ) : null}
       </Container>
