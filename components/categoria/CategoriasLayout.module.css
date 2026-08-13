@@ -1,0 +1,18 @@
+.periodConsole > div {
+  gap: 14px;
+}
+
+.periodConsole :global(.shadow-xl) {
+  border-radius: 16px;
+  border-color: #e2e8f0;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.055);
+}
+
+.periodConsole :global(.bg-gradient-to-r) {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.periodConsole :global(.text-white) {
+  color: #0f172a;
+}
