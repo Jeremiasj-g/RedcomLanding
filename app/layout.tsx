@@ -1,6 +1,6 @@
 import './globals.css';
 import 'react-toastify/dist/ReactToastify.css';
-import { Montserrat } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import type { Metadata } from 'next';
 import Navbar from '@/components/navbar/Navbar';
 import Footer from '@/components/Footer';
@@ -9,10 +9,9 @@ import AuthProvider from '@/app/auth/AuthProvider';
 import ReactToastProvider from '@/components/providers/ReactToastProvider';
 import ModulePermissionsProvider from '@/components/permissions/ModulePermissionsProvider';
 
-const montserrat = Montserrat({
+const inter = Inter({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800', '900'],
-  variable: '--font-montserrat',
 });
 
 export const metadata: Metadata = {
@@ -36,8 +35,8 @@ export default function RootLayout({
         <link rel="preconnect" href="https://www.google.com" />
         <link rel="preconnect" href="https://maps.gstatic.com" />
       </head>
-      
-      <body className={montserrat.variable}>
+
+      <body className={inter.className}>
         <AuthProvider>
           <ModulePermissionsProvider>
             <Navbar />
