@@ -3,6 +3,7 @@ import Container from '@/components/Container'
 import { RequireAuth } from '@/components/RouteGuards'
 import CategoriasTable from './CategoriasTable'
 import CategoriaVendorHistory from './CategoriaVendorHistory'
+import styles from './CategoriasHistoryPage.module.css'
 
 type Props = {
   roles: Array<'admin' | 'supervisor' | 'vendedor' | 'rrhh' | 'jdv'>
@@ -47,7 +48,7 @@ export default function CategoriasHistoryPage({
           </div>
         </div>
 
-        <Container className="pt-28 md:pt-32 2xl:max-2-[1500px]">
+        <Container className={`pt-28 md:pt-32 !max-w-[1500px] ${styles.historyContainer}`}>
           <CategoriaVendorHistory />
         </Container>
       </main>
