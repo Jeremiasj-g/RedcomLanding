@@ -47,7 +47,7 @@ export default function CategoriasHistoryPage({
           </div>
         </div>
 
-        <Container className="pt-28 md:pt-32">
+        <Container className="pt-28 md:pt-32 2xl:max-2-[1500px]">
           <CategoriaVendorHistory />
         </Container>
       </main>

@@ -56,7 +56,7 @@ export default function CategoriasLayout({
         </div>
       </div>
 
-      <Container>
+      <Container className="">
         <div className={styles.periodConsole}>
           <CategoriasFreezeDetector />
         </div>

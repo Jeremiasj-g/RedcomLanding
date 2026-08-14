@@ -3296,8 +3296,8 @@ export default function CategoriaVendorHistory({
 
   return (
     <section className={cls("mt-10", className)}>
-      <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-[#f6f8fb] shadow-[0_22px_70px_rgba(15,23,42,0.10)]">
-        <div className="relative overflow-hidden border-b border-slate-200 bg-white">
+      <div className="rounded-[2rem]">
+        <div className="relative overflow-hidden rounded-2xl">
           <div className="absolute inset-y-0 left-0 w-2 bg-red-600" />
           <div className="absolute right-0 top-0 h-full w-1/3 bg-[radial-gradient(circle_at_top_right,rgba(15,23,42,0.08),transparent_55%)]" />
           <div className="relative px-6 py-7 md:px-8">
@@ -3327,20 +3327,20 @@ export default function CategoriaVendorHistory({
           </div>
         </div>
 
-        <div className="space-y-5 p-5 md:p-6">
-          <div className="rounded-[1.35rem] border border-slate-300 bg-white p-2">
+        <div className="space-y-5 p-5 md:p-0 my-6 relative">
+          <div className="rounded-[1.35rem] border p-2 backdrop-blur-xl sticky top-16 z-10">
             <Tabs value={mode} onValueChange={(value) => setMode(value as HistoryMode)} className="w-full">
               <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 lg:grid-cols-4">
-                <TabsTrigger value="single" className="justify-start rounded-2xl px-4 py-3 text-sm font-black text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white data-[state=active]:shadow-none">
+                <TabsTrigger value="single" className="justify-start rounded-2xl px-4 py-5 text-sm font-bold text-black data-[state=active]:bg-slate-950 data-[state=active]:text-white data-[state=active]:shadow-none">
                   <UserRound className="mr-2 h-4 w-4" /> Individual
                 </TabsTrigger>
-                <TabsTrigger value="compare" className="justify-start rounded-2xl px-4 py-3 text-sm font-black text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white data-[state=active]:shadow-none">
+                <TabsTrigger value="compare" className="justify-start rounded-2xl px-4 py-5 text-sm font-bold text-black data-[state=active]:bg-slate-950 data-[state=active]:text-white data-[state=active]:shadow-none">
                   <Users className="mr-2 h-4 w-4" /> Comparar
                 </TabsTrigger>
-                <TabsTrigger value="ranking" className="justify-start rounded-2xl px-4 py-3 text-sm font-black text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white data-[state=active]:shadow-none">
+                <TabsTrigger value="ranking" className="justify-start rounded-2xl px-4 py-5 text-sm font-bold text-black data-[state=active]:bg-slate-950 data-[state=active]:text-white data-[state=active]:shadow-none">
                   <ListOrdered className="mr-2 h-4 w-4" /> Ranking
                 </TabsTrigger>
-                <TabsTrigger value="supervisors" className="justify-start rounded-2xl px-4 py-3 text-sm font-black text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white data-[state=active]:shadow-none">
+                <TabsTrigger value="supervisors" className="justify-start rounded-2xl px-4 py-5 text-sm font-bold text-black data-[state=active]:bg-slate-950 data-[state=active]:text-white data-[state=active]:shadow-none">
                   <ShieldCheck className="mr-2 h-4 w-4" /> Supervisores
                 </TabsTrigger>
               </TabsList>
