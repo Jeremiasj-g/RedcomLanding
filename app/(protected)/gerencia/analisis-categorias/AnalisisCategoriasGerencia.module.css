@@ -49,6 +49,11 @@
     display: contents;
   }
 
+  /* El wrapper original usa space-y-5; al convertirlo en display: contents ese margen seguía desplazando la segunda card. */
+  .analysisTypography :global([class*='xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]']) > :nth-child(2) > * {
+    margin-top: 0 !important;
+  }
+
   .analysisTypography :global([class*='xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]']) > :nth-child(2) > :first-child {
     grid-column: 1;
     grid-row: 1;
