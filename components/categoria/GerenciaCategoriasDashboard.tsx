@@ -1403,8 +1403,8 @@ export default function GerenciaCategoriasDashboard() {
 
   return (
     <section className="mt-8 space-y-6">
-      <div className="rounded-3xl border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
-        <div className="border-b border-slate-200 px-5 py-6 md:px-7">
+      <div className="rounded-3xl">
+        <div className="border-b border-slate-200 px-5 py-6 md:px-0">
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-end">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.20em] text-slate-500">
@@ -1429,7 +1429,7 @@ export default function GerenciaCategoriasDashboard() {
           </div>
         </div>
 
-        <div className="p-5 md:p-7">
+        <div className="p-5 md:p-0">
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <Tabs value={activeView} onValueChange={(value) => setActiveView(value as "company" | "branch" | "detail")} className="w-full lg:w-auto">
               <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:grid-cols-3 lg:w-auto">
