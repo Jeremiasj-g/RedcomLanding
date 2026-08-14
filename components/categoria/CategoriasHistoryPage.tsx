@@ -28,7 +28,7 @@ export default function CategoriasHistoryPage({
 }: Props) {
   return (
     <RequireAuth roles={roles} branches={branches}>
-      <main className="min-h-screen bg-slate-50 pb-16">
+      <main className={`min-h-screen bg-slate-50 pb-16 ${styles.historyTypography}`}>
         <div
           className={[
             'hero relative w-full bg-cover bg-bottom',
