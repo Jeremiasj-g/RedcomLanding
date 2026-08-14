@@ -6,3 +6,28 @@
   white-space: nowrap;
   vertical-align: middle;
 }
+
+/*
+ * Prueba visual del histórico de categorías:
+ * toda la vista trabaja con el mismo rango tipográfico que Reuniones (400–600).
+ * Se limita únicamente a esta página para no alterar el resto del sitio.
+ */
+.historyTypography :global(.font-black),
+.historyTypography :global(.font-extrabold),
+.historyTypography :global(.font-bold),
+.historyTypography strong,
+.historyTypography b {
+  font-weight: 600 !important;
+}
+
+.historyTypography :global(.font-semibold) {
+  font-weight: 600 !important;
+}
+
+.historyTypography :global(.font-medium) {
+  font-weight: 500 !important;
+}
+
+.historyTypography :global(.font-normal) {
+  font-weight: 400 !important;
+}
