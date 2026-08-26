@@ -29,6 +29,9 @@ export type VendoRequest = {
   deletion_requested_by: string | null;
   deletion_reason_code: VendoDeletionReasonCode | null;
   deletion_reason_note: string | null;
+  reply_started_at: string | null;
+  reply_started_by: string | null;
+  reply_started_by_name: string | null;
   // Campos anteriores conservados por compatibilidad con datos ya creados.
   seen_at: string | null;
   seen_by: string | null;

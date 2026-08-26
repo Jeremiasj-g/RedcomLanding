@@ -32,6 +32,7 @@ export default function AdminVendoPage() {
   const [requests, setRequests] = useState<VendoRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [replyingId, setReplyingId] = useState<string | null>(null);
   const [resolvingDeletionId, setResolvingDeletionId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -236,7 +237,7 @@ export default function AdminVendoPage() {
     }
   };
 
-  const replyToRequester = (request: VendoRequest) => {
+  const replyToRequester = async (request: VendoRequest) => {
     const subject = `Re: ${buildVendoEmailSubject({
       movementType: request.movement_type,
       firstName: request.first_name,
@@ -256,8 +257,42 @@ export default function AdminVendoPage() {
       '',
       'Saludos.',
     ].filter(Boolean).join('\n');
+    const mailto = `mailto:${encodeURIComponent(request.requester_email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-    window.location.href = `mailto:${encodeURIComponent(request.requester_email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    if (!request.reply_started_at) {
+      setReplyingId(request.id);
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const user = sessionData.session?.user;
+        if (!user) throw new Error('La sesión venció. Volvé a iniciar sesión.');
+
+        const startedAt = new Date().toISOString();
+        const startedByName = String(user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Administración');
+        const { data: updated, error } = await supabase
+          .from('vendo_requests')
+          .update({
+            reply_started_at: startedAt,
+            reply_started_by: user.id,
+            reply_started_by_name: startedByName,
+          })
+          .eq('id', request.id)
+          .select('*')
+          .single();
+
+        if (error) throw error;
+        setRequests((current) => current.map((row) => row.id === request.id ? (updated as VendoRequest) : row));
+      } catch (error) {
+        notify.error(
+          String((error as any)?.code ?? '') === '42703' || /reply_started_/i.test(errorMessage(error))
+            ? 'El correo se abrirá igualmente, pero falta ejecutar la migración 20260826_vendo_reply_tracking.sql para registrar la respuesta.'
+            : `El correo se abrirá igualmente, pero no se pudo registrar la respuesta: ${errorMessage(error)}`,
+        );
+      } finally {
+        setReplyingId(null);
+      }
+    }
+
+    window.location.href = mailto;
   };
 
   const totals = useMemo(() => ({
@@ -345,7 +380,7 @@ export default function AdminVendoPage() {
                     <td className="px-3 py-4"><div className="break-all font-mono leading-4 text-slate-700">{request.imei}</div><div className="mt-2 leading-4 text-slate-500">{request.phone}</div></td>
                     <td className="px-3 py-4"><p className="line-clamp-4 break-words leading-4 text-slate-600" title={request.reason}>{request.reason}</p>{deletionPending && <DeletionRequestNotice request={request} />}</td>
                     <td className="px-3 py-4"><div className="font-bold leading-4 text-slate-900">{request.requester_name}</div><div className="mt-1 break-words leading-4 text-slate-500">{request.requester_email}</div></td>
-                    <td className="px-3 py-4"><div className="flex justify-end"><RequestActions request={request} reviewingId={reviewingId} resolvingDeletionId={resolvingDeletionId} deletingId={deletingId} onReply={replyToRequester} onReview={reviewRequest} onDismissDeletion={dismissDeletionRequest} onDelete={deleteRequest} /></div></td>
+                    <td className="px-3 py-4"><div className="flex justify-end"><RequestActions request={request} reviewingId={reviewingId} replyingId={replyingId} resolvingDeletionId={resolvingDeletionId} deletingId={deletingId} onReply={replyToRequester} onReview={reviewRequest} onDismissDeletion={dismissDeletionRequest} onDelete={deleteRequest} /></div></td>
                   </tr>
                 );
               })}
@@ -370,7 +405,7 @@ export default function AdminVendoPage() {
                     </div>
                     <div className="mt-3 rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Motivo</p><p className="mt-1 text-xs leading-5 text-slate-600">{request.reason}</p></div>
                     {deletionPending && <DeletionRequestNotice request={request} />}
-                    <div className="mt-3 flex justify-end"><RequestActions request={request} reviewingId={reviewingId} resolvingDeletionId={resolvingDeletionId} deletingId={deletingId} onReply={replyToRequester} onReview={reviewRequest} onDismissDeletion={dismissDeletionRequest} onDelete={deleteRequest} /></div>
+                    <div className="mt-3 flex justify-end"><RequestActions request={request} reviewingId={reviewingId} replyingId={replyingId} resolvingDeletionId={resolvingDeletionId} deletingId={deletingId} onReply={replyToRequester} onReview={reviewRequest} onDismissDeletion={dismissDeletionRequest} onDelete={deleteRequest} /></div>
                   </div>
                 </div>
               </article>
@@ -388,6 +423,7 @@ export default function AdminVendoPage() {
 function RequestActions({
   request,
   reviewingId,
+  replyingId,
   resolvingDeletionId,
   deletingId,
   onReply,
@@ -397,6 +433,7 @@ function RequestActions({
 }: {
   request: VendoRequest;
   reviewingId: string | null;
+  replyingId: string | null;
   resolvingDeletionId: string | null;
   deletingId: string | null;
   onReply: (request: VendoRequest) => void;
@@ -405,9 +442,21 @@ function RequestActions({
   onDelete: (request: VendoRequest) => void;
 }) {
   const deletionPending = Boolean(request.deletion_requested_at);
+  const replyTracked = Boolean(request.reply_started_at);
+  const replyLabel = request.reply_started_at
+    ? `Respuesta iniciada ${dateFormatter.format(new Date(request.reply_started_at))}${request.reply_started_by_name ? ` por ${request.reply_started_by_name}` : ''}`
+    : 'Responder al solicitante';
+
   return (
     <div className={`inline-flex items-center gap-1 rounded-2xl border bg-white px-1.5 py-1 shadow-sm ${deletionPending ? 'border-red-200' : 'border-slate-200'}`}>
-      <ActionIconButton label="Responder al solicitante" onClick={() => onReply(request)} icon={<ReplyMailIcon className="h-4 w-4" />} />
+      <ActionIconButton
+        label={replyLabel}
+        onClick={() => onReply(request)}
+        disabled={replyingId === request.id}
+        tone={replyTracked ? 'success' : 'default'}
+        indicator={replyTracked}
+        icon={replyingId === request.id ? <Spinner /> : <ReplyMailIcon className="h-4 w-4" />}
+      />
       {deletionPending ? (
         <>
           <ActionIconButton label="Conservar solicitud" onClick={() => onDismissDeletion(request)} disabled={resolvingDeletionId === request.id || deletingId === request.id} tone="success" icon={resolvingDeletionId === request.id ? <Spinner /> : <RotateCcw className="h-4 w-4" />} />
@@ -476,12 +525,14 @@ function ActionIconButton({
   icon,
   disabled,
   tone = 'default',
+  indicator = false,
 }: {
   label: string;
   onClick: () => void;
   icon: ReactNode;
   disabled?: boolean;
   tone?: 'default' | 'success' | 'danger';
+  indicator?: boolean;
 }) {
   const toneClass = tone === 'success'
     ? 'text-emerald-700 hover:border-emerald-200 hover:bg-emerald-50'
@@ -491,8 +542,9 @@ function ActionIconButton({
 
   return (
     <div className="group relative">
-      <button type="button" onClick={onClick} disabled={disabled} aria-label={label} className={`grid h-8 w-8 place-items-center rounded-xl border border-slate-200 bg-white transition focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-35 ${toneClass}`}>
+      <button type="button" onClick={onClick} disabled={disabled} aria-label={label} className={`relative grid h-8 w-8 place-items-center rounded-xl border border-slate-200 bg-white transition focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-35 ${toneClass}`}>
         {icon}
+        {indicator && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" aria-hidden="true" />}
       </button>
       <div className="pointer-events-none absolute -top-10 left-1/2 z-20 -translate-x-1/2 scale-95 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition group-hover:scale-100 group-hover:opacity-100 group-focus-within:scale-100 group-focus-within:opacity-100">{label}</div>
     </div>
