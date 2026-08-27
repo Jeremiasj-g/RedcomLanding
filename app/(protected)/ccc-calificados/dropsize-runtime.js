@@ -74,18 +74,31 @@ function normalizeDetailBranch(branchValue, salesForceValue) {
   return normalizeSucursal(branchValue);
 }
 
-const DROPSIZE_LINES = {
-  "QUENTO SNACK": { label: "Quento Snacks", cls: "quento" },
-  "HEROE": { label: "Héroe Limpieza", cls: "heroe" },
-};
+let DROPSIZE_LINES = {};
+
+function configureDropsizeLines(brandConfig = []) {
+  const next = {};
+  (Array.isArray(brandConfig) ? brandConfig : []).forEach((item) => {
+    const code = normalizeKey(item?.brand_name);
+    if (!code) return;
+    next[code] = {
+      label: String(item?.brand_name || code).trim(),
+      cls: code === "QUENTO SNACK" ? "quento" : code === "HEROE" ? "heroe" : "custom",
+    };
+  });
+  DROPSIZE_LINES = next;
+  return DROPSIZE_LINES;
+}
 
 let lastSelectedDropsizeLine = null;
 
 function normalizeLinea(value) {
   const normalized = normalizeKey(value);
-  if (normalized.includes("QUENTO")) return "QUENTO SNACK";
-  if (normalized.includes("HEROE")) return "HEROE";
-  return normalized;
+  if (!normalized) return "";
+  if (DROPSIZE_LINES[normalized]) return normalized;
+
+  const configuredCodes = Object.keys(DROPSIZE_LINES).sort((a, b) => b.length - a.length);
+  return configuredCodes.find((code) => normalized.includes(code)) || normalized;
 }
 
 function detectDropsizeLine(row, indices) {
@@ -94,8 +107,21 @@ function detectDropsizeLine(row, indices) {
     indices.lineDetail >= 0 ? row[indices.lineDetail] : null,
     indices.articleDescription >= 0 ? row[indices.articleDescription] : null,
     indices.article >= 0 ? row[indices.article] : null,
-  ];
-  return normalizeLinea(candidates.filter((value) => value !== null && value !== undefined).join(" | "));
+  ]
+    .filter((value) => value !== null && value !== undefined && String(value).trim() !== "")
+    .map((value) => normalizeKey(value));
+
+  for (const candidate of candidates) {
+    if (DROPSIZE_LINES[candidate]) return candidate;
+  }
+
+  const configuredCodes = Object.keys(DROPSIZE_LINES).sort((a, b) => b.length - a.length);
+  for (const candidate of candidates) {
+    const matched = configuredCodes.find((code) => candidate.includes(code));
+    if (matched) return matched;
+  }
+
+  return "";
 }
 
 function safeNumber(value) {
@@ -679,7 +705,7 @@ function renderStructure(structure, branchLabel, context) {
     onLineChange,
     hierarchyStats = {},
   } = context;
-  const lineInfo = DROPSIZE_LINES[selectedLineCode] || DROPSIZE_LINES["QUENTO SNACK"];
+  const lineInfo = DROPSIZE_LINES[selectedLineCode] || Object.values(DROPSIZE_LINES)[0];
   const managerRows = Object.values(structure.managers || {})
     .map((manager) => ({ manager, label: manager.label, ...aggregateTotalsFromSupervisors(manager.supervisors) }))
     .sort(compareDropsizeDesc);
@@ -948,9 +974,13 @@ export async function processDropsizeDashboard({
   detailWorkbook,
   selectedSucursal,
   branchLabel,
+  brandConfig = [],
 }) {
   if (!salesWorkbook) throw new Error("No se pudo leer el archivo de ventas para DROPSIZE.");
   if (!detailWorkbook) throw new Error("Cargá el archivo Detalle personal para generar DROPSIZE.");
+  if (!Object.keys(configureDropsizeLines(brandConfig)).length) {
+    throw new Error("No hay marcas configuradas para generar DROPSIZE.");
+  }
   const detailMaps = parseDetailWorkbook(XLSX, detailWorkbook);
   const resolvedBranchLabel = branchLabel || selectedSucursal || "Sucursal seleccionada";
 
