@@ -378,6 +378,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   const [workspaceDeletingKind, setWorkspaceDeletingKind] = useState<CccWorkspaceFileKind | null>(null);
   const [workspaceMessage, setWorkspaceMessage] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [dashboardProcessing, setDashboardProcessing] = useState(false);
 
   const fileActionBusy = Boolean(
     clientBaseUploading ||
@@ -387,6 +388,19 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       workspaceDownloadingKind ||
       workspaceDeletingKind,
   );
+
+  useEffect(() => {
+    const handleProcessingStart = () => setDashboardProcessing(true);
+    const handleProcessingEnd = () => setDashboardProcessing(false);
+
+    window.addEventListener("ccc:processing-start", handleProcessingStart);
+    window.addEventListener("ccc:processing-end", handleProcessingEnd);
+
+    return () => {
+      window.removeEventListener("ccc:processing-start", handleProcessingStart);
+      window.removeEventListener("ccc:processing-end", handleProcessingEnd);
+    };
+  }, []);
 
   useEffect(() => {
     selectedBranchRef.current = selectedBranch;
@@ -1088,8 +1102,19 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           {clientBaseError && <div className="database-message error">{clientBaseError}</div>}
 
           <div className="actions">
-            <button className="primary" id="btnProcess" disabled>
-              Procesar dashboards
+            <button
+              className="primary"
+              id="btnProcess"
+              disabled
+              aria-busy={dashboardProcessing}
+              onClick={() => setDashboardProcessing(true)}
+            >
+              <span>Procesar dashboards</span>
+              {dashboardProcessing && (
+                <span className="inline-flex items-center" aria-hidden="true">
+                  <DualSpinner size={16} thickness={2} />
+                </span>
+              )}
             </button>
             <button className="ghost" id="btnReset">Reiniciar</button>
             <span className="status" id="statusMsg">
@@ -1128,7 +1153,10 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           aria-labelledby="ccc-tab-ccc"
           className={`ccc-tab-panel ${activeTab === "ccc" ? "is-active" : ""}`}
         >
-          <div id="reportArea" />
+          {dashboardProcessing && (
+            <DashboardProcessingState />
+          )}
+          <div id="reportArea" className={dashboardProcessing ? "hidden" : ""} />
         </section>
 
         <section
@@ -1137,7 +1165,10 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           aria-labelledby="ccc-tab-mix"
           className={`ccc-tab-panel ${activeTab === "mix" ? "is-active" : ""}`}
         >
-          <div id="mixReportArea" />
+          {dashboardProcessing && (
+            <DashboardProcessingState />
+          )}
+          <div id="mixReportArea" className={dashboardProcessing ? "hidden" : ""} />
         </section>
 
         <section
@@ -1146,11 +1177,34 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           aria-labelledby="ccc-tab-dropsize"
           className={`ccc-tab-panel ${activeTab === "dropsize" ? "is-active" : ""}`}
         >
-          <div id="dropsizeReportArea" />
+          {dashboardProcessing && (
+            <DashboardProcessingState />
+          )}
+          <div id="dropsizeReportArea" className={dashboardProcessing ? "hidden" : ""} />
         </section>
       </div>
 
       <div className="ccc-footer">REDCOM S.A. · Gerencia Comercial · Herramienta interna de seguimiento comercial</div>
+    </div>
+  );
+}
+
+function DashboardProcessingState() {
+  return (
+    <div
+      className="grid min-h-[318px] place-items-center rounded-2xl bg-white"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex flex-col items-center gap-4 text-center">
+        <DualSpinner size={60} thickness={4} />
+        <div>
+          <p className="text-base font-semibold text-slate-900">Procesando dashboard…</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Estamos preparando los datos. Esto puede demorar unos segundos.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
