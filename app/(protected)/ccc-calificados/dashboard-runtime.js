@@ -42,6 +42,8 @@ export function initClientesCalificadosDashboard(options = {}){
     function normalizeLineCode(value){
       return String(value || '')
         .replace(/\u00a0/g, ' ')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
         .replace(/\s+/g, ' ')
         .trim()
         .toUpperCase();
@@ -296,8 +298,8 @@ export function initClientesCalificadosDashboard(options = {}){
             detailWorkbook: wbDetalle,
             selectedSucursal,
             branchLabel: getSelectedBranchLabel() || selectedBranch,
-            brandConfig: Object.entries(LINEAS).map(([brand_name, info]) => ({
-              brand_name,
+            brandConfig: Object.entries(LINEAS).map(([, info]) => ({
+              brand_name: info.label,
               quota: info.umbral,
             })),
           });
@@ -933,9 +935,9 @@ export function initClientesCalificadosDashboard(options = {}){
       dataRows.forEach((row, rowIndex) => {
         const excelRow = rowIndex + 5;
         const { lineCode, metric } = dataMeta[rowIndex];
-        const isQuento = lineCode === 'QUENTO SNACK';
-        const labelFill = isQuento ? 'FDF0E3' : 'E8F2FA';
-        const labelColor = isQuento ? 'B85B00' : '155C8C';
+        const lineClassName = LINEAS[lineCode]?.cls;
+        const labelFill = lineClassName === 'quento' ? 'FDF0E3' : lineClassName === 'heroe' ? 'E8F2FA' : 'F1F5F9';
+        const labelColor = lineClassName === 'quento' ? 'B85B00' : lineClassName === 'heroe' ? '155C8C' : '475569';
         const rowFill = rowIndex % 2 === 0 ? 'FFFFFF' : 'F8F9FB';
 
         for (let col = 0; col < header.length; col++) {
@@ -1109,12 +1111,12 @@ export function initClientesCalificadosDashboard(options = {}){
             <div>
               <span class="ccc-export-kicker">Exportación Excel</span>
               <h3 id="cccExportTitle">Matriz de cumplimiento por vendedor</h3>
-              <p>La exportación base incluye Quento y Héroes en filas, los códigos de vendedor en columnas y la cantidad de clientes que cumplieron la cuota.</p>
+              <p>La exportación usa las marcas configuradas para la sucursal, los códigos de vendedor en columnas y la cantidad de clientes que cumplieron la cuota.</p>
             </div>
             <button class="ccc-export-close" type="button" aria-label="Cerrar">×</button>
           </div>
           <div class="ccc-export-summary">
-            <strong>2 líneas objetivo</strong>
+            <strong>${Object.keys(LINEAS).length} línea${Object.keys(LINEAS).length === 1 ? '' : 's'} objetivo</strong>
             <span>${model.vendors.length} vendedores</span>
             <span>Período: ${periodo || '—'}</span>
           </div>
