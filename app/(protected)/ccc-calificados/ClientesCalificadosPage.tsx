@@ -17,8 +17,10 @@ import {
   Database,
   Download,
   FileSpreadsheet,
+  Home,
   type LucideIcon,
   RefreshCw,
+  Settings2,
   Trash2,
   UsersRound,
 } from "lucide-react";
@@ -26,7 +28,10 @@ import { useAuth } from "@/app/auth/AuthProvider";
 import DualSpinner from "@/components/ui/DualSpinner";
 import { clientesCalificadosCss } from "./clientes-calificados.css";
 import CccBrandConfigurationPanel from "./CccBrandConfigurationPanel";
-import type { CccBranchBrandConfig } from "./ccc-brand-config.service";
+import {
+  getBranchBrandConfig,
+  type CccBranchBrandConfig,
+} from "./ccc-brand-config.service";
 import { errorMessage, notify } from "@/lib/notifications";
 import { useModulePermissions } from "@/components/permissions/ModulePermissionsProvider";
 import {
@@ -362,6 +367,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   const workspaceFilesRef = useRef<CccWorkspaceFilesMap>({});
   const brandConfigRef = useRef<CccBranchBrandConfig[]>([]);
   const [activeTab, setActiveTab] = useState<CccWorkspaceTab>("ccc");
+  const [pageTab, setPageTab] = useState<"home" | "config">("home");
   const [xlsxReady, setXlsxReady] = useState(false);
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [availableBranches, setAvailableBranches] = useState<string[]>([]);
@@ -422,9 +428,37 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   }, [brandConfig]);
 
   useEffect(() => {
+    let cancelled = false;
+
     brandConfigRef.current = [];
     setBrandConfig([]);
     setBrandConfigLoading(Boolean(selectedBranch));
+
+    async function loadBranchBrandConfig() {
+      if (!selectedBranch) {
+        setBrandConfigLoading(false);
+        return;
+      }
+
+      try {
+        const config = await getBranchBrandConfig(selectedBranch);
+        if (cancelled) return;
+        brandConfigRef.current = config;
+        setBrandConfig(config);
+      } catch (error) {
+        if (cancelled) return;
+        console.error(error);
+        notify.error(errorMessage(error, "No se pudo cargar la configuración de marcas de la sucursal."));
+      } finally {
+        if (!cancelled) setBrandConfigLoading(false);
+      }
+    }
+
+    void loadBranchBrandConfig();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedBranch]);
 
   useEffect(() => {
@@ -924,8 +958,12 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             <img src="/logo_ic.png" alt="REDCOM Inteligencia Comercial" />
           </div>
           <div className="brand-copy" aria-live="polite">
-            <h1>{activeTabMeta.title}</h1>
-            <p>{activeTabMeta.subtitle}</p>
+            <h1>{pageTab === "config" ? "CONFIGURACIÓN CCC" : activeTabMeta.title}</h1>
+            <p>
+              {pageTab === "config"
+                ? "REDCOM S.A. · Marcas foco y cuotas por sucursal"
+                : activeTabMeta.subtitle}
+            </p>
           </div>
         </div>
 
@@ -935,6 +973,47 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       </div>
 
       <div className="ccc-main">
+        <nav
+          className="mb-5 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-2 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+          aria-label="Navegación del módulo CCC"
+        >
+          <div className="flex min-w-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPageTab("home")}
+              aria-current={pageTab === "home" ? "page" : undefined}
+              className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition ${
+                pageTab === "home"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              }`}
+            >
+              <Home className="h-4 w-4" />
+              Inicio
+            </button>
+            <button
+              type="button"
+              onClick={() => setPageTab("config")}
+              aria-current={pageTab === "config" ? "page" : undefined}
+              className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition ${
+                pageTab === "config"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              }`}
+            >
+              <Settings2 className="h-4 w-4" />
+              Panel de configuración
+            </button>
+          </div>
+          <span className="hidden px-3 text-xs font-medium text-slate-400 lg:block">
+            {pageTab === "home"
+              ? "Carga de archivos y dashboards"
+              : "Marcas y cuotas independientes por sucursal"}
+          </span>
+        </nav>
+
+        {pageTab === "home" ? (
+          <>
         <div className="upload-panel shared-upload-panel">
           <div className="upload-heading-row">
             <div>
@@ -1158,14 +1237,6 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           </div>
         </div>
 
-        <CccBrandConfigurationPanel
-          me={me}
-          branch={selectedBranch}
-          branchLabel={selectedBranchLabel}
-          onConfigChange={handleBrandConfigChange}
-          onLoadingChange={handleBrandConfigLoadingChange}
-        />
-
         <nav className="ccc-tabs" aria-label="Secciones de clientes calificados" role="tablist">
           {CCC_WORKSPACE_TABS.map((tab) => {
             const Icon = tab.icon;
@@ -1223,6 +1294,53 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           )}
           <div id="dropsizeReportArea" className={dashboardProcessing ? "hidden" : ""} />
         </section>
+          </>
+        ) : (
+          <div className="space-y-4">
+            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    Panel de configuración
+                  </p>
+                  <h2 className="mt-1 text-lg font-semibold text-slate-950">
+                    Marcas foco y cuotas
+                  </h2>
+                  <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
+                    La configuración se guarda de forma independiente para cada sucursal y define qué marcas entran al procesamiento.
+                  </p>
+                </div>
+
+                <label className="branch-selector sm:min-w-[260px]">
+                  <span>Sucursal a configurar</span>
+                  <select
+                    value={selectedBranch}
+                    disabled={branchesLoading || fileActionBusy}
+                    onChange={(event) => setSelectedBranch(event.target.value)}
+                  >
+                    {availableBranches.length === 0 ? (
+                      <option value="">Sin sucursales asignadas</option>
+                    ) : (
+                      availableBranches.map((branch) => (
+                        <option key={branch} value={branch}>
+                          {CCC_BRANCH_LABELS[branch] ?? branch}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <CccBrandConfigurationPanel
+              me={me}
+              branch={selectedBranch}
+              branchLabel={selectedBranchLabel}
+              onConfigChange={handleBrandConfigChange}
+              onLoadingChange={handleBrandConfigLoadingChange}
+            />
+          </div>
+        )}
       </div>
 
       <div className="ccc-footer">REDCOM S.A. · Gerencia Comercial · Herramienta interna de seguimiento comercial</div>
