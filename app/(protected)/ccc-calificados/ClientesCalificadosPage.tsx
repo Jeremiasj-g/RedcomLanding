@@ -1012,8 +1012,10 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           </span>
         </nav>
 
-        {pageTab === "home" ? (
-          <>
+        <div
+          className={pageTab === "home" ? "" : "hidden"}
+          aria-hidden={pageTab !== "home"}
+        >
         <div className="upload-panel shared-upload-panel">
           <div className="upload-heading-row">
             <div>
@@ -1294,9 +1296,12 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           )}
           <div id="dropsizeReportArea" className={dashboardProcessing ? "hidden" : ""} />
         </section>
-          </>
-        ) : (
-          <div className="space-y-4">
+        </div>
+
+        <div
+          className={pageTab === "config" ? "space-y-4" : "hidden"}
+          aria-hidden={pageTab !== "config"}
+        >
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
@@ -1340,7 +1345,6 @@ function DashboardContent({ me }: { me: DashboardUser }) {
               onLoadingChange={handleBrandConfigLoadingChange}
             />
           </div>
-        )}
       </div>
 
       <div className="ccc-footer">REDCOM S.A. · Gerencia Comercial · Herramienta interna de seguimiento comercial</div>
