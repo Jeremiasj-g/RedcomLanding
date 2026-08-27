@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
+  FileSpreadsheet,
   RefreshCw,
   RotateCcw,
   Search,
@@ -41,6 +44,8 @@ export default function AdminVendoPage() {
   const [movementFilter, setMovementFilter] = useState<MovementFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [branchFilter, setBranchFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const getAccessToken = async () => {
     const { data } = await supabase.auth.getSession();
@@ -116,10 +121,31 @@ export default function AdminVendoPage() {
     });
   }, [branchFilter, movementFilter, query, requests, statusFilter]);
 
-  const filteredIds = useMemo(() => filtered.map((request) => request.id), [filtered]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginated = useMemo(
+    () => filtered.slice((page - 1) * pageSize, page * pageSize),
+    [filtered, page, pageSize],
+  );
+  const currentPageIds = useMemo(() => paginated.map((request) => request.id), [paginated]);
   const selectedCount = selectedIds.size;
-  const allFilteredSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
-  const someFilteredSelected = filteredIds.some((id) => selectedIds.has(id)) && !allFilteredSelected;
+  const allFilteredSelected = currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.has(id));
+  const someFilteredSelected = currentPageIds.some((id) => selectedIds.has(id)) && !allFilteredSelected;
+  const firstVisible = filtered.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const lastVisible = Math.min(page * pageSize, filtered.length);
+
+  const visiblePages = useMemo(() => {
+    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, index) => index + 1);
+    const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+    return Array.from({ length: 5 }, (_, index) => start + index);
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, movementFilter, statusFilter, branchFilter, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const toggleSelected = (id: string) => {
     setSelectedIds((current) => {
@@ -133,8 +159,8 @@ export default function AdminVendoPage() {
   const toggleAllFiltered = () => {
     setSelectedIds((current) => {
       const next = new Set(current);
-      if (allFilteredSelected) filteredIds.forEach((id) => next.delete(id));
-      else filteredIds.forEach((id) => next.add(id));
+      if (allFilteredSelected) currentPageIds.forEach((id) => next.delete(id));
+      else currentPageIds.forEach((id) => next.add(id));
       return next;
     });
   };
@@ -295,6 +321,110 @@ export default function AdminVendoPage() {
     window.location.href = mailto;
   };
 
+  const exportToExcel = () => {
+    if (filtered.length === 0) {
+      notify.error('No hay solicitudes para exportar con los filtros actuales.');
+      return;
+    }
+
+    const xmlEscape = (value: unknown) => String(value ?? '')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+
+    const statusLabel = (request: VendoRequest) =>
+      request.status === 'accepted' ? 'Aceptada' : request.status === 'rejected' ? 'Rechazada' : 'Pendiente';
+
+    const rows = filtered.map((request) => [
+      statusLabel(request),
+      dateFormatter.format(new Date(request.created_at)),
+      request.reviewed_at ? dateFormatter.format(new Date(request.reviewed_at)) : '',
+      request.branch_name,
+      request.movement_type.toUpperCase(),
+      `${request.first_name} ${request.last_name}`,
+      request.vendor_email,
+      request.imei,
+      request.phone,
+      request.reason,
+      request.requester_name,
+      request.requester_email,
+      request.reply_started_at ? 'Respuesta iniciada' : 'Sin respuesta',
+      request.reply_started_at ? dateFormatter.format(new Date(request.reply_started_at)) : '',
+      request.reply_started_by_name ?? '',
+      request.deletion_requested_at ? 'Sí' : 'No',
+      request.deletion_reason_code ? vendoDeletionReasonLabel(request.deletion_reason_code) : '',
+      request.deletion_reason_note ?? '',
+      request.review_note ?? '',
+    ]);
+
+    const headers = [
+      'Estado',
+      'Fecha solicitud',
+      'Fecha revisión',
+      'Sucursal',
+      'Movimiento',
+      'Vendedor',
+      'Email vendedor',
+      'IMEI',
+      'Teléfono',
+      'Motivo',
+      'Solicitante',
+      'Email solicitante',
+      'Respuesta',
+      'Fecha respuesta',
+      'Respondido por',
+      'Petición de eliminación',
+      'Motivo eliminación',
+      'Detalle eliminación',
+      'Observación revisión',
+    ];
+
+    const makeRow = (cells: unknown[], styleId?: string) =>
+      `<Row>${cells.map((cell) => `<Cell${styleId ? ` ss:StyleID="${styleId}"` : ''}><Data ss:Type="String">${xmlEscape(cell)}</Data></Cell>`).join('')}</Row>`;
+
+    const workbook = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="Header">
+   <Font ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#0F172A" ss:Pattern="Solid"/>
+   <Alignment ss:Vertical="Center"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Solicitudes VENDO">
+  <Table>
+   ${makeRow(headers, 'Header')}
+   ${rows.map((row) => makeRow(row)).join('\n')}
+  </Table>
+  <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+   <FreezePanes/>
+   <FrozenNoSplit/>
+   <SplitHorizontal>1</SplitHorizontal>
+   <TopRowBottomPane>1</TopRowBottomPane>
+  </WorksheetOptions>
+ </Worksheet>
+</Workbook>`;
+
+    const blob = new Blob(['\ufeff', workbook], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    const today = new Date().toISOString().slice(0, 10);
+    anchor.href = url;
+    anchor.download = `solicitudes-vendo-${today}.xls`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    notify.success(`${filtered.length} solicitud${filtered.length === 1 ? '' : 'es'} exportada${filtered.length === 1 ? '' : 's'} a Excel.`);
+  };
+
   const totals = useMemo(() => ({
     total: requests.length,
     pending: requests.filter((request) => request.status === 'pending').length,
@@ -313,7 +443,10 @@ export default function AdminVendoPage() {
           <h1 className="text-3xl font-black tracking-tight text-slate-950">Altas y bajas de dispositivos</h1>
           <p className="mt-2 text-sm text-slate-600">Revisá, aceptá o rechazá las solicitudes registradas. Las peticiones de eliminación aparecen destacadas en rojo.</p>
         </div>
-        <button onClick={load} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Actualizar</button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={exportToExcel} disabled={filtered.length === 0} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-bold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"><FileSpreadsheet className="h-4 w-4" /> Exportar Excel</button>
+          <button type="button" onClick={load} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Actualizar</button>
+        </div>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -369,7 +502,7 @@ export default function AdminVendoPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.map((request) => {
+              {paginated.map((request) => {
                 const deletionPending = Boolean(request.deletion_requested_at);
                 return (
                   <tr key={request.id} className={`${deletionPending ? 'bg-red-50/80 hover:bg-red-50' : request.status === 'pending' ? 'bg-amber-50/35 hover:bg-slate-50' : 'bg-white hover:bg-slate-50'} align-top`}>
@@ -389,7 +522,7 @@ export default function AdminVendoPage() {
         </div>
 
         <div className="divide-y divide-slate-100 xl:hidden">
-          {filtered.map((request) => {
+          {paginated.map((request) => {
             const deletionPending = Boolean(request.deletion_requested_at);
             return (
               <article key={request.id} className={`${deletionPending ? 'bg-red-50/80 ring-1 ring-inset ring-red-200' : request.status === 'pending' ? 'bg-amber-50/30' : 'bg-white'} p-4`}>
@@ -414,7 +547,32 @@ export default function AdminVendoPage() {
         </div>
 
         {filtered.length === 0 && <div className="px-6 py-14 text-center"><Smartphone className="mx-auto h-10 w-10 text-slate-300" /><p className="mt-3 font-bold text-slate-700">No hay solicitudes para los filtros seleccionados.</p></div>}
-        <div className="border-t border-slate-200 bg-white px-5 py-3 text-xs font-medium text-slate-500">Mostrando <span className="font-bold text-slate-900">{filtered.length}</span> de <span className="font-bold text-slate-900">{requests.length}</span> solicitudes.</div>
+        <div className="flex flex-col gap-3 border-t border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500">
+            <span>
+              Mostrando <span className="font-bold text-slate-900">{firstVisible}-{lastVisible}</span> de <span className="font-bold text-slate-900">{filtered.length}</span> filtradas
+              {filtered.length !== requests.length && <> · {requests.length} totales</>}.
+            </span>
+            <label className="flex items-center gap-2">
+              <span>Filas:</span>
+              <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none focus:border-slate-400">
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-end gap-1">
+            <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1 || filtered.length === 0} aria-label="Página anterior" className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"><ChevronLeft className="h-4 w-4" /></button>
+            {visiblePages.map((pageNumber) => (
+              <button key={pageNumber} type="button" onClick={() => setPage(pageNumber)} aria-current={pageNumber === page ? 'page' : undefined} className={`grid h-8 min-w-8 place-items-center rounded-lg border px-2 text-xs font-bold transition ${pageNumber === page ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
+                {pageNumber}
+              </button>
+            ))}
+            <button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page >= totalPages || filtered.length === 0} aria-label="Página siguiente" className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"><ChevronRight className="h-4 w-4" /></button>
+          </div>
+        </div>
       </section>
     </div>
   );
