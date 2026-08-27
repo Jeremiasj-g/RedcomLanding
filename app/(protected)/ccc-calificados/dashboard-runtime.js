@@ -168,6 +168,7 @@ export function initClientesCalificadosDashboard(options = {}){
     async function processDashboards({ automatic = false } = {}){
       if (processing) return;
       processing = true;
+      window.dispatchEvent(new CustomEvent('ccc:processing-start', { detail: { automatic } }));
       setStatus(automatic ? 'Actualizando dashboards automáticamente…' : 'Procesando…');
       document.getElementById('btnProcess').disabled = true;
       let finalStatus = '';
@@ -232,6 +233,9 @@ export function initClientesCalificadosDashboard(options = {}){
       }finally{
         processing = false;
         checkReady();
+        window.dispatchEvent(new CustomEvent('ccc:processing-end', {
+          detail: { automatic, success: !processError },
+        }));
       }
       if (processError){
         const message = 'Error al procesar: ' + (processError?.message || processError);
