@@ -25,6 +25,8 @@ import {
 import { useAuth } from "@/app/auth/AuthProvider";
 import DualSpinner from "@/components/ui/DualSpinner";
 import { clientesCalificadosCss } from "./clientes-calificados.css";
+import CccBrandConfigurationPanel from "./CccBrandConfigurationPanel";
+import type { CccBranchBrandConfig } from "./ccc-brand-config.service";
 import { errorMessage, notify } from "@/lib/notifications";
 import { useModulePermissions } from "@/components/permissions/ModulePermissionsProvider";
 import {
@@ -358,6 +360,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   const activeTabRef = useRef<CccWorkspaceTab>("ccc");
   const clientBaseMetaRef = useRef<CccClientBaseMeta | null>(null);
   const workspaceFilesRef = useRef<CccWorkspaceFilesMap>({});
+  const brandConfigRef = useRef<CccBranchBrandConfig[]>([]);
   const [activeTab, setActiveTab] = useState<CccWorkspaceTab>("ccc");
   const [xlsxReady, setXlsxReady] = useState(false);
   const [runtimeReady, setRuntimeReady] = useState(false);
@@ -378,6 +381,8 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   const [workspaceDeletingKind, setWorkspaceDeletingKind] = useState<CccWorkspaceFileKind | null>(null);
   const [workspaceMessage, setWorkspaceMessage] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [brandConfig, setBrandConfig] = useState<CccBranchBrandConfig[]>([]);
+  const [brandConfigLoading, setBrandConfigLoading] = useState(true);
   const [dashboardProcessing, setDashboardProcessing] = useState(false);
 
   const fileActionBusy = Boolean(
@@ -401,6 +406,26 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       window.removeEventListener("ccc:processing-end", handleProcessingEnd);
     };
   }, []);
+
+  const handleBrandConfigChange = useCallback((config: CccBranchBrandConfig[]) => {
+    brandConfigRef.current = config;
+    setBrandConfig(config);
+  }, []);
+
+  const handleBrandConfigLoadingChange = useCallback((loading: boolean) => {
+    setBrandConfigLoading(loading);
+  }, []);
+
+  useEffect(() => {
+    brandConfigRef.current = brandConfig;
+    window.dispatchEvent(new Event("ccc:brand-config-changed"));
+  }, [brandConfig]);
+
+  useEffect(() => {
+    brandConfigRef.current = [];
+    setBrandConfig([]);
+    setBrandConfigLoading(Boolean(selectedBranch));
+  }, [selectedBranch]);
 
   useEffect(() => {
     selectedBranchRef.current = selectedBranch;
@@ -573,7 +598,11 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   }, [refreshClientBaseMeta, refreshWorkspaceFiles, selectedBranch]);
 
   const autoProcessFingerprint = useMemo(() => {
-    if (!selectedBranch || !clientBaseMeta || !workspaceFiles.sales) return "";
+    if (!selectedBranch || !clientBaseMeta || !workspaceFiles.sales || !brandConfig.length) return "";
+
+    const brandFingerprint = brandConfig
+      .map((item) => `${item.brand_name}:${item.quota}`)
+      .join(",");
 
     return [
       selectedBranch,
@@ -585,8 +614,9 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       workspaceFiles.personal_detail?.updated_at ||
         workspaceFiles.personal_detail?.uploaded_at ||
         "without-personal-detail",
+      brandFingerprint,
     ].join("|");
-  }, [clientBaseMeta, selectedBranch, workspaceFiles]);
+  }, [brandConfig, clientBaseMeta, selectedBranch, workspaceFiles]);
 
   useEffect(() => {
     if (
@@ -594,6 +624,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       !autoProcessFingerprint ||
       clientBaseLoading ||
       workspaceFilesLoading ||
+      brandConfigLoading ||
       clientBaseUploading ||
       clientBaseDeleting ||
       workspaceUploadingKind ||
@@ -619,6 +650,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
     clientBaseDeleting,
     clientBaseLoading,
     clientBaseUploading,
+    brandConfigLoading,
     runtimeReady,
     workspaceDeletingKind,
     workspaceFilesLoading,
@@ -643,6 +675,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
         getSelectedBranchLabel: () =>
           CCC_BRANCH_LABELS[selectedBranchRef.current] || selectedBranchRef.current,
         getActiveTab: () => activeTabRef.current,
+        getBrandConfig: () => brandConfigRef.current,
         resolvePadronFile: async () => {
           const branch = selectedBranchRef.current;
           if (!branch) throw new Error("Seleccioná una sucursal.");
@@ -1124,6 +1157,14 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             </span>
           </div>
         </div>
+
+        <CccBrandConfigurationPanel
+          me={me}
+          branch={selectedBranch}
+          branchLabel={selectedBranchLabel}
+          onConfigChange={handleBrandConfigChange}
+          onLoadingChange={handleBrandConfigLoadingChange}
+        />
 
         <nav className="ccc-tabs" aria-label="Secciones de clientes calificados" role="tablist">
           {CCC_WORKSPACE_TABS.map((tab) => {
