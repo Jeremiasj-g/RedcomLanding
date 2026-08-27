@@ -157,6 +157,7 @@ export function initClientesCalificadosDashboard(options = {}){
     }
     function setStatus(msg, isError){
       const el = document.getElementById('statusMsg');
+      if (!el) return;
       el.textContent = msg;
       el.className = 'status' + (isError ? ' error' : '');
     }
@@ -207,7 +208,7 @@ export function initClientesCalificadosDashboard(options = {}){
       const needsDetalle = getActiveTab() === 'dropsize';
       const ready = Boolean(hasSales && hasBranch && hasPadron && hasBrands && (!needsDetalle || hasDetalle));
       const processButton = document.getElementById('btnProcess');
-      processButton.disabled = processing || !ready;
+      if (processButton) processButton.disabled = processing || !ready;
       if (processing) return;
       if (!hasBranch) setStatus('Seleccioná una sucursal.');
       else if (!hasPadron) setStatus('La sucursal no tiene una base de clientes guardada.', true);
@@ -234,12 +235,14 @@ export function initClientesCalificadosDashboard(options = {}){
       checkReady();
     });
     checkReady();
-    document.getElementById('btnReset').addEventListener('click', () => {
+    const resetButton = document.getElementById('btnReset');
+    if (resetButton) resetButton.addEventListener('click', () => {
       clearLocalSelections();
       setDashboardEmptyState('reportArea', 'Importá los archivos para generar el dashboard', 'Los archivos guardados de la sucursal quedan disponibles para volver a procesar.');
       setMixEmptyState();
       resetDropsizeDashboard();
-      document.getElementById('updatedBadge').style.display = 'none';
+      const updatedBadge = document.getElementById('updatedBadge');
+      if (updatedBadge) updatedBadge.style.display = 'none';
       checkReady();
       runtimeNotify('info', 'Resultados reiniciados. Los archivos guardados permanecen disponibles.');
     });
@@ -248,7 +251,8 @@ export function initClientesCalificadosDashboard(options = {}){
       processing = true;
       window.dispatchEvent(new CustomEvent('ccc:processing-start', { detail: { automatic } }));
       setStatus(automatic ? 'Actualizando dashboards automáticamente…' : 'Procesando…');
-      document.getElementById('btnProcess').disabled = true;
+      const processButton = document.getElementById('btnProcess');
+      if (processButton) processButton.disabled = true;
       let finalStatus = '';
       let processError = null;
       try{
@@ -339,7 +343,8 @@ export function initClientesCalificadosDashboard(options = {}){
         if (!automatic) runtimeNotify('success', finalStatus);
       }
     }
-    document.getElementById('btnProcess').addEventListener('click', () => {
+    const processButton = document.getElementById('btnProcess');
+    if (processButton) processButton.addEventListener('click', () => {
       processDashboards({ automatic: false });
     });
     window.addEventListener('ccc:auto-process', () => {
