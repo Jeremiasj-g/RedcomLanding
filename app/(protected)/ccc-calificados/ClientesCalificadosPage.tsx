@@ -283,86 +283,6 @@ function StoredFileActions({
   );
 }
 
-function ClientBaseStatus({
-  meta,
-  loading,
-  branch,
-}: {
-  meta: CccClientBaseMeta | null;
-  loading: boolean;
-  branch: string;
-}) {
-  const freshness = getClientBaseFreshness(meta);
-  const branchLabel = CCC_BRANCH_LABELS[branch] ?? branch;
-
-  if (loading) {
-    return (
-      <div className="client-base-status is-loading">
-        <RefreshCw className="status-icon spin" aria-hidden="true" />
-        Consultando la base guardada de {branchLabel}…
-      </div>
-    );
-  }
-
-  if (!meta) {
-    return (
-      <div className="client-base-status is-missing">
-        <Database className="status-icon" aria-hidden="true" />
-        <div>
-          <strong>No hay una base de clientes guardada para {branchLabel}.</strong>
-          <span>
-            Subila una vez para que los demás usuarios habilitados de esta sucursal puedan reutilizarla.
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  let countdown = "";
-  if (freshness.tone === "expired") {
-    countdown = `Actualización vencida hace ${freshness.expiredDays} día${freshness.expiredDays === 1 ? "" : "s"}.`;
-  } else if (freshness.daysRemaining === 0) {
-    countdown = "Debe actualizarse hoy.";
-  } else {
-    countdown = `Restan ${freshness.daysRemaining} día${freshness.daysRemaining === 1 ? "" : "s"} para actualizarla.`;
-  }
-
-  return (
-    <div className={`client-base-status is-${freshness.tone}`}>
-      <Database className="status-icon" aria-hidden="true" />
-      <div className="client-base-status-copy">
-        <strong>{meta.original_name}</strong>
-        <span>
-          Última carga: {formatDate(meta.uploaded_at)}
-          {meta.uploaded_by_name ? ` · por ${meta.uploaded_by_name}` : ""}
-          {meta.size_bytes ? ` · ${formatBytes(meta.size_bytes)}` : ""}
-        </span>
-        <span className="countdown">{countdown}</span>
-      </div>
-    </div>
-  );
-}
-
-function StoredFileStatus({
-  meta,
-  icon: Icon = FileSpreadsheet,
-}: {
-  meta?: CccWorkspaceFileMeta | null;
-  icon?: LucideIcon;
-}) {
-  if (!meta) return null;
-
-  return (
-    <div className="client-base-status stored-file-status is-fresh">
-      <Icon className="status-icon" aria-hidden="true" />
-      <div className="client-base-status-copy">
-        <strong>{meta.original_name}</strong>
-        <span>{fileMetaLine(meta)}</span>
-      </div>
-    </div>
-  );
-}
-
 function DashboardContent({ me }: { me: DashboardUser }) {
   const initialized = useRef(false);
   const lastAutoProcessFingerprintRef = useRef("");
@@ -1183,26 +1103,6 @@ function DashboardContent({ me }: { me: DashboardUser }) {
 
           <div className="refresh-rule">
             <strong>Actualización obligatoria:</strong> la base de clientes debe renovarse cada {CCC_REFRESH_DAYS} días. El dashboard reutiliza automáticamente la última versión guardada de la sucursal.
-          </div>
-
-          <div className="stored-file-status-list" aria-live="polite">
-            <StoredFileStatus meta={workspaceFiles.sales} />
-            <ClientBaseStatus
-              meta={clientBaseMeta}
-              loading={clientBaseLoading}
-              branch={selectedBranch}
-            />
-            {sharedPersonalDetailMeta && (
-              <div className="client-base-status stored-file-status is-fresh">
-                <UsersRound className="status-icon" aria-hidden="true" />
-                <div className="client-base-status-copy">
-                  <strong>{sharedPersonalDetailMeta.original_name}</strong>
-                  <span>
-                    Detalle personal global · {fileMetaLine(sharedPersonalDetailMeta)}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
 
           {workspaceFilesLoading && (
