@@ -510,6 +510,42 @@ function parseDetailWorkbook(XLSX, workbook) {
   };
 }
 
+export function buildSellerSupervisorListFromDetailWorkbook(XLSX, workbook) {
+  const detailMaps = parseDetailWorkbook(XLSX, workbook);
+  const byKey = new Map();
+
+  detailMaps.people.forEach((person) => {
+    const code = Number(person.code);
+    if (!Number.isFinite(code) || code <= 0) return;
+
+    // Detalle personal contiene también jefes, supervisores y otros cargos.
+    // Para el padrón solo interesan personas que puedan actuar como vendedor.
+    if (isManagerRole(person.role, person.label) || isSupervisorRole(person.role, person.label)) {
+      return;
+    }
+
+    const branch = normalizeSucursal(person.branch);
+    const key = `${branch}|${code}`;
+    if (byKey.has(key)) return;
+
+    byKey.set(key, {
+      sucursal: branch,
+      codigo: code,
+      nombre: String(person.label || "").trim() || `Vendedor ${code}`,
+      supervisor: String(person.superiorLabel || "").trim() || null,
+    });
+  });
+
+  const listado = Array.from(byKey.values());
+  if (!listado.length) {
+    throw new Error(
+      "Detalle personal no contiene vendedores válidos con código y sucursal.",
+    );
+  }
+
+  return listado;
+}
+
 function parseSalesWorkbook(XLSX, workbook, selectedSucursal, detailMaps, requestedLineCode, selectedBranch = "") {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
