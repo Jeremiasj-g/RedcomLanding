@@ -1012,6 +1012,7 @@ function renderStructure(structure, branchLabel, context) {
 export async function processDropsizeDashboard({
   XLSX,
   salesWorkbook,
+  salesWorkbooksByBrand = {},
   detailWorkbook,
   selectedSucursal,
   selectedBranch = "",
@@ -1027,12 +1028,21 @@ export async function processDropsizeDashboard({
   const resolvedBranchLabel = branchLabel || selectedSucursal || "Sucursal seleccionada";
 
   const renderForLine = (lineCode) => {
+    const normalizedLineCode = normalizeKey(lineCode);
+    const exclusiveWorkbook =
+      salesWorkbooksByBrand?.[normalizedLineCode] ||
+      salesWorkbook;
+
+    if (!exclusiveWorkbook) {
+      throw new Error(`No se pudo preparar el archivo exclusivo de ${lineCode} para DROPSIZE.`);
+    }
+
     const parsed = parseSalesWorkbook(
       XLSX,
-      salesWorkbook,
+      exclusiveWorkbook,
       selectedSucursal,
       detailMaps,
-      lineCode,
+      normalizedLineCode,
       selectedBranch,
     );
     lastSelectedDropsizeLine = parsed.selectedLineCode;
