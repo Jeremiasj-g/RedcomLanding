@@ -72,7 +72,7 @@ export function initClientesCalificadosDashboard(options = {}){
       LINEAS = next;
       return LINEAS;
     }
-    function filterSalesWorkbookByConfiguredBrands(workbook){
+    function filterSalesWorkbookByBrand(workbook, targetLineCode){
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const rowsArr = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
@@ -83,8 +83,8 @@ export function initClientesCalificadosDashboard(options = {}){
       const lineIdx = marcaIdx >= 0 ? marcaIdx + 1 : headers.indexOf('Descripción.3');
       if (lineIdx < 0) throw new Error('No se encontró la columna de marca/línea en el archivo de ventas.');
 
+      const normalizedTarget = normalizeLineCode(targetLineCode);
       const kept = [rowsArr[0]];
-      let removedRows = 0;
       let candidateRows = 0;
 
       for (let i = 1; i < rowsArr.length; i++){
@@ -92,19 +92,12 @@ export function initClientesCalificadosDashboard(options = {}){
         if (!row || row.every(value => value === null || value === undefined || value === '')) continue;
         candidateRows += 1;
         const lineCode = normalizeLineCode(row[lineIdx]);
-        if (LINEAS[lineCode]){
-          kept.push(row);
-        } else {
-          removedRows += 1;
-        }
+
+        // Importante: no se omiten las otras marcas durante el cálculo.
+        // Se construye un workbook NUEVO donde esas filas directamente ya no existen.
+        if (lineCode === normalizedTarget) kept.push(row);
       }
 
-      if (kept.length === 1){
-        throw new Error('El archivo de ventas no contiene filas de las marcas configuradas para esta sucursal.');
-      }
-
-      // Se crea un workbook de trabajo nuevo. Desde este punto, las filas de marcas
-      // no seleccionadas ya no existen para CCC, MIX ni DROPSIZE.
       const filteredSheet = XLSX.utils.aoa_to_sheet(kept);
       const filteredWorkbook = {
         ...workbook,
@@ -114,9 +107,26 @@ export function initClientesCalificadosDashboard(options = {}){
       return {
         workbook: filteredWorkbook,
         keptRows: kept.length - 1,
-        removedRows,
+        removedRows: Math.max(0, candidateRows - (kept.length - 1)),
         candidateRows,
       };
+    }
+
+    function buildSalesWorkbooksByBrand(workbook){
+      const byBrand = {};
+      let totalKept = 0;
+
+      Object.keys(LINEAS).forEach(lineCode => {
+        const result = filterSalesWorkbookByBrand(workbook, lineCode);
+        byBrand[lineCode] = result;
+        totalKept += result.keptRows;
+      });
+
+      if (!totalKept){
+        throw new Error('El archivo de ventas no contiene filas de las marcas configuradas para esta sucursal.');
+      }
+
+      return byBrand;
     }
     let baseFile = null;
     let lastReportData = null;
@@ -281,19 +291,57 @@ export function initClientesCalificadosDashboard(options = {}){
         const effectiveSalesFile = baseFile || (hasStoredWorkspaceFile('sales') ? await resolveWorkspaceFile('sales') : null);
         if (!effectiveSalesFile) throw new Error('No hay un archivo de ventas guardado para la sucursal seleccionada.');
         const wbBComplete = await readWorkbook(effectiveSalesFile);
-        const filteredSales = filterSalesWorkbookByConfiguredBrands(wbBComplete);
-        const wbB = filteredSales.workbook;
-        const parsedBase = parseBase(wbB, selectedBranch, selectedSucursal);
-        const rows = parsedBase.rows.filter(row => row.sucursal === selectedSucursal);
-        if (!rows.length) throw new Error('El archivo de ventas no contiene movimientos de la sucursal ' + (getSelectedBranchLabel() || selectedBranch) + '.');
-        const periodo = parsedBase.periodo;
-        const lineasDetectadas = Array.from(new Set(rows.map(row => row.linea)));
-        lastReportData = { rows, periodo, lineasDetectadas, selectedLineaCode: lineasDetectadas[0] || Object.keys(LINEAS)[0] };
-        renderReport(rows, periodo, lineasDetectadas, lastReportData.selectedLineaCode);
+        const salesByBrand = buildSalesWorkbooksByBrand(wbBComplete);
+        const rowsByLine = {};
+        const allRows = [];
+        let periodo = null;
+
+        for (const lineCode of Object.keys(LINEAS)){
+          const brandSales = salesByBrand[lineCode];
+          if (!brandSales || brandSales.keptRows === 0){
+            rowsByLine[lineCode] = [];
+            continue;
+          }
+
+          const parsedBrand = parseBase(
+            brandSales.workbook,
+            selectedBranch,
+            selectedSucursal,
+          );
+          const brandRows = parsedBrand.rows
+            .filter(row => row.sucursal === selectedSucursal && row.linea === lineCode);
+
+          rowsByLine[lineCode] = brandRows;
+          allRows.push(...brandRows);
+          if (!periodo) periodo = parsedBrand.periodo;
+        }
+
+        if (!allRows.length){
+          throw new Error('El archivo de ventas no contiene movimientos de la sucursal ' + (getSelectedBranchLabel() || selectedBranch) + '.');
+        }
+
+        const lineasDetectadas = Object.keys(LINEAS)
+          .filter(lineCode => (rowsByLine[lineCode] || []).length > 0);
+        const selectedLineaCode = lineasDetectadas[0] || Object.keys(LINEAS)[0];
+
+        lastReportData = {
+          rows: allRows,
+          rowsByLine,
+          periodo,
+          lineasDetectadas,
+          selectedLineaCode,
+        };
+        renderReport(allRows, periodo, lineasDetectadas, selectedLineaCode);
 
         await processDropsizeDashboard({
           XLSX,
-          salesWorkbook: wbB,
+          salesWorkbook: salesByBrand[selectedLineaCode]?.workbook || null,
+          salesWorkbooksByBrand: Object.fromEntries(
+            Object.entries(salesByBrand).map(([lineCode, result]) => [
+              lineCode,
+              result.workbook,
+            ]),
+          ),
           detailWorkbook: wbDetalle,
           selectedSucursal,
           selectedBranch,
@@ -304,8 +352,9 @@ export function initClientesCalificadosDashboard(options = {}){
           })),
         });
 
-        const filterSummary = filteredSales.removedRows > 0
-          ? ` Se eliminaron ${filteredSales.removedRows.toLocaleString('es-AR')} filas de marcas fuera del foco antes del procesamiento.`
+        const selectedFilter = salesByBrand[selectedLineaCode];
+        const filterSummary = selectedFilter
+          ? ` Para ${LINEAS[selectedLineaCode]?.label || selectedLineaCode} se eliminaron ${selectedFilter.removedRows.toLocaleString('es-AR')} filas y se analizaron ${selectedFilter.keptRows.toLocaleString('es-AR')} filas.`
           : '';
 
         finalStatus = automatic
@@ -1515,7 +1564,7 @@ export function initClientesCalificadosDashboard(options = {}){
         <div class="linea-badge ${lineaInfo.cls}">Línea seleccionada: ${lineaInfo.label} · Mix de artículos del período</div>`;
       area.appendChild(controls);
       controls.querySelector('select').addEventListener('change', event => {
-        renderReport(rows, periodo, lineasDetectadas, event.target.value);
+        renderReport(lastReportData?.rows || rows, periodo, lineasDetectadas, event.target.value);
       });
 
       if (!lineasDetectadas.includes(lineaCode)){
@@ -1770,6 +1819,7 @@ export function initClientesCalificadosDashboard(options = {}){
         : (lineasDetectadas[0] || Object.keys(LINEAS)[0]);
       const lineaInfo = LINEAS[lineaCode];
       if (lastReportData) lastReportData.selectedLineaCode = lineaCode;
+      const analysisRows = lastReportData?.rowsByLine?.[lineaCode] ?? rows.filter(r => r.linea === lineaCode);
     
       // Selector disponible luego de procesar, sin necesidad de volver a leer el Excel.
       const selectorPanel = document.createElement('div');
@@ -1783,7 +1833,7 @@ export function initClientesCalificadosDashboard(options = {}){
         </select>`;
       area.appendChild(selectorPanel);
       selectorPanel.querySelector('select').addEventListener('change', e => {
-        renderReport(rows, periodo, lineasDetectadas, e.target.value);
+        renderReport(lastReportData?.rows || rows, periodo, lineasDetectadas, e.target.value);
       });
     
       const lineaBadge = document.createElement('div');
@@ -1812,7 +1862,7 @@ export function initClientesCalificadosDashboard(options = {}){
         artLabels,
         cantidadPorArticuloCliente,
         cantidadPorArticuloSucursal,
-      } = aggregate(rows, lineaCode);
+      } = aggregate(analysisRows, lineaCode);
     
       // ---- KPI general ----
       const general = computeGeneralStats(structure, ventasPorCliente, umbral);
@@ -2068,7 +2118,7 @@ export function initClientesCalificadosDashboard(options = {}){
         area.appendChild(empty);
       }
       document.getElementById('btnExportVendorMatrix').addEventListener('click', () => {
-        openVendorMatrixExportModal({ area, rows, periodo });
+        openVendorMatrixExportModal({ area, rows: analysisRows, periodo });
       });
       document.getElementById('btnExpandAll').addEventListener('click', () => {
         area.querySelectorAll('.sup-card, .vend-card, .ruta-card').forEach(c => c.classList.add('open'));
@@ -2080,7 +2130,7 @@ export function initClientesCalificadosDashboard(options = {}){
       if (firstDetail) firstDetail.classList.add('open');
 
       renderMixReport({
-        rows,
+        rows: analysisRows,
         periodo,
         lineasDetectadas,
         lineaCode,
