@@ -1105,6 +1105,35 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             <strong>Actualización obligatoria:</strong> la base de clientes debe renovarse cada {CCC_REFRESH_DAYS} días. El dashboard reutiliza automáticamente la última versión guardada de la sucursal.
           </div>
 
+          {clientBaseMeta && (() => {
+            const freshness = getClientBaseFreshness(clientBaseMeta);
+            const isExpired = freshness.tone === "expired";
+            const isWarning = freshness.tone === "warning";
+
+            const className = isExpired
+              ? "border-red-200 bg-red-50 text-red-700"
+              : isWarning
+                ? "border-amber-200 bg-amber-50 text-amber-800"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700";
+
+            const message = isExpired
+              ? `Actualización vencida hace ${freshness.expiredDays ?? 0} día${(freshness.expiredDays ?? 0) === 1 ? "" : "s"}.`
+              : isWarning
+                ? `Atención: restan ${freshness.daysRemaining ?? 0} día${(freshness.daysRemaining ?? 0) === 1 ? "" : "s"} para actualizar la base de clientes.`
+                : `Base vigente: restan ${freshness.daysRemaining ?? 0} días para la próxima actualización.`;
+
+            return (
+              <div
+                className={`mt-2 flex items-center gap-2 rounded-xl border px-4 py-3 text-xs font-semibold ${className}`}
+                role="status"
+                aria-live="polite"
+              >
+                <Database className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{message}</span>
+              </div>
+            );
+          })()}
+
           {workspaceFilesLoading && (
             <div className="database-message neutral">Consultando los archivos guardados de {selectedBranchLabel}…</div>
           )}
