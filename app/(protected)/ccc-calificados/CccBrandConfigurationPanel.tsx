@@ -1,6 +1,7 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Check,
   ChevronDown,
@@ -81,6 +82,13 @@ function BrandSearchSelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [dropdownStyle, setDropdownStyle] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+    placement: "top" | "bottom";
+  } | null>(null);
 
   useEffect(() => {
     setQuery(value);
@@ -100,6 +108,96 @@ function BrandSearchSelect({
   useEffect(() => {
     setActiveIndex(0);
   }, [query, open]);
+
+  const calculateDropdownPosition = useCallback(() => {
+    const trigger = rootRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const viewport = window.visualViewport;
+    const viewportTop = viewport?.offsetTop ?? 0;
+    const viewportLeft = viewport?.offsetLeft ?? 0;
+    const viewportWidth = viewport?.width ?? window.innerWidth;
+    const viewportHeight = viewport?.height ?? window.innerHeight;
+    const viewportRight = viewportLeft + viewportWidth;
+    const viewportBottom = viewportTop + viewportHeight;
+
+    const safeMargin = 12;
+    const gap = 6;
+    const preferredHeight = 256;
+
+    const availableBelow = Math.max(
+      0,
+      viewportBottom - rect.bottom - gap - safeMargin,
+    );
+    const availableAbove = Math.max(
+      0,
+      rect.top - viewportTop - gap - safeMargin,
+    );
+
+    const placement: "top" | "bottom" =
+      availableBelow >= Math.min(180, preferredHeight) ||
+      availableBelow >= availableAbove
+        ? "bottom"
+        : "top";
+
+    const availableHeight =
+      placement === "bottom" ? availableBelow : availableAbove;
+    const maxHeight = Math.max(48, Math.min(preferredHeight, availableHeight));
+
+    const maxWidth = Math.max(180, viewportWidth - safeMargin * 2);
+    const width = Math.min(Math.max(rect.width, 260), maxWidth);
+    const left = Math.min(
+      Math.max(rect.left, viewportLeft + safeMargin),
+      Math.max(
+        viewportLeft + safeMargin,
+        viewportRight - safeMargin - width,
+      ),
+    );
+
+    const top =
+      placement === "bottom"
+        ? Math.min(
+            rect.bottom + gap,
+            viewportBottom - safeMargin - maxHeight,
+          )
+        : Math.max(
+            viewportTop + safeMargin,
+            rect.top - gap - maxHeight,
+          );
+
+    setDropdownStyle({
+      top,
+      left,
+      width,
+      maxHeight,
+      placement,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setDropdownStyle(null);
+      return;
+    }
+
+    calculateDropdownPosition();
+
+    const updatePosition = () => calculateDropdownPosition();
+    const viewport = window.visualViewport;
+
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    viewport?.addEventListener("resize", updatePosition);
+    viewport?.addEventListener("scroll", updatePosition);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+      viewport?.removeEventListener("resize", updatePosition);
+      viewport?.removeEventListener("scroll", updatePosition);
+    };
+  }, [calculateDropdownPosition, open]);
 
   const choose = (brand: string) => {
     onChange(brand);
@@ -174,36 +272,54 @@ function BrandSearchSelect({
         </button>
       </div>
 
-      {open && !disabled && (
-        <div className="absolute left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-xl">
-          {filteredOptions.length ? (
-            filteredOptions.map((brand, index) => {
-              const selected = normalizeBrandName(brand) === normalizeBrandName(value);
-              return (
-                <button
-                  key={brand}
-                  type="button"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => choose(brand)}
-                  className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-xs transition ${
-                    index === activeIndex
-                      ? "bg-slate-100 text-slate-950"
-                      : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <span className="truncate">{brand}</span>
-                  {selected && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
-                </button>
-              );
-            })
-          ) : (
-            <div className="px-3 py-3 text-xs text-slate-500">
-              No se encontraron marcas con “{query}”.
-            </div>
-          )}
-        </div>
-      )}
+      {open && !disabled && dropdownStyle && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-2xl"
+              style={{
+                position: "fixed",
+                top: dropdownStyle.top,
+                left: dropdownStyle.left,
+                width: dropdownStyle.width,
+                maxHeight: dropdownStyle.maxHeight,
+                zIndex: 100000,
+                overscrollBehavior: "contain",
+              }}
+              data-placement={dropdownStyle.placement}
+            >
+              {filteredOptions.length ? (
+                filteredOptions.map((brand, index) => {
+                  const selected =
+                    normalizeBrandName(brand) === normalizeBrandName(value);
+                  return (
+                    <button
+                      key={brand}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onClick={() => choose(brand)}
+                      className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-xs transition ${
+                        index === activeIndex
+                          ? "bg-slate-100 text-slate-950"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span className="truncate">{brand}</span>
+                      {selected && (
+                        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                      )}
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="px-3 py-3 text-xs text-slate-500">
+                  No se encontraron marcas con “{query}”.
+                </div>
+              )}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
