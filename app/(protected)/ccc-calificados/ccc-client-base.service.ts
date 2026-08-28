@@ -68,9 +68,17 @@ export async function getAllBranches(): Promise<string[]> {
     .order("id", { ascending: true });
 
   if (error) throw error;
-  return (data ?? [])
+
+  const branches = (data ?? [])
     .map((row: { code?: string | null }) => normalizeBranch(row.code ?? ""))
     .filter(Boolean);
+
+  // Refrigerados forma parte del módulo CCC como sucursal operativa propia.
+  // Se asegura su presencia en el selector incluso si la tabla branches
+  // llega a quedar temporalmente desactualizada.
+  if (!branches.includes("refrigerados")) branches.push("refrigerados");
+
+  return branches;
 }
 
 export async function getBranchesForUser(userId: string): Promise<string[]> {
