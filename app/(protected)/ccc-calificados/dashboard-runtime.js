@@ -124,6 +124,27 @@ export function initClientesCalificadosDashboard(options = {}){
       if (s.includes(" - ")) s = s.split(" - ").slice(-1)[0].trim();
       return s;
     }
+    function contextualSucursal(rawSucursal, selectedBranch, selectedSucursal){
+      const normalized = normSuc(rawSucursal);
+      // Refrigerados pertenece operativamente a Corrientes y los reportes de VENDO
+      // siguen informando "CASA CENTRAL" en la columna Sucursal. Como cada archivo
+      // de ventas se guarda en el workspace de una sucursal/esquema concreto,
+      // para Refrigerados el contexto seleccionado es la fuente de verdad.
+      if (
+        String(selectedBranch || '').trim().toLowerCase() === 'refrigerados'
+        && normalized === 'CASA CENTRAL'
+      ){
+        return selectedSucursal || 'REFRIGERADOS';
+      }
+      return normalized;
+    }
+    function contextualizeListado(listado, selectedBranch, selectedSucursal){
+      if (String(selectedBranch || '').trim().toLowerCase() !== 'refrigerados') return listado;
+      return listado.map(item => ({
+        ...item,
+        sucursal: contextualSucursal(item.sucursal, selectedBranch, selectedSucursal),
+      }));
+    }
     function extractPack(desc){
       const m = String(desc||"").match(/(\d+)\s*[Xx]\s*[\d.,]+/);
       return m ? parseInt(m[1], 10) : 1;
@@ -274,6 +295,7 @@ export function initClientesCalificadosDashboard(options = {}){
           const wbL = await readWorkbook(effectiveListadoFile);
           LISTADO = parseListado(wbL);
         }
+        LISTADO = contextualizeListado(LISTADO, selectedBranch, selectedSucursal);
 
         const storedPadronFile = await resolvePadronFile();
         if (!storedPadronFile) throw new Error('No se encontró una base de clientes guardada para ' + (getSelectedBranchLabel() || selectedBranch) + '.');
@@ -285,7 +307,7 @@ export function initClientesCalificadosDashboard(options = {}){
         const wbBComplete = await readWorkbook(effectiveSalesFile);
         const filteredSales = filterSalesWorkbookByConfiguredBrands(wbBComplete);
         const wbB = filteredSales.workbook;
-        const parsedBase = parseBase(wbB);
+        const parsedBase = parseBase(wbB, selectedBranch, selectedSucursal);
         const rows = parsedBase.rows.filter(row => row.sucursal === selectedSucursal);
         if (!rows.length) throw new Error('El archivo de ventas no contiene movimientos de la sucursal ' + (getSelectedBranchLabel() || selectedBranch) + '.');
         const periodo = parsedBase.periodo;
@@ -301,6 +323,7 @@ export function initClientesCalificadosDashboard(options = {}){
             salesWorkbook: wbB,
             detailWorkbook: wbDetalle,
             selectedSucursal,
+            selectedBranch,
             branchLabel: getSelectedBranchLabel() || selectedBranch,
             brandConfig: Object.entries(LINEAS).map(([, info]) => ({
               brand_name: info.label,
@@ -430,7 +453,7 @@ export function initClientesCalificadosDashboard(options = {}){
       return padron;
     }
     /* ---------- Parse Base ---------- */
-    function parseBase(wb){
+    function parseBase(wb, selectedBranch = '', selectedSucursal = ''){
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const rowsArr = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
       if (!rowsArr.length) throw new Error('El archivo base está vacío.');
@@ -464,7 +487,7 @@ export function initClientesCalificadosDashboard(options = {}){
         if (!LINEAS[linea]) continue;
         lineasDetectadas.add(linea);
         if (periodo === null) periodo = r[idx.periodoDesc];
-        const suc = normSuc(r[idx.sucursal]);
+        const suc = contextualSucursal(r[idx.sucursal], selectedBranch, selectedSucursal);
         const vendCod = Number(r[idx.vendedor]);
         if (!Number.isFinite(vendCod)) continue;
         const cliente = r[idx.codCliente];
