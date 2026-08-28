@@ -32,6 +32,11 @@ import {
   getBranchBrandConfig,
   type CccBranchBrandConfig,
 } from "./ccc-brand-config.service";
+import {
+  CccSharedFileMeta,
+  downloadSharedPersonalDetail,
+  getSharedPersonalDetailMeta,
+} from "./ccc-shared-personal-detail.service";
 import { errorMessage, notify } from "@/lib/notifications";
 import { useModulePermissions } from "@/components/permissions/ModulePermissionsProvider";
 import {
@@ -365,6 +370,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   const activeTabRef = useRef<CccWorkspaceTab>("ccc");
   const clientBaseMetaRef = useRef<CccClientBaseMeta | null>(null);
   const workspaceFilesRef = useRef<CccWorkspaceFilesMap>({});
+  const sharedPersonalDetailMetaRef = useRef<CccSharedFileMeta | null>(null);
   const brandConfigRef = useRef<CccBranchBrandConfig[]>([]);
   const [activeTab, setActiveTab] = useState<CccWorkspaceTab>("ccc");
   const [pageTab, setPageTab] = useState<"home" | "config">("home");
@@ -387,6 +393,9 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   const [workspaceDeletingKind, setWorkspaceDeletingKind] = useState<CccWorkspaceFileKind | null>(null);
   const [workspaceMessage, setWorkspaceMessage] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [sharedPersonalDetailMeta, setSharedPersonalDetailMeta] = useState<CccSharedFileMeta | null>(null);
+  const [sharedPersonalDetailLoading, setSharedPersonalDetailLoading] = useState(true);
+  const [sharedPersonalDetailError, setSharedPersonalDetailError] = useState<string | null>(null);
   const [brandConfig, setBrandConfig] = useState<CccBranchBrandConfig[]>([]);
   const [brandConfigLoading, setBrandConfigLoading] = useState(true);
   const [dashboardProcessing, setDashboardProcessing] = useState(false);
@@ -511,7 +520,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       dropsizeReportArea.innerHTML = emptyState(
         "↕",
         "Importá los archivos para generar el dashboard",
-        "DROPSIZE utiliza el archivo de ventas compartido y requiere además Detalle personal.",
+        "DROPSIZE utiliza el archivo de ventas y el Detalle personal global administrado desde Configuración.",
       );
     }
 
@@ -529,6 +538,36 @@ function DashboardContent({ me }: { me: DashboardUser }) {
     workspaceFilesRef.current = workspaceFiles;
     window.dispatchEvent(new Event("ccc:workspace-files-changed"));
   }, [workspaceFiles]);
+
+  const refreshSharedPersonalDetailMeta = useCallback(async () => {
+    setSharedPersonalDetailLoading(true);
+    setSharedPersonalDetailError(null);
+    try {
+      const meta = await getSharedPersonalDetailMeta();
+      sharedPersonalDetailMetaRef.current = meta;
+      setSharedPersonalDetailMeta(meta);
+      window.dispatchEvent(new Event("ccc:shared-personal-detail-status-changed"));
+    } catch (error) {
+      console.error(error);
+      sharedPersonalDetailMetaRef.current = null;
+      setSharedPersonalDetailMeta(null);
+      setSharedPersonalDetailError(
+        errorMessage(error, "No se pudo consultar Detalle personal global."),
+      );
+      window.dispatchEvent(new Event("ccc:shared-personal-detail-status-changed"));
+    } finally {
+      setSharedPersonalDetailLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshSharedPersonalDetailMeta();
+    const refresh = () => void refreshSharedPersonalDetailMeta();
+    window.addEventListener("ccc:shared-personal-detail-changed", refresh);
+    return () => {
+      window.removeEventListener("ccc:shared-personal-detail-changed", refresh);
+    };
+  }, [refreshSharedPersonalDetailMeta]);
 
   useEffect(() => {
     let cancelled = false;
@@ -632,7 +671,13 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   }, [refreshClientBaseMeta, refreshWorkspaceFiles, selectedBranch]);
 
   const autoProcessFingerprint = useMemo(() => {
-    if (!selectedBranch || !clientBaseMeta || !workspaceFiles.sales || !brandConfig.length) return "";
+    if (
+      !selectedBranch ||
+      !clientBaseMeta ||
+      !workspaceFiles.sales ||
+      !sharedPersonalDetailMeta ||
+      !brandConfig.length
+    ) return "";
 
     const brandFingerprint = brandConfig
       .map((item) => `${item.brand_name}:${item.quota}`)
@@ -642,15 +687,16 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       selectedBranch,
       clientBaseMeta.updated_at || clientBaseMeta.uploaded_at,
       workspaceFiles.sales.updated_at || workspaceFiles.sales.uploaded_at,
-      workspaceFiles.seller_supervisor?.updated_at ||
-        workspaceFiles.seller_supervisor?.uploaded_at ||
-        "default-listado",
-      workspaceFiles.personal_detail?.updated_at ||
-        workspaceFiles.personal_detail?.uploaded_at ||
-        "without-personal-detail",
+      sharedPersonalDetailMeta.updated_at || sharedPersonalDetailMeta.uploaded_at,
       brandFingerprint,
     ].join("|");
-  }, [brandConfig, clientBaseMeta, selectedBranch, workspaceFiles]);
+  }, [
+    brandConfig,
+    clientBaseMeta,
+    selectedBranch,
+    sharedPersonalDetailMeta,
+    workspaceFiles.sales,
+  ]);
 
   useEffect(() => {
     if (
@@ -658,6 +704,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       !autoProcessFingerprint ||
       clientBaseLoading ||
       workspaceFilesLoading ||
+      sharedPersonalDetailLoading ||
       brandConfigLoading ||
       clientBaseUploading ||
       clientBaseDeleting ||
@@ -685,6 +732,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
     clientBaseLoading,
     clientBaseUploading,
     brandConfigLoading,
+    sharedPersonalDetailLoading,
     runtimeReady,
     workspaceDeletingKind,
     workspaceFilesLoading,
@@ -702,7 +750,8 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       cleanup = initClientesCalificadosDashboard({
         hasStoredPadron: () => Boolean(clientBaseMetaRef.current),
         hasStoredWorkspaceFile: (kind: CccWorkspaceFileKind) =>
-          Boolean(workspaceFilesRef.current[kind]),
+          kind === "sales" && Boolean(workspaceFilesRef.current.sales),
+        hasSharedPersonalDetail: () => Boolean(sharedPersonalDetailMetaRef.current),
         getSelectedBranch: () => selectedBranchRef.current,
         getSelectedSucursalName: () =>
           CCC_BRANCH_SUCURSAL_NAMES[selectedBranchRef.current] || "",
@@ -721,13 +770,24 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           return file;
         },
         resolveWorkspaceFile: async (kind: CccWorkspaceFileKind) => {
+          if (kind !== "sales") {
+            throw new Error("Ese archivo ya no se gestiona por sucursal.");
+          }
           const branch = selectedBranchRef.current;
           if (!branch) throw new Error("Seleccioná una sucursal.");
-          const { file, meta } = await downloadWorkspaceFile(branch, kind);
+          const { file, meta } = await downloadWorkspaceFile(branch, "sales");
           setWorkspaceFiles((current) =>
-            current[kind]?.updated_at === meta.updated_at
+            current.sales?.updated_at === meta.updated_at
               ? current
-              : { ...current, [kind]: meta },
+              : { ...current, sales: meta },
+          );
+          return file;
+        },
+        resolveSharedPersonalDetail: async () => {
+          const { file, meta } = await downloadSharedPersonalDetail();
+          sharedPersonalDetailMetaRef.current = meta;
+          setSharedPersonalDetailMeta((current) =>
+            current?.updated_at === meta.updated_at ? current : meta,
           );
           return file;
         },
@@ -1045,7 +1105,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             </label>
           </div>
 
-          <div className={`upload-grid shared-upload-grid ${activeTab === "dropsize" ? "is-dropsize" : ""}`}>
+          <div className="upload-grid shared-upload-grid">
             <label
               className={`drop stored-file-drop ${workspaceFiles.sales ? "filled" : ""} ${workspaceUploadingKind === "sales" ? "is-uploading" : ""}`}
               id="dropBase"
@@ -1073,37 +1133,6 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                   downloading={workspaceDownloadingKind === "sales"}
                   deleting={workspaceDeletingKind === "sales"}
                   disabled={fileActionBusy && workspaceDownloadingKind !== "sales" && workspaceDeletingKind !== "sales"}
-                />
-              )}
-            </label>
-
-            <label
-              className={`drop stored-file-drop ${workspaceFiles.seller_supervisor ? "filled" : ""} ${workspaceUploadingKind === "seller_supervisor" ? "is-uploading" : ""}`}
-              id="dropListado"
-            >
-              <input
-                type="file"
-                id="fileListado"
-                accept=".xlsx,.xls"
-                disabled={!selectedBranch || fileActionBusy}
-                onChange={handleWorkspaceFileUpload("seller_supervisor")}
-              />
-              <div className="ico">
-                {workspaceUploadingKind === "seller_supervisor" ? <RefreshCw className="spin" aria-hidden="true" /> : <UsersRound aria-hidden="true" />}
-              </div>
-              <div className="label">Listado Vendedor–Supervisor (opcional)</div>
-              <div className="hint">Se guarda por sucursal; si no existe se utiliza el listado precargado</div>
-              <div className="filename" id="fileListadoName">
-                {workspaceFiles.seller_supervisor?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
-              </div>
-              {workspaceFiles.seller_supervisor && <div className="upload-meta">{fileMetaLine(workspaceFiles.seller_supervisor)}</div>}
-              {workspaceFiles.seller_supervisor && (
-                <StoredFileActions
-                  onDownload={handleWorkspaceFileDownload("seller_supervisor")}
-                  onDelete={handleWorkspaceFileDelete("seller_supervisor")}
-                  downloading={workspaceDownloadingKind === "seller_supervisor"}
-                  deleting={workspaceDeletingKind === "seller_supervisor"}
-                  disabled={fileActionBusy && workspaceDownloadingKind !== "seller_supervisor" && workspaceDeletingKind !== "seller_supervisor"}
                 />
               )}
             </label>
@@ -1150,38 +1179,6 @@ function DashboardContent({ me }: { me: DashboardUser }) {
               )}
             </label>
 
-            <label
-              className={`drop stored-file-drop detail-personal-drop ${workspaceFiles.personal_detail ? "filled" : ""} ${workspaceUploadingKind === "personal_detail" ? "is-uploading" : ""} ${activeTab === "dropsize" ? "" : "is-hidden"}`}
-              id="dropDetalle"
-              aria-hidden={activeTab !== "dropsize"}
-            >
-              <input
-                type="file"
-                id="fileDetalle"
-                accept=".xlsx,.xls"
-                disabled={!selectedBranch || fileActionBusy}
-                tabIndex={activeTab === "dropsize" ? 0 : -1}
-                onChange={handleWorkspaceFileUpload("personal_detail")}
-              />
-              <div className="ico">
-                {workspaceUploadingKind === "personal_detail" ? <RefreshCw className="spin" aria-hidden="true" /> : <UsersRound aria-hidden="true" />}
-              </div>
-              <div className="label">Detalle personal (requerido para DROPSIZE)</div>
-              <div className="hint">Se guarda por sucursal y relaciona vendedor con superior/supervisor</div>
-              <div className="filename" id="fileDetalleName">
-                {workspaceFiles.personal_detail?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
-              </div>
-              {workspaceFiles.personal_detail && <div className="upload-meta">{fileMetaLine(workspaceFiles.personal_detail)}</div>}
-              {workspaceFiles.personal_detail && (
-                <StoredFileActions
-                  onDownload={handleWorkspaceFileDownload("personal_detail")}
-                  onDelete={handleWorkspaceFileDelete("personal_detail")}
-                  downloading={workspaceDownloadingKind === "personal_detail"}
-                  deleting={workspaceDeletingKind === "personal_detail"}
-                  disabled={fileActionBusy && workspaceDownloadingKind !== "personal_detail" && workspaceDeletingKind !== "personal_detail"}
-                />
-              )}
-            </label>
           </div>
 
           <div className="refresh-rule">
@@ -1190,20 +1187,21 @@ function DashboardContent({ me }: { me: DashboardUser }) {
 
           <div className="stored-file-status-list" aria-live="polite">
             <StoredFileStatus meta={workspaceFiles.sales} />
-            <StoredFileStatus
-              meta={workspaceFiles.seller_supervisor}
-              icon={UsersRound}
-            />
             <ClientBaseStatus
               meta={clientBaseMeta}
               loading={clientBaseLoading}
               branch={selectedBranch}
             />
-            {activeTab === "dropsize" && (
-              <StoredFileStatus
-                meta={workspaceFiles.personal_detail}
-                icon={UsersRound}
-              />
+            {sharedPersonalDetailMeta && (
+              <div className="client-base-status stored-file-status is-fresh">
+                <UsersRound className="status-icon" aria-hidden="true" />
+                <div className="client-base-status-copy">
+                  <strong>{sharedPersonalDetailMeta.original_name}</strong>
+                  <span>
+                    Detalle personal global · {fileMetaLine(sharedPersonalDetailMeta)}
+                  </span>
+                </div>
+              </div>
             )}
           </div>
 
@@ -1212,6 +1210,14 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           )}
           {workspaceMessage && <div className="database-message success">{workspaceMessage}</div>}
           {workspaceError && <div className="database-message error">{workspaceError}</div>}
+          {sharedPersonalDetailError && (
+            <div className="database-message error">{sharedPersonalDetailError}</div>
+          )}
+          {!sharedPersonalDetailLoading && !sharedPersonalDetailMeta && (
+            <div className="database-message neutral">
+              Administración debe cargar Detalle personal global desde el Panel de configuración.
+            </div>
+          )}
           {clientBaseMessage && <div className="database-message success">{clientBaseMessage}</div>}
           {clientBaseError && <div className="database-message error">{clientBaseError}</div>}
 
@@ -1232,7 +1238,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             </button>
             <button className="ghost" id="btnReset">Reiniciar</button>
             <span className="status" id="statusMsg">
-              {workspaceFilesLoading || clientBaseLoading
+              {workspaceFilesLoading || clientBaseLoading || sharedPersonalDetailLoading
                 ? "Consultando archivos guardados…"
                 : "Esperando archivo de ventas…"}
             </span>
