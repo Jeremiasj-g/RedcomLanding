@@ -8,6 +8,7 @@ export function initClientesCalificadosDashboard(options = {}){
     getSelectedSucursalName = () => '',
     getSelectedBranchLabel = () => '',
     getActiveTab = () => 'ccc',
+    getBrandConfig = () => [],
     resolvePadronFile = async () => null,
     resolveWorkspaceFile = async () => null,
   } = options;
@@ -37,10 +38,84 @@ export function initClientesCalificadosDashboard(options = {}){
     /* ============================================================
        CONFIG
     ============================================================ */
-    const LINEAS = {
-      "QUENTO SNACK": { key:"quento", label:"Quento Snacks", umbral:12, cls:"quento" },
-      "HEROE":        { key:"heroe",  label:"Heroe Limpieza", umbral:8,  cls:"heroe"  },
-    };
+    let LINEAS = {};
+    function normalizeLineCode(value){
+      return String(value || '')
+        .replace(/\u00a0/g, ' ')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toUpperCase();
+    }
+    function lineClass(code){
+      if (code === 'QUENTO SNACK') return 'quento';
+      if (code === 'HEROE') return 'heroe';
+      return 'custom';
+    }
+    function refreshConfiguredLines(){
+      const configured = Array.isArray(getBrandConfig()) ? getBrandConfig() : [];
+      const next = {};
+      configured.forEach((item, index) => {
+        const code = normalizeLineCode(item?.brand_name);
+        const quota = Math.trunc(Number(item?.quota));
+        if (!code || !Number.isFinite(quota) || quota <= 0) return;
+        next[code] = {
+          key: 'linea_' + index,
+          label: String(item?.brand_name || code).trim(),
+          umbral: quota,
+          cls: lineClass(code),
+        };
+      });
+      LINEAS = next;
+      return LINEAS;
+    }
+    function filterSalesWorkbookByConfiguredBrands(workbook){
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rowsArr = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+      if (!rowsArr.length) throw new Error('El archivo de ventas está vacío.');
+
+      const headers = rowsArr[0].map(h => String(h || '').trim());
+      const marcaIdx = headers.indexOf('Marca');
+      const lineIdx = marcaIdx >= 0 ? marcaIdx + 1 : headers.indexOf('Descripción.3');
+      if (lineIdx < 0) throw new Error('No se encontró la columna de marca/línea en el archivo de ventas.');
+
+      const kept = [rowsArr[0]];
+      let removedRows = 0;
+      let candidateRows = 0;
+
+      for (let i = 1; i < rowsArr.length; i++){
+        const row = rowsArr[i];
+        if (!row || row.every(value => value === null || value === undefined || value === '')) continue;
+        candidateRows += 1;
+        const lineCode = normalizeLineCode(row[lineIdx]);
+        if (LINEAS[lineCode]){
+          kept.push(row);
+        } else {
+          removedRows += 1;
+        }
+      }
+
+      if (kept.length === 1){
+        throw new Error('El archivo de ventas no contiene filas de las marcas configuradas para esta sucursal.');
+      }
+
+      // Se crea un workbook de trabajo nuevo. Desde este punto, las filas de marcas
+      // no seleccionadas ya no existen para CCC, MIX ni DROPSIZE.
+      const filteredSheet = XLSX.utils.aoa_to_sheet(kept);
+      const filteredWorkbook = {
+        ...workbook,
+        Sheets: { ...workbook.Sheets, [sheetName]: filteredSheet },
+      };
+
+      return {
+        workbook: filteredWorkbook,
+        keptRows: kept.length - 1,
+        removedRows,
+        candidateRows,
+      };
+    }
     let baseFile = null, listadoFile = null, detalleFile = null;
     let lastReportData = null;
     let processing = false;
@@ -82,6 +157,7 @@ export function initClientesCalificadosDashboard(options = {}){
     }
     function setStatus(msg, isError){
       const el = document.getElementById('statusMsg');
+      if (!el) return;
       el.textContent = msg;
       el.className = 'status' + (isError ? ' error' : '');
     }
@@ -128,14 +204,16 @@ export function initClientesCalificadosDashboard(options = {}){
       const hasPadron = Boolean(hasStoredPadron());
       const hasSales = Boolean(baseFile || hasStoredWorkspaceFile('sales'));
       const hasDetalle = Boolean(detalleFile || hasStoredWorkspaceFile('personal_detail'));
+      const hasBrands = Object.keys(refreshConfiguredLines()).length > 0;
       const needsDetalle = getActiveTab() === 'dropsize';
-      const ready = Boolean(hasSales && hasBranch && hasPadron && (!needsDetalle || hasDetalle));
+      const ready = Boolean(hasSales && hasBranch && hasPadron && hasBrands && (!needsDetalle || hasDetalle));
       const processButton = document.getElementById('btnProcess');
-      processButton.disabled = processing || !ready;
+      if (processButton) processButton.disabled = processing || !ready;
       if (processing) return;
       if (!hasBranch) setStatus('Seleccioná una sucursal.');
       else if (!hasPadron) setStatus('La sucursal no tiene una base de clientes guardada.', true);
       else if (!hasSales) setStatus('La sucursal no tiene un archivo de ventas guardado.');
+      else if (!hasBrands) setStatus('Configurá al menos una marca y su cuota para esta sucursal.', true);
       else if (needsDetalle && !hasDetalle) setStatus('Cargá Detalle personal para generar DROPSIZE.');
       else setStatus('Listo para procesar.');
     }
@@ -150,18 +228,21 @@ export function initClientesCalificadosDashboard(options = {}){
     }
     window.addEventListener('ccc:padron-status-changed', checkReady);
     window.addEventListener('ccc:workspace-files-changed', checkReady);
+    window.addEventListener('ccc:brand-config-changed', checkReady);
     window.addEventListener('ccc:active-tab-changed', checkReady);
     window.addEventListener('ccc:branch-changed', () => {
       clearLocalSelections();
       checkReady();
     });
     checkReady();
-    document.getElementById('btnReset').addEventListener('click', () => {
+    const resetButton = document.getElementById('btnReset');
+    if (resetButton) resetButton.addEventListener('click', () => {
       clearLocalSelections();
       setDashboardEmptyState('reportArea', 'Importá los archivos para generar el dashboard', 'Los archivos guardados de la sucursal quedan disponibles para volver a procesar.');
       setMixEmptyState();
       resetDropsizeDashboard();
-      document.getElementById('updatedBadge').style.display = 'none';
+      const updatedBadge = document.getElementById('updatedBadge');
+      if (updatedBadge) updatedBadge.style.display = 'none';
       checkReady();
       runtimeNotify('info', 'Resultados reiniciados. Los archivos guardados permanecen disponibles.');
     });
@@ -170,13 +251,19 @@ export function initClientesCalificadosDashboard(options = {}){
       processing = true;
       window.dispatchEvent(new CustomEvent('ccc:processing-start', { detail: { automatic } }));
       setStatus(automatic ? 'Actualizando dashboards automáticamente…' : 'Procesando…');
-      document.getElementById('btnProcess').disabled = true;
+      const processButton = document.getElementById('btnProcess');
+      if (processButton) processButton.disabled = true;
       let finalStatus = '';
       let processError = null;
       try{
         const selectedBranch = getSelectedBranch();
         const selectedSucursal = getSelectedSucursalName();
         if (!selectedBranch || !selectedSucursal) throw new Error('Seleccioná una sucursal válida.');
+
+        const configuredLines = refreshConfiguredLines();
+        if (!Object.keys(configuredLines).length){
+          throw new Error('La sucursal no tiene marcas y cuotas configuradas.');
+        }
 
         LISTADO = LISTADO_PREDETERMINADO;
         let effectiveListadoFile = listadoFile;
@@ -195,7 +282,9 @@ export function initClientesCalificadosDashboard(options = {}){
 
         const effectiveSalesFile = baseFile || (hasStoredWorkspaceFile('sales') ? await resolveWorkspaceFile('sales') : null);
         if (!effectiveSalesFile) throw new Error('No hay un archivo de ventas guardado para la sucursal seleccionada.');
-        const wbB = await readWorkbook(effectiveSalesFile);
+        const wbBComplete = await readWorkbook(effectiveSalesFile);
+        const filteredSales = filterSalesWorkbookByConfiguredBrands(wbBComplete);
+        const wbB = filteredSales.workbook;
         const parsedBase = parseBase(wbB);
         const rows = parsedBase.rows.filter(row => row.sucursal === selectedSucursal);
         if (!rows.length) throw new Error('El archivo de ventas no contiene movimientos de la sucursal ' + (getSelectedBranchLabel() || selectedBranch) + '.');
@@ -213,19 +302,27 @@ export function initClientesCalificadosDashboard(options = {}){
             detailWorkbook: wbDetalle,
             selectedSucursal,
             branchLabel: getSelectedBranchLabel() || selectedBranch,
+            brandConfig: Object.entries(LINEAS).map(([, info]) => ({
+              brand_name: info.label,
+              quota: info.umbral,
+            })),
           });
         } else {
           setDropsizeEmptyState('Importá Detalle personal para generar el dashboard');
         }
 
+        const filterSummary = filteredSales.removedRows > 0
+          ? ` Se eliminaron ${filteredSales.removedRows.toLocaleString('es-AR')} filas de marcas fuera del foco antes del procesamiento.`
+          : '';
+
         if (effectiveDetalleFile){
           finalStatus = automatic
-            ? 'Los tres dashboards se actualizaron automáticamente y quedan disponibles al volver a la página.'
-            : 'Los tres dashboards fueron actualizados.';
+            ? 'Los tres dashboards se actualizaron automáticamente y quedan disponibles al volver a la página.' + filterSummary
+            : 'Los tres dashboards fueron actualizados.' + filterSummary;
         } else {
           finalStatus = automatic
-            ? 'CCC Calificados y MIX se actualizaron automáticamente. Cargá Detalle personal para completar DROPSIZE.'
-            : 'CCC Calificados y MIX fueron actualizados. Cargá Detalle personal para completar DROPSIZE.';
+            ? 'CCC Calificados y MIX se actualizaron automáticamente. Cargá Detalle personal para completar DROPSIZE.' + filterSummary
+            : 'CCC Calificados y MIX fueron actualizados. Cargá Detalle personal para completar DROPSIZE.' + filterSummary;
         }
       }catch(err){
         console.error(err);
@@ -246,7 +343,8 @@ export function initClientesCalificadosDashboard(options = {}){
         if (!automatic) runtimeNotify('success', finalStatus);
       }
     }
-    document.getElementById('btnProcess').addEventListener('click', () => {
+    const processButton = document.getElementById('btnProcess');
+    if (processButton) processButton.addEventListener('click', () => {
       processDashboards({ automatic: false });
     });
     window.addEventListener('ccc:auto-process', () => {
@@ -362,8 +460,8 @@ export function initClientesCalificadosDashboard(options = {}){
       for (let i = 1; i < rowsArr.length; i++){
         const r = rowsArr[i];
         if (!r || r[idx.clientesId] === null || r[idx.clientesId] === undefined) continue;
-        const linea = String(r[idx.linea]||'').trim().toUpperCase();
-        if (!LINEAS[linea]) continue; // ignora líneas que no son Quento/Heroe
+        const linea = normalizeLineCode(r[idx.linea]);
+        if (!LINEAS[linea]) continue;
         lineasDetectadas.add(linea);
         if (periodo === null) periodo = r[idx.periodoDesc];
         const suc = normSuc(r[idx.sucursal]);
@@ -407,7 +505,7 @@ export function initClientesCalificadosDashboard(options = {}){
           detalleUnidadesCompradas: cantidadBultos * pack,
         });
       }
-      if (!rows.length) throw new Error('No se encontraron filas válidas de Quento/Heroe en el archivo.');
+      if (!rows.length) throw new Error('No se encontraron filas válidas de las marcas configuradas en el archivo.');
       if (lineasDetectadas.size > 1){
         console.warn('El archivo contiene más de una línea objetivo:', [...lineasDetectadas]);
       }
@@ -647,7 +745,7 @@ export function initClientesCalificadosDashboard(options = {}){
     }
 
     function exportLineLabel(lineCode){
-      return lineCode === 'QUENTO SNACK' ? 'Quento' : 'Héroes';
+      return LINEAS[lineCode]?.label || lineCode;
     }
 
     function collectVendorMatrixData(rows){
@@ -842,9 +940,9 @@ export function initClientesCalificadosDashboard(options = {}){
       dataRows.forEach((row, rowIndex) => {
         const excelRow = rowIndex + 5;
         const { lineCode, metric } = dataMeta[rowIndex];
-        const isQuento = lineCode === 'QUENTO SNACK';
-        const labelFill = isQuento ? 'FDF0E3' : 'E8F2FA';
-        const labelColor = isQuento ? 'B85B00' : '155C8C';
+        const lineClassName = LINEAS[lineCode]?.cls;
+        const labelFill = lineClassName === 'quento' ? 'FDF0E3' : lineClassName === 'heroe' ? 'E8F2FA' : 'F1F5F9';
+        const labelColor = lineClassName === 'quento' ? 'B85B00' : lineClassName === 'heroe' ? '155C8C' : '475569';
         const rowFill = rowIndex % 2 === 0 ? 'FFFFFF' : 'F8F9FB';
 
         for (let col = 0; col < header.length; col++) {
@@ -1018,12 +1116,12 @@ export function initClientesCalificadosDashboard(options = {}){
             <div>
               <span class="ccc-export-kicker">Exportación Excel</span>
               <h3 id="cccExportTitle">Matriz de cumplimiento por vendedor</h3>
-              <p>La exportación base incluye Quento y Héroes en filas, los códigos de vendedor en columnas y la cantidad de clientes que cumplieron la cuota.</p>
+              <p>La exportación usa las marcas configuradas para la sucursal, los códigos de vendedor en columnas y la cantidad de clientes que cumplieron la cuota.</p>
             </div>
             <button class="ccc-export-close" type="button" aria-label="Cerrar">×</button>
           </div>
           <div class="ccc-export-summary">
-            <strong>2 líneas objetivo</strong>
+            <strong>${Object.keys(LINEAS).length} línea${Object.keys(LINEAS).length === 1 ? '' : 's'} objetivo</strong>
             <span>${model.vendors.length} vendedores</span>
             <span>Período: ${periodo || '—'}</span>
           </div>
