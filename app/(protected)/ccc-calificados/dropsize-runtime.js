@@ -510,7 +510,7 @@ function parseDetailWorkbook(XLSX, workbook) {
   };
 }
 
-function parseSalesWorkbook(XLSX, workbook, selectedSucursal, detailMaps, requestedLineCode) {
+function parseSalesWorkbook(XLSX, workbook, selectedSucursal, detailMaps, requestedLineCode, selectedBranch = "") {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
   if (!rows.length) throw new Error("El archivo de ventas está vacío.");
@@ -563,7 +563,12 @@ function parseSalesWorkbook(XLSX, workbook, selectedSucursal, detailMaps, reques
   for (let rowIndex = headerRow + 1; rowIndex < rows.length; rowIndex += 1) {
     const row = rows[rowIndex] || [];
     const branchLabel = indices.branch >= 0 ? String(row[indices.branch] ?? "").trim() : selectedSucursal;
-    const normalizedBranch = normalizeSucursal(branchLabel || selectedSucursal);
+    const sourceBranch = normalizeSucursal(branchLabel || selectedSucursal);
+    const normalizedBranch =
+      String(selectedBranch || "").trim().toLowerCase() === "refrigerados"
+      && sourceBranch === "CASA CENTRAL"
+        ? "REFRIGERADOS"
+        : sourceBranch;
     if (selected && normalizedBranch !== selected) continue;
 
     const lineCode = detectDropsizeLine(row, indices);
@@ -973,6 +978,7 @@ export async function processDropsizeDashboard({
   salesWorkbook,
   detailWorkbook,
   selectedSucursal,
+  selectedBranch = "",
   branchLabel,
   brandConfig = [],
 }) {
@@ -991,6 +997,7 @@ export async function processDropsizeDashboard({
       selectedSucursal,
       detailMaps,
       lineCode,
+      selectedBranch,
     );
     lastSelectedDropsizeLine = parsed.selectedLineCode;
     renderStructure(parsed.structure, resolvedBranchLabel, {
