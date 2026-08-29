@@ -185,15 +185,17 @@ async function validateDropsizeReportFile(file: File) {
   );
 
   const hasReceipt = headers.includes("COMPROBANTES") && headers.includes("CÓDIGO");
-  const hasCargo = headers.includes("CANTIDADES CON CARGO");
+  const hasQuantity =
+    headers.includes("CANTIDADES CON CARGO") ||
+    headers.includes("CANTIDADES TOTALES");
   const brandIndex = headers.indexOf("MARCA");
   const hasBrandDescription =
     brandIndex >= 0 &&
     String((rows[0] ?? [])[brandIndex + 1] ?? "").trim().toUpperCase() === "DESCRIPCIÓN";
 
-  if (!hasReceipt || !hasCargo || !hasBrandDescription) {
+  if (!hasReceipt || !hasQuantity || !hasBrandDescription) {
     throw new Error(
-      'El reporte DROPSIZE debe incluir Comprobantes, Código, Marca/Descripción y "Cantidades CON Cargo".',
+      'El reporte DROPSIZE debe incluir Comprobantes, Código, Marca/Descripción y "Cantidades Totales" (o "Cantidades CON Cargo").',
     );
   }
 }
