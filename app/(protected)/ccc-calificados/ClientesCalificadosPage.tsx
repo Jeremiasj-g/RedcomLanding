@@ -97,6 +97,7 @@ const CCC_WORKSPACE_TABS: Array<{
 
 const CCC_WORKSPACE_FILE_LABELS: Record<CccWorkspaceFileKind, string> = {
   sales: "Archivo de ventas",
+  dropsize_sales: "Reporte de comprobantes DROPSIZE",
   seller_supervisor: "Listado Vendedor–Supervisor",
   personal_detail: "Detalle personal",
 };
@@ -158,6 +159,42 @@ function validateExcelExtension(file: File) {
   const extension = file.name.split(".").pop()?.toLowerCase();
   if (!extension || !["xlsx", "xls"].includes(extension)) {
     throw new Error("El archivo debe tener formato .xlsx o .xls.");
+  }
+}
+
+async function validateDropsizeReportFile(file: File) {
+  validateExcelExtension(file);
+
+  const XLSX = (window as any).XLSX;
+  if (!XLSX) throw new Error("El motor de Excel todavía no terminó de cargar.");
+
+  const workbook = XLSX.read(await file.arrayBuffer(), {
+    type: "array",
+    cellDates: true,
+  });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  if (!sheet) throw new Error("El reporte DROPSIZE no contiene una hoja válida.");
+
+  const rows = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    defval: null,
+  }) as unknown[][];
+
+  const headers = (rows[0] ?? []).map((value) =>
+    String(value ?? "").trim().toUpperCase(),
+  );
+
+  const hasReceipt = headers.includes("COMPROBANTES") && headers.includes("CÓDIGO");
+  const hasCargo = headers.includes("CANTIDADES CON CARGO");
+  const brandIndex = headers.indexOf("MARCA");
+  const hasBrandDescription =
+    brandIndex >= 0 &&
+    String((rows[0] ?? [])[brandIndex + 1] ?? "").trim().toUpperCase() === "DESCRIPCIÓN";
+
+  if (!hasReceipt || !hasCargo || !hasBrandDescription) {
+    throw new Error(
+      'El reporte DROPSIZE debe incluir Comprobantes, Código, Marca/Descripción y "Cantidades CON Cargo".',
+    );
   }
 }
 
@@ -440,7 +477,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       dropsizeReportArea.innerHTML = emptyState(
         "↕",
         "Importá los archivos para generar el dashboard",
-        "DROPSIZE utiliza el archivo de ventas y el Detalle personal global administrado desde Configuración.",
+        "DROPSIZE utiliza su reporte de comprobantes y analiza únicamente las marcas configuradas para la sucursal.",
       );
     }
 
@@ -607,6 +644,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       selectedBranch,
       clientBaseMeta.updated_at || clientBaseMeta.uploaded_at,
       workspaceFiles.sales.updated_at || workspaceFiles.sales.uploaded_at,
+      workspaceFiles.dropsize_sales?.updated_at || workspaceFiles.dropsize_sales?.uploaded_at || "sin-dropsize",
       sharedPersonalDetailMeta.updated_at || sharedPersonalDetailMeta.uploaded_at,
       brandFingerprint,
     ].join("|");
@@ -616,6 +654,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
     selectedBranch,
     sharedPersonalDetailMeta,
     workspaceFiles.sales,
+    workspaceFiles.dropsize_sales,
   ]);
 
   useEffect(() => {
@@ -670,7 +709,8 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       cleanup = initClientesCalificadosDashboard({
         hasStoredPadron: () => Boolean(clientBaseMetaRef.current),
         hasStoredWorkspaceFile: (kind: CccWorkspaceFileKind) =>
-          kind === "sales" && Boolean(workspaceFilesRef.current.sales),
+          (kind === "sales" || kind === "dropsize_sales") &&
+          Boolean(workspaceFilesRef.current[kind]),
         hasSharedPersonalDetail: () => Boolean(sharedPersonalDetailMetaRef.current),
         getSelectedBranch: () => selectedBranchRef.current,
         getSelectedSucursalName: () =>
@@ -690,16 +730,16 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           return file;
         },
         resolveWorkspaceFile: async (kind: CccWorkspaceFileKind) => {
-          if (kind !== "sales") {
+          if (kind !== "sales" && kind !== "dropsize_sales") {
             throw new Error("Ese archivo ya no se gestiona por sucursal.");
           }
           const branch = selectedBranchRef.current;
           if (!branch) throw new Error("Seleccioná una sucursal.");
-          const { file, meta } = await downloadWorkspaceFile(branch, "sales");
+          const { file, meta } = await downloadWorkspaceFile(branch, kind);
           setWorkspaceFiles((current) =>
-            current.sales?.updated_at === meta.updated_at
+            current[kind]?.updated_at === meta.updated_at
               ? current
-              : { ...current, sales: meta },
+              : { ...current, [kind]: meta },
           );
           return file;
         },
@@ -767,7 +807,11 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       setWorkspaceError(null);
 
       try {
-        validateExcelExtension(file);
+        if (kind === "dropsize_sales") {
+          await validateDropsizeReportFile(file);
+        } else {
+          validateExcelExtension(file);
+        }
         const meta = await uploadWorkspaceFile({
           branch: selectedBranch,
           kind,
@@ -1052,7 +1096,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             </label>
           </div>
 
-          <div className="upload-grid shared-upload-grid">
+          <div className={`upload-grid shared-upload-grid ${activeTab === "dropsize" ? "upload-grid-3" : ""}`}>
             <label
               className={`drop stored-file-drop ${workspaceFiles.sales ? "filled" : ""} ${workspaceUploadingKind === "sales" ? "is-uploading" : ""}`}
               id="dropBase"
@@ -1083,6 +1127,52 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                 />
               )}
             </label>
+
+            {activeTab === "dropsize" && (
+              <label
+                className={`drop stored-file-drop ${workspaceFiles.dropsize_sales ? "filled" : ""} ${workspaceUploadingKind === "dropsize_sales" ? "is-uploading" : ""}`}
+                id="dropDropsizeSales"
+              >
+                <input
+                  type="file"
+                  id="fileDropsizeSales"
+                  accept=".xlsx,.xls"
+                  disabled={!selectedBranch || fileActionBusy || !xlsxReady}
+                  onChange={handleWorkspaceFileUpload("dropsize_sales")}
+                />
+                <div className="ico">
+                  {workspaceUploadingKind === "dropsize_sales" ? (
+                    <RefreshCw className="spin" aria-hidden="true" />
+                  ) : (
+                    <FileSpreadsheet aria-hidden="true" />
+                  )}
+                </div>
+                <div className="label">Reporte de comprobantes DROPSIZE</div>
+                <div className="hint">
+                  Debe incluir todas las marcas a analizar y el detalle de comprobantes
+                </div>
+                <div className="filename">
+                  {workspaceFiles.dropsize_sales?.original_name ||
+                    "Seleccioná el reporte con comprobantes"}
+                </div>
+                {workspaceFiles.dropsize_sales && (
+                  <div className="upload-meta">{fileMetaLine(workspaceFiles.dropsize_sales)}</div>
+                )}
+                {workspaceFiles.dropsize_sales && (
+                  <StoredFileActions
+                    onDownload={handleWorkspaceFileDownload("dropsize_sales")}
+                    onDelete={handleWorkspaceFileDelete("dropsize_sales")}
+                    downloading={workspaceDownloadingKind === "dropsize_sales"}
+                    deleting={workspaceDeletingKind === "dropsize_sales"}
+                    disabled={
+                      fileActionBusy &&
+                      workspaceDownloadingKind !== "dropsize_sales" &&
+                      workspaceDeletingKind !== "dropsize_sales"
+                    }
+                  />
+                )}
+              </label>
+            )}
 
             <label
               className={`drop database-drop ${clientBaseMeta ? "filled" : ""} ${clientBaseFreshness?.toneClass ?? ""} ${clientBaseUploading ? "is-uploading" : ""}`}
