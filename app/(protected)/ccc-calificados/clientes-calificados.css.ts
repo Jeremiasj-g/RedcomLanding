@@ -45,6 +45,7 @@ export const clientesCalificadosCss = `
   .ccc-page .upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
   .ccc-page .upload-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));}
   .ccc-page .shared-upload-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .ccc-page .shared-upload-grid.upload-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));}
   .ccc-page .shared-upload-panel{margin-bottom:18px;}
   .ccc-page .drop{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:.15s;background:var(--cream);min-height:142px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
   .ccc-page .drop:hover{border-color:var(--red);background:var(--redTint);}
@@ -260,7 +261,7 @@ export const clientesCalificadosCss = `
     .ccc-page .shared-upload-grid{grid-template-columns:1fr 1fr;}
   }
   @media(max-width:900px){
-    .ccc-page .upload-grid-3{grid-template-columns:1fr 1fr;}
+    .ccc-page .upload-grid-3,.ccc-page .shared-upload-grid.upload-grid-3{grid-template-columns:1fr 1fr;}
   }
   @media(max-width:820px){
     .ccc-page .kpi-summary{grid-template-columns:1fr 1fr;}
@@ -273,7 +274,7 @@ export const clientesCalificadosCss = `
     .ccc-page .ccc-tabs{padding:0;}
     .ccc-page .ccc-tabs button{padding:10px 12px 9px;}
     .ccc-page .upload-grid,.ccc-page .upload-grid-3,
-    .ccc-page .shared-upload-grid{grid-template-columns:1fr;}
+    .ccc-page .shared-upload-grid,.ccc-page .shared-upload-grid.upload-grid-3{grid-template-columns:1fr;}
     .ccc-page .branch-selector{width:100%;}
     .ccc-page .dropsize-filters,.ccc-page .dropsize-actions{width:100%;}
     .ccc-page .dropsize-filters label,.ccc-page .dropsize-filters input{width:100%;}
