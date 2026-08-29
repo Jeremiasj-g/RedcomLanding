@@ -2,6 +2,7 @@ import {
   buildSellerSupervisorListFromDetailWorkbook,
   processDropsizeDashboard,
   resetDropsizeDashboard,
+  setDropsizeEmptyState,
 } from "./dropsize-runtime";
 
 export function initClientesCalificadosDashboard(options = {}){
@@ -217,9 +218,18 @@ export function initClientesCalificadosDashboard(options = {}){
       const hasBranch = Boolean(getSelectedBranch());
       const hasPadron = Boolean(hasStoredPadron());
       const hasSales = Boolean(baseFile || hasStoredWorkspaceFile('sales'));
+      const hasDropsizeSales = Boolean(hasStoredWorkspaceFile('dropsize_sales'));
       const hasDetail = Boolean(hasSharedPersonalDetail());
       const hasBrands = Object.keys(refreshConfiguredLines()).length > 0;
-      const ready = Boolean(hasSales && hasBranch && hasPadron && hasBrands && hasDetail);
+      const dropsizeActive = getActiveTab() === 'dropsize';
+      const ready = Boolean(
+        hasSales &&
+        hasBranch &&
+        hasPadron &&
+        hasBrands &&
+        hasDetail &&
+        (!dropsizeActive || hasDropsizeSales)
+      );
       const processButton = document.getElementById('btnProcess');
       if (processButton) processButton.disabled = processing || !ready;
       if (processing) return;
@@ -228,6 +238,7 @@ export function initClientesCalificadosDashboard(options = {}){
       else if (!hasSales) setStatus('La sucursal no tiene un archivo de ventas guardado.');
       else if (!hasBrands) setStatus('Configurá al menos una marca y su cuota para esta sucursal.', true);
       else if (!hasDetail) setStatus('Administración debe cargar Detalle personal global desde Configuración.', true);
+      else if (dropsizeActive && !hasDropsizeSales) setStatus('Importá el reporte de comprobantes para calcular DROPSIZE.', true);
       else setStatus('Listo para procesar.');
     }
     function clearLocalSelections(){
@@ -333,24 +344,29 @@ export function initClientesCalificadosDashboard(options = {}){
         };
         renderReport(allRows, periodo, lineasDetectadas, selectedLineaCode);
 
-        await processDropsizeDashboard({
-          XLSX,
-          salesWorkbook: salesByBrand[selectedLineaCode]?.workbook || null,
-          salesWorkbooksByBrand: Object.fromEntries(
-            Object.entries(salesByBrand).map(([lineCode, result]) => [
-              lineCode,
-              result.workbook,
-            ]),
-          ),
-          detailWorkbook: wbDetalle,
-          selectedSucursal,
-          selectedBranch,
-          branchLabel: getSelectedBranchLabel() || selectedBranch,
-          brandConfig: Object.entries(LINEAS).map(([, info]) => ({
-            brand_name: info.label,
-            quota: info.umbral,
-          })),
-        });
+        if (hasStoredWorkspaceFile('dropsize_sales')){
+          const dropsizeSalesFile = await resolveWorkspaceFile('dropsize_sales');
+          if (!dropsizeSalesFile) {
+            throw new Error('No se pudo recuperar el reporte de comprobantes para DROPSIZE.');
+          }
+          const wbDropsize = await readWorkbook(dropsizeSalesFile);
+          await processDropsizeDashboard({
+            XLSX,
+            receiptWorkbook: wbDropsize,
+            detailWorkbook: wbDetalle,
+            selectedSucursal,
+            selectedBranch,
+            branchLabel: getSelectedBranchLabel() || selectedBranch,
+            brandConfig: Object.entries(LINEAS).map(([, info]) => ({
+              brand_name: info.label,
+              quota: info.umbral,
+            })),
+          });
+        } else {
+          setDropsizeEmptyState(
+            'Importá el reporte de comprobantes desde la pestaña DROPSIZE para calcular el indicador.'
+          );
+        }
 
         const selectedFilter = salesByBrand[selectedLineaCode];
         const filterSummary = selectedFilter
