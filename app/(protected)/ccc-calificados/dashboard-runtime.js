@@ -373,9 +373,14 @@ export function initClientesCalificadosDashboard(options = {}){
           ? ` Para ${LINEAS[selectedLineaCode]?.label || selectedLineaCode} se eliminaron ${selectedFilter.removedRows.toLocaleString('es-AR')} filas y se analizaron ${selectedFilter.keptRows.toLocaleString('es-AR')} filas.`
           : '';
 
+        const hasDropsizeReport = hasStoredWorkspaceFile('dropsize_sales');
         finalStatus = automatic
-          ? 'Los tres dashboards se actualizaron automáticamente y quedan disponibles al volver a la página.' + filterSummary
-          : 'Los tres dashboards fueron actualizados.' + filterSummary;
+          ? (hasDropsizeReport
+              ? 'CCC, MIX y DROPSIZE se actualizaron automáticamente y quedan disponibles al volver a la página.'
+              : 'CCC y MIX se actualizaron automáticamente. DROPSIZE queda pendiente hasta importar su reporte de comprobantes.') + filterSummary
+          : (hasDropsizeReport
+              ? 'CCC, MIX y DROPSIZE fueron actualizados.'
+              : 'CCC y MIX fueron actualizados. DROPSIZE queda pendiente hasta importar su reporte de comprobantes.') + filterSummary;
       }catch(err){
         console.error(err);
         processError = err;
