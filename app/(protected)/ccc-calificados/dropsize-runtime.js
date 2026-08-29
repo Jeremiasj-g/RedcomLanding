@@ -1019,13 +1019,16 @@ function parseReceiptDropsizeWorkbook(XLSX, workbook) {
   const headerRow = findHeaderRow(rows, [
     (value) => value.includes("COMPROBANTES"),
     (value) => value.includes("MARCA"),
-    (value) => value.includes("CANTIDADES CON CARGO"),
+    (value) => value.includes("CANTIDADES CON CARGO") || value.includes("CANTIDADES TOTALES"),
   ]);
   const headers = (rows[headerRow] || []).map(normalizeKey);
 
   const receiptMarker = headers.findIndex((header) => header === "COMPROBANTES");
   const brandMarker = headers.findIndex((header) => header === "MARCA");
-  const cargoIndex = headers.findIndex((header) => header === "CANTIDADES CON CARGO");
+  const quantityIndex = headers.findIndex(
+    (header) => header === "CANTIDADES CON CARGO" || header === "CANTIDADES TOTALES",
+  );
+  const quantityLabel = quantityIndex >= 0 ? headers[quantityIndex] : "";
 
   const receiptCodeIndex = headers.findIndex(
     (header, index) => index > receiptMarker && header === "CODIGO",
@@ -1043,8 +1046,8 @@ function parseReceiptDropsizeWorkbook(XLSX, workbook) {
   if (brandDescriptionIndex < 0) {
     throw new Error('No se encontró la descripción de "Marca" en el reporte DROPSIZE.');
   }
-  if (cargoIndex < 0) {
-    throw new Error('No se encontró la columna "Cantidades CON Cargo" en el reporte DROPSIZE.');
+  if (quantityIndex < 0) {
+    throw new Error('No se encontró "Cantidades Totales" ni "Cantidades CON Cargo" en el reporte DROPSIZE.');
   }
 
   const configuredCodes = Object.keys(DROPSIZE_LINES);
@@ -1062,7 +1065,7 @@ function parseReceiptDropsizeWorkbook(XLSX, workbook) {
 
   for (let rowIndex = headerRow + 1; rowIndex < rows.length; rowIndex += 1) {
     const row = rows[rowIndex] || [];
-    const cargo = safeNumber(row[cargoIndex]);
+    const cargo = safeNumber(row[quantityIndex]);
 
     // Las devoluciones/movimientos negativos no forman parte del cálculo.
     if (!(cargo > 0)) continue;
@@ -1085,21 +1088,24 @@ function parseReceiptDropsizeWorkbook(XLSX, workbook) {
     results[lineCode].positiveRows += 1;
   }
 
-  return Object.fromEntries(
-    Object.entries(results).map(([code, result]) => [
-      code,
-      {
-        lineCode: code,
-        cargo: result.cargo,
-        invoices: result.receipts.size,
-        positiveRows: result.positiveRows,
-        dropsize: getDropsize(result.cargo, result.receipts.size),
-      },
-    ]),
-  );
+  return {
+    quantityLabel,
+    results: Object.fromEntries(
+      Object.entries(results).map(([code, result]) => [
+        code,
+        {
+          lineCode: code,
+          cargo: result.cargo,
+          invoices: result.receipts.size,
+          positiveRows: result.positiveRows,
+          dropsize: getDropsize(result.cargo, result.receipts.size),
+        },
+      ]),
+    ),
+  };
 }
 
-function renderReceiptDropsize(results, branchLabel, selectedLineCode, onLineChange) {
+function renderReceiptDropsize(results, branchLabel, selectedLineCode, onLineChange, quantityLabel = "CANTIDADES TOTALES") {
   const area = document.getElementById("dropsizeReportArea");
   if (!area) return;
 
@@ -1145,7 +1151,7 @@ function renderReceiptDropsize(results, branchLabel, selectedLineCode, onLineCha
         <div class="k-sub">cantidades con cargo / comprobantes con la marca</div>
       </div>
       <div class="kpi-card" style="--kc:var(--green)">
-        <div class="k-label">Cantidades CON Cargo</div>
+        <div class="k-label">${escapeHtml(quantityLabel === "CANTIDADES CON CARGO" ? "Cantidades CON Cargo" : "Cantidades Totales")}</div>
         <div class="k-value">${formatNumber(selected.cargo)}</div>
         <div class="k-sub">solo movimientos positivos de ${escapeHtml(lineInfo.label)}</div>
       </div>
@@ -1196,7 +1202,7 @@ function renderReceiptDropsize(results, branchLabel, selectedLineCode, onLineCha
           <thead>
             <tr>
               <th>Marca</th>
-              <th class="num">Cant. CON Cargo</th>
+              <th class="num">${escapeHtml(quantityLabel === "CANTIDADES CON CARGO" ? "Cant. CON Cargo" : "Cantidades Totales")}</th>
               <th class="num">Boletas</th>
               <th class="num">Dropsize</th>
             </tr>
@@ -1249,7 +1255,8 @@ export async function processDropsizeDashboard({
   const resolvedBranchLabel = branchLabel || selectedSucursal || "Sucursal seleccionada";
 
   if (receiptWorkbook) {
-    const results = parseReceiptDropsizeWorkbook(XLSX, receiptWorkbook);
+    const parsedReceipt = parseReceiptDropsizeWorkbook(XLSX, receiptWorkbook);
+    const results = parsedReceipt.results;
     const configuredCodes = Object.keys(DROPSIZE_LINES);
     const firstDetected = configuredCodes.find((code) => (results[code]?.invoices || 0) > 0);
     const initialLine =
@@ -1260,7 +1267,13 @@ export async function processDropsizeDashboard({
     const renderForLine = (lineCode) => {
       const normalized = normalizeLinea(lineCode);
       lastSelectedDropsizeLine = DROPSIZE_LINES[normalized] ? normalized : initialLine;
-      renderReceiptDropsize(results, resolvedBranchLabel, lastSelectedDropsizeLine, renderForLine);
+      renderReceiptDropsize(
+        results,
+        resolvedBranchLabel,
+        lastSelectedDropsizeLine,
+        renderForLine,
+        parsedReceipt.quantityLabel,
+      );
       return {
         results,
         selectedLineCode: lastSelectedDropsizeLine,
