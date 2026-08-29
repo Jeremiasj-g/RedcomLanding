@@ -1148,7 +1148,7 @@ function renderReceiptDropsize(results, branchLabel, selectedLineCode, onLineCha
       <div class="kpi-card" style="--kc:var(--red)">
         <div class="k-label">Dropsize ${escapeHtml(lineInfo.label)}</div>
         <div class="k-value">${selected.dropsize === null ? "N/A" : formatNumber(selected.dropsize)}</div>
-        <div class="k-sub">cantidades con cargo / comprobantes con la marca</div>
+        <div class="k-sub">${escapeHtml(quantityLabel === "CANTIDADES CON CARGO" ? "cantidades con cargo" : "cantidades totales")} / comprobantes con la marca</div>
       </div>
       <div class="kpi-card" style="--kc:var(--green)">
         <div class="k-label">${escapeHtml(quantityLabel === "CANTIDADES CON CARGO" ? "Cantidades CON Cargo" : "Cantidades Totales")}</div>
@@ -1181,7 +1181,7 @@ function renderReceiptDropsize(results, branchLabel, selectedLineCode, onLineCha
         ${dropsizeBadge(selected.dropsize)}
       </div>
       <div class="dropsize-summary-metric">
-        <span>Con cargo</span>
+        <span>${escapeHtml(quantityLabel === "CANTIDADES CON CARGO" ? "Con cargo" : "Cantidades")}</span>
         <strong>${formatNumber(selected.cargo)}</strong>
       </div>
       <div class="dropsize-summary-metric">
