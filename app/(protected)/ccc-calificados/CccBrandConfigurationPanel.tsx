@@ -764,94 +764,89 @@ export default function CccBrandConfigurationPanel({
               El catálogo maestro es administrado exclusivamente por Administración.
             </div>
           )}
-        </aside>
-      </div>
 
-      <div className="border-t border-slate-200 bg-white p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-900 text-white">
-              <UsersRound className="h-5 w-5" />
+          <div className="my-5 border-t border-slate-200" />
+
+          <div className="flex items-start gap-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600">
+              <UsersRound className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-sm font-semibold text-slate-950">Detalle personal global</h3>
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                  Compartido
-                </span>
-              </div>
-              <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
-                Es la fuente única para relacionar vendedores con superiores y supervisores en todas las sucursales. CCC, MIX y DROPSIZE consultan este mismo archivo automáticamente.
+              <p className="text-xs font-semibold text-slate-900">Detalle personal global</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Relaciona vendedores con superiores y supervisores para todas las sucursales.
               </p>
             </div>
           </div>
 
-          <div className="w-full lg:w-auto lg:min-w-[360px]">
-            {sharedDetailLoading ? (
-              <div className="flex min-h-16 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-500">
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                Consultando archivo…
-              </div>
-            ) : sharedDetail ? (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
-                <p className="truncate text-xs font-semibold text-emerald-800" title={sharedDetail.original_name}>
-                  {sharedDetail.original_name}
-                </p>
-                <p className="mt-1 text-[11px] leading-5 text-emerald-700">
-                  Actualizado {formatDate(sharedDetail.updated_at)}
-                  {sharedDetail.uploaded_by_name ? ` · por ${sharedDetail.uploaded_by_name}` : ""}
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
-                No hay Detalle personal global cargado. Los dashboards no podrán relacionar vendedores y supervisores.
-              </div>
-            )}
-
-            {isAdmin ? (
-              <div className="mt-2 flex flex-wrap gap-2">
-                <label className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 ${sharedDetailBusy ? "pointer-events-none opacity-50" : ""}`}>
-                  {sharedDetailBusy === "upload" ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  {sharedDetail ? "Reemplazar archivo" : "Importar archivo"}
-                  <input
-                    type="file"
-                    accept=".xls,.xlsx"
-                    className="hidden"
-                    disabled={Boolean(sharedDetailBusy)}
-                    onChange={handleSharedDetailUpload}
-                  />
-                </label>
-
-                {sharedDetail && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleSharedDetailDownload}
-                      disabled={Boolean(sharedDetailBusy)}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-45"
-                    >
-                      {sharedDetailBusy === "download" ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                      Descargar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSharedDetailDelete}
-                      disabled={Boolean(sharedDetailBusy)}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-45"
-                    >
-                      {sharedDetailBusy === "delete" ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                      Eliminar
-                    </button>
-                  </>
-                )}
-              </div>
-            ) : (
-              <p className="mt-2 text-[10px] leading-4 text-slate-400">
-                Solo Administración puede importar o reemplazar este archivo.
+          {sharedDetailLoading ? (
+            <div className="mt-4 flex min-h-[74px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-500">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Consultando archivo…
+            </div>
+          ) : sharedDetail ? (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+              <p className="truncate text-xs font-semibold text-emerald-800" title={sharedDetail.original_name}>
+                {sharedDetail.original_name}
               </p>
-            )}
-          </div>
-        </div>
+              <p className="mt-1 text-[11px] leading-5 text-emerald-700">
+                Actualizado {formatDate(sharedDetail.updated_at)}
+                {sharedDetail.uploaded_by_name ? ` · por ${sharedDetail.uploaded_by_name}` : ""}
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-white p-3 text-xs leading-5 text-slate-500">
+              Todavía no se importó Detalle personal global.
+            </div>
+          )}
+
+          {isAdmin ? (
+            <div className="mt-4 space-y-2">
+              <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 ${sharedDetailBusy ? "pointer-events-none opacity-50" : ""}`}>
+                {sharedDetailBusy === "upload" ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {sharedDetail ? "Reemplazar archivo" : "Importar archivo"}
+                <input
+                  type="file"
+                  accept=".xls,.xlsx"
+                  className="hidden"
+                  disabled={Boolean(sharedDetailBusy)}
+                  onChange={handleSharedDetailUpload}
+                />
+              </label>
+
+              {sharedDetail && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSharedDetailDownload}
+                    disabled={Boolean(sharedDetailBusy)}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-45"
+                  >
+                    {sharedDetailBusy === "download" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    Descargar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSharedDetailDelete}
+                    disabled={Boolean(sharedDetailBusy)}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-[11px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-45"
+                  >
+                    {sharedDetailBusy === "delete" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    Eliminar
+                  </button>
+                </div>
+              )}
+
+              <p className="pt-1 text-[10px] leading-4 text-slate-400">
+                Solo usuarios Administrador pueden importar, reemplazar o eliminar este archivo.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] leading-5 text-slate-500">
+              Detalle personal global es administrado exclusivamente por Administración.
+            </div>
+          )}
+        </aside>
       </div>
     </section>
   );
