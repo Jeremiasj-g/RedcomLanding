@@ -1009,9 +1009,232 @@ function renderStructure(structure, branchLabel, context) {
   area.querySelector("#dropsizeExportCsv").addEventListener("click", () => exportCsv(structure, lineInfo));
 }
 
+function parseReceiptDropsizeWorkbook(XLSX, workbook) {
+  const sheet = workbook?.Sheets?.[workbook?.SheetNames?.[0]];
+  if (!sheet) throw new Error("El reporte DROPSIZE no contiene una hoja válida.");
+
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+  if (!rows.length) throw new Error("El reporte DROPSIZE está vacío.");
+
+  const headerRow = findHeaderRow(rows, [
+    (value) => value.includes("COMPROBANTES"),
+    (value) => value.includes("MARCA"),
+    (value) => value.includes("CANTIDADES CON CARGO"),
+  ]);
+  const headers = (rows[headerRow] || []).map(normalizeKey);
+
+  const receiptMarker = headers.findIndex((header) => header === "COMPROBANTES");
+  const brandMarker = headers.findIndex((header) => header === "MARCA");
+  const cargoIndex = headers.findIndex((header) => header === "CANTIDADES CON CARGO");
+
+  const receiptCodeIndex = headers.findIndex(
+    (header, index) => index > receiptMarker && header === "CODIGO",
+  );
+  const brandDescriptionIndex =
+    brandMarker >= 0 && normalizeKey((rows[headerRow] || [])[brandMarker + 1]) === "DESCRIPCION"
+      ? brandMarker + 1
+      : headers.findIndex(
+          (header, index) => index > brandMarker && header === "DESCRIPCION",
+        );
+
+  if (receiptCodeIndex < 0) {
+    throw new Error('No se encontró el "Código" del comprobante en el reporte DROPSIZE.');
+  }
+  if (brandDescriptionIndex < 0) {
+    throw new Error('No se encontró la descripción de "Marca" en el reporte DROPSIZE.');
+  }
+  if (cargoIndex < 0) {
+    throw new Error('No se encontró la columna "Cantidades CON Cargo" en el reporte DROPSIZE.');
+  }
+
+  const configuredCodes = Object.keys(DROPSIZE_LINES);
+  const results = Object.fromEntries(
+    configuredCodes.map((code) => [
+      code,
+      {
+        lineCode: code,
+        cargo: 0,
+        receipts: new Set(),
+        positiveRows: 0,
+      },
+    ]),
+  );
+
+  for (let rowIndex = headerRow + 1; rowIndex < rows.length; rowIndex += 1) {
+    const row = rows[rowIndex] || [];
+    const cargo = safeNumber(row[cargoIndex]);
+
+    // Las devoluciones/movimientos negativos no forman parte del cálculo.
+    if (!(cargo > 0)) continue;
+
+    const receiptCode = String(row[receiptCodeIndex] ?? "").trim();
+    if (!receiptCode) continue;
+
+    const rawBrand = normalizeKey(row[brandDescriptionIndex]);
+    if (!rawBrand) continue;
+
+    const lineCode = configuredCodes
+      .slice()
+      .sort((a, b) => b.length - a.length)
+      .find((code) => rawBrand === code || rawBrand.includes(code));
+
+    if (!lineCode || !results[lineCode]) continue;
+
+    results[lineCode].cargo += cargo;
+    results[lineCode].receipts.add(receiptCode);
+    results[lineCode].positiveRows += 1;
+  }
+
+  return Object.fromEntries(
+    Object.entries(results).map(([code, result]) => [
+      code,
+      {
+        lineCode: code,
+        cargo: result.cargo,
+        invoices: result.receipts.size,
+        positiveRows: result.positiveRows,
+        dropsize: getDropsize(result.cargo, result.receipts.size),
+      },
+    ]),
+  );
+}
+
+function renderReceiptDropsize(results, branchLabel, selectedLineCode, onLineChange) {
+  const area = document.getElementById("dropsizeReportArea");
+  if (!area) return;
+
+  const configuredCodes = Object.keys(DROPSIZE_LINES);
+  const selectedCode = DROPSIZE_LINES[selectedLineCode]
+    ? selectedLineCode
+    : configuredCodes[0];
+  const lineInfo = DROPSIZE_LINES[selectedCode];
+  const selected = results[selectedCode] || {
+    cargo: 0,
+    invoices: 0,
+    positiveRows: 0,
+    dropsize: null,
+  };
+
+  const detectedCodes = configuredCodes.filter((code) => (results[code]?.invoices || 0) > 0);
+
+  area.innerHTML = `
+    <div class="linea-selector-panel dropsize-line-selector">
+      <label for="dropsizeLineaObjetivoSelect">Línea objetivo</label>
+      <select id="dropsizeLineaObjetivoSelect">
+        ${configuredCodes.map((code) => {
+          const info = DROPSIZE_LINES[code];
+          return `<option value="${escapeHtml(code)}" ${code === selectedCode ? "selected" : ""}>${escapeHtml(info.label)} · dropsize</option>`;
+        }).join("")}
+      </select>
+    </div>
+
+    <div class="linea-badge ${lineInfo.cls}">
+      Línea seleccionada: ${escapeHtml(lineInfo.label)} · se cuentan comprobantes que contengan la marca
+    </div>
+
+    ${!detectedCodes.includes(selectedCode) ? `
+      <div class="database-message error dropsize-line-warning">
+        No se detectaron comprobantes positivos de ${escapeHtml(lineInfo.label)} en el reporte.
+      </div>
+    ` : ""}
+
+    <div class="dropsize-kpis kpi-summary">
+      <div class="kpi-card" style="--kc:var(--red)">
+        <div class="k-label">Dropsize ${escapeHtml(lineInfo.label)}</div>
+        <div class="k-value">${selected.dropsize === null ? "N/A" : formatNumber(selected.dropsize)}</div>
+        <div class="k-sub">cantidades con cargo / comprobantes con la marca</div>
+      </div>
+      <div class="kpi-card" style="--kc:var(--green)">
+        <div class="k-label">Cantidades CON Cargo</div>
+        <div class="k-value">${formatNumber(selected.cargo)}</div>
+        <div class="k-sub">solo movimientos positivos de ${escapeHtml(lineInfo.label)}</div>
+      </div>
+      <div class="kpi-card" style="--kc:var(--amber)">
+        <div class="k-label">Boletas que contienen la marca</div>
+        <div class="k-value">${selected.invoices.toLocaleString("es-AR")}</div>
+        <div class="k-sub">cada comprobante distinto se cuenta una sola vez</div>
+      </div>
+      <div class="kpi-card" style="--kc:var(--dark)">
+        <div class="k-label">Filas positivas evaluadas</div>
+        <div class="k-value">${selected.positiveRows.toLocaleString("es-AR")}</div>
+        <div class="k-sub">devoluciones y cantidades negativas excluidas</div>
+      </div>
+    </div>
+
+    <div class="dropsize-summary-card">
+      <div>
+        <span class="dropsize-summary-label">Sucursal analizada</span>
+        <strong>${escapeHtml(branchLabel)}</strong>
+      </div>
+      <div class="dropsize-summary-metric">
+        <span>Línea</span>
+        <strong>${escapeHtml(lineInfo.label)}</strong>
+      </div>
+      <div class="dropsize-summary-metric">
+        <span>Dropsize</span>
+        ${dropsizeBadge(selected.dropsize)}
+      </div>
+      <div class="dropsize-summary-metric">
+        <span>Con cargo</span>
+        <strong>${formatNumber(selected.cargo)}</strong>
+      </div>
+      <div class="dropsize-summary-metric">
+        <span>Boletas</span>
+        <strong>${selected.invoices.toLocaleString("es-AR")}</strong>
+      </div>
+    </div>
+
+    <div class="sup-card" style="margin-top:18px;">
+      <div class="sup-head" style="cursor:default;">
+        <div class="sup-title">
+          <h3>Resumen de marcas configuradas</h3>
+          <span class="badge-n">${configuredCodes.length} marca${configuredCodes.length === 1 ? "" : "s"}</span>
+        </div>
+      </div>
+      <div style="padding:2px 20px 16px;overflow-x:auto;">
+        <table class="sup-mini-table">
+          <thead>
+            <tr>
+              <th>Marca</th>
+              <th class="num">Cant. CON Cargo</th>
+              <th class="num">Boletas</th>
+              <th class="num">Dropsize</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${configuredCodes.map((code) => {
+              const info = DROPSIZE_LINES[code];
+              const row = results[code] || { cargo: 0, invoices: 0, dropsize: null };
+              return `
+                <tr>
+                  <td>${escapeHtml(info.label)}</td>
+                  <td class="num">${formatNumber(row.cargo)}</td>
+                  <td class="num">${Number(row.invoices || 0).toLocaleString("es-AR")}</td>
+                  <td class="num" style="font-weight:800;">${row.dropsize === null ? "N/A" : formatNumber(row.dropsize)}</td>
+                </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="database-message neutral" style="margin-top:14px;">
+      Criterio de cálculo: una boleta cuenta para una marca si contiene al menos un movimiento positivo de esa marca, aunque la misma boleta también contenga otras marcas. Los movimientos negativos no se consideran.
+    </div>
+  `;
+
+  const selector = area.querySelector("#dropsizeLineaObjetivoSelect");
+  selector?.addEventListener("change", (event) => {
+    const next = normalizeKey(event.target.value);
+    lastSelectedDropsizeLine = next;
+    onLineChange(next);
+  });
+}
+
 export async function processDropsizeDashboard({
   XLSX,
-  salesWorkbook,
+  receiptWorkbook = null,
+  salesWorkbook = null,
   salesWorkbooksByBrand = {},
   detailWorkbook,
   selectedSucursal,
@@ -1019,14 +1242,40 @@ export async function processDropsizeDashboard({
   branchLabel,
   brandConfig = [],
 }) {
-  if (!salesWorkbook) throw new Error("No se pudo leer el archivo de ventas para DROPSIZE.");
-  if (!detailWorkbook) throw new Error("Cargá el archivo Detalle personal para generar DROPSIZE.");
   if (!Object.keys(configureDropsizeLines(brandConfig)).length) {
     throw new Error("No hay marcas configuradas para generar DROPSIZE.");
   }
-  const detailMaps = parseDetailWorkbook(XLSX, detailWorkbook);
+
   const resolvedBranchLabel = branchLabel || selectedSucursal || "Sucursal seleccionada";
 
+  if (receiptWorkbook) {
+    const results = parseReceiptDropsizeWorkbook(XLSX, receiptWorkbook);
+    const configuredCodes = Object.keys(DROPSIZE_LINES);
+    const firstDetected = configuredCodes.find((code) => (results[code]?.invoices || 0) > 0);
+    const initialLine =
+      lastSelectedDropsizeLine && DROPSIZE_LINES[lastSelectedDropsizeLine]
+        ? lastSelectedDropsizeLine
+        : (firstDetected || configuredCodes[0]);
+
+    const renderForLine = (lineCode) => {
+      const normalized = normalizeLinea(lineCode);
+      lastSelectedDropsizeLine = DROPSIZE_LINES[normalized] ? normalized : initialLine;
+      renderReceiptDropsize(results, resolvedBranchLabel, lastSelectedDropsizeLine, renderForLine);
+      return {
+        results,
+        selectedLineCode: lastSelectedDropsizeLine,
+        lineasDetectadas: configuredCodes.filter((code) => (results[code]?.invoices || 0) > 0),
+      };
+    };
+
+    return renderForLine(initialLine);
+  }
+
+  // Compatibilidad con el formato anterior mientras existan archivos guardados históricos.
+  if (!salesWorkbook) throw new Error("No se pudo leer el archivo de ventas para DROPSIZE.");
+  if (!detailWorkbook) throw new Error("Cargá el archivo Detalle personal para generar DROPSIZE.");
+
+  const detailMaps = parseDetailWorkbook(XLSX, detailWorkbook);
   const renderForLine = (lineCode) => {
     const normalizedLineCode = normalizeKey(lineCode);
     const exclusiveWorkbook =
