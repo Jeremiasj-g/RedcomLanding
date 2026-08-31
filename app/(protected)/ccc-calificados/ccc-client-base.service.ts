@@ -23,6 +23,7 @@ export const CCC_BRANCH_SUCURSAL_NAMES: Record<string, string> = {
 export type CccWorkspaceFileKind =
   | "sales"
   | "dropsize_sales"
+  | "dropsize_isolated"
   | "seller_supervisor"
   | "personal_detail";
 
