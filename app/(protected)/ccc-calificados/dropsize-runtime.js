@@ -1653,7 +1653,7 @@ export async function processDropsizeIsolatedDashboard({
     return parsed;
   };
 
-  return renderForLine(lastSelectedDropsizeLine);
+  return renderForLine(null);
 }
 
 export function resetDropsizeDashboard() {
