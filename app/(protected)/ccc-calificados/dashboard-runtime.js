@@ -353,6 +353,13 @@ export function initClientesCalificadosDashboard(options = {}){
           await processDropsizeDashboard({
             XLSX,
             receiptWorkbook: wbDropsize,
+            salesWorkbook: salesByBrand[selectedLineaCode]?.workbook || null,
+            salesWorkbooksByBrand: Object.fromEntries(
+              Object.entries(salesByBrand).map(([lineCode, result]) => [
+                lineCode,
+                result.workbook,
+              ]),
+            ),
             detailWorkbook: wbDetalle,
             selectedSucursal,
             selectedBranch,
