@@ -737,7 +737,7 @@ function exportCsv(structure, lineInfo) {
 }
 
 function renderStructure(structure, branchLabel, context) {
-  const area = document.getElementById("dropsizeReportArea");
+  const area = document.getElementById(context?.targetAreaId || "dropsizeReportArea");
   if (!area) return;
 
   const {
@@ -1609,9 +1609,60 @@ export async function processDropsizeDashboard({
   return renderForLine(lastSelectedDropsizeLine);
 }
 
+export async function processDropsizeIsolatedDashboard({
+  XLSX,
+  salesWorkbook,
+  detailWorkbook,
+  selectedSucursal,
+  selectedBranch = "",
+  branchLabel,
+  brandConfig = [],
+  targetAreaId = "dropsizeHierarchyArea",
+}) {
+  if (!Object.keys(configureDropsizeLines(brandConfig)).length) {
+    throw new Error("No hay marcas configuradas para generar DROPSIZE.");
+  }
+  if (!salesWorkbook) {
+    throw new Error("Importá el reporte aislado de una marca para ver el detalle comercial.");
+  }
+  if (!detailWorkbook) {
+    throw new Error("Cargá Detalle personal global para generar el detalle comercial.");
+  }
+
+  const resolvedBranchLabel = branchLabel || selectedSucursal || "Sucursal seleccionada";
+  const detailMaps = parseDetailWorkbook(XLSX, detailWorkbook);
+
+  const renderForLine = (lineCode) => {
+    const parsed = parseSalesWorkbook(
+      XLSX,
+      salesWorkbook,
+      selectedSucursal,
+      detailMaps,
+      lineCode,
+      selectedBranch,
+    );
+
+    renderStructure(parsed.structure, resolvedBranchLabel, {
+      lineasDetectadas: parsed.lineasDetectadas,
+      selectedLineCode: parsed.selectedLineCode,
+      onLineChange: renderForLine,
+      hierarchyStats: parsed.hierarchyStats,
+      targetAreaId,
+    });
+
+    return parsed;
+  };
+
+  return renderForLine(lastSelectedDropsizeLine);
+}
+
 export function resetDropsizeDashboard() {
   lastSelectedDropsizeLine = null;
   renderEmpty();
+  const hierarchyArea = document.getElementById("dropsizeHierarchyArea");
+  if (hierarchyArea) {
+    hierarchyArea.innerHTML = '<div class="report-empty dropsize-placeholder compact"><div class="report-empty-icon">↕</div><h2>Detalle comercial</h2><p>Importá un reporte aislado de una marca para visualizar la jerarquía completa.</p></div>';
+  }
 }
 
 export function setDropsizeEmptyState(message) {
