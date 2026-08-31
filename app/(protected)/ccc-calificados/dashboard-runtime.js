@@ -1,6 +1,7 @@
 import {
   buildSellerSupervisorListFromDetailWorkbook,
   processDropsizeDashboard,
+  processDropsizeIsolatedDashboard,
   resetDropsizeDashboard,
   setDropsizeEmptyState,
 } from "./dropsize-runtime";
@@ -373,6 +374,30 @@ export function initClientesCalificadosDashboard(options = {}){
           setDropsizeEmptyState(
             'Importá el reporte de comprobantes desde la pestaña DROPSIZE para calcular el indicador.'
           );
+        }
+
+        const isolatedArea = document.getElementById('dropsizeHierarchyArea');
+        if (hasStoredWorkspaceFile('dropsize_isolated')){
+          const isolatedFile = await resolveWorkspaceFile('dropsize_isolated');
+          if (!isolatedFile) {
+            throw new Error('No se pudo recuperar el reporte aislado de DROPSIZE.');
+          }
+          const wbIsolated = await readWorkbook(isolatedFile);
+          await processDropsizeIsolatedDashboard({
+            XLSX,
+            salesWorkbook: wbIsolated,
+            detailWorkbook: wbDetalle,
+            selectedSucursal,
+            selectedBranch,
+            branchLabel: getSelectedBranchLabel() || selectedBranch,
+            brandConfig: Object.entries(LINEAS).map(([, info]) => ({
+              brand_name: info.label,
+              quota: info.umbral,
+            })),
+            targetAreaId: 'dropsizeHierarchyArea',
+          });
+        } else if (isolatedArea) {
+          isolatedArea.innerHTML = '<div class="report-empty dropsize-placeholder compact"><div class="report-empty-icon">↕</div><h2>Detalle comercial</h2><p>Importá un reporte aislado de una sola marca para visualizar Jefe de ventas, Supervisor, Vendedor, Ruta y Cliente.</p></div>';
         }
 
         const selectedFilter = salesByBrand[selectedLineaCode];
