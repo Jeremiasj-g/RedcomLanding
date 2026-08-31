@@ -46,6 +46,7 @@ export const clientesCalificadosCss = `
   .ccc-page .upload-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));}
   .ccc-page .shared-upload-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
   .ccc-page .shared-upload-grid.upload-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .ccc-page .shared-upload-grid.upload-grid-4{grid-template-columns:repeat(4,minmax(0,1fr));}
   .ccc-page .shared-upload-panel{margin-bottom:18px;}
   .ccc-page .drop{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:.15s;background:var(--cream);min-height:142px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
   .ccc-page .drop:hover{border-color:var(--red);background:var(--redTint);}
@@ -251,6 +252,10 @@ export const clientesCalificadosCss = `
   .ccc-page .dropsize-vendor-card.open>.vend-body{height:auto;opacity:1;overflow:visible;padding:0 10px 10px;}
   .ccc-page .dropsize-route-card>.ruta-body{display:block;height:0;opacity:0;overflow:hidden;padding:0 8px;will-change:height,opacity,padding;}
   .ccc-page .dropsize-route-card.open>.ruta-body{height:auto;opacity:1;overflow:visible;padding:0 8px 8px;}
+  .ccc-page .dropsize-mode-tabs{display:inline-flex;align-items:center;gap:4px;margin:0 0 18px;padding:4px;border:1px solid var(--line);border-radius:10px;background:#F5F4F1;}
+  .ccc-page .dropsize-mode-tabs button{border:0;background:transparent;color:var(--gray);border-radius:7px;padding:9px 14px;font-size:12px;font-weight:800;cursor:pointer;transition:.15s;}
+  .ccc-page .dropsize-mode-tabs button:hover{color:var(--dark);background:rgba(255,255,255,.65);}
+  .ccc-page .dropsize-mode-tabs button.is-active{background:var(--white);color:var(--red);box-shadow:0 1px 4px rgba(20,23,28,.08);}
   .ccc-page .dropsize-table-wrap{overflow-x:auto;}
   .ccc-page .dropsize-table{min-width:620px;}
   .ccc-page .dropsize-table td:last-child{font-weight:800;}
@@ -259,6 +264,7 @@ export const clientesCalificadosCss = `
   @keyframes ccc-spin{to{transform:rotate(360deg);}}
   @media(max-width:1100px){
     .ccc-page .shared-upload-grid{grid-template-columns:1fr 1fr;}
+    .ccc-page .shared-upload-grid.upload-grid-4{grid-template-columns:1fr 1fr;}
   }
   @media(max-width:900px){
     .ccc-page .upload-grid-3,.ccc-page .shared-upload-grid.upload-grid-3{grid-template-columns:1fr 1fr;}
@@ -274,7 +280,8 @@ export const clientesCalificadosCss = `
     .ccc-page .ccc-tabs{padding:0;}
     .ccc-page .ccc-tabs button{padding:10px 12px 9px;}
     .ccc-page .upload-grid,.ccc-page .upload-grid-3,
-    .ccc-page .shared-upload-grid,.ccc-page .shared-upload-grid.upload-grid-3{grid-template-columns:1fr;}
+    .ccc-page .shared-upload-grid,.ccc-page .shared-upload-grid.upload-grid-3,
+    .ccc-page .shared-upload-grid.upload-grid-4{grid-template-columns:1fr;}
     .ccc-page .branch-selector{width:100%;}
     .ccc-page .dropsize-filters,.ccc-page .dropsize-actions{width:100%;}
     .ccc-page .dropsize-filters label,.ccc-page .dropsize-filters input{width:100%;}
