@@ -98,6 +98,7 @@ const CCC_WORKSPACE_TABS: Array<{
 const CCC_WORKSPACE_FILE_LABELS: Record<CccWorkspaceFileKind, string> = {
   sales: "Archivo de ventas",
   dropsize_sales: "Reporte de comprobantes DROPSIZE",
+  dropsize_isolated: "Reporte aislado DROPSIZE",
   seller_supervisor: "Listado Vendedor–Supervisor",
   personal_detail: "Detalle personal",
 };
@@ -332,6 +333,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   const sharedPersonalDetailMetaRef = useRef<CccSharedFileMeta | null>(null);
   const brandConfigRef = useRef<CccBranchBrandConfig[]>([]);
   const [activeTab, setActiveTab] = useState<CccWorkspaceTab>("ccc");
+  const [dropsizeView, setDropsizeView] = useState<"receipts" | "hierarchy">("receipts");
   const [pageTab, setPageTab] = useState<"home" | "config">("home");
   const [xlsxReady, setXlsxReady] = useState(false);
   const [runtimeReady, setRuntimeReady] = useState(false);
@@ -647,6 +649,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       clientBaseMeta.updated_at || clientBaseMeta.uploaded_at,
       workspaceFiles.sales.updated_at || workspaceFiles.sales.uploaded_at,
       workspaceFiles.dropsize_sales?.updated_at || workspaceFiles.dropsize_sales?.uploaded_at || "sin-dropsize",
+      workspaceFiles.dropsize_isolated?.updated_at || workspaceFiles.dropsize_isolated?.uploaded_at || "sin-dropsize-aislado",
       sharedPersonalDetailMeta.updated_at || sharedPersonalDetailMeta.uploaded_at,
       brandFingerprint,
     ].join("|");
@@ -657,6 +660,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
     sharedPersonalDetailMeta,
     workspaceFiles.sales,
     workspaceFiles.dropsize_sales,
+    workspaceFiles.dropsize_isolated,
   ]);
 
   useEffect(() => {
@@ -711,7 +715,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       cleanup = initClientesCalificadosDashboard({
         hasStoredPadron: () => Boolean(clientBaseMetaRef.current),
         hasStoredWorkspaceFile: (kind: CccWorkspaceFileKind) =>
-          (kind === "sales" || kind === "dropsize_sales") &&
+          (kind === "sales" || kind === "dropsize_sales" || kind === "dropsize_isolated") &&
           Boolean(workspaceFilesRef.current[kind]),
         hasSharedPersonalDetail: () => Boolean(sharedPersonalDetailMetaRef.current),
         getSelectedBranch: () => selectedBranchRef.current,
@@ -732,7 +736,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           return file;
         },
         resolveWorkspaceFile: async (kind: CccWorkspaceFileKind) => {
-          if (kind !== "sales" && kind !== "dropsize_sales") {
+          if (kind !== "sales" && kind !== "dropsize_sales" && kind !== "dropsize_isolated") {
             throw new Error("Ese archivo ya no se gestiona por sucursal.");
           }
           const branch = selectedBranchRef.current;
@@ -1098,7 +1102,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             </label>
           </div>
 
-          <div className={`upload-grid shared-upload-grid ${activeTab === "dropsize" ? "upload-grid-3" : ""}`}>
+          <div className={`upload-grid shared-upload-grid ${activeTab === "dropsize" ? "upload-grid-4" : ""}`}>
             <label
               className={`drop stored-file-drop ${workspaceFiles.sales ? "filled" : ""} ${workspaceUploadingKind === "sales" ? "is-uploading" : ""}`}
               id="dropBase"
@@ -1170,6 +1174,52 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                       fileActionBusy &&
                       workspaceDownloadingKind !== "dropsize_sales" &&
                       workspaceDeletingKind !== "dropsize_sales"
+                    }
+                  />
+                )}
+              </label>
+            )}
+
+            {activeTab === "dropsize" && (
+              <label
+                className={`drop stored-file-drop ${workspaceFiles.dropsize_isolated ? "filled" : ""} ${workspaceUploadingKind === "dropsize_isolated" ? "is-uploading" : ""}`}
+                id="dropDropsizeIsolated"
+              >
+                <input
+                  type="file"
+                  id="fileDropsizeIsolated"
+                  accept=".xlsx,.xls"
+                  disabled={!selectedBranch || fileActionBusy || !xlsxReady}
+                  onChange={handleWorkspaceFileUpload("dropsize_isolated")}
+                />
+                <div className="ico">
+                  {workspaceUploadingKind === "dropsize_isolated" ? (
+                    <RefreshCw className="spin" aria-hidden="true" />
+                  ) : (
+                    <FileSpreadsheet aria-hidden="true" />
+                  )}
+                </div>
+                <div className="label">Reporte aislado DROPSIZE</div>
+                <div className="hint">
+                  Exportá una sola marca para recuperar el detalle comercial completo
+                </div>
+                <div className="filename">
+                  {workspaceFiles.dropsize_isolated?.original_name ||
+                    "Seleccioná el reporte aislado de una marca"}
+                </div>
+                {workspaceFiles.dropsize_isolated && (
+                  <div className="upload-meta">{fileMetaLine(workspaceFiles.dropsize_isolated)}</div>
+                )}
+                {workspaceFiles.dropsize_isolated && (
+                  <StoredFileActions
+                    onDownload={handleWorkspaceFileDownload("dropsize_isolated")}
+                    onDelete={handleWorkspaceFileDelete("dropsize_isolated")}
+                    downloading={workspaceDownloadingKind === "dropsize_isolated"}
+                    deleting={workspaceDeletingKind === "dropsize_isolated"}
+                    disabled={
+                      fileActionBusy &&
+                      workspaceDownloadingKind !== "dropsize_isolated" &&
+                      workspaceDeletingKind !== "dropsize_isolated"
                     }
                   />
                 )}
@@ -1324,7 +1374,35 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           {dashboardProcessing && (
             <DashboardProcessingState />
           )}
-          <div id="dropsizeReportArea" className={dashboardProcessing ? "hidden" : ""} />
+          <div className={dashboardProcessing ? "hidden" : ""}>
+            <div className="dropsize-mode-tabs" role="tablist" aria-label="Vistas de DROPSIZE">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={dropsizeView === "receipts"}
+                className={dropsizeView === "receipts" ? "is-active" : ""}
+                onClick={() => setDropsizeView("receipts")}
+              >
+                Por comprobantes
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={dropsizeView === "hierarchy"}
+                className={dropsizeView === "hierarchy" ? "is-active" : ""}
+                onClick={() => setDropsizeView("hierarchy")}
+              >
+                Detalle comercial
+              </button>
+            </div>
+
+            <div className={dropsizeView === "receipts" ? "" : "hidden"}>
+              <div id="dropsizeReportArea" />
+            </div>
+            <div className={dropsizeView === "hierarchy" ? "" : "hidden"}>
+              <div id="dropsizeHierarchyArea" />
+            </div>
+          </div>
         </section>
         </div>
 
