@@ -1105,7 +1105,268 @@ function parseReceiptDropsizeWorkbook(XLSX, workbook) {
   };
 }
 
-function renderReceiptDropsize(results, branchLabel, selectedLineCode, onLineChange, quantityLabel = "CANTIDADES TOTALES") {
+function appendReceiptCommercialHierarchy(area, parsedHierarchy, lineInfo) {
+  if (!area || !parsedHierarchy?.structure) return;
+
+  const structure = parsedHierarchy.structure;
+  const hierarchyStats = parsedHierarchy.hierarchyStats || {};
+  const managerRows = Object.values(structure.managers || {})
+    .map((manager) => ({
+      manager,
+      label: manager.label,
+      ...aggregateTotalsFromSupervisors(manager.supervisors),
+    }))
+    .sort((a, b) => (b.cargo || 0) - (a.cargo || 0));
+
+  const supervisorRows = managerRows.flatMap((managerRow) =>
+    Object.values(managerRow.manager.supervisors).map((supervisor) => ({
+      supervisor,
+      name: supervisor.label,
+      managerLabel: managerRow.label,
+      ...aggregateTotalsFromVendors(supervisor.vendors),
+    })),
+  );
+
+  if (!supervisorRows.length) return;
+
+  const hasManagerLevel = managerRows.some((row) => Boolean(row.label));
+  const section = document.createElement("section");
+  section.className = "dropsize-receipt-commercial-hierarchy";
+  section.innerHTML = `
+    <div class="database-message neutral" style="margin-top:16px;">
+      El DROPSIZE y las boletas se calculan con el reporte de comprobantes. El detalle comercial de abajo se arma con el archivo general de ventas para conservar la navegación por jefe, supervisor, vendedor, ruta y cliente.
+    </div>
+
+    ${hierarchyStats.unmatchedVendors ? `
+      <div class="database-message dropsize-hierarchy-warning">
+        ${hierarchyStats.unmatchedVendors} vendedor${hierarchyStats.unmatchedVendors === 1 ? "" : "es"} no pudieron vincularse con Detalle personal y se muestran bajo “Sin supervisor”.
+      </div>
+    ` : ""}
+
+    <div class="dropsize-toolbar" style="margin-top:16px;">
+      <div class="dropsize-filters">
+        <label>
+          ${hasManagerLevel ? "Jefe / Supervisor" : "Supervisor"}
+          <input type="text" data-receipt-filter-supervisor placeholder="Filtrar por ${hasManagerLevel ? "jefe o supervisor" : "supervisor"}" />
+        </label>
+        <label>
+          Ruta
+          <input type="text" data-receipt-filter-route placeholder="Filtrar por ruta" />
+        </label>
+        <button type="button" class="ghost" data-receipt-apply-filters>Aplicar filtros</button>
+      </div>
+      <div class="dropsize-actions">
+        <button type="button" class="ghost" data-receipt-expand-all>Expandir todo</button>
+        <button type="button" class="ghost" data-receipt-collapse-all>Colapsar todo</button>
+      </div>
+    </div>
+
+    <div class="toolbar dropsize-detail-heading">
+      <div>
+        <div class="title">Detalle por ${hasManagerLevel ? "Jefe de ventas y Supervisor" : "Supervisor"} — ${escapeHtml(lineInfo.label)}</div>
+        <div class="subtitle">Jerarquía tomada de Detalle personal · cantidades tomadas del archivo general de ventas</div>
+      </div>
+    </div>
+
+    <div data-receipt-hierarchy></div>
+  `;
+  area.appendChild(section);
+
+  const hierarchyArea = section.querySelector("[data-receipt-hierarchy]");
+  const supervisorInput = section.querySelector("[data-receipt-filter-supervisor]");
+  const routeInput = section.querySelector("[data-receipt-filter-route]");
+
+  const renderRouteHtml = (routeRow) => {
+    const clients = Object.values(routeRow.route.clients)
+      .map((client) => ({ ...client }))
+      .sort((a, b) => (b.cargo || 0) - (a.cargo || 0));
+
+    return `
+      <div class="ruta-card dropsize-route-card" data-dropsize-card>
+        <div class="ruta-head" data-dropsize-toggle>
+          <div class="ruta-title"><span class="arrow">▶</span><h5>${escapeHtml(routeRow.route.label)}</h5></div>
+          <div class="metrics-chips">
+            <span class="metric-chip clients"><b>${clients.length}</b> clientes</span>
+            <span class="metric-chip units"><b>${formatNumber(routeRow.cargo)}</b> con cargo</span>
+          </div>
+        </div>
+        <div class="ruta-body">
+          <div class="dropsize-table-wrap">
+            <table class="cli-table dropsize-table">
+              <thead><tr><th>Cliente</th><th>Cant. con Cargo</th></tr></thead>
+              <tbody>
+                ${clients.map((client) => `
+                  <tr>
+                    <td>${escapeHtml(client.label)}</td>
+                    <td>${formatNumber(client.cargo)}</td>
+                  </tr>`).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>`;
+  };
+
+  const renderVendorHtml = (vendorRow, routeFilter) => {
+    const routes = Object.values(vendorRow.vendor.routes)
+      .map((route) => ({ route, ...aggregateTotalsFromClients(route.clients) }))
+      .filter((routeRow) => !routeFilter || normalizeKey(routeRow.route.label).includes(routeFilter))
+      .sort((a, b) => (b.cargo || 0) - (a.cargo || 0));
+
+    if (!routes.length) return "";
+
+    return `
+      <div class="vend-card dropsize-vendor-card" data-dropsize-card>
+        <div class="vend-head" data-dropsize-toggle>
+          <div class="vend-title">
+            <span class="arrow">▶</span>
+            <div><span class="hierarchy-role">Vendedor</span><h4>${escapeHtml(vendorRow.vendor.label)}</h4></div>
+          </div>
+          <div class="metrics-chips">
+            <span class="metric-chip clients"><b>${vendorRow.clients}</b> clientes</span>
+            <span class="metric-chip units"><b>${formatNumber(vendorRow.cargo)}</b> con cargo</span>
+          </div>
+        </div>
+        <div class="vend-body">${routes.map(renderRouteHtml).join("")}</div>
+      </div>`;
+  };
+
+  const renderSupervisorHtml = (supervisorRow, routeFilter, shouldOpen = false) => {
+    const vendors = Object.values(supervisorRow.supervisor.vendors)
+      .map((vendor) => ({ vendor, ...aggregateTotalsFromRoutes(vendor.routes) }))
+      .sort((a, b) => (b.cargo || 0) - (a.cargo || 0));
+
+    const vendorHtml = vendors
+      .map((vendorRow) => renderVendorHtml(vendorRow, routeFilter))
+      .filter(Boolean)
+      .join("");
+
+    if (!vendorHtml) return "";
+
+    return `
+      <div class="sup-card dropsize-supervisor-card${supervisorRow.name === "Sin supervisor" ? " no-sup" : ""}${shouldOpen ? " open" : ""}" data-dropsize-card>
+        <div class="sup-head" data-dropsize-toggle>
+          <div class="sup-title">
+            <span class="arrow">▶</span>
+            <div><span class="hierarchy-role">Supervisor</span><h3>${escapeHtml(supervisorRow.name)}</h3></div>
+          </div>
+          <div class="metrics-chips">
+            <span class="metric-chip clients"><b>${supervisorRow.clients}</b> clientes</span>
+            <span class="metric-chip units"><b>${formatNumber(supervisorRow.cargo)}</b> con cargo</span>
+          </div>
+        </div>
+        <div class="sup-body">${vendorHtml}</div>
+      </div>`;
+  };
+
+  const renderHierarchy = () => {
+    const hierarchyFilter = normalizeKey(supervisorInput?.value);
+    const routeFilter = normalizeKey(routeInput?.value);
+    const chunks = [];
+
+    if (hasManagerLevel) {
+      managerRows.forEach((managerRow, managerIndex) => {
+        const managerName = managerRow.label || "Sin jefe de ventas";
+        const managerMatches =
+          !hierarchyFilter || normalizeKey(managerName).includes(hierarchyFilter);
+
+        const supervisors = Object.values(managerRow.manager.supervisors)
+          .map((supervisor) => ({
+            supervisor,
+            name: supervisor.label,
+            ...aggregateTotalsFromVendors(supervisor.vendors),
+          }))
+          .sort((a, b) => (b.cargo || 0) - (a.cargo || 0));
+
+        const supervisorHtml = supervisors
+          .map((supervisorRow, supervisorIndex) => {
+            if (
+              !managerMatches &&
+              hierarchyFilter &&
+              !normalizeKey(supervisorRow.name).includes(hierarchyFilter)
+            ) {
+              return "";
+            }
+            return renderSupervisorHtml(
+              supervisorRow,
+              routeFilter,
+              managerIndex === 0 && supervisorIndex === 0,
+            );
+          })
+          .filter(Boolean)
+          .join("");
+
+        if (!supervisorHtml) return;
+
+        chunks.push(`
+          <div class="sup-card dropsize-manager-card${!managerRow.label ? " no-manager" : ""}${managerIndex === 0 ? " open" : ""}" data-dropsize-card>
+            <div class="sup-head dropsize-manager-head" data-dropsize-toggle>
+              <div class="sup-title">
+                <span class="arrow">▶</span>
+                <div><span class="hierarchy-role">Jefe de ventas</span><h3>${escapeHtml(managerName)}</h3></div>
+              </div>
+              <div class="metrics-chips">
+                <span class="metric-chip clients"><b>${managerRow.clients}</b> clientes</span>
+                <span class="metric-chip units"><b>${formatNumber(managerRow.cargo)}</b> con cargo</span>
+              </div>
+            </div>
+            <div class="sup-body dropsize-manager-body">${supervisorHtml}</div>
+          </div>`);
+      });
+    } else {
+      supervisorRows
+        .sort((a, b) => (b.cargo || 0) - (a.cargo || 0))
+        .forEach((supervisorRow, supervisorIndex) => {
+          if (
+            hierarchyFilter &&
+            !normalizeKey(supervisorRow.name).includes(hierarchyFilter)
+          ) {
+            return;
+          }
+          const html = renderSupervisorHtml(
+            supervisorRow,
+            routeFilter,
+            supervisorIndex === 0,
+          );
+          if (html) chunks.push(html);
+        });
+    }
+
+    hierarchyArea.innerHTML = chunks.join("");
+    hierarchyArea.querySelectorAll("[data-dropsize-toggle]").forEach((header) => {
+      header.addEventListener("click", () => {
+        const card = header.closest("[data-dropsize-card]");
+        if (card) toggleAccordionCard(card);
+      });
+    });
+
+    if (!hierarchyArea.children.length) {
+      hierarchyArea.innerHTML =
+        '<div class="database-message error">No hay resultados que coincidan con los filtros aplicados.</div>';
+    }
+  };
+
+  renderHierarchy();
+
+  section.querySelector("[data-receipt-apply-filters]")?.addEventListener("click", renderHierarchy);
+  [supervisorInput, routeInput].forEach((input) => {
+    input?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") renderHierarchy();
+    });
+  });
+  section.querySelector("[data-receipt-expand-all]")?.addEventListener("click", () => {
+    hierarchyArea
+      .querySelectorAll("[data-dropsize-card]")
+      .forEach((card) => setAccordionOpen(card, true, true));
+  });
+  section.querySelector("[data-receipt-collapse-all]")?.addEventListener("click", () => {
+    hierarchyArea
+      .querySelectorAll("[data-dropsize-card]")
+      .forEach((card) => setAccordionOpen(card, false, true));
+  });
+}
+
+function renderReceiptDropsize(results, branchLabel, selectedLineCode, onLineChange, quantityLabel = "CANTIDADES TOTALES", parsedHierarchy = null) {
   const area = document.getElementById("dropsizeReportArea");
   if (!area) return;
 
@@ -1229,6 +1490,8 @@ function renderReceiptDropsize(results, branchLabel, selectedLineCode, onLineCha
     </div>
   `;
 
+  appendReceiptCommercialHierarchy(area, parsedHierarchy, lineInfo);
+
   const selector = area.querySelector("#dropsizeLineaObjetivoSelect");
   selector?.addEventListener("change", (event) => {
     const next = normalizeKey(event.target.value);
@@ -1263,21 +1526,47 @@ export async function processDropsizeDashboard({
       lastSelectedDropsizeLine && DROPSIZE_LINES[lastSelectedDropsizeLine]
         ? lastSelectedDropsizeLine
         : (firstDetected || configuredCodes[0]);
+    const detailMaps = detailWorkbook
+      ? parseDetailWorkbook(XLSX, detailWorkbook)
+      : null;
 
     const renderForLine = (lineCode) => {
       const normalized = normalizeLinea(lineCode);
       lastSelectedDropsizeLine = DROPSIZE_LINES[normalized] ? normalized : initialLine;
+
+      let parsedHierarchy = null;
+      const hierarchyWorkbook =
+        salesWorkbooksByBrand?.[lastSelectedDropsizeLine] ||
+        salesWorkbook;
+
+      if (hierarchyWorkbook && detailMaps) {
+        try {
+          parsedHierarchy = parseSalesWorkbook(
+            XLSX,
+            hierarchyWorkbook,
+            selectedSucursal,
+            detailMaps,
+            lastSelectedDropsizeLine,
+            selectedBranch,
+          );
+        } catch (error) {
+          console.warn("[DROPSIZE] No se pudo reconstruir el detalle comercial:", error);
+        }
+      }
+
       renderReceiptDropsize(
         results,
         resolvedBranchLabel,
         lastSelectedDropsizeLine,
         renderForLine,
         parsedReceipt.quantityLabel,
+        parsedHierarchy,
       );
       return {
         results,
         selectedLineCode: lastSelectedDropsizeLine,
         lineasDetectadas: configuredCodes.filter((code) => (results[code]?.invoices || 0) > 0),
+        hierarchy: parsedHierarchy,
       };
     };
 
