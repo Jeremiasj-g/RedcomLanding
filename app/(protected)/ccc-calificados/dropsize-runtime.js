@@ -1578,6 +1578,7 @@ export async function processDropsizeDashboard({
       lineasDetectadas,
       selectedLineCode: initialLine,
       hierarchyByLine,
+      brandConfig,
     };
   }
 
@@ -1664,6 +1665,7 @@ export async function processDropsizeIsolatedDashboard({
     branchLabel: resolvedBranchLabel,
     targetAreaId,
     parsed,
+    brandConfig,
   };
 }
 
@@ -1672,10 +1674,12 @@ export function renderCachedDropsizeDashboard(snapshot) {
 
   if (snapshot.mode === "receipt") {
     configureDropsizeLines(
-      Object.values(DROPSIZE_LINES).map((info) => ({
-        brand_name: info.label,
-        quota: info.umbral,
-      })),
+      Array.isArray(snapshot.brandConfig) && snapshot.brandConfig.length
+        ? snapshot.brandConfig
+        : Object.values(DROPSIZE_LINES).map((info) => ({
+            brand_name: info.label,
+            quota: info.umbral,
+          })),
     );
     const initialLine =
       snapshot.selectedLineCode ||
