@@ -32,6 +32,11 @@ import {
   getBranchBrandConfig,
   type CccBranchBrandConfig,
 } from "./ccc-brand-config.service";
+import {
+  CccSharedFileMeta,
+  downloadSharedPersonalDetail,
+  getSharedPersonalDetailMeta,
+} from "./ccc-shared-personal-detail.service";
 import { errorMessage, notify } from "@/lib/notifications";
 import { useModulePermissions } from "@/components/permissions/ModulePermissionsProvider";
 import {
@@ -92,6 +97,8 @@ const CCC_WORKSPACE_TABS: Array<{
 
 const CCC_WORKSPACE_FILE_LABELS: Record<CccWorkspaceFileKind, string> = {
   sales: "Archivo de ventas",
+  dropsize_sales: "Reporte de comprobantes DROPSIZE",
+  dropsize_isolated: "Reporte aislado DROPSIZE",
   seller_supervisor: "Listado Vendedor–Supervisor",
   personal_detail: "Detalle personal",
 };
@@ -153,6 +160,44 @@ function validateExcelExtension(file: File) {
   const extension = file.name.split(".").pop()?.toLowerCase();
   if (!extension || !["xlsx", "xls"].includes(extension)) {
     throw new Error("El archivo debe tener formato .xlsx o .xls.");
+  }
+}
+
+async function validateDropsizeReportFile(file: File) {
+  validateExcelExtension(file);
+
+  const XLSX = (window as any).XLSX;
+  if (!XLSX) throw new Error("El motor de Excel todavía no terminó de cargar.");
+
+  const workbook = XLSX.read(await file.arrayBuffer(), {
+    type: "array",
+    cellDates: true,
+  });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  if (!sheet) throw new Error("El reporte DROPSIZE no contiene una hoja válida.");
+
+  const rows = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    defval: null,
+  }) as unknown[][];
+
+  const headers = (rows[0] ?? []).map((value) =>
+    String(value ?? "").trim().toUpperCase(),
+  );
+
+  const hasReceipt = headers.includes("COMPROBANTES") && headers.includes("CÓDIGO");
+  const hasQuantity =
+    headers.includes("CANTIDADES CON CARGO") ||
+    headers.includes("CANTIDADES TOTALES");
+  const brandIndex = headers.indexOf("MARCA");
+  const hasBrandDescription =
+    brandIndex >= 0 &&
+    String((rows[0] ?? [])[brandIndex + 1] ?? "").trim().toUpperCase() === "DESCRIPCIÓN";
+
+  if (!hasReceipt || !hasQuantity || !hasBrandDescription) {
+    throw new Error(
+      'El reporte DROPSIZE debe incluir Comprobantes, Código, Marca/Descripción y "Cantidades Totales" (o "Cantidades CON Cargo").',
+    );
   }
 }
 
@@ -278,86 +323,6 @@ function StoredFileActions({
   );
 }
 
-function ClientBaseStatus({
-  meta,
-  loading,
-  branch,
-}: {
-  meta: CccClientBaseMeta | null;
-  loading: boolean;
-  branch: string;
-}) {
-  const freshness = getClientBaseFreshness(meta);
-  const branchLabel = CCC_BRANCH_LABELS[branch] ?? branch;
-
-  if (loading) {
-    return (
-      <div className="client-base-status is-loading">
-        <RefreshCw className="status-icon spin" aria-hidden="true" />
-        Consultando la base guardada de {branchLabel}…
-      </div>
-    );
-  }
-
-  if (!meta) {
-    return (
-      <div className="client-base-status is-missing">
-        <Database className="status-icon" aria-hidden="true" />
-        <div>
-          <strong>No hay una base de clientes guardada para {branchLabel}.</strong>
-          <span>
-            Subila una vez para que los demás usuarios habilitados de esta sucursal puedan reutilizarla.
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  let countdown = "";
-  if (freshness.tone === "expired") {
-    countdown = `Actualización vencida hace ${freshness.expiredDays} día${freshness.expiredDays === 1 ? "" : "s"}.`;
-  } else if (freshness.daysRemaining === 0) {
-    countdown = "Debe actualizarse hoy.";
-  } else {
-    countdown = `Restan ${freshness.daysRemaining} día${freshness.daysRemaining === 1 ? "" : "s"} para actualizarla.`;
-  }
-
-  return (
-    <div className={`client-base-status is-${freshness.tone}`}>
-      <Database className="status-icon" aria-hidden="true" />
-      <div className="client-base-status-copy">
-        <strong>{meta.original_name}</strong>
-        <span>
-          Última carga: {formatDate(meta.uploaded_at)}
-          {meta.uploaded_by_name ? ` · por ${meta.uploaded_by_name}` : ""}
-          {meta.size_bytes ? ` · ${formatBytes(meta.size_bytes)}` : ""}
-        </span>
-        <span className="countdown">{countdown}</span>
-      </div>
-    </div>
-  );
-}
-
-function StoredFileStatus({
-  meta,
-  icon: Icon = FileSpreadsheet,
-}: {
-  meta?: CccWorkspaceFileMeta | null;
-  icon?: LucideIcon;
-}) {
-  if (!meta) return null;
-
-  return (
-    <div className="client-base-status stored-file-status is-fresh">
-      <Icon className="status-icon" aria-hidden="true" />
-      <div className="client-base-status-copy">
-        <strong>{meta.original_name}</strong>
-        <span>{fileMetaLine(meta)}</span>
-      </div>
-    </div>
-  );
-}
-
 function DashboardContent({ me }: { me: DashboardUser }) {
   const initialized = useRef(false);
   const lastAutoProcessFingerprintRef = useRef("");
@@ -365,8 +330,10 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   const activeTabRef = useRef<CccWorkspaceTab>("ccc");
   const clientBaseMetaRef = useRef<CccClientBaseMeta | null>(null);
   const workspaceFilesRef = useRef<CccWorkspaceFilesMap>({});
+  const sharedPersonalDetailMetaRef = useRef<CccSharedFileMeta | null>(null);
   const brandConfigRef = useRef<CccBranchBrandConfig[]>([]);
   const [activeTab, setActiveTab] = useState<CccWorkspaceTab>("ccc");
+  const [dropsizeView, setDropsizeView] = useState<"receipts" | "hierarchy">("receipts");
   const [pageTab, setPageTab] = useState<"home" | "config">("home");
   const [xlsxReady, setXlsxReady] = useState(false);
   const [runtimeReady, setRuntimeReady] = useState(false);
@@ -387,6 +354,9 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   const [workspaceDeletingKind, setWorkspaceDeletingKind] = useState<CccWorkspaceFileKind | null>(null);
   const [workspaceMessage, setWorkspaceMessage] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [sharedPersonalDetailMeta, setSharedPersonalDetailMeta] = useState<CccSharedFileMeta | null>(null);
+  const [sharedPersonalDetailLoading, setSharedPersonalDetailLoading] = useState(true);
+  const [sharedPersonalDetailError, setSharedPersonalDetailError] = useState<string | null>(null);
   const [brandConfig, setBrandConfig] = useState<CccBranchBrandConfig[]>([]);
   const [brandConfigLoading, setBrandConfigLoading] = useState(true);
   const [dashboardProcessing, setDashboardProcessing] = useState(false);
@@ -511,7 +481,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       dropsizeReportArea.innerHTML = emptyState(
         "↕",
         "Importá los archivos para generar el dashboard",
-        "DROPSIZE utiliza el archivo de ventas compartido y requiere además Detalle personal.",
+        "DROPSIZE utiliza su reporte de comprobantes y analiza únicamente las marcas configuradas para la sucursal.",
       );
     }
 
@@ -529,6 +499,36 @@ function DashboardContent({ me }: { me: DashboardUser }) {
     workspaceFilesRef.current = workspaceFiles;
     window.dispatchEvent(new Event("ccc:workspace-files-changed"));
   }, [workspaceFiles]);
+
+  const refreshSharedPersonalDetailMeta = useCallback(async () => {
+    setSharedPersonalDetailLoading(true);
+    setSharedPersonalDetailError(null);
+    try {
+      const meta = await getSharedPersonalDetailMeta();
+      sharedPersonalDetailMetaRef.current = meta;
+      setSharedPersonalDetailMeta(meta);
+      window.dispatchEvent(new Event("ccc:shared-personal-detail-status-changed"));
+    } catch (error) {
+      console.error(error);
+      sharedPersonalDetailMetaRef.current = null;
+      setSharedPersonalDetailMeta(null);
+      setSharedPersonalDetailError(
+        errorMessage(error, "No se pudo consultar Detalle personal global."),
+      );
+      window.dispatchEvent(new Event("ccc:shared-personal-detail-status-changed"));
+    } finally {
+      setSharedPersonalDetailLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshSharedPersonalDetailMeta();
+    const refresh = () => void refreshSharedPersonalDetailMeta();
+    window.addEventListener("ccc:shared-personal-detail-changed", refresh);
+    return () => {
+      window.removeEventListener("ccc:shared-personal-detail-changed", refresh);
+    };
+  }, [refreshSharedPersonalDetailMeta]);
 
   useEffect(() => {
     let cancelled = false;
@@ -632,7 +632,13 @@ function DashboardContent({ me }: { me: DashboardUser }) {
   }, [refreshClientBaseMeta, refreshWorkspaceFiles, selectedBranch]);
 
   const autoProcessFingerprint = useMemo(() => {
-    if (!selectedBranch || !clientBaseMeta || !workspaceFiles.sales || !brandConfig.length) return "";
+    if (
+      !selectedBranch ||
+      !clientBaseMeta ||
+      !workspaceFiles.sales ||
+      !sharedPersonalDetailMeta ||
+      !brandConfig.length
+    ) return "";
 
     const brandFingerprint = brandConfig
       .map((item) => `${item.brand_name}:${item.quota}`)
@@ -642,15 +648,20 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       selectedBranch,
       clientBaseMeta.updated_at || clientBaseMeta.uploaded_at,
       workspaceFiles.sales.updated_at || workspaceFiles.sales.uploaded_at,
-      workspaceFiles.seller_supervisor?.updated_at ||
-        workspaceFiles.seller_supervisor?.uploaded_at ||
-        "default-listado",
-      workspaceFiles.personal_detail?.updated_at ||
-        workspaceFiles.personal_detail?.uploaded_at ||
-        "without-personal-detail",
+      workspaceFiles.dropsize_sales?.updated_at || workspaceFiles.dropsize_sales?.uploaded_at || "sin-dropsize",
+      workspaceFiles.dropsize_isolated?.updated_at || workspaceFiles.dropsize_isolated?.uploaded_at || "sin-dropsize-aislado",
+      sharedPersonalDetailMeta.updated_at || sharedPersonalDetailMeta.uploaded_at,
       brandFingerprint,
     ].join("|");
-  }, [brandConfig, clientBaseMeta, selectedBranch, workspaceFiles]);
+  }, [
+    brandConfig,
+    clientBaseMeta,
+    selectedBranch,
+    sharedPersonalDetailMeta,
+    workspaceFiles.sales,
+    workspaceFiles.dropsize_sales,
+    workspaceFiles.dropsize_isolated,
+  ]);
 
   useEffect(() => {
     if (
@@ -658,6 +669,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       !autoProcessFingerprint ||
       clientBaseLoading ||
       workspaceFilesLoading ||
+      sharedPersonalDetailLoading ||
       brandConfigLoading ||
       clientBaseUploading ||
       clientBaseDeleting ||
@@ -685,6 +697,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
     clientBaseLoading,
     clientBaseUploading,
     brandConfigLoading,
+    sharedPersonalDetailLoading,
     runtimeReady,
     workspaceDeletingKind,
     workspaceFilesLoading,
@@ -702,7 +715,9 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       cleanup = initClientesCalificadosDashboard({
         hasStoredPadron: () => Boolean(clientBaseMetaRef.current),
         hasStoredWorkspaceFile: (kind: CccWorkspaceFileKind) =>
+          (kind === "sales" || kind === "dropsize_sales" || kind === "dropsize_isolated") &&
           Boolean(workspaceFilesRef.current[kind]),
+        hasSharedPersonalDetail: () => Boolean(sharedPersonalDetailMetaRef.current),
         getSelectedBranch: () => selectedBranchRef.current,
         getSelectedSucursalName: () =>
           CCC_BRANCH_SUCURSAL_NAMES[selectedBranchRef.current] || "",
@@ -721,6 +736,9 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           return file;
         },
         resolveWorkspaceFile: async (kind: CccWorkspaceFileKind) => {
+          if (kind !== "sales" && kind !== "dropsize_sales" && kind !== "dropsize_isolated") {
+            throw new Error("Ese archivo ya no se gestiona por sucursal.");
+          }
           const branch = selectedBranchRef.current;
           if (!branch) throw new Error("Seleccioná una sucursal.");
           const { file, meta } = await downloadWorkspaceFile(branch, kind);
@@ -728,6 +746,14 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             current[kind]?.updated_at === meta.updated_at
               ? current
               : { ...current, [kind]: meta },
+          );
+          return file;
+        },
+        resolveSharedPersonalDetail: async () => {
+          const { file, meta } = await downloadSharedPersonalDetail();
+          sharedPersonalDetailMetaRef.current = meta;
+          setSharedPersonalDetailMeta((current) =>
+            current?.updated_at === meta.updated_at ? current : meta,
           );
           return file;
         },
@@ -787,7 +813,11 @@ function DashboardContent({ me }: { me: DashboardUser }) {
       setWorkspaceError(null);
 
       try {
-        validateExcelExtension(file);
+        if (kind === "dropsize_sales") {
+          await validateDropsizeReportFile(file);
+        } else {
+          validateExcelExtension(file);
+        }
         const meta = await uploadWorkspaceFile({
           branch: selectedBranch,
           kind,
@@ -937,6 +967,33 @@ function DashboardContent({ me }: { me: DashboardUser }) {
     [selectedBranch],
   );
 
+  const clientBaseFreshness = useMemo(() => {
+    if (!clientBaseMeta) return null;
+
+    const freshness = getClientBaseFreshness(clientBaseMeta);
+    const expiredDays = freshness.expiredDays ?? 0;
+    const daysRemaining = freshness.daysRemaining ?? 0;
+
+    if (freshness.tone === "expired") {
+      return {
+        toneClass: "freshness-expired",
+        message: `Actualización vencida hace ${expiredDays} día${expiredDays === 1 ? "" : "s"}`,
+      };
+    }
+
+    if (freshness.tone === "warning") {
+      return {
+        toneClass: "freshness-warning",
+        message: `Restan ${daysRemaining} día${daysRemaining === 1 ? "" : "s"} para actualizar`,
+      };
+    }
+
+    return {
+      toneClass: "freshness-fresh",
+      message: `Restan ${daysRemaining} días para actualizar`,
+    };
+  }, [clientBaseMeta]);
+
   const activeTabMeta = useMemo(
     () => CCC_WORKSPACE_TABS.find((tab) => tab.id === activeTab) ?? CCC_WORKSPACE_TABS[0],
     [activeTab],
@@ -1045,7 +1102,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             </label>
           </div>
 
-          <div className={`upload-grid shared-upload-grid ${activeTab === "dropsize" ? "is-dropsize" : ""}`}>
+          <div className={`upload-grid shared-upload-grid ${activeTab === "dropsize" ? "upload-grid-4" : ""}`}>
             <label
               className={`drop stored-file-drop ${workspaceFiles.sales ? "filled" : ""} ${workspaceUploadingKind === "sales" ? "is-uploading" : ""}`}
               id="dropBase"
@@ -1061,8 +1118,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                 {workspaceUploadingKind === "sales" ? <RefreshCw className="spin" aria-hidden="true" /> : <FileSpreadsheet aria-hidden="true" />}
               </div>
               <div className="label">Archivo de ventas (requerido)</div>
-              <div className="hint">Se guarda por sucursal y se utiliza en los tres dashboards</div>
-              <div className="filename" id="fileBaseName">
+                            <div className="filename" id="fileBaseName">
                 {workspaceFiles.sales?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
               </div>
               {workspaceFiles.sales && <div className="upload-meta">{fileMetaLine(workspaceFiles.sales)}</div>}
@@ -1077,39 +1133,94 @@ function DashboardContent({ me }: { me: DashboardUser }) {
               )}
             </label>
 
-            <label
-              className={`drop stored-file-drop ${workspaceFiles.seller_supervisor ? "filled" : ""} ${workspaceUploadingKind === "seller_supervisor" ? "is-uploading" : ""}`}
-              id="dropListado"
-            >
-              <input
-                type="file"
-                id="fileListado"
-                accept=".xlsx,.xls"
-                disabled={!selectedBranch || fileActionBusy}
-                onChange={handleWorkspaceFileUpload("seller_supervisor")}
-              />
-              <div className="ico">
-                {workspaceUploadingKind === "seller_supervisor" ? <RefreshCw className="spin" aria-hidden="true" /> : <UsersRound aria-hidden="true" />}
-              </div>
-              <div className="label">Listado Vendedor–Supervisor (opcional)</div>
-              <div className="hint">Se guarda por sucursal; si no existe se utiliza el listado precargado</div>
-              <div className="filename" id="fileListadoName">
-                {workspaceFiles.seller_supervisor?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
-              </div>
-              {workspaceFiles.seller_supervisor && <div className="upload-meta">{fileMetaLine(workspaceFiles.seller_supervisor)}</div>}
-              {workspaceFiles.seller_supervisor && (
-                <StoredFileActions
-                  onDownload={handleWorkspaceFileDownload("seller_supervisor")}
-                  onDelete={handleWorkspaceFileDelete("seller_supervisor")}
-                  downloading={workspaceDownloadingKind === "seller_supervisor"}
-                  deleting={workspaceDeletingKind === "seller_supervisor"}
-                  disabled={fileActionBusy && workspaceDownloadingKind !== "seller_supervisor" && workspaceDeletingKind !== "seller_supervisor"}
+            {activeTab === "dropsize" && (
+              <label
+                className={`drop stored-file-drop ${workspaceFiles.dropsize_sales ? "filled" : ""} ${workspaceUploadingKind === "dropsize_sales" ? "is-uploading" : ""}`}
+                id="dropDropsizeSales"
+              >
+                <input
+                  type="file"
+                  id="fileDropsizeSales"
+                  accept=".xlsx,.xls"
+                  disabled={!selectedBranch || fileActionBusy || !xlsxReady}
+                  onChange={handleWorkspaceFileUpload("dropsize_sales")}
                 />
-              )}
-            </label>
+                <div className="ico">
+                  {workspaceUploadingKind === "dropsize_sales" ? (
+                    <RefreshCw className="spin" aria-hidden="true" />
+                  ) : (
+                    <FileSpreadsheet aria-hidden="true" />
+                  )}
+                </div>
+                <div className="label">Reporte de comprobantes DROPSIZE</div>
+                <div className="filename">
+                  {workspaceFiles.dropsize_sales?.original_name ||
+                    "Seleccioná el reporte con comprobantes"}
+                </div>
+                {workspaceFiles.dropsize_sales && (
+                  <div className="upload-meta">{fileMetaLine(workspaceFiles.dropsize_sales)}</div>
+                )}
+                {workspaceFiles.dropsize_sales && (
+                  <StoredFileActions
+                    onDownload={handleWorkspaceFileDownload("dropsize_sales")}
+                    onDelete={handleWorkspaceFileDelete("dropsize_sales")}
+                    downloading={workspaceDownloadingKind === "dropsize_sales"}
+                    deleting={workspaceDeletingKind === "dropsize_sales"}
+                    disabled={
+                      fileActionBusy &&
+                      workspaceDownloadingKind !== "dropsize_sales" &&
+                      workspaceDeletingKind !== "dropsize_sales"
+                    }
+                  />
+                )}
+              </label>
+            )}
+
+            {activeTab === "dropsize" && (
+              <label
+                className={`drop stored-file-drop ${workspaceFiles.dropsize_isolated ? "filled" : ""} ${workspaceUploadingKind === "dropsize_isolated" ? "is-uploading" : ""}`}
+                id="dropDropsizeIsolated"
+              >
+                <input
+                  type="file"
+                  id="fileDropsizeIsolated"
+                  accept=".xlsx,.xls"
+                  disabled={!selectedBranch || fileActionBusy || !xlsxReady}
+                  onChange={handleWorkspaceFileUpload("dropsize_isolated")}
+                />
+                <div className="ico">
+                  {workspaceUploadingKind === "dropsize_isolated" ? (
+                    <RefreshCw className="spin" aria-hidden="true" />
+                  ) : (
+                    <FileSpreadsheet aria-hidden="true" />
+                  )}
+                </div>
+                <div className="label">Reporte aislado DROPSIZE</div>
+                <div className="filename">
+                  {workspaceFiles.dropsize_isolated?.original_name ||
+                    "Seleccioná el reporte aislado de una marca"}
+                </div>
+                {workspaceFiles.dropsize_isolated && (
+                  <div className="upload-meta">{fileMetaLine(workspaceFiles.dropsize_isolated)}</div>
+                )}
+                {workspaceFiles.dropsize_isolated && (
+                  <StoredFileActions
+                    onDownload={handleWorkspaceFileDownload("dropsize_isolated")}
+                    onDelete={handleWorkspaceFileDelete("dropsize_isolated")}
+                    downloading={workspaceDownloadingKind === "dropsize_isolated"}
+                    deleting={workspaceDeletingKind === "dropsize_isolated"}
+                    disabled={
+                      fileActionBusy &&
+                      workspaceDownloadingKind !== "dropsize_isolated" &&
+                      workspaceDeletingKind !== "dropsize_isolated"
+                    }
+                  />
+                )}
+              </label>
+            )}
 
             <label
-              className={`drop database-drop ${clientBaseMeta ? "filled" : ""} ${clientBaseUploading ? "is-uploading" : ""}`}
+              className={`drop database-drop ${clientBaseMeta ? "filled" : ""} ${clientBaseFreshness?.toneClass ?? ""} ${clientBaseUploading ? "is-uploading" : ""}`}
               id="dropPadron"
               aria-disabled={!selectedBranch || fileActionBusy}
             >
@@ -1132,13 +1243,15 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                   ? "Guardando base de clientes…"
                   : `Base de clientes · ${selectedBranchLabel || "Sucursal"}`}
               </div>
-              <div className="hint">
-                Se guarda en Supabase y se comparte con los usuarios de la sucursal
-              </div>
               <div className="filename">
                 {clientBaseMeta?.original_name || "Seleccioná el Excel para cargar o actualizar"}
               </div>
               {clientBaseMeta && <div className="upload-meta">{fileMetaLine(clientBaseMeta)}</div>}
+              {clientBaseFreshness && (
+                <div className="client-base-freshness" role="status" aria-live="polite">
+                  {clientBaseFreshness.message}
+                </div>
+              )}
               {clientBaseMeta && (
                 <StoredFileActions
                   onDownload={handleClientBaseDownload}
@@ -1150,61 +1263,10 @@ function DashboardContent({ me }: { me: DashboardUser }) {
               )}
             </label>
 
-            <label
-              className={`drop stored-file-drop detail-personal-drop ${workspaceFiles.personal_detail ? "filled" : ""} ${workspaceUploadingKind === "personal_detail" ? "is-uploading" : ""} ${activeTab === "dropsize" ? "" : "is-hidden"}`}
-              id="dropDetalle"
-              aria-hidden={activeTab !== "dropsize"}
-            >
-              <input
-                type="file"
-                id="fileDetalle"
-                accept=".xlsx,.xls"
-                disabled={!selectedBranch || fileActionBusy}
-                tabIndex={activeTab === "dropsize" ? 0 : -1}
-                onChange={handleWorkspaceFileUpload("personal_detail")}
-              />
-              <div className="ico">
-                {workspaceUploadingKind === "personal_detail" ? <RefreshCw className="spin" aria-hidden="true" /> : <UsersRound aria-hidden="true" />}
-              </div>
-              <div className="label">Detalle personal (requerido para DROPSIZE)</div>
-              <div className="hint">Se guarda por sucursal y relaciona vendedor con superior/supervisor</div>
-              <div className="filename" id="fileDetalleName">
-                {workspaceFiles.personal_detail?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
-              </div>
-              {workspaceFiles.personal_detail && <div className="upload-meta">{fileMetaLine(workspaceFiles.personal_detail)}</div>}
-              {workspaceFiles.personal_detail && (
-                <StoredFileActions
-                  onDownload={handleWorkspaceFileDownload("personal_detail")}
-                  onDelete={handleWorkspaceFileDelete("personal_detail")}
-                  downloading={workspaceDownloadingKind === "personal_detail"}
-                  deleting={workspaceDeletingKind === "personal_detail"}
-                  disabled={fileActionBusy && workspaceDownloadingKind !== "personal_detail" && workspaceDeletingKind !== "personal_detail"}
-                />
-              )}
-            </label>
           </div>
 
           <div className="refresh-rule">
             <strong>Actualización obligatoria:</strong> la base de clientes debe renovarse cada {CCC_REFRESH_DAYS} días. El dashboard reutiliza automáticamente la última versión guardada de la sucursal.
-          </div>
-
-          <div className="stored-file-status-list" aria-live="polite">
-            <StoredFileStatus meta={workspaceFiles.sales} />
-            <StoredFileStatus
-              meta={workspaceFiles.seller_supervisor}
-              icon={UsersRound}
-            />
-            <ClientBaseStatus
-              meta={clientBaseMeta}
-              loading={clientBaseLoading}
-              branch={selectedBranch}
-            />
-            {activeTab === "dropsize" && (
-              <StoredFileStatus
-                meta={workspaceFiles.personal_detail}
-                icon={UsersRound}
-              />
-            )}
           </div>
 
           {workspaceFilesLoading && (
@@ -1212,6 +1274,14 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           )}
           {workspaceMessage && <div className="database-message success">{workspaceMessage}</div>}
           {workspaceError && <div className="database-message error">{workspaceError}</div>}
+          {sharedPersonalDetailError && (
+            <div className="database-message error">{sharedPersonalDetailError}</div>
+          )}
+          {!sharedPersonalDetailLoading && !sharedPersonalDetailMeta && (
+            <div className="database-message neutral">
+              Administración debe cargar Detalle personal global desde el Panel de configuración.
+            </div>
+          )}
           {clientBaseMessage && <div className="database-message success">{clientBaseMessage}</div>}
           {clientBaseError && <div className="database-message error">{clientBaseError}</div>}
 
@@ -1232,7 +1302,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
             </button>
             <button className="ghost" id="btnReset">Reiniciar</button>
             <span className="status" id="statusMsg">
-              {workspaceFilesLoading || clientBaseLoading
+              {workspaceFilesLoading || clientBaseLoading || sharedPersonalDetailLoading
                 ? "Consultando archivos guardados…"
                 : "Esperando archivo de ventas…"}
             </span>
@@ -1294,7 +1364,35 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           {dashboardProcessing && (
             <DashboardProcessingState />
           )}
-          <div id="dropsizeReportArea" className={dashboardProcessing ? "hidden" : ""} />
+          <div className={dashboardProcessing ? "hidden" : ""}>
+            <div className="dropsize-mode-tabs" role="tablist" aria-label="Vistas de DROPSIZE">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={dropsizeView === "receipts"}
+                className={dropsizeView === "receipts" ? "is-active" : ""}
+                onClick={() => setDropsizeView("receipts")}
+              >
+                Por comprobantes
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={dropsizeView === "hierarchy"}
+                className={dropsizeView === "hierarchy" ? "is-active" : ""}
+                onClick={() => setDropsizeView("hierarchy")}
+              >
+                Detalle comercial
+              </button>
+            </div>
+
+            <div className={dropsizeView === "receipts" ? "" : "hidden"}>
+              <div id="dropsizeReportArea" />
+            </div>
+            <div className={dropsizeView === "hierarchy" ? "" : "hidden"}>
+              <div id="dropsizeHierarchyArea" />
+            </div>
+          </div>
         </section>
         </div>
 

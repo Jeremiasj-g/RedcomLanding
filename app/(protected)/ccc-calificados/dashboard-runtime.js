@@ -1,9 +1,16 @@
-import { processDropsizeDashboard, resetDropsizeDashboard, setDropsizeEmptyState } from "./dropsize-runtime";
+import {
+  buildSellerSupervisorListFromDetailWorkbook,
+  processDropsizeDashboard,
+  processDropsizeIsolatedDashboard,
+  resetDropsizeDashboard,
+  setDropsizeEmptyState,
+} from "./dropsize-runtime";
 
 export function initClientesCalificadosDashboard(options = {}){
   const {
     hasStoredPadron = () => false,
     hasStoredWorkspaceFile = () => false,
+    hasSharedPersonalDetail = () => false,
     getSelectedBranch = () => '',
     getSelectedSucursalName = () => '',
     getSelectedBranchLabel = () => '',
@@ -11,6 +18,7 @@ export function initClientesCalificadosDashboard(options = {}){
     getBrandConfig = () => [],
     resolvePadronFile = async () => null,
     resolveWorkspaceFile = async () => null,
+    resolveSharedPersonalDetail = async () => null,
   } = options;
   const runtimeNotify = (type, message) => {
     const notifier = window.__redcomToast?.[type];
@@ -29,11 +37,7 @@ export function initClientesCalificadosDashboard(options = {}){
 
   try {
     
-    /* ============================================================
-       DATOS POR DEFECTO — Listado Vendedor-Supervisor (precargado)
-    ============================================================ */
-    let LISTADO = [{"sucursal": "CASA CENTRAL", "codigo": 1, "nombre": "MATIAS VILLORDO", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "CASA CENTRAL", "codigo": 2, "nombre": "NAZIR MAIDANA", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 3, "nombre": "BELEN ESCALANTE", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "CASA CENTRAL", "codigo": 4, "nombre": "GUSTAVO MOLINA", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "CASA CENTRAL", "codigo": 5, "nombre": "MARTIN FERNANDEZ", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 6, "nombre": "FACUNDO ZAMORA", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 7, "nombre": "DIEGO VALENZUELA", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 8, "nombre": "MATIAS ALTAMIRANO", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "CASA CENTRAL", "codigo": 9, "nombre": "SEBASTIAN SOTO", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 10, "nombre": "NAHUEL VALLEJOS", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 11, "nombre": "MILAGROS ALMIRON", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 12, "nombre": "GONZALO QUIROGA", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 13, "nombre": "RICARDO FERNANDEZ", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 14, "nombre": "DANIEL GONZALEZ", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 15, "nombre": "LEANDRO ORTIZ", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "CASA CENTRAL", "codigo": 16, "nombre": "GABRIEL GOMEZ", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 17, "nombre": "JONATAN GARRIDO", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 18, "nombre": "JULIO CESAR ROMERO", "supervisor": "VICTOR HUGO MONTAÑEZ"}, {"sucursal": "CASA CENTRAL", "codigo": 19, "nombre": "ENZO ROBINEAU", "supervisor": "NESTOR QUINTANA"}, {"sucursal": "CASA CENTRAL", "codigo": 20, "nombre": "ALAN AYALA", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "CASA CENTRAL", "codigo": 21, "nombre": "ENCINAS NICOLAS", "supervisor": "MANUEL ANDRIAN"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 51, "nombre": "ETECHEBARNE TOBIAS", "supervisor": "FABIAN ROMERO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 52, "nombre": "LUIS NUÑEZ", "supervisor": "GLADYS BENITEZ"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 53, "nombre": "ANTONIO SANCHEZ", "supervisor": "MAXIMILIANO MARECO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 54, "nombre": "AGUSTIN ALEGRE", "supervisor": "MAXIMILIANO MARECO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 55, "nombre": "GASTON MONZON", "supervisor": "GLADYS BENITEZ"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 56, "nombre": "DIAZ CRISTIAN", "supervisor": "FABIAN ROMERO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 57, "nombre": "RODRIGUEZ MAXIMILIANO", "supervisor": "GLADYS BENITEZ"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 58, "nombre": "JUAN CORRALES", "supervisor": "MAXIMILIANO MARECO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 59, "nombre": "NAYLA MACHUCA", "supervisor": "MAXIMILIANO MARECO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 60, "nombre": "GUSTAVO FRIAS", "supervisor": "FABIAN ROMERO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 62, "nombre": "AGUSTINA GUZMAN", "supervisor": "FABIAN ROMERO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 63, "nombre": "INT. LUIS ROMAN", "supervisor": "SERGIO JONATTA SUP. INTERIOR"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 65, "nombre": "INT. ADRIAN ALEGRE", "supervisor": "SERGIO JONATTA SUP. INTERIOR"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 66, "nombre": "VEIDA SILVESTRI", "supervisor": "FABIAN ROMERO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 67, "nombre": "ESQUEMA INTERIOR", "supervisor": null}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 70, "nombre": "INT. LUCAS AGUIRRE", "supervisor": "SERGIO JONATTA SUP. INTERIOR"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 71, "nombre": "SAUCEDO JAVIER", "supervisor": "MAXIMILIANO MARECO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 72, "nombre": "INT. SANCHEZ AGUSTIN", "supervisor": "SERGIO JONATTA SUP. INTERIOR"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 73, "nombre": "LUCAS CABRERA", "supervisor": "GLADYS BENITEZ"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 74, "nombre": "ARIEL MARTINEZ", "supervisor": "GLADYS BENITEZ"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 75, "nombre": "CRISTIAN ARMUA", "supervisor": "GLADYS BENITEZ"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 76, "nombre": "ALAN RODRIGUEZ", "supervisor": "MAXIMILIANO MARECO"}, {"sucursal": "SUCURSAL RESISTENCIA", "codigo": 214, "nombre": "INT. CASTILLO MIGUEL", "supervisor": "SERGIO JONATTA SUP. INTERIOR"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 1, "nombre": "NICOLAS MACHADO (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 2, "nombre": "MATIAS ALBRECHT (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 3, "nombre": "NICOLAS DOGLIOLI (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 4, "nombre": "YENISE LEDESMA (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 5, "nombre": "GERMAN ORTIZ (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 6, "nombre": "TAMARA INCHAUSTI (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 7, "nombre": "JARA MAURICIO (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 8, "nombre": "KATHERINE RODRIGUEZ (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 9, "nombre": "FACUNDO FERNANDEZ  (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 10, "nombre": "SEBASTIAN SANABRIA (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 11, "nombre": "BEATRIZ SILVA (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 12, "nombre": "ALEJANDRO MOSQUEDA (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 13, "nombre": "DANTE PARRA (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 14, "nombre": "ISAIAS RODRIGUEZ (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 15, "nombre": "FLORENCIA FLORENTIN (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 16, "nombre": "LEONARDO SILKE (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 17, "nombre": "ARIEL BEITELEZTN (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 18, "nombre": "FERNANDO LAYES (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 20, "nombre": "ALEJANDRO MATTOSO (PO)", "supervisor": "MATIAS SAUCEDO"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 21, "nombre": "RODRIGO AGUIRRE (APOS)", "supervisor": null}, {"sucursal": "SUCURSAL POSADAS", "codigo": 22, "nombre": "NATALIA ROMERO (APOS)", "supervisor": null}, {"sucursal": "SUCURSAL POSADAS", "codigo": 30, "nombre": "MARTIN GARCIA (PO)", "supervisor": "ULISES DE LA CRUZ"}, {"sucursal": "SUCURSAL POSADAS", "codigo": 31, "nombre": "GAUVRY GONZALO (PO)", "supervisor": "CLAUDIO CENTURION"}, {"sucursal": "SUCURSAL OBERA", "codigo": 125, "nombre": "IVAN PRYTULA", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 126, "nombre": "DIEGO FICHTNER", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 127, "nombre": "CENTURION SEBASTIAN", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 128, "nombre": "YGLESIAS GONZALO", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 129, "nombre": "HUGO RIBERO", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 207, "nombre": "SALGADO RODRIGO", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 208, "nombre": "SEBASTIAN CACERES", "supervisor": "HAHN MAURO"}, {"sucursal": "SUCURSAL OBERA", "codigo": 209, "nombre": "ANDREA DE ALMEIDA", "supervisor": "HAHN MAURO"}];
-    const LISTADO_PREDETERMINADO = LISTADO;
+    let LISTADO = [];
     let PADRON = [];
     /* ============================================================
        CONFIG
@@ -70,7 +74,7 @@ export function initClientesCalificadosDashboard(options = {}){
       LINEAS = next;
       return LINEAS;
     }
-    function filterSalesWorkbookByConfiguredBrands(workbook){
+    function filterSalesWorkbookByBrand(workbook, targetLineCode){
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const rowsArr = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
@@ -81,8 +85,8 @@ export function initClientesCalificadosDashboard(options = {}){
       const lineIdx = marcaIdx >= 0 ? marcaIdx + 1 : headers.indexOf('Descripción.3');
       if (lineIdx < 0) throw new Error('No se encontró la columna de marca/línea en el archivo de ventas.');
 
+      const normalizedTarget = normalizeLineCode(targetLineCode);
       const kept = [rowsArr[0]];
-      let removedRows = 0;
       let candidateRows = 0;
 
       for (let i = 1; i < rowsArr.length; i++){
@@ -90,19 +94,12 @@ export function initClientesCalificadosDashboard(options = {}){
         if (!row || row.every(value => value === null || value === undefined || value === '')) continue;
         candidateRows += 1;
         const lineCode = normalizeLineCode(row[lineIdx]);
-        if (LINEAS[lineCode]){
-          kept.push(row);
-        } else {
-          removedRows += 1;
-        }
+
+        // Importante: no se omiten las otras marcas durante el cálculo.
+        // Se construye un workbook NUEVO donde esas filas directamente ya no existen.
+        if (lineCode === normalizedTarget) kept.push(row);
       }
 
-      if (kept.length === 1){
-        throw new Error('El archivo de ventas no contiene filas de las marcas configuradas para esta sucursal.');
-      }
-
-      // Se crea un workbook de trabajo nuevo. Desde este punto, las filas de marcas
-      // no seleccionadas ya no existen para CCC, MIX ni DROPSIZE.
       const filteredSheet = XLSX.utils.aoa_to_sheet(kept);
       const filteredWorkbook = {
         ...workbook,
@@ -112,11 +109,28 @@ export function initClientesCalificadosDashboard(options = {}){
       return {
         workbook: filteredWorkbook,
         keptRows: kept.length - 1,
-        removedRows,
+        removedRows: Math.max(0, candidateRows - (kept.length - 1)),
         candidateRows,
       };
     }
-    let baseFile = null, listadoFile = null, detalleFile = null;
+
+    function buildSalesWorkbooksByBrand(workbook){
+      const byBrand = {};
+      let totalKept = 0;
+
+      Object.keys(LINEAS).forEach(lineCode => {
+        const result = filterSalesWorkbookByBrand(workbook, lineCode);
+        byBrand[lineCode] = result;
+        totalKept += result.keptRows;
+      });
+
+      if (!totalKept){
+        throw new Error('El archivo de ventas no contiene filas de las marcas configuradas para esta sucursal.');
+      }
+
+      return byBrand;
+    }
+    let baseFile = null;
     let lastReportData = null;
     let processing = false;
     function normSuc(s){
@@ -137,13 +151,6 @@ export function initClientesCalificadosDashboard(options = {}){
         return selectedSucursal || 'REFRIGERADOS';
       }
       return normalized;
-    }
-    function contextualizeListado(listado, selectedBranch, selectedSucursal){
-      if (String(selectedBranch || '').trim().toLowerCase() !== 'refrigerados') return listado;
-      return listado.map(item => ({
-        ...item,
-        sucursal: contextualSucursal(item.sucursal, selectedBranch, selectedSucursal),
-      }));
     }
     function extractPack(desc){
       const m = String(desc||"").match(/(\d+)\s*[Xx]\s*[\d.,]+/);
@@ -197,37 +204,33 @@ export function initClientesCalificadosDashboard(options = {}){
       });
     }
     /* ---------- Upload handlers ---------- */
-    document.getElementById('fileBase').addEventListener('change', (e) => {
+    const baseInputElement = document.getElementById('fileBase');
+    if (baseInputElement) baseInputElement.addEventListener('change', (e) => {
       const f = e.target.files[0];
       if(!f) return;
       baseFile = f;
-      document.getElementById('fileBaseName').textContent = f.name;
-      document.getElementById('dropBase').classList.add('filled');
-      checkReady();
-    });
-    document.getElementById('fileListado').addEventListener('change', (e) => {
-      const f = e.target.files[0];
-      if(!f) return;
-      listadoFile = f;
-      document.getElementById('fileListadoName').textContent = f.name + ' (reemplaza el precargado)';
-      document.getElementById('dropListado').classList.add('filled');
-    });
-    document.getElementById('fileDetalle').addEventListener('change', (e) => {
-      const f = e.target.files[0];
-      if(!f) return;
-      detalleFile = f;
-      document.getElementById('fileDetalleName').textContent = f.name;
-      document.getElementById('dropDetalle').classList.add('filled');
+      const fileName = document.getElementById('fileBaseName');
+      if (fileName) fileName.textContent = f.name;
+      const dropBase = document.getElementById('dropBase');
+      if (dropBase) dropBase.classList.add('filled');
       checkReady();
     });
     function checkReady(){
       const hasBranch = Boolean(getSelectedBranch());
       const hasPadron = Boolean(hasStoredPadron());
       const hasSales = Boolean(baseFile || hasStoredWorkspaceFile('sales'));
-      const hasDetalle = Boolean(detalleFile || hasStoredWorkspaceFile('personal_detail'));
+      const hasDropsizeSales = Boolean(hasStoredWorkspaceFile('dropsize_sales'));
+      const hasDetail = Boolean(hasSharedPersonalDetail());
       const hasBrands = Object.keys(refreshConfiguredLines()).length > 0;
-      const needsDetalle = getActiveTab() === 'dropsize';
-      const ready = Boolean(hasSales && hasBranch && hasPadron && hasBrands && (!needsDetalle || hasDetalle));
+      const dropsizeActive = getActiveTab() === 'dropsize';
+      const ready = Boolean(
+        hasSales &&
+        hasBranch &&
+        hasPadron &&
+        hasBrands &&
+        hasDetail &&
+        (!dropsizeActive || hasDropsizeSales)
+      );
       const processButton = document.getElementById('btnProcess');
       if (processButton) processButton.disabled = processing || !ready;
       if (processing) return;
@@ -235,21 +238,20 @@ export function initClientesCalificadosDashboard(options = {}){
       else if (!hasPadron) setStatus('La sucursal no tiene una base de clientes guardada.', true);
       else if (!hasSales) setStatus('La sucursal no tiene un archivo de ventas guardado.');
       else if (!hasBrands) setStatus('Configurá al menos una marca y su cuota para esta sucursal.', true);
-      else if (needsDetalle && !hasDetalle) setStatus('Cargá Detalle personal para generar DROPSIZE.');
+      else if (!hasDetail) setStatus('Administración debe cargar Detalle personal global desde Configuración.', true);
+      else if (dropsizeActive && !hasDropsizeSales) setStatus('Importá el reporte de comprobantes para calcular DROPSIZE.', true);
       else setStatus('Listo para procesar.');
     }
     function clearLocalSelections(){
-      baseFile = null; listadoFile = null; detalleFile = null; lastReportData = null;
+      baseFile = null;
+      lastReportData = null;
       const baseInput = document.getElementById('fileBase');
-      const listadoInput = document.getElementById('fileListado');
-      const detalleInput = document.getElementById('fileDetalle');
       if (baseInput) baseInput.value = '';
-      if (listadoInput) listadoInput.value = '';
-      if (detalleInput) detalleInput.value = '';
     }
     window.addEventListener('ccc:padron-status-changed', checkReady);
     window.addEventListener('ccc:workspace-files-changed', checkReady);
     window.addEventListener('ccc:brand-config-changed', checkReady);
+    window.addEventListener('ccc:shared-personal-detail-status-changed', checkReady);
     window.addEventListener('ccc:active-tab-changed', checkReady);
     window.addEventListener('ccc:branch-changed', () => {
       clearLocalSelections();
@@ -286,16 +288,12 @@ export function initClientesCalificadosDashboard(options = {}){
           throw new Error('La sucursal no tiene marcas y cuotas configuradas.');
         }
 
-        LISTADO = LISTADO_PREDETERMINADO;
-        let effectiveListadoFile = listadoFile;
-        if (!effectiveListadoFile && hasStoredWorkspaceFile('seller_supervisor')){
-          effectiveListadoFile = await resolveWorkspaceFile('seller_supervisor');
+        const sharedDetailFile = await resolveSharedPersonalDetail();
+        if (!sharedDetailFile) {
+          throw new Error('Administración debe cargar Detalle personal global desde Configuración.');
         }
-        if (effectiveListadoFile){
-          const wbL = await readWorkbook(effectiveListadoFile);
-          LISTADO = parseListado(wbL);
-        }
-        LISTADO = contextualizeListado(LISTADO, selectedBranch, selectedSucursal);
+        const wbDetalle = await readWorkbook(sharedDetailFile);
+        LISTADO = buildSellerSupervisorListFromDetailWorkbook(XLSX, wbDetalle);
 
         const storedPadronFile = await resolvePadronFile();
         if (!storedPadronFile) throw new Error('No se encontró una base de clientes guardada para ' + (getSelectedBranchLabel() || selectedBranch) + '.');
@@ -305,22 +303,64 @@ export function initClientesCalificadosDashboard(options = {}){
         const effectiveSalesFile = baseFile || (hasStoredWorkspaceFile('sales') ? await resolveWorkspaceFile('sales') : null);
         if (!effectiveSalesFile) throw new Error('No hay un archivo de ventas guardado para la sucursal seleccionada.');
         const wbBComplete = await readWorkbook(effectiveSalesFile);
-        const filteredSales = filterSalesWorkbookByConfiguredBrands(wbBComplete);
-        const wbB = filteredSales.workbook;
-        const parsedBase = parseBase(wbB, selectedBranch, selectedSucursal);
-        const rows = parsedBase.rows.filter(row => row.sucursal === selectedSucursal);
-        if (!rows.length) throw new Error('El archivo de ventas no contiene movimientos de la sucursal ' + (getSelectedBranchLabel() || selectedBranch) + '.');
-        const periodo = parsedBase.periodo;
-        const lineasDetectadas = Array.from(new Set(rows.map(row => row.linea)));
-        lastReportData = { rows, periodo, lineasDetectadas, selectedLineaCode: lineasDetectadas[0] || Object.keys(LINEAS)[0] };
-        renderReport(rows, periodo, lineasDetectadas, lastReportData.selectedLineaCode);
+        const salesByBrand = buildSalesWorkbooksByBrand(wbBComplete);
+        const rowsByLine = {};
+        const allRows = [];
+        let periodo = null;
 
-        const effectiveDetalleFile = detalleFile || (hasStoredWorkspaceFile('personal_detail') ? await resolveWorkspaceFile('personal_detail') : null);
-        if (effectiveDetalleFile){
-          const wbDetalle = await readWorkbook(effectiveDetalleFile);
+        for (const lineCode of Object.keys(LINEAS)){
+          const brandSales = salesByBrand[lineCode];
+          if (!brandSales || brandSales.keptRows === 0){
+            rowsByLine[lineCode] = [];
+            continue;
+          }
+
+          const parsedBrand = parseBase(
+            brandSales.workbook,
+            selectedBranch,
+            selectedSucursal,
+          );
+          const brandRows = parsedBrand.rows
+            .filter(row => row.sucursal === selectedSucursal && row.linea === lineCode);
+
+          rowsByLine[lineCode] = brandRows;
+          allRows.push(...brandRows);
+          if (!periodo) periodo = parsedBrand.periodo;
+        }
+
+        if (!allRows.length){
+          throw new Error('El archivo de ventas no contiene movimientos de la sucursal ' + (getSelectedBranchLabel() || selectedBranch) + '.');
+        }
+
+        const lineasDetectadas = Object.keys(LINEAS)
+          .filter(lineCode => (rowsByLine[lineCode] || []).length > 0);
+        const selectedLineaCode = lineasDetectadas[0] || Object.keys(LINEAS)[0];
+
+        lastReportData = {
+          rows: allRows,
+          rowsByLine,
+          periodo,
+          lineasDetectadas,
+          selectedLineaCode,
+        };
+        renderReport(allRows, periodo, lineasDetectadas, selectedLineaCode);
+
+        if (hasStoredWorkspaceFile('dropsize_sales')){
+          const dropsizeSalesFile = await resolveWorkspaceFile('dropsize_sales');
+          if (!dropsizeSalesFile) {
+            throw new Error('No se pudo recuperar el reporte de comprobantes para DROPSIZE.');
+          }
+          const wbDropsize = await readWorkbook(dropsizeSalesFile);
           await processDropsizeDashboard({
             XLSX,
-            salesWorkbook: wbB,
+            receiptWorkbook: wbDropsize,
+            salesWorkbook: salesByBrand[selectedLineaCode]?.workbook || null,
+            salesWorkbooksByBrand: Object.fromEntries(
+              Object.entries(salesByBrand).map(([lineCode, result]) => [
+                lineCode,
+                result.workbook,
+              ]),
+            ),
             detailWorkbook: wbDetalle,
             selectedSucursal,
             selectedBranch,
@@ -331,22 +371,48 @@ export function initClientesCalificadosDashboard(options = {}){
             })),
           });
         } else {
-          setDropsizeEmptyState('Importá Detalle personal para generar el dashboard');
+          setDropsizeEmptyState(
+            'Importá el reporte de comprobantes desde la pestaña DROPSIZE para calcular el indicador.'
+          );
         }
 
-        const filterSummary = filteredSales.removedRows > 0
-          ? ` Se eliminaron ${filteredSales.removedRows.toLocaleString('es-AR')} filas de marcas fuera del foco antes del procesamiento.`
+        const isolatedArea = document.getElementById('dropsizeHierarchyArea');
+        if (hasStoredWorkspaceFile('dropsize_isolated')){
+          const isolatedFile = await resolveWorkspaceFile('dropsize_isolated');
+          if (!isolatedFile) {
+            throw new Error('No se pudo recuperar el reporte aislado de DROPSIZE.');
+          }
+          const wbIsolated = await readWorkbook(isolatedFile);
+          await processDropsizeIsolatedDashboard({
+            XLSX,
+            salesWorkbook: wbIsolated,
+            detailWorkbook: wbDetalle,
+            selectedSucursal,
+            selectedBranch,
+            branchLabel: getSelectedBranchLabel() || selectedBranch,
+            brandConfig: Object.entries(LINEAS).map(([, info]) => ({
+              brand_name: info.label,
+              quota: info.umbral,
+            })),
+            targetAreaId: 'dropsizeHierarchyArea',
+          });
+        } else if (isolatedArea) {
+          isolatedArea.innerHTML = '<div class="report-empty dropsize-placeholder compact"><div class="report-empty-icon">↕</div><h2>Detalle comercial</h2><p>Importá un reporte aislado de una sola marca para visualizar Jefe de ventas, Supervisor, Vendedor, Ruta y Cliente.</p></div>';
+        }
+
+        const selectedFilter = salesByBrand[selectedLineaCode];
+        const filterSummary = selectedFilter
+          ? ` Para ${LINEAS[selectedLineaCode]?.label || selectedLineaCode} se eliminaron ${selectedFilter.removedRows.toLocaleString('es-AR')} filas y se analizaron ${selectedFilter.keptRows.toLocaleString('es-AR')} filas.`
           : '';
 
-        if (effectiveDetalleFile){
-          finalStatus = automatic
-            ? 'Los tres dashboards se actualizaron automáticamente y quedan disponibles al volver a la página.' + filterSummary
-            : 'Los tres dashboards fueron actualizados.' + filterSummary;
-        } else {
-          finalStatus = automatic
-            ? 'CCC Calificados y MIX se actualizaron automáticamente. Cargá Detalle personal para completar DROPSIZE.' + filterSummary
-            : 'CCC Calificados y MIX fueron actualizados. Cargá Detalle personal para completar DROPSIZE.' + filterSummary;
-        }
+        const hasDropsizeReport = hasStoredWorkspaceFile('dropsize_sales');
+        finalStatus = automatic
+          ? (hasDropsizeReport
+              ? 'CCC, MIX y DROPSIZE se actualizaron automáticamente y quedan disponibles al volver a la página.'
+              : 'CCC y MIX se actualizaron automáticamente. DROPSIZE queda pendiente hasta importar su reporte de comprobantes.') + filterSummary
+          : (hasDropsizeReport
+              ? 'CCC, MIX y DROPSIZE fueron actualizados.'
+              : 'CCC y MIX fueron actualizados. DROPSIZE queda pendiente hasta importar su reporte de comprobantes.') + filterSummary;
       }catch(err){
         console.error(err);
         processError = err;
@@ -373,26 +439,6 @@ export function initClientesCalificadosDashboard(options = {}){
     window.addEventListener('ccc:auto-process', () => {
       processDashboards({ automatic: true });
     });
-    /* ---------- Parse Listado ---------- */
-    function parseListado(wb){
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json(sheet, { defval: null });
-      const out = [];
-      json.forEach(r => {
-        const anulado = r['Anulado'];
-        if (anulado === true || anulado === 'true' || anulado === 'TRUE') return;
-        const codigo = r['Código'];
-        if (codigo === null || codigo === undefined || codigo === '') return;
-        out.push({
-          sucursal: normSuc(r['Sucursal']),
-          codigo: Number(codigo),
-          nombre: String(r['Descripción']||'').trim(),
-          supervisor: (r['Superior'] === null || r['Superior'] === undefined || String(r['Superior']).trim()==='')
-            ? null : String(r['Superior']).trim(),
-        });
-      });
-      return out;
-    }
     /* ---------- Parse Padrón (hojas "Clientes" y "Rutas de Venta") ---------- */
     function looksLikeTypeRow(row){
       if (!row) return false;
@@ -548,8 +594,12 @@ export function initClientesCalificadosDashboard(options = {}){
       const idx = {}; // vKey -> { info, rutas: { rutaNombre: Map(clienteCod -> nombre) } }
       PADRON.forEach(p => {
         const vKey = p.sucursal + '|' + p.vendCod;
-        const info = vIdx[vKey];
-        if (!info) return; // vendedor no existe en el listado -> no debe figurar
+        const info = vIdx[vKey] || {
+          sucursal: p.sucursal,
+          codigo: p.vendCod,
+          nombre: 'Vendedor ' + p.vendCod,
+          supervisor: null,
+        };
         if (!idx[vKey]) idx[vKey] = { info, rutas: {} };
         const bucket = idx[vKey];
         if (!bucket.rutas[p.ruta]) bucket.rutas[p.ruta] = new Map();
@@ -564,8 +614,12 @@ export function initClientesCalificadosDashboard(options = {}){
       const idx = {};
       rows.forEach(r => {
         const vKey = r.sucursal + '|' + r.vendCod;
-        const info = vIdx[vKey];
-        if (!info) return;
+        const info = vIdx[vKey] || {
+          sucursal: r.sucursal,
+          codigo: r.vendCod,
+          nombre: r.detalleVendedor || ('Vendedor ' + r.vendCod),
+          supervisor: null,
+        };
         if (!idx[vKey]) idx[vKey] = { info, rutas: {} };
         const bucket = idx[vKey];
         const rutaKey = r.ruta || '(Sin ruta especificada)';
@@ -1563,7 +1617,7 @@ export function initClientesCalificadosDashboard(options = {}){
         <div class="linea-badge ${lineaInfo.cls}">Línea seleccionada: ${lineaInfo.label} · Mix de artículos del período</div>`;
       area.appendChild(controls);
       controls.querySelector('select').addEventListener('change', event => {
-        renderReport(rows, periodo, lineasDetectadas, event.target.value);
+        renderReport(lastReportData?.rows || rows, periodo, lineasDetectadas, event.target.value);
       });
 
       if (!lineasDetectadas.includes(lineaCode)){
@@ -1818,6 +1872,7 @@ export function initClientesCalificadosDashboard(options = {}){
         : (lineasDetectadas[0] || Object.keys(LINEAS)[0]);
       const lineaInfo = LINEAS[lineaCode];
       if (lastReportData) lastReportData.selectedLineaCode = lineaCode;
+      const analysisRows = lastReportData?.rowsByLine?.[lineaCode] ?? rows.filter(r => r.linea === lineaCode);
     
       // Selector disponible luego de procesar, sin necesidad de volver a leer el Excel.
       const selectorPanel = document.createElement('div');
@@ -1831,7 +1886,7 @@ export function initClientesCalificadosDashboard(options = {}){
         </select>`;
       area.appendChild(selectorPanel);
       selectorPanel.querySelector('select').addEventListener('change', e => {
-        renderReport(rows, periodo, lineasDetectadas, e.target.value);
+        renderReport(lastReportData?.rows || rows, periodo, lineasDetectadas, e.target.value);
       });
     
       const lineaBadge = document.createElement('div');
@@ -1860,7 +1915,7 @@ export function initClientesCalificadosDashboard(options = {}){
         artLabels,
         cantidadPorArticuloCliente,
         cantidadPorArticuloSucursal,
-      } = aggregate(rows, lineaCode);
+      } = aggregate(analysisRows, lineaCode);
     
       // ---- KPI general ----
       const general = computeGeneralStats(structure, ventasPorCliente, umbral);
@@ -2116,7 +2171,7 @@ export function initClientesCalificadosDashboard(options = {}){
         area.appendChild(empty);
       }
       document.getElementById('btnExportVendorMatrix').addEventListener('click', () => {
-        openVendorMatrixExportModal({ area, rows, periodo });
+        openVendorMatrixExportModal({ area, rows: analysisRows, periodo });
       });
       document.getElementById('btnExpandAll').addEventListener('click', () => {
         area.querySelectorAll('.sup-card, .vend-card, .ruta-card').forEach(c => c.classList.add('open'));
@@ -2128,7 +2183,7 @@ export function initClientesCalificadosDashboard(options = {}){
       if (firstDetail) firstDetail.classList.add('open');
 
       renderMixReport({
-        rows,
+        rows: analysisRows,
         periodo,
         lineasDetectadas,
         lineaCode,

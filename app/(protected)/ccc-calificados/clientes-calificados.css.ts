@@ -44,16 +44,14 @@ export const clientesCalificadosCss = `
   .ccc-page .branch-selector select:disabled{background:#F2F1ED;color:var(--grayL);}
   .ccc-page .upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
   .ccc-page .upload-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));}
-  .ccc-page .shared-upload-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
-  .ccc-page .shared-upload-grid.is-dropsize{grid-template-columns:repeat(4,minmax(0,1fr));}
-  .ccc-page .detail-personal-drop.is-hidden{display:none;}
-  .ccc-page .detail-personal-drop{border-color:#D7C7E8;background:#FAF7FD;}
-  .ccc-page .detail-personal-drop:hover{border-color:#6543A6;background:#F6F1FD;}
+  .ccc-page .shared-upload-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .ccc-page .shared-upload-grid.upload-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .ccc-page .shared-upload-grid.upload-grid-4{grid-template-columns:repeat(4,minmax(0,1fr));}
   .ccc-page .shared-upload-panel{margin-bottom:18px;}
   .ccc-page .drop{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:.15s;background:var(--cream);min-height:142px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
   .ccc-page .drop:hover{border-color:var(--red);background:var(--redTint);}
   .ccc-page .drop.filled{border-style:solid;border-color:var(--green);background:#F0F9F3;}
-  .ccc-page .drop.filled:hover,.ccc-page .detail-personal-drop.filled:hover{border-color:var(--greenDark);background:var(--greenTint);}
+  .ccc-page .drop.filled:hover{border-color:var(--greenDark);background:var(--greenTint);}
   .ccc-page .drop.is-uploading{cursor:wait;opacity:.78;}
   .ccc-page .drop .ico{height:24px;font-size:22px;margin-bottom:7px;display:flex;align-items:center;justify-content:center;}
   .ccc-page .drop .ico svg{width:23px;height:23px;}
@@ -63,7 +61,19 @@ export const clientesCalificadosCss = `
   .ccc-page .drop .filename{font-size:11.5px;color:var(--green);font-weight:700;margin-top:7px;word-break:break-word;}
   .ccc-page .drop .upload-meta{font-size:10.5px;color:var(--grayL);font-weight:500;line-height:1.35;margin-top:5px;max-width:100%;word-break:break-word;}
   .ccc-page .drop.filled .upload-meta{color:#39745A;}
-  .ccc-page .stored-file-drop:hover,.ccc-page .database-drop:hover{border-color:var(--green);background:var(--greenTint);}
+  .ccc-page .database-drop.freshness-warning{border-color:#E8A23A;background:#FFF6E8;}
+  .ccc-page .database-drop.freshness-warning:hover{border-color:#D58B19;background:#FFF1D8;}
+  .ccc-page .database-drop.freshness-warning .filename,
+  .ccc-page .database-drop.freshness-warning .client-base-freshness{color:#A75A08;}
+  .ccc-page .database-drop.freshness-warning .upload-meta{color:#9A743E;}
+  .ccc-page .database-drop.freshness-expired{border-color:#E45B6F;background:#FDEBED;}
+  .ccc-page .database-drop.freshness-expired:hover{border-color:var(--red);background:#FBE1E5;}
+  .ccc-page .database-drop.freshness-expired .filename,
+  .ccc-page .database-drop.freshness-expired .client-base-freshness{color:var(--red);}
+  .ccc-page .database-drop.freshness-expired .upload-meta{color:#A85E69;}
+  .ccc-page .client-base-freshness{margin-top:7px;font-size:11.5px;font-weight:800;line-height:1.35;}
+  .ccc-page .database-drop.freshness-fresh .client-base-freshness{color:#087B45;}
+  .ccc-page .stored-file-drop:hover,.ccc-page .database-drop.freshness-fresh:hover{border-color:var(--green);background:var(--greenTint);}
   .ccc-page .refresh-rule{margin-top:14px;border:1px solid #EAD6B5;background:#FFF9EF;border-radius:9px;padding:10px 13px;font-size:11.5px;color:#86600E;line-height:1.45;}
   .ccc-page .client-base-status{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;align-items:flex-start;gap:11px;font-size:12px;}
   .ccc-page .client-base-status .status-icon{width:19px;height:19px;flex:none;margin-top:1px;}
@@ -242,6 +252,10 @@ export const clientesCalificadosCss = `
   .ccc-page .dropsize-vendor-card.open>.vend-body{height:auto;opacity:1;overflow:visible;padding:0 10px 10px;}
   .ccc-page .dropsize-route-card>.ruta-body{display:block;height:0;opacity:0;overflow:hidden;padding:0 8px;will-change:height,opacity,padding;}
   .ccc-page .dropsize-route-card.open>.ruta-body{height:auto;opacity:1;overflow:visible;padding:0 8px 8px;}
+  .ccc-page .dropsize-mode-tabs{display:inline-flex;align-items:center;gap:4px;margin:0 0 18px;padding:4px;border:1px solid var(--line);border-radius:10px;background:#F5F4F1;}
+  .ccc-page .dropsize-mode-tabs button{border:0;background:transparent;color:var(--gray);border-radius:7px;padding:9px 14px;font-size:12px;font-weight:800;cursor:pointer;transition:.15s;}
+  .ccc-page .dropsize-mode-tabs button:hover{color:var(--dark);background:rgba(255,255,255,.65);}
+  .ccc-page .dropsize-mode-tabs button.is-active{background:var(--white);color:var(--red);box-shadow:0 1px 4px rgba(20,23,28,.08);}
   .ccc-page .dropsize-table-wrap{overflow-x:auto;}
   .ccc-page .dropsize-table{min-width:620px;}
   .ccc-page .dropsize-table td:last-child{font-weight:800;}
@@ -249,11 +263,11 @@ export const clientesCalificadosCss = `
   .ccc-page .spin{animation:ccc-spin .8s linear infinite;}
   @keyframes ccc-spin{to{transform:rotate(360deg);}}
   @media(max-width:1100px){
-    .ccc-page .shared-upload-grid,
-    .ccc-page .shared-upload-grid.is-dropsize{grid-template-columns:1fr 1fr;}
+    .ccc-page .shared-upload-grid{grid-template-columns:1fr 1fr;}
+    .ccc-page .shared-upload-grid.upload-grid-4{grid-template-columns:1fr 1fr;}
   }
   @media(max-width:900px){
-    .ccc-page .upload-grid-3{grid-template-columns:1fr 1fr;}
+    .ccc-page .upload-grid-3,.ccc-page .shared-upload-grid.upload-grid-3{grid-template-columns:1fr 1fr;}
   }
   @media(max-width:820px){
     .ccc-page .kpi-summary{grid-template-columns:1fr 1fr;}
@@ -266,7 +280,8 @@ export const clientesCalificadosCss = `
     .ccc-page .ccc-tabs{padding:0;}
     .ccc-page .ccc-tabs button{padding:10px 12px 9px;}
     .ccc-page .upload-grid,.ccc-page .upload-grid-3,
-    .ccc-page .shared-upload-grid,.ccc-page .shared-upload-grid.is-dropsize{grid-template-columns:1fr;}
+    .ccc-page .shared-upload-grid,.ccc-page .shared-upload-grid.upload-grid-3,
+    .ccc-page .shared-upload-grid.upload-grid-4{grid-template-columns:1fr;}
     .ccc-page .branch-selector{width:100%;}
     .ccc-page .dropsize-filters,.ccc-page .dropsize-actions{width:100%;}
     .ccc-page .dropsize-filters label,.ccc-page .dropsize-filters input{width:100%;}
