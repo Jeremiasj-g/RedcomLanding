@@ -1118,8 +1118,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                 {workspaceUploadingKind === "sales" ? <RefreshCw className="spin" aria-hidden="true" /> : <FileSpreadsheet aria-hidden="true" />}
               </div>
               <div className="label">Archivo de ventas (requerido)</div>
-              <div className="hint">Se guarda por sucursal y se utiliza en los tres dashboards</div>
-              <div className="filename" id="fileBaseName">
+                            <div className="filename" id="fileBaseName">
                 {workspaceFiles.sales?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
               </div>
               {workspaceFiles.sales && <div className="upload-meta">{fileMetaLine(workspaceFiles.sales)}</div>}
@@ -1154,9 +1153,6 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                   )}
                 </div>
                 <div className="label">Reporte de comprobantes DROPSIZE</div>
-                <div className="hint">
-                  Debe incluir todas las marcas a analizar y el detalle de comprobantes
-                </div>
                 <div className="filename">
                   {workspaceFiles.dropsize_sales?.original_name ||
                     "Seleccioná el reporte con comprobantes"}
@@ -1200,9 +1196,6 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                   )}
                 </div>
                 <div className="label">Reporte aislado DROPSIZE</div>
-                <div className="hint">
-                  Exportá una sola marca para recuperar el detalle comercial completo
-                </div>
                 <div className="filename">
                   {workspaceFiles.dropsize_isolated?.original_name ||
                     "Seleccioná el reporte aislado de una marca"}
@@ -1249,9 +1242,6 @@ function DashboardContent({ me }: { me: DashboardUser }) {
                 {clientBaseUploading
                   ? "Guardando base de clientes…"
                   : `Base de clientes · ${selectedBranchLabel || "Sucursal"}`}
-              </div>
-              <div className="hint">
-                Se guarda en Supabase y se comparte con los usuarios de la sucursal
               </div>
               <div className="filename">
                 {clientBaseMeta?.original_name || "Seleccioná el Excel para cargar o actualizar"}
