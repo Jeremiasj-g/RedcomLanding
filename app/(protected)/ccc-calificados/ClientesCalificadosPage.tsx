@@ -38,6 +38,11 @@ import {
   getSharedPersonalDetailMeta,
 } from "./ccc-shared-personal-detail.service";
 import { errorMessage, notify } from "@/lib/notifications";
+import {
+  getCccDashboardCache,
+  saveCccDashboardCache,
+  type CccDashboardCachePayload,
+} from "./ccc-dashboard-cache.service";
 import { useModulePermissions } from "@/components/permissions/ModulePermissionsProvider";
 import {
   CCC_BRANCH_LABELS,
@@ -326,6 +331,7 @@ function StoredFileActions({
 function DashboardContent({ me }: { me: DashboardUser }) {
   const initialized = useRef(false);
   const lastAutoProcessFingerprintRef = useRef("");
+  const autoProcessFingerprintRef = useRef("");
   const selectedBranchRef = useRef("");
   const activeTabRef = useRef<CccWorkspaceTab>("ccc");
   const clientBaseMetaRef = useRef<CccClientBaseMeta | null>(null);
@@ -663,6 +669,8 @@ function DashboardContent({ me }: { me: DashboardUser }) {
     workspaceFiles.dropsize_isolated,
   ]);
 
+  autoProcessFingerprintRef.current = autoProcessFingerprint;
+
   useEffect(() => {
     if (
       !runtimeReady ||
@@ -725,6 +733,20 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           CCC_BRANCH_LABELS[selectedBranchRef.current] || selectedBranchRef.current,
         getActiveTab: () => activeTabRef.current,
         getBrandConfig: () => brandConfigRef.current,
+        getSourceFingerprint: () => autoProcessFingerprintRef.current,
+        loadDashboardCache: async (branch: string, fingerprint: string) =>
+          getCccDashboardCache(branch, fingerprint),
+        saveDashboardCache: async (
+          branch: string,
+          fingerprint: string,
+          payload: CccDashboardCachePayload,
+        ) =>
+          saveCccDashboardCache({
+            branch,
+            sourceFingerprint: fingerprint,
+            payload,
+            userId: me.id,
+          }),
         resolvePadronFile: async () => {
           const branch = selectedBranchRef.current;
           if (!branch) throw new Error("Seleccioná una sucursal.");
