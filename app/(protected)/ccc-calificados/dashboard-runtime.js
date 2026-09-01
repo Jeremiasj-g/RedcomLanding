@@ -2,6 +2,7 @@ import {
   buildSellerSupervisorListFromDetailWorkbook,
   processDropsizeDashboard,
   processDropsizeIsolatedDashboard,
+  renderCachedDropsizeDashboard,
   resetDropsizeDashboard,
   setDropsizeEmptyState,
 } from "./dropsize-runtime";
@@ -19,6 +20,9 @@ export function initClientesCalificadosDashboard(options = {}){
     resolvePadronFile = async () => null,
     resolveWorkspaceFile = async () => null,
     resolveSharedPersonalDetail = async () => null,
+    getSourceFingerprint = () => "",
+    loadDashboardCache = async () => null,
+    saveDashboardCache = async () => {},
   } = options;
   const runtimeNotify = (type, message) => {
     const notifier = window.__redcomToast?.[type];
@@ -288,6 +292,57 @@ export function initClientesCalificadosDashboard(options = {}){
           throw new Error('La sucursal no tiene marcas y cuotas configuradas.');
         }
 
+        const sourceFingerprint = getSourceFingerprint();
+        if (automatic && sourceFingerprint) {
+          try {
+            const cached = await loadDashboardCache(selectedBranch, sourceFingerprint);
+            const payload = cached?.payload;
+            if (
+              payload?.version === 1 &&
+              payload?.reportData &&
+              Array.isArray(payload?.padron) &&
+              Array.isArray(payload?.listado)
+            ) {
+              PADRON = payload.padron;
+              LISTADO = payload.listado;
+              lastReportData = payload.reportData;
+              renderReport(
+                lastReportData.rows || [],
+                lastReportData.periodo,
+                lastReportData.lineasDetectadas || [],
+                lastReportData.selectedLineaCode,
+              );
+
+              if (payload.dropsizeReceipt) {
+                renderCachedDropsizeDashboard(payload.dropsizeReceipt);
+              } else {
+                setDropsizeEmptyState(
+                  'Importá el reporte de comprobantes desde la pestaña DROPSIZE para calcular el indicador.'
+                );
+              }
+
+              if (payload.dropsizeIsolated) {
+                renderCachedDropsizeDashboard(payload.dropsizeIsolated);
+              } else {
+                const isolatedArea = document.getElementById('dropsizeHierarchyArea');
+                if (isolatedArea) {
+                  isolatedArea.innerHTML = '<div class="report-empty dropsize-placeholder compact"><div class="report-empty-icon">↕</div><h2>Detalle comercial</h2><p>Importá un reporte aislado de una sola marca para visualizar Jefe de ventas, Supervisor, Vendedor, Ruta y Cliente.</p></div>';
+                }
+              }
+
+              const updatedDate = document.getElementById('updatedDate');
+              if (updatedDate && payload.generatedAt) {
+                updatedDate.textContent = formatFecha(new Date(payload.generatedAt));
+              }
+
+              finalStatus = 'Dashboards recuperados desde la última actualización guardada.';
+              return;
+            }
+          } catch (cacheError) {
+            console.warn('[CCC] No se pudo recuperar el dashboard persistido:', cacheError);
+          }
+        }
+
         const sharedDetailFile = await resolveSharedPersonalDetail();
         if (!sharedDetailFile) {
           throw new Error('Administración debe cargar Detalle personal global desde Configuración.');
@@ -345,13 +400,16 @@ export function initClientesCalificadosDashboard(options = {}){
         };
         renderReport(allRows, periodo, lineasDetectadas, selectedLineaCode);
 
+        let dropsizeReceiptSnapshot = null;
+        let dropsizeIsolatedSnapshot = null;
+
         if (hasStoredWorkspaceFile('dropsize_sales')){
           const dropsizeSalesFile = await resolveWorkspaceFile('dropsize_sales');
           if (!dropsizeSalesFile) {
             throw new Error('No se pudo recuperar el reporte de comprobantes para DROPSIZE.');
           }
           const wbDropsize = await readWorkbook(dropsizeSalesFile);
-          await processDropsizeDashboard({
+          dropsizeReceiptSnapshot = await processDropsizeDashboard({
             XLSX,
             receiptWorkbook: wbDropsize,
             salesWorkbook: salesByBrand[selectedLineaCode]?.workbook || null,
@@ -383,7 +441,7 @@ export function initClientesCalificadosDashboard(options = {}){
             throw new Error('No se pudo recuperar el reporte aislado de DROPSIZE.');
           }
           const wbIsolated = await readWorkbook(isolatedFile);
-          await processDropsizeIsolatedDashboard({
+          dropsizeIsolatedSnapshot = await processDropsizeIsolatedDashboard({
             XLSX,
             salesWorkbook: wbIsolated,
             detailWorkbook: wbDetalle,
@@ -398,6 +456,22 @@ export function initClientesCalificadosDashboard(options = {}){
           });
         } else if (isolatedArea) {
           isolatedArea.innerHTML = '<div class="report-empty dropsize-placeholder compact"><div class="report-empty-icon">↕</div><h2>Detalle comercial</h2><p>Importá un reporte aislado de una sola marca para visualizar Jefe de ventas, Supervisor, Vendedor, Ruta y Cliente.</p></div>';
+        }
+
+        if (sourceFingerprint) {
+          try {
+            await saveDashboardCache(selectedBranch, sourceFingerprint, {
+              version: 1,
+              generatedAt: new Date().toISOString(),
+              reportData: lastReportData,
+              padron: PADRON,
+              listado: LISTADO,
+              dropsizeReceipt: dropsizeReceiptSnapshot,
+              dropsizeIsolated: dropsizeIsolatedSnapshot,
+            });
+          } catch (cacheError) {
+            console.warn('[CCC] No se pudo guardar el dashboard persistido:', cacheError);
+          }
         }
 
         const selectedFilter = salesByBrand[selectedLineaCode];
