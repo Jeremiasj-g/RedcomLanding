@@ -1521,38 +1521,42 @@ export async function processDropsizeDashboard({
     const parsedReceipt = parseReceiptDropsizeWorkbook(XLSX, receiptWorkbook);
     const results = parsedReceipt.results;
     const configuredCodes = Object.keys(DROPSIZE_LINES);
-    const firstDetected = configuredCodes.find((code) => (results[code]?.invoices || 0) > 0);
+    const lineasDetectadas = configuredCodes.filter((code) => (results[code]?.invoices || 0) > 0);
+    const firstDetected = lineasDetectadas[0] || configuredCodes[0];
     const initialLine =
       lastSelectedDropsizeLine && DROPSIZE_LINES[lastSelectedDropsizeLine]
         ? lastSelectedDropsizeLine
-        : (firstDetected || configuredCodes[0]);
+        : firstDetected;
     const detailMaps = detailWorkbook
       ? parseDetailWorkbook(XLSX, detailWorkbook)
       : null;
 
-    const renderForLine = (lineCode) => {
-      const normalized = normalizeLinea(lineCode);
-      lastSelectedDropsizeLine = DROPSIZE_LINES[normalized] ? normalized : initialLine;
-
-      let parsedHierarchy = null;
-      const hierarchyWorkbook =
-        salesWorkbooksByBrand?.[lastSelectedDropsizeLine] ||
-        salesWorkbook;
-
-      if (hierarchyWorkbook && detailMaps) {
+    const hierarchyByLine = {};
+    if (detailMaps) {
+      configuredCodes.forEach((lineCode) => {
+        const hierarchyWorkbook =
+          salesWorkbooksByBrand?.[lineCode] ||
+          (lineCode === initialLine ? salesWorkbook : null);
+        if (!hierarchyWorkbook) return;
         try {
-          parsedHierarchy = parseSalesWorkbook(
+          hierarchyByLine[lineCode] = parseSalesWorkbook(
             XLSX,
             hierarchyWorkbook,
             selectedSucursal,
             detailMaps,
-            lastSelectedDropsizeLine,
+            lineCode,
             selectedBranch,
           );
         } catch (error) {
           console.warn("[DROPSIZE] No se pudo reconstruir el detalle comercial:", error);
         }
-      }
+      });
+    }
+
+    const renderForLine = (lineCode) => {
+      const normalized = normalizeLinea(lineCode);
+      lastSelectedDropsizeLine = DROPSIZE_LINES[normalized] ? normalized : initialLine;
+      const parsedHierarchy = hierarchyByLine[lastSelectedDropsizeLine] || null;
 
       renderReceiptDropsize(
         results,
@@ -1562,51 +1566,58 @@ export async function processDropsizeDashboard({
         parsedReceipt.quantityLabel,
         parsedHierarchy,
       );
-      return {
-        results,
-        selectedLineCode: lastSelectedDropsizeLine,
-        lineasDetectadas: configuredCodes.filter((code) => (results[code]?.invoices || 0) > 0),
-        hierarchy: parsedHierarchy,
-      };
     };
 
-    return renderForLine(initialLine);
+    renderForLine(initialLine);
+
+    return {
+      mode: "receipt",
+      branchLabel: resolvedBranchLabel,
+      quantityLabel: parsedReceipt.quantityLabel,
+      results,
+      lineasDetectadas,
+      selectedLineCode: initialLine,
+      hierarchyByLine,
+    };
   }
 
-  // Compatibilidad con el formato anterior mientras existan archivos guardados históricos.
   if (!salesWorkbook) throw new Error("No se pudo leer el archivo de ventas para DROPSIZE.");
   if (!detailWorkbook) throw new Error("Cargá el archivo Detalle personal para generar DROPSIZE.");
 
   const detailMaps = parseDetailWorkbook(XLSX, detailWorkbook);
+  const parsed = parseSalesWorkbook(
+    XLSX,
+    salesWorkbook,
+    selectedSucursal,
+    detailMaps,
+    null,
+    selectedBranch,
+  );
+
   const renderForLine = (lineCode) => {
-    const normalizedLineCode = normalizeKey(lineCode);
-    const exclusiveWorkbook =
-      salesWorkbooksByBrand?.[normalizedLineCode] ||
-      salesWorkbook;
-
-    if (!exclusiveWorkbook) {
-      throw new Error(`No se pudo preparar el archivo exclusivo de ${lineCode} para DROPSIZE.`);
-    }
-
-    const parsed = parseSalesWorkbook(
+    const next = parseSalesWorkbook(
       XLSX,
-      exclusiveWorkbook,
+      salesWorkbook,
       selectedSucursal,
       detailMaps,
-      normalizedLineCode,
+      lineCode,
       selectedBranch,
     );
-    lastSelectedDropsizeLine = parsed.selectedLineCode;
-    renderStructure(parsed.structure, resolvedBranchLabel, {
-      lineasDetectadas: parsed.lineasDetectadas,
-      selectedLineCode: parsed.selectedLineCode,
+    lastSelectedDropsizeLine = next.selectedLineCode;
+    renderStructure(next.structure, resolvedBranchLabel, {
+      lineasDetectadas: next.lineasDetectadas,
+      selectedLineCode: next.selectedLineCode,
       onLineChange: renderForLine,
-      hierarchyStats: parsed.hierarchyStats,
+      hierarchyStats: next.hierarchyStats,
     });
-    return parsed;
   };
 
-  return renderForLine(lastSelectedDropsizeLine);
+  renderForLine(parsed.selectedLineCode);
+  return {
+    mode: "legacy",
+    branchLabel: resolvedBranchLabel,
+    parsed,
+  };
 }
 
 export async function processDropsizeIsolatedDashboard({
@@ -1631,29 +1642,72 @@ export async function processDropsizeIsolatedDashboard({
 
   const resolvedBranchLabel = branchLabel || selectedSucursal || "Sucursal seleccionada";
   const detailMaps = parseDetailWorkbook(XLSX, detailWorkbook);
+  const parsed = parseSalesWorkbook(
+    XLSX,
+    salesWorkbook,
+    selectedSucursal,
+    detailMaps,
+    null,
+    selectedBranch,
+  );
 
-  const renderForLine = (lineCode) => {
-    const parsed = parseSalesWorkbook(
-      XLSX,
-      salesWorkbook,
-      selectedSucursal,
-      detailMaps,
-      lineCode,
-      selectedBranch,
-    );
+  renderStructure(parsed.structure, resolvedBranchLabel, {
+    lineasDetectadas: parsed.lineasDetectadas,
+    selectedLineCode: parsed.selectedLineCode,
+    onLineChange: () => {},
+    hierarchyStats: parsed.hierarchyStats,
+    targetAreaId,
+  });
 
-    renderStructure(parsed.structure, resolvedBranchLabel, {
-      lineasDetectadas: parsed.lineasDetectadas,
-      selectedLineCode: parsed.selectedLineCode,
-      onLineChange: renderForLine,
-      hierarchyStats: parsed.hierarchyStats,
-      targetAreaId,
-    });
-
-    return parsed;
+  return {
+    mode: "isolated",
+    branchLabel: resolvedBranchLabel,
+    targetAreaId,
+    parsed,
   };
+}
 
-  return renderForLine(null);
+export function renderCachedDropsizeDashboard(snapshot) {
+  if (!snapshot) return;
+
+  if (snapshot.mode === "receipt") {
+    configureDropsizeLines(
+      Object.values(DROPSIZE_LINES).map((info) => ({
+        brand_name: info.label,
+        quota: info.umbral,
+      })),
+    );
+    const initialLine =
+      snapshot.selectedLineCode ||
+      snapshot.lineasDetectadas?.[0] ||
+      Object.keys(DROPSIZE_LINES)[0];
+
+    const renderForLine = (lineCode) => {
+      const normalized = normalizeLinea(lineCode);
+      lastSelectedDropsizeLine = DROPSIZE_LINES[normalized] ? normalized : initialLine;
+      renderReceiptDropsize(
+        snapshot.results || {},
+        snapshot.branchLabel || "Sucursal seleccionada",
+        lastSelectedDropsizeLine,
+        renderForLine,
+        snapshot.quantityLabel || "CANTIDADES TOTALES",
+        snapshot.hierarchyByLine?.[lastSelectedDropsizeLine] || null,
+      );
+    };
+
+    renderForLine(initialLine);
+    return;
+  }
+
+  if (snapshot.mode === "isolated" && snapshot.parsed) {
+    renderStructure(snapshot.parsed.structure, snapshot.branchLabel || "Sucursal seleccionada", {
+      lineasDetectadas: snapshot.parsed.lineasDetectadas || [],
+      selectedLineCode: snapshot.parsed.selectedLineCode,
+      onLineChange: () => {},
+      hierarchyStats: snapshot.parsed.hierarchyStats || {},
+      targetAreaId: snapshot.targetAreaId || "dropsizeHierarchyArea",
+    });
+  }
 }
 
 export function resetDropsizeDashboard() {
