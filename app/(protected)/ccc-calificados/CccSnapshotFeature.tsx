@@ -27,6 +27,7 @@ import {
 const CCC_LAST_BRANCH_KEY = "redcom:ccc:last-branch";
 const SNAPSHOT_PARAM = "ccc_snapshot";
 const PERIOD_PARAM = "ccc_period";
+const BRANCH_PARAM = "ccc_branch";
 
 const MONTHS = [
   "Enero",
@@ -45,6 +46,9 @@ const MONTHS = [
 
 function currentBranch() {
   if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  const historicalBranch = String(params.get(BRANCH_PARAM) || "").trim().toLowerCase();
+  if (historicalBranch) return historicalBranch;
   return String(window.localStorage.getItem(CCC_LAST_BRANCH_KEY) || "")
     .trim()
     .toLowerCase();
@@ -59,10 +63,12 @@ function activeSnapshotId() {
 function navigateSnapshot(snapshot: CccDashboardSnapshotMeta) {
   const url = new URL(window.location.href);
   url.searchParams.set(SNAPSHOT_PARAM, String(snapshot.id));
+  url.searchParams.set(BRANCH_PARAM, snapshot.branch_key);
   url.searchParams.set(
     PERIOD_PARAM,
     `${snapshot.period_year}-${String(snapshot.period_month).padStart(2, "0")}`,
   );
+  window.localStorage.setItem(CCC_LAST_BRANCH_KEY, snapshot.branch_key);
   window.location.assign(url.toString());
 }
 
@@ -70,6 +76,7 @@ function navigateLive() {
   const url = new URL(window.location.href);
   url.searchParams.delete(SNAPSHOT_PARAM);
   url.searchParams.delete(PERIOD_PARAM);
+  url.searchParams.delete(BRANCH_PARAM);
   window.location.assign(url.toString());
 }
 
@@ -122,18 +129,18 @@ export default function CccSnapshotFeature() {
 
   useEffect(() => {
     if (!me) return;
-    void refresh();
+
+    const historicalBranch = currentBranch();
+    if (snapshotId && historicalBranch) {
+      window.localStorage.setItem(CCC_LAST_BRANCH_KEY, historicalBranch);
+    }
+    void refresh(historicalBranch);
 
     const handleBranchChange = () => {
-      const next = currentBranch();
-      if (snapshotId) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete(SNAPSHOT_PARAM);
-        url.searchParams.delete(PERIOD_PARAM);
-        window.history.replaceState({}, "", url.toString());
-        setActiveSnapshot(null);
-      }
-      void refresh(next);
+      // ClientesCalificadosPage emite este evento también al inicializar la
+      // última sucursal. No debemos salir del histórico por ese evento interno.
+      if (snapshotId) return;
+      void refresh(currentBranch());
     };
 
     window.addEventListener("ccc:branch-changed", handleBranchChange);
@@ -203,7 +210,6 @@ export default function CccSnapshotFeature() {
     if (!uploadPanel) return;
     const previousDisplay = uploadPanel.style.display;
     if (snapshotId) uploadPanel.style.display = "none";
-    else uploadPanel.style.display = previousDisplay;
     return () => {
       uploadPanel.style.display = previousDisplay;
     };
