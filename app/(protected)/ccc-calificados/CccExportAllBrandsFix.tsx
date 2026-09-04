@@ -39,6 +39,10 @@ function looksLikeReportRows(value: unknown): value is ReportRow[] {
   return true;
 }
 
+function withoutVendorZero(rows: ReportRow[]) {
+  return rows.filter((row) => Number(row?.vendCod) !== 0);
+}
+
 function isSingleLineSubset(rows: ReportRow[], allRows: ReportRow[]) {
   if (!looksLikeReportRows(rows) || !looksLikeReportRows(allRows)) return false;
   if (rows === allRows || rows.length >= allRows.length) return false;
@@ -64,6 +68,10 @@ function isSingleLineSubset(rows: ReportRow[], allRows: ReportRow[]) {
  * propios de la exportación (abrir modal y confirmar) sustituimos únicamente
  * las operaciones filter/map hechas sobre ese subconjunto por el dataset
  * completo persistido del dashboard.
+ *
+ * El vendedor con código 0 se excluye únicamente del dataset utilizado por
+ * esta exportación, ya que corresponde a un registro no comercial y no debe
+ * aparecer como columna en la matriz.
  *
  * Así mantenemos intactos el modal, estilos, opciones y formato de Excel ya
  * existentes, sin alterar el comportamiento del resto de los dashboards.
@@ -94,7 +102,7 @@ export default function CccExportAllBrandsFix() {
       }
 
       const rows = (data as any)?.payload?.reportData?.rows;
-      allRows = looksLikeReportRows(rows) ? rows : [];
+      allRows = looksLikeReportRows(rows) ? withoutVendorZero(rows) : [];
     };
 
     const nativeFilter = Array.prototype.filter;
