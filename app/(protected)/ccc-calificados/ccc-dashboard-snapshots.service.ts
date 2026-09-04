@@ -62,7 +62,6 @@ export async function freezeCccDashboardSnapshot(params: {
   branch: string;
   periodYear: number;
   periodMonth: number;
-  sourceFingerprint: string;
 }): Promise<{ snapshot: CccDashboardSnapshotMeta; replaced: boolean }> {
   const headers = await authHeaders();
   const response = await fetch("/api/ccc/snapshots", {
@@ -72,7 +71,6 @@ export async function freezeCccDashboardSnapshot(params: {
       branch: params.branch,
       period_year: params.periodYear,
       period_month: params.periodMonth,
-      source_fingerprint: params.sourceFingerprint,
     }),
   });
   const data = await readJson(response);
