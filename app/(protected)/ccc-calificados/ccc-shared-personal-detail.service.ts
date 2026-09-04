@@ -1,7 +1,9 @@
 import { supabase } from "@/lib/supabaseClient";
+import { getCccDashboardSnapshot } from "./ccc-dashboard-snapshots.service";
 
 export const CCC_SHARED_FILES_BUCKET = "ccc-shared-files";
 export const CCC_SHARED_PERSONAL_DETAIL_KEY = "personal_detail";
+const CCC_LAST_BRANCH_KEY = "redcom:ccc:last-branch";
 
 export type CccSharedFileMeta = {
   file_key: "personal_detail";
@@ -15,7 +17,38 @@ export type CccSharedFileMeta = {
   updated_at: string;
 };
 
+function activeSnapshotId() {
+  if (typeof window === "undefined") return 0;
+  const value = Number(new URLSearchParams(window.location.search).get("ccc_snapshot") || 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+async function snapshotMeta(): Promise<CccSharedFileMeta | null> {
+  if (typeof window === "undefined") return null;
+  const snapshotId = activeSnapshotId();
+  const branch = String(window.localStorage.getItem(CCC_LAST_BRANCH_KEY) || "")
+    .trim()
+    .toLowerCase();
+  if (!snapshotId || !branch) return null;
+
+  const snapshot = await getCccDashboardSnapshot(branch, snapshotId);
+  return {
+    file_key: CCC_SHARED_PERSONAL_DETAIL_KEY,
+    storage_path: "",
+    original_name: "Detalle personal incluido en período congelado",
+    mime_type: null,
+    size_bytes: null,
+    uploaded_by: snapshot.closed_by,
+    uploaded_by_name: snapshot.closed_by_name,
+    uploaded_at: snapshot.closed_at,
+    updated_at: snapshot.closed_at,
+  };
+}
+
 export async function getSharedPersonalDetailMeta(): Promise<CccSharedFileMeta | null> {
+  const historical = await snapshotMeta();
+  if (historical) return historical;
+
   const { data, error } = await supabase
     .from("ccc_shared_files")
     .select("*")
@@ -31,6 +64,8 @@ export async function uploadSharedPersonalDetail(params: {
   userId: string;
   uploaderName?: string | null;
 }): Promise<CccSharedFileMeta> {
+  if (activeSnapshotId()) throw new Error("Volvé a Datos actuales antes de reemplazar Detalle personal.");
+
   const lowerName = params.file.name.toLowerCase();
   const extension = lowerName.endsWith(".xls") ? "xls" : "xlsx";
   const storagePath = `global/detalle-personal.${extension}`;
@@ -83,6 +118,8 @@ export async function downloadSharedPersonalDetail(): Promise<{
   file: File;
   meta: CccSharedFileMeta;
 }> {
+  if (activeSnapshotId()) throw new Error("El período congelado ya contiene la jerarquía procesada.");
+
   const meta = await getSharedPersonalDetailMeta();
   if (!meta) {
     throw new Error("Todavía no hay un archivo Detalle personal global guardado.");
@@ -106,6 +143,8 @@ export async function downloadSharedPersonalDetail(): Promise<{
 }
 
 export async function deleteSharedPersonalDetail(): Promise<void> {
+  if (activeSnapshotId()) throw new Error("Volvé a Datos actuales antes de eliminar Detalle personal.");
+
   const meta = await getSharedPersonalDetailMeta();
   if (!meta) return;
 
