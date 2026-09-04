@@ -127,23 +127,21 @@ export async function POST(req: Request) {
     const branch = normalizeBranch(body?.branch);
     const periodYear = Number(body?.period_year);
     const periodMonth = Number(body?.period_month);
-    const sourceFingerprint = String(body?.source_fingerprint || "").trim();
 
-    if (!branch || !validPeriod(periodYear, periodMonth) || !sourceFingerprint) {
-      return NextResponse.json({ error: "Sucursal, año, mes y versión actual son obligatorios." }, { status: 400 });
+    if (!branch || !validPeriod(periodYear, periodMonth)) {
+      return NextResponse.json({ error: "Sucursal, año y mes son obligatorios." }, { status: 400 });
     }
 
     const { data: cache, error: cacheError } = await admin
       .from("ccc_dashboard_cache")
       .select("source_fingerprint, payload, generated_at, updated_at")
       .eq("branch_key", branch)
-      .eq("source_fingerprint", sourceFingerprint)
       .maybeSingle();
 
     if (cacheError) throw cacheError;
     if (!cache?.payload) {
       return NextResponse.json(
-        { error: "No hay un dashboard procesado con los archivos actuales. Volvé a Inicio y procesá los dashboards antes de congelar el período." },
+        { error: "No hay un dashboard procesado para esta sucursal. Volvé a Inicio y procesá los dashboards antes de congelar el período." },
         { status: 409 },
       );
     }
@@ -159,6 +157,7 @@ export async function POST(req: Request) {
 
     const branchKey = snapshotBranchKey(branch);
     const now = new Date().toISOString();
+    const sourceFingerprint = String(cache.source_fingerprint || "");
     const meta = {
       module: "ccc",
       source_fingerprint: sourceFingerprint,
@@ -185,7 +184,7 @@ export async function POST(req: Request) {
       const { data, error } = await admin
         .from("categorias_snapshots")
         .update({
-          branch: branch,
+          branch,
           payload: cache.payload,
           meta,
           closed_by: user.id,
