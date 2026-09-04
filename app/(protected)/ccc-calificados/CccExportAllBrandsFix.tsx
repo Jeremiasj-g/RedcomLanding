@@ -2,8 +2,10 @@
 
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { getCccDashboardSnapshot } from "./ccc-dashboard-snapshots.service";
 
 const CCC_LAST_BRANCH_KEY = "redcom:ccc:last-branch";
+const SNAPSHOT_PARAM = "ccc_snapshot";
 
 type ReportRow = {
   sucursal?: string;
@@ -22,6 +24,12 @@ function getCurrentBranch() {
 
   const selector = document.querySelector<HTMLSelectElement>(".branch-selector select");
   return String(selector?.value || "").trim().toLowerCase();
+}
+
+function getActiveSnapshotId() {
+  if (typeof window === "undefined") return 0;
+  const id = Number(new URLSearchParams(window.location.search).get(SNAPSHOT_PARAM) || 0);
+  return Number.isFinite(id) && id > 0 ? id : 0;
 }
 
 function looksLikeReportRows(value: unknown): value is ReportRow[] {
@@ -60,21 +68,9 @@ function isSingleLineSubset(rows: ReportRow[], allRows: ReportRow[]) {
 }
 
 /**
- * Corrección acotada para la matriz Excel de CCC.
- *
- * El dashboard visual se renderiza con una sola marca a la vez y el runtime
- * estaba pasando ese subconjunto al exportador. La matriz, en cambio, debe
- * seguir trabajando con todas las marcas configuradas. Durante los dos clicks
- * propios de la exportación (abrir modal y confirmar) sustituimos únicamente
- * las operaciones filter/map hechas sobre ese subconjunto por el dataset
- * completo persistido del dashboard.
- *
- * El vendedor con código 0 se excluye únicamente del dataset utilizado por
- * esta exportación, ya que corresponde a un registro no comercial y no debe
- * aparecer como columna en la matriz.
- *
- * Así mantenemos intactos el modal, estilos, opciones y formato de Excel ya
- * existentes, sin alterar el comportamiento del resto de los dashboards.
+ * La matriz Excel siempre usa todas las marcas del dataset procesado y excluye
+ * al vendedor código 0. Si se está consultando un período congelado, toma el
+ * dataset del snapshot en lugar de la caché actual de la sucursal.
  */
 export default function CccExportAllBrandsFix() {
   useEffect(() => {
@@ -88,21 +84,37 @@ export default function CccExportAllBrandsFix() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("ccc_dashboard_cache")
-        .select("payload")
-        .eq("branch_key", branch)
-        .maybeSingle();
+      try {
+        const snapshotId = getActiveSnapshotId();
+        if (snapshotId) {
+          const snapshot = await getCccDashboardSnapshot(branch, snapshotId);
+          if (disposed) return;
+          const rows = snapshot?.payload?.reportData?.rows;
+          allRows = looksLikeReportRows(rows) ? withoutVendorZero(rows) : [];
+          return;
+        }
 
-      if (disposed) return;
-      if (error) {
-        console.warn("[CCC] No se pudo preparar la exportación completa:", error);
-        allRows = [];
-        return;
+        const { data, error } = await supabase
+          .from("ccc_dashboard_cache")
+          .select("payload")
+          .eq("branch_key", branch)
+          .maybeSingle();
+
+        if (disposed) return;
+        if (error) {
+          console.warn("[CCC] No se pudo preparar la exportación completa:", error);
+          allRows = [];
+          return;
+        }
+
+        const rows = (data as any)?.payload?.reportData?.rows;
+        allRows = looksLikeReportRows(rows) ? withoutVendorZero(rows) : [];
+      } catch (error) {
+        if (!disposed) {
+          console.warn("[CCC] No se pudo preparar la exportación completa:", error);
+          allRows = [];
+        }
       }
-
-      const rows = (data as any)?.payload?.reportData?.rows;
-      allRows = looksLikeReportRows(rows) ? withoutVendorZero(rows) : [];
     };
 
     const nativeFilter = Array.prototype.filter;
@@ -146,9 +158,6 @@ export default function CccExportAllBrandsFix() {
       if (!isOpenExport && !isConfirmExport) return;
 
       patchArrayMethodsForCurrentEvent();
-
-      // Si todavía no se había recuperado la caché, la dejamos lista para el
-      // siguiente click (normalmente el botón Confirmar del modal).
       if (!allRows.length) void refreshRows();
     };
 
