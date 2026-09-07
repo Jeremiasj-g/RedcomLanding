@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { getCccDashboardSnapshot } from "./ccc-dashboard-snapshots.service";
 
 export type CccDashboardCachePayload = {
   version: 1;
@@ -19,12 +20,33 @@ export type CccDashboardCache = {
   updated_at: string;
 };
 
+function activeSnapshotId() {
+  if (typeof window === "undefined") return 0;
+  const value = Number(new URLSearchParams(window.location.search).get("ccc_snapshot") || 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
 export async function getCccDashboardCache(
   branch: string,
   sourceFingerprint: string,
 ): Promise<CccDashboardCache | null> {
   const branchKey = String(branch || "").trim().toLowerCase();
-  if (!branchKey || !sourceFingerprint) return null;
+  if (!branchKey) return null;
+
+  const snapshotId = activeSnapshotId();
+  if (snapshotId) {
+    const snapshot = await getCccDashboardSnapshot(branchKey, snapshotId);
+    return {
+      branch_key: branchKey,
+      source_fingerprint: `snapshot:${snapshot.id}`,
+      payload: snapshot.payload,
+      generated_by: snapshot.closed_by,
+      generated_at: snapshot.closed_at,
+      updated_at: snapshot.closed_at,
+    };
+  }
+
+  if (!sourceFingerprint) return null;
 
   const { data, error } = await supabase
     .from("ccc_dashboard_cache")
@@ -43,6 +65,8 @@ export async function saveCccDashboardCache(params: {
   payload: CccDashboardCachePayload;
   userId?: string | null;
 }): Promise<void> {
+  if (activeSnapshotId()) return;
+
   const branchKey = String(params.branch || "").trim().toLowerCase();
   if (!branchKey || !params.sourceFingerprint) return;
 

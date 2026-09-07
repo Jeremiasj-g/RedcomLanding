@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { getCccDashboardSnapshot } from "./ccc-dashboard-snapshots.service";
 
 export const CCC_CLIENT_BASE_BUCKET = "ccc-client-bases";
 export const CCC_WORKSPACE_FILES_BUCKET = "ccc-workspace-files";
@@ -63,6 +64,38 @@ function normalizeBranch(branch: string) {
   return String(branch || "").trim().toLowerCase();
 }
 
+function activeSnapshotId() {
+  if (typeof window === "undefined") return 0;
+  const value = Number(new URLSearchParams(window.location.search).get("ccc_snapshot") || 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+async function activeSnapshot(branch: string) {
+  const id = activeSnapshotId();
+  if (!id) return null;
+  return getCccDashboardSnapshot(normalizeBranch(branch), id);
+}
+
+function snapshotFileMeta(params: {
+  branch: string;
+  kind: CccWorkspaceFileKind;
+  closedAt: string;
+}): CccWorkspaceFileMeta {
+  return {
+    id: `snapshot-${params.kind}`,
+    branch_key: params.branch,
+    file_kind: params.kind,
+    storage_path: "",
+    original_name: "Período congelado",
+    mime_type: null,
+    size_bytes: null,
+    uploaded_by: null,
+    uploaded_by_name: "Histórico CCC",
+    uploaded_at: params.closedAt,
+    updated_at: params.closedAt,
+  };
+}
+
 export async function getAllBranches(): Promise<string[]> {
   const { data, error } = await supabase
     .from("branches")
@@ -75,9 +108,6 @@ export async function getAllBranches(): Promise<string[]> {
     .map((row: { code?: string | null }) => normalizeBranch(row.code ?? ""))
     .filter(Boolean);
 
-  // Refrigerados forma parte del módulo CCC como sucursal operativa propia.
-  // Se asegura su presencia en el selector incluso si la tabla branches
-  // llega a quedar temporalmente desactualizada.
   if (!branches.includes("refrigerados")) branches.push("refrigerados");
 
   return branches;
@@ -111,6 +141,25 @@ export async function getClientBaseMeta(
   const branchKey = normalizeBranch(branch);
   if (!branchKey) return null;
 
+  const snapshot = await activeSnapshot(branchKey);
+  if (snapshot) {
+    const nextUpdate = new Date(snapshot.closed_at);
+    nextUpdate.setFullYear(nextUpdate.getFullYear() + 10);
+    return {
+      id: "snapshot-client-base",
+      branch_key: branchKey,
+      storage_path: "",
+      original_name: "Base incluida en período congelado",
+      mime_type: null,
+      size_bytes: null,
+      uploaded_by: snapshot.closed_by,
+      uploaded_by_name: snapshot.closed_by_name,
+      uploaded_at: snapshot.closed_at,
+      next_update_at: nextUpdate.toISOString(),
+      updated_at: snapshot.closed_at,
+    };
+  }
+
   const { data, error } = await supabase
     .from("ccc_client_bases")
     .select("*")
@@ -127,6 +176,8 @@ export async function uploadClientBase(params: {
   userId: string;
   uploaderName?: string | null;
 }): Promise<CccClientBaseMeta> {
+  if (activeSnapshotId()) throw new Error("Volvé a Datos actuales antes de reemplazar archivos.");
+
   const branchKey = normalizeBranch(params.branch);
   if (!branchKey) throw new Error("Seleccioná una sucursal antes de subir la base.");
 
@@ -174,6 +225,8 @@ export async function uploadClientBase(params: {
 export async function downloadClientBase(
   branch: string,
 ): Promise<{ file: File; meta: CccClientBaseMeta }> {
+  if (activeSnapshotId()) throw new Error("El período congelado no necesita descargar la base fuente.");
+
   const meta = await getClientBaseMeta(branch);
   if (!meta) {
     throw new Error(
@@ -198,6 +251,8 @@ export async function downloadClientBase(
 }
 
 export async function deleteClientBase(branch: string): Promise<void> {
+  if (activeSnapshotId()) throw new Error("Volvé a Datos actuales antes de eliminar archivos.");
+
   const branchKey = normalizeBranch(branch);
   if (!branchKey) throw new Error("Seleccioná una sucursal antes de eliminar la base.");
 
@@ -224,6 +279,28 @@ export async function getWorkspaceFilesMeta(
   const branchKey = normalizeBranch(branch);
   if (!branchKey) return {};
 
+  const snapshot = await activeSnapshot(branchKey);
+  if (snapshot) {
+    const files: CccWorkspaceFilesMap = {
+      sales: snapshotFileMeta({ branch: branchKey, kind: "sales", closedAt: snapshot.closed_at }),
+    };
+    if (snapshot.payload?.dropsizeReceipt) {
+      files.dropsize_sales = snapshotFileMeta({
+        branch: branchKey,
+        kind: "dropsize_sales",
+        closedAt: snapshot.closed_at,
+      });
+    }
+    if (snapshot.payload?.dropsizeIsolated) {
+      files.dropsize_isolated = snapshotFileMeta({
+        branch: branchKey,
+        kind: "dropsize_isolated",
+        closedAt: snapshot.closed_at,
+      });
+    }
+    return files;
+  }
+
   const { data, error } = await supabase
     .from("ccc_workspace_files")
     .select("*")
@@ -245,6 +322,17 @@ export async function getWorkspaceFileMeta(
   const branchKey = normalizeBranch(branch);
   if (!branchKey) return null;
 
+  const snapshot = await activeSnapshot(branchKey);
+  if (snapshot) {
+    const available =
+      kind === "sales" ||
+      (kind === "dropsize_sales" && Boolean(snapshot.payload?.dropsizeReceipt)) ||
+      (kind === "dropsize_isolated" && Boolean(snapshot.payload?.dropsizeIsolated));
+    return available
+      ? snapshotFileMeta({ branch: branchKey, kind, closedAt: snapshot.closed_at })
+      : null;
+  }
+
   const { data, error } = await supabase
     .from("ccc_workspace_files")
     .select("*")
@@ -263,6 +351,8 @@ export async function uploadWorkspaceFile(params: {
   userId: string;
   uploaderName?: string | null;
 }): Promise<CccWorkspaceFileMeta> {
+  if (activeSnapshotId()) throw new Error("Volvé a Datos actuales antes de reemplazar archivos.");
+
   const branchKey = normalizeBranch(params.branch);
   if (!branchKey) throw new Error("Seleccioná una sucursal antes de subir el archivo.");
 
@@ -309,6 +399,8 @@ export async function downloadWorkspaceFile(
   branch: string,
   kind: CccWorkspaceFileKind,
 ): Promise<{ file: File; meta: CccWorkspaceFileMeta }> {
+  if (activeSnapshotId()) throw new Error("El período congelado no necesita descargar el archivo fuente.");
+
   const meta = await getWorkspaceFileMeta(branch, kind);
   if (!meta) throw new Error("No hay un archivo guardado para la sucursal seleccionada.");
 
@@ -332,6 +424,8 @@ export async function deleteWorkspaceFile(
   branch: string,
   kind: CccWorkspaceFileKind,
 ): Promise<void> {
+  if (activeSnapshotId()) throw new Error("Volvé a Datos actuales antes de eliminar archivos.");
+
   const branchKey = normalizeBranch(branch);
   if (!branchKey) throw new Error("Seleccioná una sucursal antes de eliminar el archivo.");
 

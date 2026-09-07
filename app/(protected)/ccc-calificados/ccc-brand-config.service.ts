@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { getCccDashboardSnapshot } from "./ccc-dashboard-snapshots.service";
 
 export const CCC_BRAND_CATALOG_BUCKET = "ccc-brand-catalog";
 
@@ -33,6 +34,12 @@ export type CccBrandConfigDraft = {
 
 function normalizeBranch(branch: string) {
   return String(branch || "").trim().toLowerCase();
+}
+
+function activeSnapshotId() {
+  if (typeof window === "undefined") return 0;
+  const value = Number(new URLSearchParams(window.location.search).get("ccc_snapshot") || 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
 export function normalizeBrandName(value: unknown) {
@@ -249,6 +256,18 @@ export async function getBranchBrandConfig(
   const branchKey = normalizeBranch(branch);
   if (!branchKey) return [];
 
+  const snapshotId = activeSnapshotId();
+  if (snapshotId) {
+    const snapshot = await getCccDashboardSnapshot(branchKey, snapshotId);
+    return (snapshot.brand_config ?? []).map((row: any, index: number) => ({
+      ...row,
+      branch_key: branchKey,
+      brand_name: normalizeBrandName(row.brand_name),
+      quota: Number(row.quota),
+      sort_order: Number(row.sort_order ?? index),
+    }));
+  }
+
   const { data, error } = await supabase
     .from("ccc_branch_brand_config")
     .select("*")
@@ -272,6 +291,10 @@ export async function saveBranchBrandConfig(params: {
   userId: string;
   updaterName?: string | null;
 }): Promise<CccBranchBrandConfig[]> {
+  if (activeSnapshotId()) {
+    throw new Error("Volvé a Datos actuales antes de modificar marcas o cuotas.");
+  }
+
   const branchKey = normalizeBranch(params.branch);
   if (!branchKey) throw new Error("Seleccioná una sucursal.");
 
