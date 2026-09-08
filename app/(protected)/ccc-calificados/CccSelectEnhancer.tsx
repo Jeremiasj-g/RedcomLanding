@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 const ENHANCED_ATTR = "data-ccc-radix-select";
+const EMPTY_VALUE = "__ccc_radix_empty__";
 
 type Binding = {
   key: string;
@@ -25,6 +26,14 @@ function readNativeOptions(select: HTMLSelectElement): NativeOption[] {
     label: option.textContent || option.label || option.value,
     disabled: option.disabled,
   }));
+}
+
+function toRadixValue(value: string) {
+  return value === "" ? EMPTY_VALUE : value;
+}
+
+function fromRadixValue(value: string) {
+  return value === EMPTY_VALUE ? "" : value;
 }
 
 function NativeSelectProxy({ select }: { select: HTMLSelectElement }) {
@@ -64,7 +73,8 @@ function NativeSelectProxy({ select }: { select: HTMLSelectElement }) {
     [options, value],
   );
 
-  const choose = (nextValue: string) => {
+  const choose = (nextRadixValue: string) => {
+    const nextValue = fromRadixValue(nextRadixValue);
     if (select.value === nextValue) return;
     select.value = nextValue;
     setValue(nextValue);
@@ -73,7 +83,7 @@ function NativeSelectProxy({ select }: { select: HTMLSelectElement }) {
   };
 
   return (
-    <Select.Root value={value} onValueChange={choose} disabled={disabled}>
+    <Select.Root value={toRadixValue(value)} onValueChange={choose} disabled={disabled}>
       <Select.Trigger
         aria-label={select.getAttribute("aria-label") || select.title || selectedLabel}
         title={select.title || undefined}
@@ -98,7 +108,7 @@ function NativeSelectProxy({ select }: { select: HTMLSelectElement }) {
             {options.map((option, index) => (
               <Select.Item
                 key={`${option.value}:${index}`}
-                value={option.value}
+                value={toRadixValue(option.value)}
                 disabled={option.disabled}
                 className="relative flex min-h-9 cursor-pointer select-none items-center rounded-lg py-2 pl-3 pr-9 text-xs font-medium text-slate-700 outline-none transition data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[highlighted]:bg-slate-100 data-[highlighted]:text-slate-950 data-[state=checked]:font-semibold"
               >
@@ -122,6 +132,18 @@ export default function CccSelectEnhancer() {
     let frame = 0;
     let sequence = 0;
 
+    const ensureHost = (select: HTMLSelectElement) => {
+      const previous = select.previousElementSibling as HTMLSpanElement | null;
+      if (previous?.dataset.cccRadixHost) return previous;
+
+      const host = document.createElement("span");
+      const key = `ccc-select-${Date.now()}-${sequence++}`;
+      host.dataset.cccRadixHost = key;
+      host.className = "ccc-radix-select-host block min-w-0 w-full";
+      select.insertAdjacentElement("beforebegin", host);
+      return host;
+    };
+
     const scan = () => {
       frame = 0;
       const root = document.querySelector<HTMLElement>(".ccc-page");
@@ -130,21 +152,19 @@ export default function CccSelectEnhancer() {
         return;
       }
 
-      root.querySelectorAll<HTMLSelectElement>(`select:not([${ENHANCED_ATTR}])`).forEach((select) => {
-        const host = document.createElement("span");
-        const key = `ccc-select-${Date.now()}-${sequence++}`;
-        host.dataset.cccRadixHost = key;
-        host.className = "ccc-radix-select-host block min-w-0 w-full";
-        select.insertAdjacentElement("beforebegin", host);
-        select.setAttribute(ENHANCED_ATTR, "true");
-        select.dataset.cccPreviousDisplay = select.style.display || "";
+      root.querySelectorAll<HTMLSelectElement>("select").forEach((select) => {
+        ensureHost(select);
+        if (!select.hasAttribute(ENHANCED_ATTR)) {
+          select.setAttribute(ENHANCED_ATTR, "true");
+          select.dataset.cccPreviousDisplay = select.style.display || "";
+        }
         select.style.setProperty("display", "none", "important");
       });
 
       const next: Binding[] = [];
       root.querySelectorAll<HTMLSelectElement>(`select[${ENHANCED_ATTR}="true"]`).forEach((select) => {
-        const host = select.previousElementSibling as HTMLSpanElement | null;
-        if (!host?.dataset.cccRadixHost) return;
+        const host = ensureHost(select);
+        if (!host.dataset.cccRadixHost) return;
         next.push({ key: host.dataset.cccRadixHost, select, host });
       });
       setBindings(next);
