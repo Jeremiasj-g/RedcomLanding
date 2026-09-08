@@ -102,6 +102,7 @@ export default function CccSnapshotFeature() {
   const [periodMonth, setPeriodMonth] = useState(now.getMonth() + 1);
   const [managerHost, setManagerHost] = useState<HTMLElement | null>(null);
   const [bannerHost, setBannerHost] = useState<HTMLElement | null>(null);
+  const [navHost, setNavHost] = useState<HTMLElement | null>(null);
 
   const snapshotId = activeSnapshotId();
   const branchLabel = CCC_BRANCH_LABELS[branch] || branch || "Sucursal";
@@ -137,8 +138,6 @@ export default function CccSnapshotFeature() {
     void refresh(historicalBranch);
 
     const handleBranchChange = () => {
-      // ClientesCalificadosPage emite este evento también al inicializar la
-      // última sucursal. No debemos salir del histórico por ese evento interno.
       if (snapshotId) return;
       void refresh(currentBranch());
     };
@@ -162,7 +161,6 @@ export default function CccSnapshotFeature() {
         console.error(error);
         if (!cancelled) {
           notify.error(errorMessage(error, "No se pudo abrir el período congelado."));
-          navigateLive();
         }
       });
 
@@ -196,6 +194,19 @@ export default function CccSnapshotFeature() {
           uploadPanel.insertAdjacentElement("beforebegin", host);
         }
         setBannerHost(host);
+      }
+
+      const nav = document.querySelector<HTMLElement>('nav[aria-label="Navegación del módulo CCC"]');
+      const navActions = nav?.firstElementChild as HTMLElement | null;
+      if (navActions) {
+        let host = document.getElementById("ccc-snapshot-nav-host");
+        if (!host) {
+          host = document.createElement("div");
+          host.id = "ccc-snapshot-nav-host";
+          host.className = "ml-1 flex min-w-0 items-center";
+          navActions.appendChild(host);
+        }
+        setNavHost(host);
       }
     };
 
@@ -241,7 +252,6 @@ export default function CccSnapshotFeature() {
           : `${formatCccSnapshotPeriod(periodYear, periodMonth)} quedó congelado correctamente.`,
       );
       await refresh(branch);
-      navigateSnapshot(result.snapshot);
     } catch (error) {
       console.error(error);
       notify.error(errorMessage(error, "No se pudo congelar el período."));
@@ -271,6 +281,39 @@ export default function CccSnapshotFeature() {
       setBusy(null);
     }
   };
+
+  const navSelector = navHost
+    ? createPortal(
+        <label className="relative inline-flex h-10 min-w-[190px] max-w-[280px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-slate-700 transition hover:border-slate-300 hover:bg-white">
+          <CalendarClock className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+          <span className="sr-only">Período CCC</span>
+          <select
+            value={snapshotId ? String(snapshotId) : "live"}
+            disabled={loading || !branch}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value === "live") {
+                if (snapshotId) navigateLive();
+                return;
+              }
+              const snapshot = snapshots.find((item) => String(item.id) === value);
+              if (snapshot) navigateSnapshot(snapshot);
+            }}
+            className="h-full min-w-0 flex-1 cursor-pointer appearance-none bg-transparent pr-5 text-sm font-semibold text-slate-700 outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            title="Seleccionar período"
+          >
+            <option value="live">Datos actuales</option>
+            {snapshots.map((snapshot) => (
+              <option key={snapshot.id} value={String(snapshot.id)}>
+                {formatCccSnapshotPeriod(snapshot.period_year, snapshot.period_month)}
+              </option>
+            ))}
+          </select>
+          <span className="pointer-events-none absolute right-3 text-[10px] text-slate-400">▼</span>
+        </label>,
+        navHost,
+      )
+    : null;
 
   const manager = managerHost
     ? createPortal(
@@ -468,5 +511,5 @@ export default function CccSnapshotFeature() {
       )
     : null;
 
-  return <>{manager}{banner}</>;
+  return <>{navSelector}{manager}{banner}</>;
 }
