@@ -27,6 +27,14 @@ function activeSnapshotId() {
   return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
+function payloadCardinality(payload: CccDashboardCachePayload) {
+  return [
+    Array.isArray(payload?.listado) ? payload.listado.length : 0,
+    Array.isArray(payload?.padron) ? payload.padron.length : 0,
+    Array.isArray(payload?.reportData?.rows) ? payload.reportData.rows.length : 0,
+  ].join("|");
+}
+
 export async function getCccDashboardCache(
   branch: string,
   sourceFingerprint: string,
@@ -60,10 +68,32 @@ export async function getCccDashboardCache(
   if (!data) return null;
 
   const row = data as CccDashboardCache;
+  const before = payloadCardinality(row.payload);
+
   // La vista actual aplica siempre la política comercial vigente:
   // solo vendedores vinculados a un Supervisor real y a un Jefe de ventas.
   // El snapshot histórico no se toca para conservar exactamente lo congelado.
-  row.payload = await sanitizeCccDashboardPayload(row.payload, branchKey);
+  const sanitizedPayload = await sanitizeCccDashboardPayload(row.payload, branchKey);
+  row.payload = sanitizedPayload;
+
+  // Si este cache fue generado antes de la nueva política, lo saneamos también
+  // en Supabase. Así un cierre mensual posterior congela directamente los datos
+  // limpios y no vuelve a incorporar vendedores fuera de la jerarquía comercial.
+  if (before !== payloadCardinality(sanitizedPayload)) {
+    const { error: persistError } = await supabase
+      .from("ccc_dashboard_cache")
+      .update({
+        payload: sanitizedPayload,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("branch_key", branchKey)
+      .eq("source_fingerprint", sourceFingerprint);
+
+    if (persistError) {
+      console.warn("[CCC] No se pudo persistir el cache saneado:", persistError);
+    }
+  }
+
   return row;
 }
 
