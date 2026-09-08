@@ -94,7 +94,10 @@ async function uploadStoredPayload(admin: any, path: string, payload: any) {
     .from(SNAPSHOT_STORAGE_BUCKET)
     .upload(path, Buffer.from(serialized, "utf8"), {
       upsert: true,
-      contentType: "application/json; charset=utf-8",
+      // Este bucket comparte infraestructura con los archivos CCC y permite
+      // application/octet-stream. El nombre .json conserva el formato lógico,
+      // mientras el MIME binario evita rechazos por la lista blanca del bucket.
+      contentType: "application/octet-stream",
       cacheControl: "3600",
     });
 
