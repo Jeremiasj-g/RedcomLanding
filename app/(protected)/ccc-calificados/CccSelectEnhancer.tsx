@@ -3,6 +3,7 @@
 import * as Select from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 const ENHANCED_ATTR = "data-ccc-radix-select";
 
@@ -178,11 +179,7 @@ export default function CccSelectEnhancer() {
   return (
     <>
       {bindings.map(({ key, select, host }) =>
-        host.isConnected ? (
-          <span key={key} className="contents">
-            {require("react-dom").createPortal(<NativeSelectProxy select={select} />, host)}
-          </span>
-        ) : null,
+        host.isConnected ? createPortal(<NativeSelectProxy select={select} />, host, key) : null,
       )}
     </>
   );
