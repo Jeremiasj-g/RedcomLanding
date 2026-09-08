@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Archive,
   CalendarClock,
@@ -54,32 +55,6 @@ function currentBranch() {
     .toLowerCase();
 }
 
-function activeSnapshotId() {
-  if (typeof window === "undefined") return 0;
-  const id = Number(new URLSearchParams(window.location.search).get(SNAPSHOT_PARAM) || 0);
-  return Number.isFinite(id) && id > 0 ? id : 0;
-}
-
-function navigateSnapshot(snapshot: CccDashboardSnapshotMeta) {
-  const url = new URL(window.location.href);
-  url.searchParams.set(SNAPSHOT_PARAM, String(snapshot.id));
-  url.searchParams.set(BRANCH_PARAM, snapshot.branch_key);
-  url.searchParams.set(
-    PERIOD_PARAM,
-    `${snapshot.period_year}-${String(snapshot.period_month).padStart(2, "0")}`,
-  );
-  window.localStorage.setItem(CCC_LAST_BRANCH_KEY, snapshot.branch_key);
-  window.location.assign(url.toString());
-}
-
-function navigateLive() {
-  const url = new URL(window.location.href);
-  url.searchParams.delete(SNAPSHOT_PARAM);
-  url.searchParams.delete(PERIOD_PARAM);
-  url.searchParams.delete(BRANCH_PARAM);
-  window.location.assign(url.toString());
-}
-
 function formatDate(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
@@ -92,6 +67,9 @@ function formatDate(value?: string | null) {
 
 export default function CccSnapshotFeature() {
   const { me, isAdmin } = useMe();
+  const router = useRouter();
+  const pathname = usePathname();
+  const search = useSearchParams();
   const now = useMemo(() => new Date(), []);
   const [branch, setBranch] = useState("");
   const [snapshots, setSnapshots] = useState<CccDashboardSnapshotMeta[]>([]);
@@ -104,8 +82,32 @@ export default function CccSnapshotFeature() {
   const [bannerHost, setBannerHost] = useState<HTMLElement | null>(null);
   const [navHost, setNavHost] = useState<HTMLElement | null>(null);
 
-  const snapshotId = activeSnapshotId();
+  const snapshotId = useMemo(() => {
+    const id = Number(search.get(SNAPSHOT_PARAM) || 0);
+    return Number.isFinite(id) && id > 0 ? id : 0;
+  }, [search]);
   const branchLabel = CCC_BRANCH_LABELS[branch] || branch || "Sucursal";
+
+  const navigateSnapshot = useCallback((snapshot: CccDashboardSnapshotMeta) => {
+    const params = new URLSearchParams(search.toString());
+    params.set(SNAPSHOT_PARAM, String(snapshot.id));
+    params.set(BRANCH_PARAM, snapshot.branch_key);
+    params.set(
+      PERIOD_PARAM,
+      `${snapshot.period_year}-${String(snapshot.period_month).padStart(2, "0")}`,
+    );
+    window.localStorage.setItem(CCC_LAST_BRANCH_KEY, snapshot.branch_key);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [pathname, router, search]);
+
+  const navigateLive = useCallback(() => {
+    const params = new URLSearchParams(search.toString());
+    params.delete(SNAPSHOT_PARAM);
+    params.delete(PERIOD_PARAM);
+    params.delete(BRANCH_PARAM);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [pathname, router, search]);
 
   const refresh = useCallback(async (targetBranch?: string) => {
     const nextBranch = String(targetBranch || currentBranch()).trim().toLowerCase();
@@ -309,7 +311,6 @@ export default function CccSnapshotFeature() {
               </option>
             ))}
           </select>
-          <span className="pointer-events-none absolute right-3 text-[10px] text-slate-400">▼</span>
         </label>,
         navHost,
       )
