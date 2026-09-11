@@ -21,6 +21,16 @@ export type CccDashboardCache = {
   updated_at: string;
 };
 
+// La política de jerarquía forma parte de la identidad lógica del cache.
+// Si cambia la forma de validar Vendedor -> Supervisor -> JDV, incrementar
+// esta versión fuerza un reprocesamiento desde los archivos fuente sin que
+// haya que borrar manualmente registros de Supabase.
+const CCC_HIERARCHY_POLICY_VERSION = "hierarchy-v2-global-fallback";
+
+function versionedFingerprint(sourceFingerprint: string) {
+  return `${sourceFingerprint}|${CCC_HIERARCHY_POLICY_VERSION}`;
+}
+
 function activeSnapshotId() {
   if (typeof window === "undefined") return 0;
   const value = Number(new URLSearchParams(window.location.search).get("ccc_snapshot") || 0);
@@ -56,12 +66,13 @@ export async function getCccDashboardCache(
   }
 
   if (!sourceFingerprint) return null;
+  const effectiveFingerprint = versionedFingerprint(sourceFingerprint);
 
   const { data, error } = await supabase
     .from("ccc_dashboard_cache")
     .select("*")
     .eq("branch_key", branchKey)
-    .eq("source_fingerprint", sourceFingerprint)
+    .eq("source_fingerprint", effectiveFingerprint)
     .maybeSingle();
 
   if (error) throw error;
@@ -87,7 +98,7 @@ export async function getCccDashboardCache(
         updated_at: new Date().toISOString(),
       })
       .eq("branch_key", branchKey)
-      .eq("source_fingerprint", sourceFingerprint);
+      .eq("source_fingerprint", effectiveFingerprint);
 
     if (persistError) {
       console.warn("[CCC] No se pudo persistir el cache saneado:", persistError);
@@ -110,13 +121,14 @@ export async function saveCccDashboardCache(params: {
 
   const now = new Date().toISOString();
   const sanitizedPayload = await sanitizeCccDashboardPayload(params.payload, branchKey);
+  const effectiveFingerprint = versionedFingerprint(params.sourceFingerprint);
 
   const { error } = await supabase
     .from("ccc_dashboard_cache")
     .upsert(
       {
         branch_key: branchKey,
-        source_fingerprint: params.sourceFingerprint,
+        source_fingerprint: effectiveFingerprint,
         payload: sanitizedPayload,
         generated_by: params.userId || null,
         generated_at: sanitizedPayload.generatedAt || now,
