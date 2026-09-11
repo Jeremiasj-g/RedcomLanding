@@ -118,6 +118,45 @@ type Person = {
   branch: string;
 };
 
+type ExpectedHierarchyRole = "supervisor" | "manager" | "superior" | null;
+
+function matchesExpectedRole(person: Person, expectedRole: ExpectedHierarchyRole) {
+  if (!expectedRole) return true;
+  if (expectedRole === "supervisor") return isSupervisorRole(person.role, person.label);
+  if (expectedRole === "manager") return isManagerRole(person.role, person.label);
+  return isSupervisorRole(person.role, person.label) || isManagerRole(person.role, person.label);
+}
+
+function personIdentity(person: Person) {
+  return [
+    normalizeCccHierarchyBranch(person.branch),
+    normalizePersonCode(person.code),
+    normalizeKey(person.label),
+    normalizeKey(person.role),
+  ].join("|");
+}
+
+function resolveUniquePerson(
+  candidates: Person[],
+  searchedValue: unknown,
+  expectedRole: ExpectedHierarchyRole,
+) {
+  const unique = new Map<string, Person>();
+  candidates
+    .filter((person) => matchesExpectedRole(person, expectedRole))
+    .forEach((person) => unique.set(personIdentity(person), person));
+
+  const roleCandidates = Array.from(unique.values());
+  if (roleCandidates.length === 1) return roleCandidates[0];
+  if (!roleCandidates.length) return null;
+
+  // Si hay más de una persona con el mismo alias, solamente aceptamos una
+  // coincidencia exacta por nombre. Si sigue siendo ambiguo, no se vincula.
+  const exactLabel = normalizeKey(searchedValue);
+  const exact = roleCandidates.filter((person) => normalizeKey(person.label) === exactLabel);
+  return exact.length === 1 ? exact[0] : null;
+}
+
 async function buildHierarchy(file: File, detailVersion: string): Promise<CccEligibleHierarchy | null> {
   if (typeof window === "undefined") return null;
   const XLSX = (window as any).XLSX;
@@ -142,6 +181,7 @@ async function buildHierarchy(file: File, detailVersion: string): Promise<CccEli
 
   const people: Person[] = [];
   const byBranchName = new Map<string, Map<string, Person[]>>();
+  const byGlobalName = new Map<string, Person[]>();
 
   const register = (person: Person) => {
     if (!byBranchName.has(person.branch)) byBranchName.set(person.branch, new Map());
@@ -149,6 +189,9 @@ async function buildHierarchy(file: File, detailVersion: string): Promise<CccEli
     for (const alias of personNameAliases(person.label)) {
       if (!branchMap.has(alias)) branchMap.set(alias, []);
       branchMap.get(alias)!.push(person);
+
+      if (!byGlobalName.has(alias)) byGlobalName.set(alias, []);
+      byGlobalName.get(alias)!.push(person);
     }
   };
 
@@ -174,13 +217,26 @@ async function buildHierarchy(file: File, detailVersion: string): Promise<CccEli
     register(person);
   }
 
-  const findByName = (value: unknown, branch: string) => {
+  const findByName = (
+    value: unknown,
+    branch: string,
+    expectedRole: ExpectedHierarchyRole = null,
+  ) => {
+    const aliases = personNameAliases(value);
     const branchMap = byBranchName.get(normalizeCccHierarchyBranch(branch));
-    for (const alias of personNameAliases(value)) {
-      const candidates = branchMap?.get(alias) || [];
-      if (candidates.length) return candidates[0];
-    }
-    return null;
+
+    // Primera opción: la misma sucursal. Es la asociación comercial más precisa.
+    const localCandidates: Person[] = [];
+    aliases.forEach((alias) => localCandidates.push(...(branchMap?.get(alias) || [])));
+    const local = resolveUniquePerson(localCandidates, value, expectedRole);
+    if (local) return local;
+
+    // Fallback seguro: Detalle personal puede registrar al Supervisor/JDV bajo
+    // otra sucursal administrativa. Solo usamos la coincidencia global cuando
+    // identifica inequívocamente a una única persona con el cargo esperado.
+    const globalCandidates: Person[] = [];
+    aliases.forEach((alias) => globalCandidates.push(...(byGlobalName.get(alias) || [])));
+    return resolveUniquePerson(globalCandidates, value, expectedRole);
   };
 
   const eligibleKeys = new Set<string>();
@@ -192,16 +248,16 @@ async function buildHierarchy(file: File, detailVersion: string): Promise<CccEli
     if (isManagerRole(vendor.role, vendor.label) || isSupervisorRole(vendor.role, vendor.label)) continue;
     if (!vendor.superiorLabel) continue;
 
-    const supervisor = findByName(vendor.superiorLabel, vendor.branch);
+    const supervisor = findByName(vendor.superiorLabel, vendor.branch, "supervisor");
     // Regla comercial: el vendedor solo entra al análisis si su superior existe
     // realmente en Detalle personal y está identificado como Supervisor.
-    if (!supervisor || !isSupervisorRole(supervisor.role, supervisor.label)) continue;
+    if (!supervisor) continue;
 
     let manager: Person | null = null;
     let current: Person | null = supervisor;
     const seen = new Set<string>();
     for (let depth = 0; current?.superiorLabel && depth < 8; depth += 1) {
-      const next = findByName(current.superiorLabel, current.branch);
+      const next = findByName(current.superiorLabel, current.branch, "superior");
       if (!next) break;
       const key = `${next.branch}|${normalizeKey(next.label)}`;
       if (seen.has(key)) break;
