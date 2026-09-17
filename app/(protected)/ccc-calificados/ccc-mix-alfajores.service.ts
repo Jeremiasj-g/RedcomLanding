@@ -23,18 +23,34 @@ function legacyFolder(branch: string) {
   return `${normalizeBranch(branch)}/mix-alfajores`;
 }
 
-function legacyMeta(branch: string, object: any): CccMixAlfajoresFileMeta {
+async function legacyMeta(branch: string, object: any): Promise<CccMixAlfajoresFileMeta> {
   const rawName = String(object?.name || "mix-alfajores.xlsx");
   const originalName = rawName.replace(/^\d{13}-/, "") || "mix-alfajores.xlsx";
   const uploadedAt = object?.created_at || object?.updated_at || new Date(0).toISOString();
+  const ownerId = String(object?.owner_id || object?.owner || "").trim() || null;
+  let uploaderName: string | null = null;
+
+  if (ownerId) {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", ownerId)
+        .maybeSingle();
+      uploaderName = data?.full_name || null;
+    } catch {
+      uploaderName = null;
+    }
+  }
+
   return {
     branch_key: normalizeBranch(branch),
     storage_path: `${legacyFolder(branch)}/${rawName}`,
     original_name: originalName,
     mime_type: object?.metadata?.mimetype || null,
     size_bytes: Number(object?.metadata?.size || 0) || null,
-    uploaded_by: object?.owner_id || null,
-    uploaded_by_name: null,
+    uploaded_by: ownerId,
+    uploaded_by_name: uploaderName,
     uploaded_at: uploadedAt,
     updated_at: object?.updated_at || uploadedAt,
   };
@@ -69,7 +85,6 @@ export async function getMixAlfajoresFileMeta(
   if (error) throw error;
   if (data) return data as CccMixAlfajoresFileMeta;
 
-  // Compatibilidad con los primeros archivos de prueba guardados solo en Storage.
   return getLegacyMeta(branchKey);
 }
 
