@@ -46,11 +46,15 @@ function safeFileName(value: string) {
     .trim();
 }
 
+async function currentUserId() {
+  const { data } = await supabase.auth.getUser();
+  return data?.user?.id || "";
+}
+
 async function readMetadata(path: string): Promise<CccMixAlfajoresFileMeta | null> {
   const { data, error } = await supabase.storage
     .from(CCC_WORKSPACE_FILES_BUCKET)
     .download(path);
-
   if (error) return null;
 
   try {
@@ -74,7 +78,6 @@ async function readLegacyMetadata(branch: string): Promise<CccMixAlfajoresFileMe
       offset: 0,
       sortBy: { column: "updated_at", order: "desc" },
     });
-
   if (error) throw error;
 
   const object = (data || []).find((item: any) => {
@@ -109,7 +112,7 @@ export async function getMixAlfajoresFileMeta(
   const branchKey = normalizeBranch(branch);
   if (!branchKey) return null;
 
-  const normalizedUserId = String(userId || "").trim();
+  const normalizedUserId = String(userId || (await currentUserId()) || "").trim();
   if (normalizedUserId) {
     const own = await readMetadata(metadataPathForUser(branchKey, normalizedUserId));
     if (own) return { ...own, source: "user" };
@@ -138,7 +141,6 @@ export async function listMixAlfajoresFiles(
       offset: 0,
       sortBy: { column: "name", order: "asc" },
     });
-
   if (error) throw error;
 
   const folderNames = (data || [])
