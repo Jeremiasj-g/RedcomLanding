@@ -1,8 +1,9 @@
 "use client";
 
-import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Boxes, Download, RefreshCw, Trash2 } from "lucide-react";
+import { useMe } from "@/hooks/useMe";
 import { CCC_BRANCH_LABELS } from "./ccc-client-base.service";
 import { getSharedPersonalDetailMeta } from "./ccc-shared-personal-detail.service";
 import {
@@ -43,20 +44,31 @@ function formatBytes(value?: number | null) {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function fileMetaLine(meta: CccMixAlfajoresFileMeta) {
+  return [
+    `Última carga: ${formatDate(meta.uploaded_at || meta.updated_at)}`,
+    meta.uploaded_by_name ? `por ${meta.uploaded_by_name}` : null,
+    meta.size_bytes ? formatBytes(meta.size_bytes) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 async function validateReport(file: File) {
   const extension = file.name.split(".").pop()?.toLowerCase();
   if (!extension || !["xlsx", "xls"].includes(extension)) {
     throw new Error("El reporte MIX Alfajores debe ser un archivo .xlsx o .xls.");
   }
+
   const XLSX = (window as any).XLSX;
   if (!XLSX) throw new Error("El motor de Excel todavía no terminó de cargar.");
 
   const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   if (!sheet) throw new Error("El reporte MIX Alfajores no contiene una hoja válida.");
+
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null }) as unknown[][];
   const headers = (rows[0] || []).map((value) => String(value ?? "").trim().toUpperCase());
-
   const clientAtD = String((rows[0] || [])[3] ?? "").toUpperCase().includes("CLIENT");
   const vendorAtP = String((rows[0] || [])[15] ?? "").toUpperCase().includes("VENDEDOR");
   const quantityAtAp = String((rows[0] || [])[41] ?? "").trim().toUpperCase() === "CANTIDADES TOTALES";
@@ -77,13 +89,88 @@ function triggerDownload(file: File) {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = file.name || "MIX ALFAJORES.xlsx";
+  anchor.style.display = "none";
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function StoredFileActions({
+  onDownload,
+  onDelete,
+  downloading,
+  deleting,
+  disabled,
+}: {
+  onDownload: (event: ReactMouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  onDelete: (event: ReactMouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  downloading?: boolean;
+  deleting?: boolean;
+  disabled?: boolean;
+}) {
+  const busy = Boolean(downloading || deleting);
+  const buttonBaseStyle = {
+    padding: "6px 9px",
+    fontSize: "10.5px",
+    fontWeight: 800,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "5px",
+    minHeight: "31px",
+    whiteSpace: "nowrap",
+    opacity: disabled || busy ? 0.62 : 1,
+  } as const;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "7px",
+        flexWrap: "wrap",
+        marginTop: "10px",
+        width: "100%",
+      }}
+    >
+      <button
+        type="button"
+        className="ghost"
+        disabled={disabled || busy}
+        onClick={onDownload}
+        title="Descargar el archivo guardado"
+        style={{ ...buttonBaseStyle, color: "var(--greenDark)", borderColor: "#B9E2CB" }}
+      >
+        {downloading ? (
+          <RefreshCw className="spin" aria-hidden="true" style={{ width: 14, height: 14 }} />
+        ) : (
+          <Download aria-hidden="true" style={{ width: 14, height: 14 }} />
+        )}
+        {downloading ? "Descargando…" : "Descargar"}
+      </button>
+      <button
+        type="button"
+        className="ghost"
+        disabled={disabled || busy}
+        onClick={onDelete}
+        title="Eliminar el archivo guardado"
+        style={{ ...buttonBaseStyle, color: "var(--red)", borderColor: "#F0BBC5" }}
+      >
+        {deleting ? (
+          <RefreshCw className="spin" aria-hidden="true" style={{ width: 14, height: 14 }} />
+        ) : (
+          <Trash2 aria-hidden="true" style={{ width: 14, height: 14 }} />
+        )}
+        {deleting ? "Eliminando…" : "Eliminar"}
+      </button>
+    </div>
+  );
+}
+
 export default function CccMixAlfajoresFeature() {
+  const { me } = useMe();
   const [active, setActive] = useState(false);
   const [branch, setBranch] = useState("");
   const [fileMeta, setFileMeta] = useState<CccMixAlfajoresFileMeta | null>(null);
@@ -92,6 +179,7 @@ export default function CccMixAlfajoresFeature() {
   const [uploading, setUploading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [xlsxReady, setXlsxReady] = useState(false);
   const [tabHost, setTabHost] = useState<HTMLElement | null>(null);
   const [uploadHost, setUploadHost] = useState<HTMLElement | null>(null);
   const [panelHost, setPanelHost] = useState<HTMLElement | null>(null);
@@ -106,6 +194,7 @@ export default function CccMixAlfajoresFeature() {
       setFileMeta(null);
       return;
     }
+
     setLoadingMeta(true);
     try {
       const [meta, detail] = await Promise.all([
@@ -121,6 +210,16 @@ export default function CccMixAlfajoresFeature() {
     } finally {
       setLoadingMeta(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setXlsxReady(Boolean((window as any).XLSX));
+    sync();
+    const timer = window.setInterval(() => {
+      sync();
+      if ((window as any).XLSX) window.clearInterval(timer);
+    }, 250);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -148,14 +247,16 @@ export default function CccMixAlfajoresFeature() {
         }
         setTabHost(host);
 
-        const onNativeTabClick = (event: Event) => {
-          const target = event.target as HTMLElement | null;
-          const button = target?.closest("button");
-          if (!button || host?.contains(button)) return;
-          setActive(false);
-        };
-        nav.addEventListener("click", onNativeTabClick);
-        (nav as any).__mixAlfajoresListener = onNativeTabClick;
+        if (!(nav as any).__mixAlfajoresListener) {
+          const listener = (event: Event) => {
+            const target = event.target as HTMLElement | null;
+            const button = target?.closest("button");
+            if (!button || host?.contains(button)) return;
+            setActive(false);
+          };
+          nav.addEventListener("click", listener);
+          (nav as any).__mixAlfajoresListener = listener;
+        }
       }
 
       const grid = document.querySelector<HTMLElement>(".ccc-page .shared-upload-grid");
@@ -170,13 +271,12 @@ export default function CccMixAlfajoresFeature() {
         setUploadHost(host);
       }
 
-      const tabs = document.querySelector<HTMLElement>(".ccc-page .ccc-tabs");
-      if (tabs) {
+      if (nav) {
         let host = document.getElementById("ccc-mix-alfajores-panel-host");
         if (!host) {
           host = document.createElement("div");
           host.id = "ccc-mix-alfajores-panel-host";
-          tabs.insertAdjacentElement("afterend", host);
+          nav.insertAdjacentElement("afterend", host);
         }
         setPanelHost(host);
       }
@@ -189,7 +289,10 @@ export default function CccMixAlfajoresFeature() {
       observer.disconnect();
       const nav = document.querySelector<HTMLElement>(".ccc-page .ccc-tabs");
       const listener = (nav as any)?.__mixAlfajoresListener;
-      if (nav && listener) nav.removeEventListener("click", listener);
+      if (nav && listener) {
+        nav.removeEventListener("click", listener);
+        delete (nav as any).__mixAlfajoresListener;
+      }
     };
   }, []);
 
@@ -224,11 +327,17 @@ export default function CccMixAlfajoresFeature() {
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || !branch) return;
+    if (!file || !branch || !me) return;
+
     setUploading(true);
     try {
       await validateReport(file);
-      const meta = await uploadMixAlfajoresFile({ branch, file });
+      const meta = await uploadMixAlfajoresFile({
+        branch,
+        file,
+        userId: me.id,
+        uploaderName: me.full_name,
+      });
       setFileMeta(meta);
       notify.success(`Reporte MIX Alfajores guardado correctamente para ${branchLabel}.`);
     } catch (error) {
@@ -239,12 +348,15 @@ export default function CccMixAlfajoresFeature() {
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownload = async (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     if (!branch || !fileMeta) return;
     setDownloading(true);
     try {
       const { file } = await downloadMixAlfajoresFile(branch);
       triggerDownload(file);
+      notify.success(`Descarga iniciada: ${file.name}.`);
     } catch (error) {
       notify.error(errorMessage(error, "No se pudo descargar MIX Alfajores."));
     } finally {
@@ -252,9 +364,12 @@ export default function CccMixAlfajoresFeature() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     if (!branch || !fileMeta) return;
     if (!window.confirm(`¿Eliminar "${fileMeta.original_name}" de ${branchLabel}?`)) return;
+
     setDeleting(true);
     try {
       await deleteMixAlfajoresFile(branch);
@@ -266,11 +381,6 @@ export default function CccMixAlfajoresFeature() {
       setDeleting(false);
     }
   };
-
-  const xlsxReady = useMemo(
-    () => typeof window !== "undefined" && Boolean((window as any).XLSX),
-    [active, uploading, fileMeta?.updated_at],
-  );
 
   const tab = tabHost
     ? createPortal(
@@ -291,30 +401,23 @@ export default function CccMixAlfajoresFeature() {
   const uploadCard = uploadHost
     ? createPortal(
         <label className={`drop stored-file-drop ${fileMeta ? "filled" : ""} ${uploading ? "is-uploading" : ""}`}>
-          <input type="file" accept=".xlsx,.xls" disabled={!branch || busy} onChange={handleUpload} />
+          <input type="file" accept=".xlsx,.xls" disabled={!branch || busy || !xlsxReady || !me} onChange={handleUpload} />
           <div className="ico">
             {uploading ? <RefreshCw className="spin" aria-hidden="true" /> : <Boxes aria-hidden="true" />}
           </div>
           <div className="label">Reporte MIX Alfajores</div>
           <div className="filename">
-            {fileMeta?.original_name || "Seleccioná el reporte para cargar o reemplazar"}
+            {fileMeta?.original_name || "Seleccioná el Excel para cargar o reemplazar"}
           </div>
+          {fileMeta && <div className="upload-meta">{fileMetaLine(fileMeta)}</div>}
           {fileMeta && (
-            <div className="upload-meta">
-              Última carga: {formatDate(fileMeta.updated_at)}{fileMeta.size_bytes ? ` · ${formatBytes(fileMeta.size_bytes)}` : ""}
-            </div>
-          )}
-          {fileMeta && (
-            <div className="mt-2 flex flex-wrap justify-center gap-2">
-              <button type="button" className="ghost" disabled={busy} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void handleDownload(); }} style={{ padding: "6px 9px", fontSize: "10.5px", fontWeight: 800, color: "var(--greenDark)", borderColor: "#B9E2CB" }}>
-                {downloading ? <RefreshCw className="spin" style={{ width: 14, height: 14 }} /> : <Download style={{ width: 14, height: 14 }} />}
-                {downloading ? "Descargando…" : "Descargar"}
-              </button>
-              <button type="button" className="ghost" disabled={busy} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void handleDelete(); }} style={{ padding: "6px 9px", fontSize: "10.5px", fontWeight: 800, color: "var(--red)", borderColor: "#F0BBC5" }}>
-                {deleting ? <RefreshCw className="spin" style={{ width: 14, height: 14 }} /> : <Trash2 style={{ width: 14, height: 14 }} />}
-                {deleting ? "Eliminando…" : "Eliminar"}
-              </button>
-            </div>
+            <StoredFileActions
+              onDownload={handleDownload}
+              onDelete={handleDelete}
+              downloading={downloading}
+              deleting={deleting}
+              disabled={busy && !downloading && !deleting}
+            />
           )}
         </label>,
         uploadHost,
@@ -324,6 +427,20 @@ export default function CccMixAlfajoresFeature() {
   const panel = panelHost && active
     ? createPortal(
         <section className="pb-2 pt-0">
+          <style>{`
+            #ccc-mix-alfajores-panel-host [class~="space-y-4"] > section:first-child {
+              border: 0 !important;
+              background: transparent !important;
+              box-shadow: none !important;
+              padding: 0 !important;
+            }
+            #ccc-mix-alfajores-panel-host [class~="space-y-4"] > section:first-child > div > div:first-child {
+              display: none !important;
+            }
+            #ccc-mix-alfajores-panel-host [class~="space-y-4"] > section:first-child > div {
+              justify-content: flex-end !important;
+            }
+          `}</style>
           <MixAlfajoresPanel
             active={active}
             branch={branch}
