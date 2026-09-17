@@ -1,5 +1,6 @@
 import ClientesCalificadosPage from "./ClientesCalificadosPage";
 import CccExportAllBrandsFix from "./CccExportAllBrandsFix";
+import CccMixAlfajoresFeature from "./CccMixAlfajoresFeature";
 import CccSelectEnhancer from "./CccSelectEnhancer";
 import CccSnapshotFeature from "./CccSnapshotFeature";
 
@@ -17,6 +18,7 @@ export default function Page({
     <>
       <CccExportAllBrandsFix />
       <CccSnapshotFeature />
+      <CccMixAlfajoresFeature />
       <CccSelectEnhancer />
       <ClientesCalificadosPage key={`ccc-dashboard:${snapshotKey}`} />
     </>
