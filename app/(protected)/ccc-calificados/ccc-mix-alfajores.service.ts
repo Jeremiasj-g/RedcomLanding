@@ -74,7 +74,7 @@ async function readLegacyMetadata(branch: string): Promise<CccMixAlfajoresFileMe
   const { data, error } = await supabase.storage
     .from(CCC_WORKSPACE_FILES_BUCKET)
     .list(folderForBranch(branchKey), {
-      limit: 50,
+      limit: 100,
       offset: 0,
       sortBy: { column: "updated_at", order: "desc" },
     });
@@ -105,6 +105,53 @@ async function readLegacyMetadata(branch: string): Promise<CccMixAlfajoresFileMe
   };
 }
 
+async function listBranchUserIds(branch: string): Promise<string[]> {
+  const branchKey = normalizeBranch(branch);
+  const ids = new Set<string>();
+
+  // Primera fuente: usuarios asignados formalmente a la sucursal.
+  // Esto evita depender de que Storage devuelva carpetas virtuales al listar un prefijo.
+  try {
+    const { data, error } = await supabase
+      .from("user_branches")
+      .select("user_id")
+      .eq("branch", branchKey);
+    if (!error) {
+      (data || []).forEach((row: any) => {
+        const id = String(row?.user_id || "").trim();
+        if (id) ids.add(id);
+      });
+    }
+  } catch {
+    // Seguimos con las otras fuentes: Storage y usuario actual.
+  }
+
+  // Segunda fuente: carpetas efectivamente existentes en Storage.
+  try {
+    const uploadsFolder = `${folderForBranch(branchKey)}/${MIX_UPLOADS_FOLDER}`;
+    const { data, error } = await supabase.storage
+      .from(CCC_WORKSPACE_FILES_BUCKET)
+      .list(uploadsFolder, {
+        limit: 1000,
+        offset: 0,
+        sortBy: { column: "name", order: "asc" },
+      });
+    if (!error) {
+      (data || []).forEach((item: any) => {
+        const id = String(item?.name || "").trim();
+        if (id && id !== MIX_METADATA_FILE) ids.add(id);
+      });
+    }
+  } catch {
+    // La consulta por user_branches sigue cubriendo los usuarios de la sucursal.
+  }
+
+  const ownId = await currentUserId();
+  if (ownId) ids.add(ownId);
+
+  return Array.from(ids);
+}
+
 export async function getMixAlfajoresFileMeta(
   branch: string,
   userId?: string | null,
@@ -133,39 +180,32 @@ export async function listMixAlfajoresFiles(
   const branchKey = normalizeBranch(branch);
   if (!branchKey) return [];
 
-  const uploadsFolder = `${folderForBranch(branchKey)}/${MIX_UPLOADS_FOLDER}`;
-  const { data, error } = await supabase.storage
-    .from(CCC_WORKSPACE_FILES_BUCKET)
-    .list(uploadsFolder, {
-      limit: 100,
-      offset: 0,
-      sortBy: { column: "name", order: "asc" },
-    });
-  if (error) throw error;
-
-  const folderNames = (data || [])
-    .map((item: any) => String(item?.name || "").trim())
-    .filter(Boolean);
-
+  const userIds = await listBranchUserIds(branchKey);
   const userEntries = (
     await Promise.all(
-      folderNames.map(async (userId) => {
+      userIds.map(async (userId) => {
         const meta = await readMetadata(metadataPathForUser(branchKey, userId));
         return meta ? { ...meta, source: "user" as const } : null;
       }),
     )
   ).filter(Boolean) as CccMixAlfajoresFileMeta[];
 
+  // Dedupe por archivo físico y, en segundo lugar, por usuario que lo subió.
+  const dedupedByPath = new Map<string, CccMixAlfajoresFileMeta>();
+  userEntries.forEach((entry) => dedupedByPath.set(entry.storage_path, entry));
+
   const legacy = await readLegacyMetadata(branchKey);
-  const deduped = [...userEntries];
   if (legacy) {
-    const alreadyRepresented = legacy.uploaded_by
-      ? userEntries.some((item) => item.uploaded_by === legacy.uploaded_by)
+    const sameUploader = legacy.uploaded_by
+      ? Array.from(dedupedByPath.values()).some(
+          (item) => item.uploaded_by === legacy.uploaded_by,
+        )
       : false;
-    if (!alreadyRepresented) deduped.push(legacy);
+    const samePath = dedupedByPath.has(legacy.storage_path);
+    if (!sameUploader && !samePath) dedupedByPath.set(legacy.storage_path, legacy);
   }
 
-  return deduped.sort(
+  return Array.from(dedupedByPath.values()).sort(
     (a, b) =>
       new Date(b.updated_at || b.uploaded_at).getTime() -
       new Date(a.updated_at || a.uploaded_at).getTime(),
