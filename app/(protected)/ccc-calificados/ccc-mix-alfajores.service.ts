@@ -2,11 +2,13 @@ import { supabase } from "@/lib/supabaseClient";
 import { CCC_WORKSPACE_FILES_BUCKET } from "./ccc-client-base.service";
 
 const MIX_FOLDER = "mix-alfajores";
+const MIX_UPLOADS_FOLDER = "uploads";
 const MIX_METADATA_FILE = "metadata.json";
 
 export type CccMixAlfajoresFileMeta = {
   branch_key?: string;
   storage_path: string;
+  metadata_path?: string | null;
   original_name: string;
   mime_type?: string | null;
   size_bytes: number | null;
@@ -14,6 +16,7 @@ export type CccMixAlfajoresFileMeta = {
   uploaded_by_name: string | null;
   uploaded_at: string;
   updated_at: string;
+  source?: "user" | "legacy";
 };
 
 function normalizeBranch(branch: string) {
@@ -24,7 +27,15 @@ function folderForBranch(branch: string) {
   return `${normalizeBranch(branch)}/${MIX_FOLDER}`;
 }
 
-function metadataPath(branch: string) {
+function folderForUser(branch: string, userId: string) {
+  return `${folderForBranch(branch)}/${MIX_UPLOADS_FOLDER}/${String(userId || "").trim()}`;
+}
+
+function metadataPathForUser(branch: string, userId: string) {
+  return `${folderForUser(branch, userId)}/${MIX_METADATA_FILE}`;
+}
+
+function legacyMetadataPath(branch: string) {
   return `${folderForBranch(branch)}/${MIX_METADATA_FILE}`;
 }
 
@@ -35,17 +46,17 @@ function safeFileName(value: string) {
     .trim();
 }
 
-async function readStoredMetadata(branch: string): Promise<CccMixAlfajoresFileMeta | null> {
+async function readMetadata(path: string): Promise<CccMixAlfajoresFileMeta | null> {
   const { data, error } = await supabase.storage
     .from(CCC_WORKSPACE_FILES_BUCKET)
-    .download(metadataPath(branch));
+    .download(path);
 
   if (error) return null;
 
   try {
     const parsed = JSON.parse(await data.text()) as CccMixAlfajoresFileMeta;
     if (!parsed?.storage_path || !parsed?.original_name) return null;
-    return parsed;
+    return { ...parsed, metadata_path: path };
   } catch {
     return null;
   }
@@ -53,6 +64,9 @@ async function readStoredMetadata(branch: string): Promise<CccMixAlfajoresFileMe
 
 async function readLegacyMetadata(branch: string): Promise<CccMixAlfajoresFileMeta | null> {
   const branchKey = normalizeBranch(branch);
+  const stored = await readMetadata(legacyMetadataPath(branchKey));
+  if (stored) return { ...stored, source: "legacy" };
+
   const { data, error } = await supabase.storage
     .from(CCC_WORKSPACE_FILES_BUCKET)
     .list(folderForBranch(branchKey), {
@@ -74,6 +88,7 @@ async function readLegacyMetadata(branch: string): Promise<CccMixAlfajoresFileMe
   return {
     branch_key: branchKey,
     storage_path: `${folderForBranch(branchKey)}/${rawName}`,
+    metadata_path: null,
     original_name: rawName
       .replace(/^\d{13}-/, "")
       .replace(/^reporte\.(xlsx|xls)$/i, "MIX ALFAJORES.$1"),
@@ -83,19 +98,76 @@ async function readLegacyMetadata(branch: string): Promise<CccMixAlfajoresFileMe
     uploaded_by_name: null,
     uploaded_at: uploadedAt,
     updated_at: object.updated_at || uploadedAt,
+    source: "legacy",
   };
 }
 
 export async function getMixAlfajoresFileMeta(
   branch: string,
+  userId?: string | null,
 ): Promise<CccMixAlfajoresFileMeta | null> {
   const branchKey = normalizeBranch(branch);
   if (!branchKey) return null;
 
-  const stored = await readStoredMetadata(branchKey);
-  if (stored) return stored;
+  const normalizedUserId = String(userId || "").trim();
+  if (normalizedUserId) {
+    const own = await readMetadata(metadataPathForUser(branchKey, normalizedUserId));
+    if (own) return { ...own, source: "user" };
+
+    const legacy = await readLegacyMetadata(branchKey);
+    if (legacy && (!legacy.uploaded_by || legacy.uploaded_by === normalizedUserId)) {
+      return legacy;
+    }
+    return null;
+  }
 
   return readLegacyMetadata(branchKey);
+}
+
+export async function listMixAlfajoresFiles(
+  branch: string,
+): Promise<CccMixAlfajoresFileMeta[]> {
+  const branchKey = normalizeBranch(branch);
+  if (!branchKey) return [];
+
+  const uploadsFolder = `${folderForBranch(branchKey)}/${MIX_UPLOADS_FOLDER}`;
+  const { data, error } = await supabase.storage
+    .from(CCC_WORKSPACE_FILES_BUCKET)
+    .list(uploadsFolder, {
+      limit: 100,
+      offset: 0,
+      sortBy: { column: "name", order: "asc" },
+    });
+
+  if (error) throw error;
+
+  const folderNames = (data || [])
+    .map((item: any) => String(item?.name || "").trim())
+    .filter(Boolean);
+
+  const userEntries = (
+    await Promise.all(
+      folderNames.map(async (userId) => {
+        const meta = await readMetadata(metadataPathForUser(branchKey, userId));
+        return meta ? { ...meta, source: "user" as const } : null;
+      }),
+    )
+  ).filter(Boolean) as CccMixAlfajoresFileMeta[];
+
+  const legacy = await readLegacyMetadata(branchKey);
+  const deduped = [...userEntries];
+  if (legacy) {
+    const alreadyRepresented = legacy.uploaded_by
+      ? userEntries.some((item) => item.uploaded_by === legacy.uploaded_by)
+      : false;
+    if (!alreadyRepresented) deduped.push(legacy);
+  }
+
+  return deduped.sort(
+    (a, b) =>
+      new Date(b.updated_at || b.uploaded_at).getTime() -
+      new Date(a.updated_at || a.uploaded_at).getTime(),
+  );
 }
 
 export async function uploadMixAlfajoresFile(params: {
@@ -105,11 +177,14 @@ export async function uploadMixAlfajoresFile(params: {
   uploaderName?: string | null;
 }): Promise<CccMixAlfajoresFileMeta> {
   const branchKey = normalizeBranch(params.branch);
+  const userId = String(params.userId || "").trim();
   if (!branchKey) throw new Error("Seleccioná una sucursal antes de subir el reporte.");
+  if (!userId) throw new Error("No se pudo identificar al usuario que realiza la carga.");
 
-  const previous = await getMixAlfajoresFileMeta(branchKey);
+  const previous = await getMixAlfajoresFileMeta(branchKey, userId);
   const extension = params.file.name.toLowerCase().endsWith(".xls") ? "xls" : "xlsx";
-  const storagePath = `${folderForBranch(branchKey)}/reporte.${extension}`;
+  const storagePath = `${folderForUser(branchKey, userId)}/reporte.${extension}`;
+  const metaPath = metadataPathForUser(branchKey, userId);
   const uploadedAt = new Date().toISOString();
 
   const { error: storageError } = await supabase.storage
@@ -126,13 +201,15 @@ export async function uploadMixAlfajoresFile(params: {
   const meta: CccMixAlfajoresFileMeta = {
     branch_key: branchKey,
     storage_path: storagePath,
+    metadata_path: metaPath,
     original_name: safeFileName(params.file.name),
     mime_type: params.file.type || null,
     size_bytes: params.file.size,
-    uploaded_by: params.userId,
+    uploaded_by: userId,
     uploaded_by_name: params.uploaderName || null,
     uploaded_at: uploadedAt,
     updated_at: uploadedAt,
+    source: "user",
   };
 
   const metadataBlob = new Blob([JSON.stringify(meta)], {
@@ -140,7 +217,7 @@ export async function uploadMixAlfajoresFile(params: {
   });
   const { error: metadataError } = await supabase.storage
     .from(CCC_WORKSPACE_FILES_BUCKET)
-    .upload(metadataPath(branchKey), metadataBlob, {
+    .upload(metaPath, metadataBlob, {
       upsert: true,
       contentType: "application/octet-stream",
       cacheControl: "0",
@@ -154,7 +231,11 @@ export async function uploadMixAlfajoresFile(params: {
     throw metadataError;
   }
 
-  if (previous?.storage_path && previous.storage_path !== storagePath) {
+  if (
+    previous?.source === "user" &&
+    previous.storage_path &&
+    previous.storage_path !== storagePath
+  ) {
     await supabase.storage
       .from(CCC_WORKSPACE_FILES_BUCKET)
       .remove([previous.storage_path])
@@ -164,12 +245,9 @@ export async function uploadMixAlfajoresFile(params: {
   return meta;
 }
 
-export async function downloadMixAlfajoresFile(
-  branch: string,
+export async function downloadMixAlfajoresFileByMeta(
+  meta: CccMixAlfajoresFileMeta,
 ): Promise<{ file: File; meta: CccMixAlfajoresFileMeta }> {
-  const meta = await getMixAlfajoresFileMeta(branch);
-  if (!meta) throw new Error("Todavía no hay un reporte MIX Alfajores guardado para esta sucursal.");
-
   const { data, error } = await supabase.storage
     .from(CCC_WORKSPACE_FILES_BUCKET)
     .download(meta.storage_path);
@@ -186,14 +264,26 @@ export async function downloadMixAlfajoresFile(
   };
 }
 
-export async function deleteMixAlfajoresFile(branch: string): Promise<void> {
+export async function downloadMixAlfajoresFile(
+  branch: string,
+  userId?: string | null,
+): Promise<{ file: File; meta: CccMixAlfajoresFileMeta }> {
+  const meta = await getMixAlfajoresFileMeta(branch, userId);
+  if (!meta) throw new Error("Todavía no hay un reporte MIX Alfajores guardado para este usuario.");
+  return downloadMixAlfajoresFileByMeta(meta);
+}
+
+export async function deleteMixAlfajoresFile(
+  branch: string,
+  userId?: string | null,
+): Promise<void> {
   const branchKey = normalizeBranch(branch);
   if (!branchKey) return;
-  const meta = await getMixAlfajoresFileMeta(branchKey);
+  const meta = await getMixAlfajoresFileMeta(branchKey, userId);
   if (!meta) return;
 
   const paths = Array.from(
-    new Set([meta.storage_path, metadataPath(branchKey)].filter(Boolean)),
+    new Set([meta.storage_path, meta.metadata_path].filter(Boolean) as string[]),
   );
   const { error } = await supabase.storage
     .from(CCC_WORKSPACE_FILES_BUCKET)
