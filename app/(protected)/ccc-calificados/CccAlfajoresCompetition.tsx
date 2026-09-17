@@ -481,8 +481,6 @@ export default function CccAlfajoresCompetition() {
   useEffect(() => {
     if (!active) return;
     void refresh();
-    const interval = window.setInterval(() => void refresh(), 60_000);
-    return () => window.clearInterval(interval);
   }, [active, refresh]);
 
   const countdownItems = useMemo(
