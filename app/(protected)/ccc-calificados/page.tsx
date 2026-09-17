@@ -1,5 +1,6 @@
 import ClientesCalificadosPage from "./ClientesCalificadosPage";
 import CccAlfajoresCompetition from "./CccAlfajoresCompetition";
+import CccCompetitionCountdownPolish from "./CccCompetitionCountdownPolish";
 import CccExportAllBrandsFix from "./CccExportAllBrandsFix";
 import CccMixAlfajoresFeature from "./CccMixAlfajoresFeature";
 import CccSelectEnhancer from "./CccSelectEnhancer";
@@ -20,6 +21,7 @@ export default function Page({
       <CccExportAllBrandsFix />
       <CccSnapshotFeature />
       <CccAlfajoresCompetition />
+      <CccCompetitionCountdownPolish />
       <CccMixAlfajoresFeature />
       <CccSelectEnhancer />
       <ClientesCalificadosPage key={`ccc-dashboard:${snapshotKey}`} />
