@@ -3,6 +3,7 @@ import CccAlfajoresCompetition from "./CccAlfajoresCompetition";
 import CccCompetitionCountdownPolish from "./CccCompetitionCountdownPolish";
 import CccExportAllBrandsFix from "./CccExportAllBrandsFix";
 import CccMixAlfajoresFeature from "./CccMixAlfajoresFeature";
+import CccMixAlfajoresLabelPolish from "./CccMixAlfajoresLabelPolish";
 import CccSelectEnhancer from "./CccSelectEnhancer";
 import CccSnapshotFeature from "./CccSnapshotFeature";
 
@@ -23,6 +24,7 @@ export default function Page({
       <CccAlfajoresCompetition />
       <CccCompetitionCountdownPolish />
       <CccMixAlfajoresFeature />
+      <CccMixAlfajoresLabelPolish />
       <CccSelectEnhancer />
       <ClientesCalificadosPage key={`ccc-dashboard:${snapshotKey}`} />
     </>
