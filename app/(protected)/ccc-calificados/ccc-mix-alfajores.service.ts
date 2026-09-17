@@ -64,14 +64,8 @@ export async function uploadMixAlfajoresFile(params: {
   if (!branchKey) throw new Error("Seleccioná una sucursal antes de subir el reporte.");
 
   const previous = await getMixAlfajoresFileMeta(branchKey);
-  if (previous?.storage_path) {
-    const { error: removeError } = await supabase.storage
-      .from(CCC_WORKSPACE_FILES_BUCKET)
-      .remove([previous.storage_path]);
-    if (removeError) throw removeError;
-  }
-
   const originalName = safeName(params.file.name);
+  const uploadedAt = new Date().toISOString();
   const storagePath = `${folderForBranch(branchKey)}/${Date.now()}-${originalName}`;
   const { error } = await supabase.storage
     .from(CCC_WORKSPACE_FILES_BUCKET)
@@ -85,12 +79,23 @@ export async function uploadMixAlfajoresFile(params: {
 
   if (error) throw error;
 
+  // Primero queda asegurada la nueva versión. Recién después se elimina la anterior,
+  // de modo que un fallo de red durante el reemplazo nunca deja a la sucursal sin archivo.
+  if (previous?.storage_path && previous.storage_path !== storagePath) {
+    const { error: removeError } = await supabase.storage
+      .from(CCC_WORKSPACE_FILES_BUCKET)
+      .remove([previous.storage_path]);
+    if (removeError) {
+      console.warn("[CCC MIX Alfajores] No se pudo limpiar el archivo anterior:", removeError);
+    }
+  }
+
   return {
     storage_path: storagePath,
     original_name: originalName,
     size_bytes: params.file.size,
-    uploaded_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    uploaded_at: uploadedAt,
+    updated_at: uploadedAt,
   };
 }
 
