@@ -933,6 +933,153 @@ function ExecutiveIntro({ company }: { company: CompanySummary }) {
   );
 }
 
+function ClosedLinesAnalysis({ company }: { company: CompanySummary }) {
+  const [branchKey, setBranchKey] = useState<BranchKey>("corrientes_masivos");
+
+  useEffect(() => {
+    if (company.branches.some((branch) => branch.branchKey === branchKey)) return;
+    const firstAvailable = company.branches[0]?.branchKey as BranchKey | undefined;
+    if (firstAvailable) setBranchKey(firstAvailable);
+  }, [branchKey, company.branches]);
+
+  const selectedBranch = useMemo(
+    () => company.branches.find((branch) => branch.branchKey === branchKey) ?? null,
+    [branchKey, company.branches],
+  );
+
+  const supervisors = useMemo(() => {
+    if (!selectedBranch) return [];
+
+    const sellerRows = selectedBranch.ranking.map((seller) => {
+      const orderedHistory = [...seller.history].sort((a, b) => a.period.localeCompare(b.period));
+      const last = orderedHistory.at(-1);
+      const supervisorRaw = String(last?.supervisor ?? "").trim();
+      const supervisor =
+        supervisorRaw && supervisorRaw !== "—" && supervisorRaw.toUpperCase() !== "NO"
+          ? supervisorRaw
+          : "Sin supervisor asignado";
+
+      return {
+        sellerId: seller.sellerId,
+        sellerName: seller.summary.sellerName || seller.sellerName,
+        supervisor,
+        months: new Set(orderedHistory.map((point) => point.period)).size,
+        avgCobertura: average(orderedHistory.map((point) => point.cobertura)),
+        avgVolumen: average(orderedHistory.map((point) => point.volumen)),
+      };
+    });
+
+    const grouped = new Map<string, typeof sellerRows>();
+    sellerRows.forEach((seller) => {
+      const current = grouped.get(seller.supervisor) ?? [];
+      current.push(seller);
+      grouped.set(seller.supervisor, current);
+    });
+
+    return Array.from(grouped.entries())
+      .map(([supervisor, sellers]) => ({
+        supervisor,
+        sellers: [...sellers].sort((a, b) => a.sellerName.localeCompare(b.sellerName)),
+        avgCobertura: average(sellers.map((seller) => seller.avgCobertura)),
+        avgVolumen: average(sellers.map((seller) => seller.avgVolumen)),
+      }))
+      .sort((a, b) => a.supervisor.localeCompare(b.supervisor));
+  }, [selectedBranch]);
+
+  return (
+    <ChartPanel
+      title="Promedio de líneas cerradas"
+      description="Promedio mensual de líneas de cobertura y volumen por vendedor y supervisor, respetando el rango de meses seleccionado."
+    >
+      <Tabs value={branchKey} onValueChange={(value) => setBranchKey(value as BranchKey)}>
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 sm:grid-cols-2 xl:grid-cols-5">
+          {BRANCH_OPTIONS.map((branch) => (
+            <TabsTrigger
+              key={branch.key}
+              value={branch.key}
+              className="rounded-lg px-3 py-2.5 text-xs font-black text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white"
+            >
+              {branch.shortLabel}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
+      <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+        <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+          <thead className="bg-slate-950 text-[11px] uppercase tracking-[0.12em] text-white">
+            <tr>
+              <th className="px-4 py-3 font-black">Nivel</th>
+              <th className="px-4 py-3 font-black">Supervisor / Vendedor</th>
+              <th className="px-4 py-3 text-center font-black">Meses</th>
+              <th className="px-4 py-3 text-right font-black">Prom. líneas cobertura</th>
+              <th className="px-4 py-3 text-right font-black">Prom. líneas volumen</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {!selectedBranch?.sellersCount ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-10 text-center text-sm font-semibold text-slate-500">
+                  No hay cierres disponibles para {getBranchLabel(branchKey)} en el rango seleccionado.
+                </td>
+              </tr>
+            ) : (
+              supervisors.flatMap((group) => {
+                const rows: React.ReactNode[] = [
+                  <tr key={`supervisor:${branchKey}:${group.supervisor}`} className="bg-slate-50">
+                    <td className="px-4 py-2.5">
+                      <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600">
+                        Supervisor
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 font-black text-slate-950">{group.supervisor}</td>
+                    <td className="px-4 py-2.5 text-center font-bold text-slate-600">
+                      {group.sellers.length} vend.
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-black text-slate-950">
+                      {formatNumber(group.avgCobertura, 1)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-black text-slate-950">
+                      {formatNumber(group.avgVolumen, 1)}
+                    </td>
+                  </tr>,
+                ];
+
+                group.sellers.forEach((seller) => {
+                  rows.push(
+                    <tr key={`seller:${branchKey}:${seller.sellerId}`} className="bg-white hover:bg-slate-50/70">
+                      <td className="px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                        Vendedor
+                      </td>
+                      <td className="px-4 py-2 pl-8">
+                        <div className="font-bold text-slate-800">{seller.sellerName}</div>
+                        <div className="text-[11px] font-semibold text-slate-400">ID {seller.sellerId}</div>
+                      </td>
+                      <td className="px-4 py-2 text-center font-semibold text-slate-600">{seller.months}</td>
+                      <td className="px-4 py-2 text-right font-bold text-slate-700">
+                        {formatNumber(seller.avgCobertura, 1)}
+                      </td>
+                      <td className="px-4 py-2 text-right font-bold text-slate-700">
+                        {formatNumber(seller.avgVolumen, 1)}
+                      </td>
+                    </tr>,
+                  );
+                });
+
+                return rows;
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="mt-3 text-[11px] font-semibold leading-5 text-slate-400">
+        El promedio de supervisor se calcula a partir del promedio mensual de sus vendedores dentro del mismo rango seleccionado.
+      </p>
+    </ChartPanel>
+  );
+}
+
 function CompanyView({ company }: { company: CompanySummary }) {
   if (!company.sellersCount) {
     return (
@@ -1144,6 +1291,8 @@ function CompanyView({ company }: { company: CompanySummary }) {
           </ChartPanel>
         </div>
       </div>
+
+      <ClosedLinesAnalysis company={company} />
     </div>
   );
 }
