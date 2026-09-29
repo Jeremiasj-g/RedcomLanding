@@ -1,5 +1,7 @@
 "use client";
 
+import ClosedLinesTable from "@/components/categoria/ClosedLinesTable";
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
@@ -2842,6 +2844,21 @@ function SupervisorDashboard({ items }: { items: RankingApiItem[] }) {
               ))}
             </tbody>
           </table>
+        </div>
+      </Panel>
+
+      <Panel className="overflow-hidden">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <div className="text-sm font-black text-slate-950">Promedio de líneas cerradas</div>
+          <div className="mt-0.5 text-xs text-slate-500">
+            Promedio mensual de líneas de cobertura y volumen por vendedor y supervisor dentro de esta sucursal.
+          </div>
+        </div>
+        <div className="p-5">
+          <ClosedLinesTable items={items} />
+          <p className="mt-3 text-[11px] font-semibold leading-5 text-slate-400">
+            Se muestran únicamente los vendedores y supervisores de la sucursal actualmente analizada y del rango seleccionado.
+          </p>
         </div>
       </Panel>
     </>
