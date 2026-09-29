@@ -1797,6 +1797,14 @@ function SingleDashboard({
     () => calculateRiskAssessment(summary, history, historicalScore),
     [summary, history, historicalScore],
   );
+  const avgCoverageLines = useMemo(
+    () => avg(history.map((point) => point.cobertura)),
+    [history],
+  );
+  const avgVolumeLines = useMemo(
+    () => avg(history.map((point) => point.volumen)),
+    [history],
+  );
 
   return (
     <div className="space-y-5">
@@ -1819,10 +1827,20 @@ function SingleDashboard({
               Resumen histórico del vendedor, con lectura de categoría, puntos de reconocimiento, plan de acción y desempeño comercial del período.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[440px]">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5 xl:min-w-[760px]">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
               <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Meses</div>
               <div className="mt-1 text-xl font-black text-slate-950">{summary.months}</div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Líneas cobertura</div>
+              <div className="mt-1 text-xl font-black text-slate-950">{formatNumber(avgCoverageLines, 1)}</div>
+              <div className="mt-0.5 text-[10px] font-semibold text-slate-400">promedio mensual</div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Líneas volumen</div>
+              <div className="mt-1 text-xl font-black text-slate-950">{formatNumber(avgVolumeLines, 1)}</div>
+              <div className="mt-0.5 text-[10px] font-semibold text-slate-400">promedio mensual</div>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
               <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Eficiencia</div>
