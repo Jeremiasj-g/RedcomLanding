@@ -57,6 +57,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { SmartTooltip, useSmartTooltip } from "@/components/ui/smart-tooltip";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RedcomSearchableSelect, RedcomSelect } from "@/components/ui/redcom-select";
 import {
   RecognitionScoringTable,
   calculateRecognitionRows,
@@ -1493,7 +1494,7 @@ function SellerCombobox({
   value,
   onChange,
   label = "Vendedor",
-  placeholder = "Buscar por vendedor o ID...",
+  placeholder = "Seleccionar vendedor",
 }: {
   sellers: CategoriaHistorySeller[];
   value: string;
@@ -1501,44 +1502,30 @@ function SellerCombobox({
   label?: string;
   placeholder?: string;
 }) {
-  const [search, setSearch] = useState("");
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return sellers;
-    return sellers.filter((seller) =>
-      `${seller.id} ${seller.name}`.toLowerCase().includes(q),
-    );
-  }, [search, sellers]);
+  const options = useMemo(
+    () =>
+      sellers.map((seller) => ({
+        value: seller.id,
+        label: `ID ${seller.id} · ${seller.name} · ${seller.months} meses`,
+        keywords: [seller.id, seller.name],
+      })),
+    [sellers],
+  );
 
   return (
     <div className="space-y-2">
       <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
         {label}
       </label>
-      <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={placeholder}
-            className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-medium text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
-          />
-        </div>
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
-        >
-          <option value="">Seleccionar vendedor</option>
-          {filtered.map((seller) => (
-            <option key={seller.id} value={seller.id}>
-              ID {seller.id} · {seller.name} · {seller.months} meses
-            </option>
-          ))}
-        </select>
-      </div>
+      <RedcomSearchableSelect
+        value={value}
+        options={options}
+        onValueChange={onChange}
+        placeholder={placeholder}
+        searchPlaceholder="Buscar por vendedor o ID..."
+        emptyMessage="No se encontró ningún vendedor."
+        aria-label={label}
+      />
     </div>
   );
 }
@@ -1554,22 +1541,22 @@ function PeriodSelect({
   periods: ApiResponse["periods"];
   onChange: (value: string) => void;
 }) {
+  const options = useMemo(
+    () => periods.map((period) => ({ value: period.value, label: period.value })),
+    [periods],
+  );
+
   return (
     <div className="space-y-2">
       <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
         {label}
       </label>
-      <select
+      <RedcomSelect
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
-      >
-        {periods.map((period) => (
-          <option key={`${label}-${period.value}`} value={period.value}>
-            {period.value}
-          </option>
-        ))}
-      </select>
+        options={options}
+        onValueChange={onChange}
+        aria-label={label}
+      />
     </div>
   );
 }
@@ -3390,17 +3377,18 @@ export default function CategoriaVendorHistory({
                 <label className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
                   Ordenar por
                 </label>
-                <select
+                <RedcomSelect
                   value={rankingSort}
-                  onChange={(event) => setRankingSort(event.target.value as RankingSortKey)}
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
-                >
-                  <option value="score">Mejor rendimiento</option>
-                  <option value="risk">Menor acción</option>
-                  <option value="billing">Mayor facturación promedio</option>
-                  <option value="category">Mejor categoría actual</option>
-                  <option value="variation">Mayor crecimiento</option>
-                </select>
+                  onValueChange={(nextValue) => setRankingSort(nextValue as RankingSortKey)}
+                  options={[
+                    { value: "score", label: "Mejor rendimiento" },
+                    { value: "risk", label: "Menor acción" },
+                    { value: "billing", label: "Mayor facturación promedio" },
+                    { value: "category", label: "Mejor categoría actual" },
+                    { value: "variation", label: "Mayor crecimiento" },
+                  ]}
+                  aria-label="Ordenar ranking por"
+                />
               </div>
             </div>
           ) : mode === "supervisors" ? (
