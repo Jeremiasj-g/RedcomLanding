@@ -42,6 +42,7 @@ import CategoriaVendorHistory from "@/components/categoria/CategoriaVendorHistor
 import ClosedLinesTable from "@/components/categoria/ClosedLinesTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RedcomSelect } from "@/components/ui/redcom-select";
 import { SmartTooltip, useSmartTooltip } from "@/components/ui/smart-tooltip";
 import {
   CATEGORY_LABEL,
@@ -610,24 +611,22 @@ function PeriodSelect({
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
+  const options = useMemo(
+    () => periods.map((period) => ({ value: period.value, label: periodLabel(period.value) })),
+    [periods],
+  );
+
   return (
     <label className={cls("block", disabled ? "opacity-60" : "")}>
       <span className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</span>
-      <select
+      <RedcomSelect
         value={value}
+        options={options}
+        onValueChange={onChange}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className={cls(
-          "mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5",
-          disabled ? "cursor-not-allowed bg-slate-100 text-slate-400 focus:border-slate-200 focus:ring-0" : "",
-        )}
-      >
-        {periods.map((period) => (
-          <option key={`${label}-${period.value}`} value={period.value}>
-            {periodLabel(period.value)}
-          </option>
-        ))}
-      </select>
+        className="mt-2 rounded-xl"
+        aria-label={label}
+      />
     </label>
   );
 }
@@ -852,20 +851,21 @@ function BranchSelector({
   value: BranchKey;
   onChange: (value: BranchKey) => void;
 }) {
+  const options = useMemo(
+    () => BRANCH_OPTIONS.map((branch) => ({ value: branch.key, label: branch.label })),
+    [],
+  );
+
   return (
     <label className="block">
       <span className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Sucursal</span>
-      <select
+      <RedcomSelect
         value={value}
-        onChange={(event) => onChange(event.target.value as BranchKey)}
-        className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
-      >
-        {BRANCH_OPTIONS.map((branch) => (
-          <option key={branch.key} value={branch.key}>
-            {branch.label}
-          </option>
-        ))}
-      </select>
+        options={options}
+        onValueChange={(nextValue) => onChange(nextValue as BranchKey)}
+        className="mt-2 rounded-xl"
+        aria-label="Sucursal"
+      />
     </label>
   );
 }
