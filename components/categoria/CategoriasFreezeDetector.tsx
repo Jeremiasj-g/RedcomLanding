@@ -2,10 +2,21 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Archive, CalendarClock, Eye, LockKeyhole, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Archive, CalendarClock, Eye, LockKeyhole, RefreshCw, RotateCcw } from 'lucide-react';
 import { getBranchKeyFromPath } from '@/utils/branchFromPath';
 import { SHEETDB_ENDPOINTS } from '@/utils/sheetdbEndpoints';
 import { useMe } from '@/hooks/useMe';
+import { RedcomSelect } from '@/components/ui/redcom-select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type Props = { sheetName?: string };
 type SnapshotItem = { id: number; branch_key: string; period_year: number; period_month: number; closed_at: string };
@@ -177,21 +188,49 @@ export default function CategoriasFreezeDetector({ sheetName = '' }: Props) {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
 
-  const handleCloseMonth = async () => {
+  const saveSnapshot = async (replace = false) => {
     if (!isAdmin || !detected.branchKey || !detected.url || !liveData) return;
+
     setSaving(true);
     setSaveMsg(null);
     setSaveErr(null);
+
     try {
       const response = await fetch('/api/categorias/close', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ branch_key: detected.branchKey, branch: String(detected.branchKey), period_year: closeYear, period_month: closeMonth, payload: liveData, meta: { source_url: detected.url, pathname: detected.pathname } }),
+        body: JSON.stringify({
+          branch_key: detected.branchKey,
+          branch: String(detected.branchKey),
+          period_year: closeYear,
+          period_month: closeMonth,
+          payload: liveData,
+          replace,
+          meta: {
+            source_url: detected.url,
+            pathname: detected.pathname,
+          },
+        }),
       });
+
       const output = await response.json().catch(() => ({}));
+
+      if (response.status === 409 && output?.code === 'SNAPSHOT_EXISTS' && !replace) {
+        setReplaceDialogOpen(true);
+        return;
+      }
+
       if (!response.ok) throw new Error(output?.error ?? `HTTP ${response.status}`);
-      setSaveMsg(`Mes cerrado: ${pad2(closeMonth)}/${closeYear}`);
+
+      setReplaceDialogOpen(false);
+      setSaveMsg(
+        replace
+          ? `Mes reemplazado: ${pad2(closeMonth)}/${closeYear}`
+          : `Mes cerrado: ${pad2(closeMonth)}/${closeYear}`
+      );
+
       await fetchSnapshots();
       goSnapshot(closeYear, closeMonth);
     } catch (error: any) {
@@ -199,6 +238,28 @@ export default function CategoriasFreezeDetector({ sheetName = '' }: Props) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCloseMonth = () => {
+    if (!isAdmin || !detected.branchKey || !detected.url || !liveData) return;
+
+    const alreadyClosed = snapshots.some(
+      (item) => item.period_year === closeYear && item.period_month === closeMonth
+    );
+
+    if (alreadyClosed) {
+      setSaveMsg(null);
+      setSaveErr(null);
+      setReplaceDialogOpen(true);
+      return;
+    }
+
+    void saveSnapshot(false);
+  };
+
+  const handleReplaceSnapshot = () => {
+    setReplaceDialogOpen(false);
+    void saveSnapshot(true);
   };
 
   const modeBadge = snapshotEnabled && snapshotYear && snapshotMonth ? `CERRADO ${pad2(snapshotMonth)}/${snapshotYear}` : 'ACTUAL';
@@ -258,9 +319,16 @@ export default function CategoriasFreezeDetector({ sheetName = '' }: Props) {
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mes a cerrar</label>
-              <select value={closeMonth} onChange={(event) => setCloseMonth(Number(event.target.value))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
-                {Array.from({ length: 12 }).map((_, index) => <option key={index + 1} value={index + 1}>{pad2(index + 1)}</option>)}
-              </select>
+              <RedcomSelect
+                value={String(closeMonth)}
+                onValueChange={(value) => setCloseMonth(Number(value))}
+                options={Array.from({ length: 12 }).map((_, index) => ({
+                  value: String(index + 1),
+                  label: pad2(index + 1),
+                }))}
+                className="rounded-xl"
+                aria-label="Mes a cerrar"
+              />
             </div>
             <button type="button" onClick={handleCloseMonth} disabled={saving || liveLoading || !liveData || !!detected.reason} className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-extrabold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-45">
               <CalendarClock className="h-4 w-4" /> {saving ? 'Guardando…' : 'Cerrar período'}
@@ -271,9 +339,60 @@ export default function CategoriasFreezeDetector({ sheetName = '' }: Props) {
             {liveError && <span className="text-red-600">Error: {liveError}</span>}
             {saveErr && <span className="text-red-600">{saveErr}</span>}
             {saveMsg && <span className="font-semibold text-emerald-700">{saveMsg}</span>}
+            {!saving &&
+              snapshots.some(
+                (item) => item.period_year === closeYear && item.period_month === closeMonth
+              ) &&
+              !saveErr &&
+              !saveMsg && (
+                <span className="inline-flex items-center gap-1.5 font-semibold text-amber-700">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Este período ya está cerrado. Al continuar podrás reemplazar el snapshot existente.
+                </span>
+              )}
           </div>
         </Card>
       )}
+
+      <AlertDialog open={replaceDialogOpen} onOpenChange={setReplaceDialogOpen}>
+        <AlertDialogContent className="max-w-md rounded-3xl border-slate-200 bg-white p-0 shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
+          <div className="border-b border-slate-100 px-6 py-5">
+            <div className="mb-4 grid h-11 w-11 place-items-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+              <RotateCcw className="h-5 w-5" />
+            </div>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl font-extrabold tracking-tight text-slate-950">
+                ¿Reemplazar {pad2(closeMonth)}/{closeYear}?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="mt-2 text-sm font-medium leading-6 text-slate-600">
+                Ya existe un cierre para este período. Si continuás, los datos guardados en ese snapshot se reemplazarán por los datos actuales y el histórico utilizará esta nueva versión.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </div>
+
+          <div className="px-6 py-4">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-5 text-amber-800">
+              Esta acción está pensada para corregir un cierre cuando cambiaron KPIs o criterios de cálculo.
+            </div>
+          </div>
+
+          <AlertDialogFooter className="border-t border-slate-100 px-6 py-5">
+            <AlertDialogCancel
+              disabled={saving}
+              className="h-11 rounded-xl border-slate-200 px-5 font-bold text-slate-700"
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleReplaceSnapshot}
+              disabled={saving}
+              className="h-11 rounded-xl bg-slate-950 px-5 font-extrabold text-white hover:bg-red-600"
+            >
+              {saving ? 'Reemplazando…' : 'Sí, reemplazar datos'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
