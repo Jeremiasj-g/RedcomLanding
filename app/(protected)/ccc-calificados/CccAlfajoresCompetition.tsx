@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import confetti from "canvas-confetti";
 import { Clock3, RefreshCw, Trophy, UsersRound } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { CCC_BRANCH_LABELS } from "./ccc-client-base.service";
@@ -381,6 +382,8 @@ export default function CccAlfajoresCompetition() {
   const [remaining, setRemaining] = useState(calculateRemaining);
   const [navHost, setNavHost] = useState<HTMLElement | null>(null);
   const [panelHost, setPanelHost] = useState<HTMLElement | null>(null);
+  const competitionHeroRef = useRef<HTMLElement | null>(null);
+  const celebratedActivationRef = useRef(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => setRemaining(calculateRemaining()), 1000);
@@ -483,6 +486,72 @@ export default function CccAlfajoresCompetition() {
     void refresh();
   }, [active, refresh]);
 
+  useEffect(() => {
+    if (!active) {
+      celebratedActivationRef.current = false;
+      return;
+    }
+
+    if (
+      loading ||
+      !result?.reports.length ||
+      celebratedActivationRef.current ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+
+    celebratedActivationRef.current = true;
+
+    const heroRect = competitionHeroRef.current?.getBoundingClientRect();
+    const originY = heroRect
+      ? Math.min(0.82, Math.max(0.18, (heroRect.top + heroRect.height * 0.55) / window.innerHeight))
+      : 0.45;
+
+    const colors = ["#C8102E", "#F4C430", "#FFFFFF", "#94A3B8"];
+    const timers: number[] = [];
+
+    const burst = (delay: number, particles: number, velocity: number) => {
+      timers.push(
+        window.setTimeout(() => {
+          confetti({
+            particleCount: particles,
+            angle: 58,
+            spread: 66,
+            startVelocity: velocity,
+            gravity: 0.88,
+            scalar: 0.9,
+            ticks: 220,
+            origin: { x: 0.01, y: originY },
+            colors,
+            zIndex: 180,
+            disableForReducedMotion: true,
+          });
+
+          confetti({
+            particleCount: particles,
+            angle: 122,
+            spread: 66,
+            startVelocity: velocity,
+            gravity: 0.88,
+            scalar: 0.9,
+            ticks: 220,
+            origin: { x: 0.99, y: originY },
+            colors,
+            zIndex: 180,
+            disableForReducedMotion: true,
+          });
+        }, delay),
+      );
+    };
+
+    burst(120, 55, 48);
+    burst(360, 42, 42);
+    burst(620, 28, 36);
+
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [active, loading, result?.reports.length]);
+
   const countdownItems = useMemo(
     () => [
       { label: "Días", value: remaining.days },
@@ -513,7 +582,7 @@ export default function CccAlfajoresCompetition() {
   const content = panelHost && active
     ? createPortal(
         <div className="space-y-4 pb-6">
-          <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-white shadow-lg">
+          <section ref={competitionHeroRef} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-white shadow-lg">
             <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
               <div className="flex items-start gap-4">
                 <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/10">
