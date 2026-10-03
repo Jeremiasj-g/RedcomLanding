@@ -184,7 +184,7 @@ const BADGE_BASE =
   'rounded-lg px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em]';
 
 const PANEL_BASE =
-  'flex flex-1 min-h-0 flex-col rounded-[18px] border border-white/[0.08] bg-white/[0.025] p-3';
+  'flex flex-1 min-h-0 flex-col';
 
 const BUTTON_TINY_GRAY =
   'rounded-lg bg-white/[0.06] px-2 py-1 text-[10px] font-medium text-white/60 transition hover:bg-white/[0.10] hover:text-white/85';
@@ -1598,7 +1598,7 @@ export default function ProjectTaskDrawer({
           </div>
 
 {/* Columna 3: Notas + recursos */}
-          <div className="flex h-full min-h-0 flex-col gap-3 bg-[#17181b] px-6 py-5">
+          <div className="flex h-full min-h-0 flex-col gap-5 bg-[#17181b] px-6 py-5">
             {/* Notas rápidas */}
             <div className={PANEL_BASE}>
               <div className="mb-2 flex items-center justify-between">
