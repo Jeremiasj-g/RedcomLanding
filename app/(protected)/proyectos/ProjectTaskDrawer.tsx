@@ -1363,8 +1363,8 @@ export default function ProjectTaskDrawer({
                 disabled={loading || isLocked}
                 className={`rounded-[12px] px-4 py-2 text-sm font-medium transition ${
                   isLocked
-                    ? 'cursor-not-allowed bg-gray-700 text-white/55'
-                    : 'bg-sky-500 text-gray-950 hover:bg-sky-400'
+                    ? 'cursor-not-allowed bg-white/[0.06] text-white/30'
+                    : 'bg-[#0a84ff] text-white hover:bg-[#409cff]'
                 } disabled:opacity-60`}
               >
                 {isLocked
