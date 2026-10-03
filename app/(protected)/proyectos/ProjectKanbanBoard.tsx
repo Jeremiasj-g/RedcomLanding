@@ -64,7 +64,7 @@ const COLUMNS: ColumnConfig[] = [
     label: "Sin empezar",
     description: "Pendientes de iniciar",
     icon: Circle,
-    dotClass: "bg-white/35",
+    dotClass: "bg-white/[0.35]",
     countClass: "bg-white/[0.07] text-white/[0.72]",
   },
   {
@@ -287,7 +287,7 @@ function KanbanColumn({
       ref={setNodeRef}
       className={`flex min-h-[440px] min-w-0 flex-col rounded-[18px] border transition-colors ${
         isOver
-          ? "border-[#0a84ff]/45 bg-[#0a84ff]/[0.045]"
+          ? "border-[#0a84ff]/[0.45] bg-[#0a84ff]/[0.045]"
           : "border-white/[0.07] bg-white/[0.025]"
       }`}
     >
@@ -330,7 +330,7 @@ function KanbanColumn({
             <div
               className={`grid min-h-[110px] place-items-center rounded-[14px] border border-dashed px-4 text-center transition-colors ${
                 isOver
-                  ? "border-[#0a84ff]/35 bg-[#0a84ff]/[0.035] text-[#5ac8fa]"
+                  ? "border-[#0a84ff]/[0.35] bg-[#0a84ff]/[0.035] text-[#5ac8fa]"
                   : "border-white/[0.07] text-white/[0.30]"
               }`}
             >
@@ -419,7 +419,7 @@ function KanbanCardBody({
 }: {
   task: ProjectTaskWithAssignees;
   onOpen?: () => void;
-  dragHandleProps?: Record<string, unknown>;
+  dragHandleProps?: any;
   moving?: boolean;
   overlay?: boolean;
 }) {
