@@ -54,7 +54,7 @@ const accentStyles: Record<
     item:
       "data-[highlighted]:bg-indigo-600 data-[highlighted]:text-white",
     indicator:
-      "bg-indigo-50 text-indigo-600 data-[highlighted]:bg-white/15 data-[highlighted]:text-white",
+      "bg-indigo-50 text-indigo-600 data-[highlighted]:bg-white/[0.15] data-[highlighted]:text-white",
   },
   teal: {
     trigger:
@@ -64,7 +64,7 @@ const accentStyles: Record<
     item:
       "data-[highlighted]:bg-teal-600 data-[highlighted]:text-white",
     indicator:
-      "bg-teal-50 text-teal-600 data-[highlighted]:bg-white/15 data-[highlighted]:text-white",
+      "bg-teal-50 text-teal-600 data-[highlighted]:bg-white/[0.15] data-[highlighted]:text-white",
   },
 };
 
@@ -112,7 +112,7 @@ export function RedcomSelect({
             ? cn(darkTriggerToneStyles[triggerTone], "shadow-none disabled:bg-white/[0.03] disabled:text-white/[0.65]")
             : "border-slate-200 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] disabled:bg-slate-100 disabled:text-slate-400",
           surface === "dark"
-            ? "hover:border-white/15 hover:bg-white/[0.055] focus-visible:border-[#0a84ff]/60 focus-visible:ring-[#0a84ff]/10 data-[state=open]:border-[#0a84ff]/60 data-[state=open]:ring-[#0a84ff]/10"
+            ? "hover:border-white/[0.15] hover:bg-white/[0.055] focus-visible:border-[#0a84ff]/60 focus-visible:ring-[#0a84ff]/10 data-[state=open]:border-[#0a84ff]/60 data-[state=open]:ring-[#0a84ff]/10"
             : styles.trigger,
           className,
         )}
@@ -181,7 +181,7 @@ export function RedcomSelect({
                   className={cn(
                     "absolute right-3 grid h-6 w-6 place-items-center rounded-lg",
                     surface === "dark"
-                      ? "bg-[#0a84ff]/15 text-[#5ac8fa] data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
+                      ? "bg-[#0a84ff]/[0.15] text-[#5ac8fa] data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
                       : styles.indicator,
                   )}
                 >
@@ -256,7 +256,7 @@ export function RedcomSearchableSelect({
               ? cn(darkTriggerToneStyles[triggerTone], "shadow-none disabled:bg-white/[0.03] disabled:text-white/[0.65]")
               : "border-slate-200 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] disabled:bg-slate-100 disabled:text-slate-400",
             surface === "dark"
-              ? "hover:border-white/15 hover:bg-white/[0.055] focus-visible:border-[#0a84ff]/60 focus-visible:ring-[#0a84ff]/10 data-[state=open]:border-[#0a84ff]/60 data-[state=open]:ring-[#0a84ff]/10"
+              ? "hover:border-white/[0.15] hover:bg-white/[0.055] focus-visible:border-[#0a84ff]/60 focus-visible:ring-[#0a84ff]/10 data-[state=open]:border-[#0a84ff]/60 data-[state=open]:ring-[#0a84ff]/10"
               : styles.trigger,
             className,
           )}
@@ -345,7 +345,7 @@ export function RedcomSearchableSelect({
                       className={cn(
                         "absolute right-3 grid h-6 w-6 place-items-center rounded-lg",
                         surface === "dark"
-                          ? "bg-[#0a84ff]/15 text-[#5ac8fa]"
+                          ? "bg-[#0a84ff]/[0.15] text-[#5ac8fa]"
                           : styles.indicator,
                       )}
                     >
