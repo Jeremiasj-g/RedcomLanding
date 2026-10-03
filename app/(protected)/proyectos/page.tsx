@@ -143,6 +143,19 @@ function getPriorityConfig(value: ProjectTaskPriority) {
   );
 }
 
+function getStatusTone(value: ProjectTaskStatus) {
+  if (value === 'in_progress') return 'blue' as const;
+  if (value === 'done') return 'green' as const;
+  if (value === 'cancelled') return 'red' as const;
+  return 'neutral' as const;
+}
+
+function getPriorityTone(value: ProjectTaskPriority) {
+  if (value === 'low') return 'green' as const;
+  if (value === 'medium') return 'amber' as const;
+  return 'red' as const;
+}
+
 const PAGE_SIZE = 15;
 
 function formatDueDate(dateStr: string | null): string {
@@ -596,17 +609,17 @@ export default function ProyectosPage() {
 
   return (
     <RequireAuth roles={['admin', 'supervisor', 'jdv']}>
-      <div className="min-h-[calc(100vh-72px)] bg-[#0b0b0d] text-[#f5f5f7]">
+      <div className="min-h-[calc(100vh-72px)] text-slate-950">
         <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
           <header className="flex flex-col gap-6 pb-7 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/35">
+              <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">
                 Proyectos
               </div>
-              <h1 className="mt-2 text-[clamp(2rem,4vw,3.25rem)] font-semibold tracking-[-0.045em] text-white">
+              <h1 className="mt-2 text-[clamp(2rem,4vw,3.25rem)] font-semibold tracking-[-0.045em] text-slate-950">
                 Proyectos y tareas
               </h1>
-              <p className="mt-3 max-w-2xl text-sm font-normal leading-6 text-white/45">
+              <p className="mt-3 max-w-2xl text-sm font-normal leading-6 text-slate-500">
                 Organizá prioridades, responsables y fechas desde una vista de trabajo simple y compartida.
               </p>
             </div>
@@ -615,7 +628,7 @@ export default function ProyectosPage() {
               <button
                 type="button"
                 onClick={() => setQuickCreateOpen((open) => !open)}
-                className="inline-flex h-11 items-center justify-center gap-2 self-start rounded-[13px] bg-[#f5f5f7] px-4 text-sm font-medium text-[#1d1d1f] transition hover:bg-white lg:self-auto"
+                className="inline-flex h-11 items-center justify-center gap-2 self-start rounded-[13px] bg-[#1d1d1f] px-4 text-sm font-medium text-white shadow-[0_8px_22px_rgba(0,0,0,.12)] transition hover:bg-[#2c2c2e] lg:self-auto"
               >
                 <Plus className="h-4 w-4" />
                 {quickCreateOpen ? 'Cerrar' : 'Nueva tarea'}
@@ -623,24 +636,24 @@ export default function ProyectosPage() {
             ) : null}
           </header>
 
-          <div className="mb-5 flex flex-wrap items-center gap-x-0 gap-y-3 border-y border-white/[0.07] py-4 text-sm">
+          <div className="mb-5 flex flex-wrap items-center gap-x-0 gap-y-3 border-y border-slate-200 py-4 text-sm">
             <div className="pr-5">
-              <span className="text-white/35">Visibles</span>
-              <span className="ml-2 font-medium text-white/85">{totalVisible}</span>
+              <span className="text-slate-500">Visibles</span>
+              <span className="ml-2 font-medium text-slate-900">{totalVisible}</span>
             </div>
-            <div className="border-l border-white/[0.08] px-5">
-              <span className="text-white/35">Total</span>
-              <span className="ml-2 font-medium text-white/85">{totalTasks}</span>
+            <div className="border-l border-slate-200 px-5">
+              <span className="text-slate-500">Total</span>
+              <span className="ml-2 font-medium text-slate-900">{totalTasks}</span>
             </div>
-            <div className="border-l border-white/[0.08] px-5">
-              <span className="text-white/35">Completadas</span>
-              <span className="ml-2 font-medium text-white/85">{completedTasks}</span>
+            <div className="border-l border-slate-200 px-5">
+              <span className="text-slate-500">Completadas</span>
+              <span className="ml-2 font-medium text-slate-900">{completedTasks}</span>
             </div>
-            <div className="border-l border-white/[0.08] pl-5">
-              <span className="text-white/35">Avance</span>
-              <span className="ml-2 font-medium text-white/85">{completionRate}%</span>
+            <div className="border-l border-slate-200 pl-5">
+              <span className="text-slate-500">Avance</span>
+              <span className="ml-2 font-medium text-slate-900">{completionRate}%</span>
             </div>
-            <div className="ml-auto hidden items-center gap-2 text-xs font-normal text-white/30 md:flex">
+            <div className="ml-auto hidden items-center gap-2 text-xs font-normal text-slate-400 md:flex">
               <Users2 className="h-3.5 w-3.5" />
               {isAdmin ? 'Vista administrativa' : 'Proyectos asignados'}
             </div>
@@ -814,6 +827,7 @@ export default function ProyectosPage() {
                                 value={task.status}
                                 surface="dark"
                                 accent="indigo"
+                                triggerTone={getStatusTone(task.status)}
                                 disabled={isLocked}
                                 className="h-9 rounded-[12px] text-xs"
                                 onValueChange={(next) =>
@@ -832,6 +846,7 @@ export default function ProyectosPage() {
                                 value={task.priority}
                                 surface="dark"
                                 accent="teal"
+                                triggerTone={getPriorityTone(task.priority)}
                                 disabled={isLocked}
                                 className="h-9 rounded-[12px] text-xs"
                                 onValueChange={(next) =>
@@ -968,7 +983,7 @@ export default function ProyectosPage() {
                                               className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-white/[0.055]"
                                             >
                                               <span className="min-w-0">
-                                                <span className="block truncate text-xs font-medium text-white/85">
+                                                <span className="block truncate text-xs font-medium text-slate-900">
                                                   {user.full_name ?? user.email}
                                                 </span>
                                                 {user.email ? (
