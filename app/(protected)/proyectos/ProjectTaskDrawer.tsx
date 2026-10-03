@@ -1118,8 +1118,8 @@ export default function ProjectTaskDrawer({
                             }}
                             className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-left ${
                               opt.value === status
-                                ? 'bg-white/[0.06]'
-                                : 'hover:bg-white/[0.055]'
+                                ? opt.pillClass
+                                : 'text-white/60 hover:bg-white/[0.055]'
                             }`}
                           >
                             <span className="flex items-center gap-2">
@@ -1186,8 +1186,8 @@ export default function ProjectTaskDrawer({
                             }}
                             className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-left ${
                               opt.value === priority
-                                ? 'bg-white/[0.06]'
-                                : 'hover:bg-white/[0.055]'
+                                ? opt.pillClass
+                                : 'text-white/60 hover:bg-white/[0.055]'
                             }`}
                           >
                             <span className="flex items-center gap-2">
@@ -1640,6 +1640,13 @@ export default function ProjectTaskDrawer({
                     [&_.ql-editor]:text-white/80
                     [&_.ql-editor]:min-h-0
                     [&_.ql-editor]:outline-none
+                    [&_.ql-stroke]:stroke-white/45
+                    [&_.ql-fill]:fill-white/45
+                    [&_.ql-picker-label]:text-white/45
+                    [&_.ql-picker-label_.ql-stroke]:stroke-white/45
+                    [&_.ql-picker-options]:border-white/[0.08]
+                    [&_.ql-picker-options]:bg-[#1c1c1e]
+                    [&_.ql-picker-item]:text-white/65
                   "
                 />
               </div>
