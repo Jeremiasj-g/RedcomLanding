@@ -137,12 +137,10 @@ const needsReadMore = (text: string, limit = 80) => text.length > limit;
 // snapshot de workspace para comparar
 const buildWorkspaceSnapshot = (args: {
   todos: ProjectTaskWorkspaceTodo[];
-  quickNotes: string;
   resourceLinks: ProjectTaskWorkspaceLink[];
 }) =>
   JSON.stringify({
     todos: args.todos,
-    quickNotes: args.quickNotes,
     resourceLinks: args.resourceLinks,
   });
 
