@@ -93,13 +93,13 @@ export function RedcomDatePicker({
           className={cn(
             "group flex h-11 w-full items-center justify-between gap-3 rounded-2xl border px-3 text-left text-sm font-medium outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:ring-4 data-[state=open]:ring-4 disabled:cursor-not-allowed disabled:opacity-50",
             surface === "dark"
-              ? "border-white/10 bg-white/[0.04] text-[#f5f5f7] shadow-none disabled:bg-white/[0.03] disabled:text-white/35"
+              ? "border-white/10 bg-white/[0.04] text-[#f5f5f7] shadow-none disabled:bg-white/[0.03] disabled:text-white/[0.65]"
               : "border-slate-200 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] disabled:bg-slate-100 disabled:text-slate-400",
             accentClasses.trigger,
             className,
           )}
         >
-          <span className={cn("truncate", !selected && (surface === "dark" ? "text-white/35" : "text-slate-400"))}>
+          <span className={cn("truncate", !selected && (surface === "dark" ? "text-white/[0.65]" : "text-slate-400"))}>
             {selected ? formatDisplayDate(selected) : placeholder}
           </span>
           <span
@@ -143,19 +143,19 @@ export function RedcomDatePicker({
           classNames={{
             month_caption:
               surface === "dark"
-                ? "flex h-[--cell-size] w-full items-center justify-center px-[--cell-size] text-sm font-medium text-white/85"
+                ? "flex h-[--cell-size] w-full items-center justify-center px-[--cell-size] text-sm font-medium text-white/[0.90]"
                 : undefined,
             caption_label:
               surface === "dark"
-                ? "select-none text-sm font-medium text-white/85"
+                ? "select-none text-sm font-medium text-white/[0.90]"
                 : undefined,
             weekday:
               surface === "dark"
-                ? "flex-1 select-none rounded-md text-[0.78rem] font-normal text-white/35"
+                ? "flex-1 select-none rounded-md text-[0.78rem] font-normal text-white/[0.65]"
                 : undefined,
             day:
               surface === "dark"
-                ? "group/day relative aspect-square h-full w-full select-none p-0 text-center text-white/75"
+                ? "group/day relative aspect-square h-full w-full select-none p-0 text-center text-white/[0.84]"
                 : undefined,
             today:
               surface === "dark"
@@ -163,19 +163,19 @@ export function RedcomDatePicker({
                 : "rounded-lg bg-slate-100 text-slate-950",
             outside:
               surface === "dark"
-                ? "text-white/18 aria-selected:text-white/35"
+                ? "text-white/18 aria-selected:text-white/[0.65]"
                 : undefined,
             disabled:
               surface === "dark"
-                ? "text-white/15 opacity-40"
+                ? "text-white/[0.35] opacity-40"
                 : undefined,
             button_previous:
               surface === "dark"
-                ? "h-[--cell-size] w-[--cell-size] select-none rounded-lg border border-white/[0.08] bg-white/[0.04] p-0 text-white/60 hover:bg-white/[0.08] hover:text-white"
+                ? "h-[--cell-size] w-[--cell-size] select-none rounded-lg border border-white/[0.08] bg-white/[0.04] p-0 text-white/[0.78] hover:bg-white/[0.08] hover:text-white"
                 : undefined,
             button_next:
               surface === "dark"
-                ? "h-[--cell-size] w-[--cell-size] select-none rounded-lg border border-white/[0.08] bg-white/[0.04] p-0 text-white/60 hover:bg-white/[0.08] hover:text-white"
+                ? "h-[--cell-size] w-[--cell-size] select-none rounded-lg border border-white/[0.08] bg-white/[0.04] p-0 text-white/[0.78] hover:bg-white/[0.08] hover:text-white"
                 : undefined,
             selected:
               surface === "dark"
@@ -197,7 +197,7 @@ export function RedcomDatePicker({
             className={cn(
               "rounded-xl px-3 py-2 text-xs font-medium transition",
               surface === "dark"
-                ? "text-white/65 hover:bg-white/[0.06] hover:text-white"
+                ? "text-white/[0.80] hover:bg-white/[0.06] hover:text-white"
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
             )}
           >
@@ -215,7 +215,7 @@ export function RedcomDatePicker({
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-35",
                 surface === "dark"
-                  ? "text-white/50 hover:bg-white/[0.06] hover:text-white"
+                  ? "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
                   : "text-slate-500 hover:bg-rose-50 hover:text-rose-600",
               )}
             >
