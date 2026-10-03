@@ -42,6 +42,7 @@ import {
 import { RedcomDatePicker } from '@/components/ui/redcom-date-picker';
 import { RedcomSelect } from '@/components/ui/redcom-select';
 import type { ProjectWithMembers } from '@/lib/projects';
+import ProjectTaskActivityPanel from './ProjectTaskActivityPanel';
 
 // ReactQuill (editor rich text)
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
@@ -238,6 +239,7 @@ export default function ProjectTaskDrawer({
   );
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [rightPanel, setRightPanel] = useState<'notes' | 'activity'>('notes');
 
 
   // ───── CHECKLIST AGRUPADO (columna 2) ────────────────
@@ -1634,8 +1636,35 @@ export default function ProjectTaskDrawer({
             </div>
           </div>
 
-{/* Columna 3: Notas + recursos */}
-          <div className="flex h-full min-h-0 flex-col gap-5 bg-[#17181b] px-6 py-5">
+{/* Columna 3: Notas + recursos / actividad */}
+          <div className="flex h-full min-h-0 flex-col bg-[#17181b] px-6 py-5">
+            <div className="mb-4 flex items-center rounded-[11px] border border-white/[0.07] bg-white/[0.025] p-1">
+              <button
+                type="button"
+                onClick={() => setRightPanel('notes')}
+                className={`h-8 flex-1 rounded-[8px] px-3 text-[10px] font-medium transition ${
+                  rightPanel === 'notes'
+                    ? 'bg-white/[0.09] text-white/[0.90]'
+                    : 'text-white/[0.46] hover:text-white/[0.70]'
+                }`}
+              >
+                Notas y recursos
+              </button>
+              <button
+                type="button"
+                onClick={() => setRightPanel('activity')}
+                className={`h-8 flex-1 rounded-[8px] px-3 text-[10px] font-medium transition ${
+                  rightPanel === 'activity'
+                    ? 'bg-white/[0.09] text-white/[0.90]'
+                    : 'text-white/[0.46] hover:text-white/[0.70]'
+                }`}
+              >
+                Actividad
+              </button>
+            </div>
+
+            {rightPanel === 'notes' ? (
+              <div className="flex min-h-0 flex-1 flex-col gap-5">
             {/* Notas rápidas */}
             <div className={PANEL_BASE}>
               <div className="mb-2 flex items-center justify-between">
@@ -1767,6 +1796,17 @@ export default function ProjectTaskDrawer({
                 </div>
               )}
             </div>
+              </div>
+            ) : (
+              <div className="min-h-0 flex-1">
+                <ProjectTaskActivityPanel
+                  taskId={task.id}
+                  currentUserId={currentUserId}
+                  canComment={canEditWorkspace}
+                  locked={isLocked}
+                />
+              </div>
+            )}
           </div>
         </div>
       </motion.div>
