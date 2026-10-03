@@ -16,6 +16,7 @@ type Props = {
   disabled?: boolean;
   className?: string;
   accent?: Accent;
+  surface?: "light" | "dark";
   clearable?: boolean;
   "aria-label"?: string;
 };
@@ -61,6 +62,7 @@ export function RedcomDatePicker({
   disabled = false,
   className,
   accent = "indigo",
+  surface = "light",
   clearable = true,
   "aria-label": ariaLabel,
 }: Props) {
@@ -89,12 +91,15 @@ export function RedcomDatePicker({
           disabled={disabled}
           aria-label={ariaLabel}
           className={cn(
-            "group flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-left text-sm font-bold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:ring-4 data-[state=open]:ring-4 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-70",
+            "group flex h-11 w-full items-center justify-between gap-3 rounded-2xl border px-3 text-left text-sm font-medium outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:ring-4 data-[state=open]:ring-4 disabled:cursor-not-allowed disabled:opacity-50",
+            surface === "dark"
+              ? "border-white/10 bg-white/[0.04] text-[#f5f5f7] shadow-none disabled:bg-white/[0.03] disabled:text-white/35"
+              : "border-slate-200 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] disabled:bg-slate-100 disabled:text-slate-400",
             accentClasses.trigger,
             className,
           )}
         >
-          <span className={cn("truncate", !selected && "text-slate-400")}>
+          <span className={cn("truncate", !selected && (surface === "dark" ? "text-white/35" : "text-slate-400"))}>
             {selected ? formatDisplayDate(selected) : placeholder}
           </span>
           <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-xl", accentClasses.icon)}>
@@ -106,7 +111,12 @@ export function RedcomDatePicker({
       <PopoverContent
         align="start"
         sideOffset={8}
-        className="z-[240] w-auto rounded-3xl border border-slate-200 bg-white p-2 shadow-[0_22px_60px_rgba(15,23,42,.18)]"
+        className={cn(
+          "z-[240] w-auto rounded-3xl border p-2 shadow-[0_22px_60px_rgba(0,0,0,.28)]",
+          surface === "dark"
+            ? "border-white/10 bg-[#1c1c1e] text-[#f5f5f7]"
+            : "border-slate-200 bg-white",
+        )}
       >
         <Calendar
           mode="single"
@@ -124,14 +134,22 @@ export function RedcomDatePicker({
           }}
         />
 
-        <div className="flex items-center justify-between border-t border-slate-100 px-2 pb-1 pt-2">
+        <div className={cn(
+          "flex items-center justify-between border-t px-2 pb-1 pt-2",
+          surface === "dark" ? "border-white/10" : "border-slate-100",
+        )}>
           <button
             type="button"
             onClick={() => {
               onChange(formatIsoDate(new Date()));
               setOpen(false);
             }}
-            className="rounded-xl px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+            className={cn(
+              "rounded-xl px-3 py-2 text-xs font-medium transition",
+              surface === "dark"
+                ? "text-white/65 hover:bg-white/[0.06] hover:text-white"
+                : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
+            )}
           >
             Hoy
           </button>
@@ -144,7 +162,12 @@ export function RedcomDatePicker({
                 setOpen(false);
               }}
               disabled={!value}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-35"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-35",
+                surface === "dark"
+                  ? "text-white/50 hover:bg-white/[0.06] hover:text-white"
+                  : "text-slate-500 hover:bg-rose-50 hover:text-rose-600",
+              )}
             >
               <X className="h-3.5 w-3.5" />
               Limpiar
