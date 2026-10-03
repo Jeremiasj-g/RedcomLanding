@@ -28,27 +28,12 @@ import {
   type ProjectTaskComment,
 } from "@/lib/projectTaskActivity";
 
-type FeedFilter = "all" | "comments" | "changes";
-
-type FeedItem =
-  | {
-      kind: "comment";
-      id: string;
-      createdAt: string;
-      comment: ProjectTaskComment;
-    }
-  | {
-      kind: "activity";
-      id: string;
-      createdAt: string;
-      activity: ProjectTaskActivity;
-    };
-
 type Props = {
   taskId: number;
   currentUserId: string | null;
   canComment: boolean;
   locked?: boolean;
+  mode: "comments" | "activity";
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -326,10 +311,10 @@ export default function ProjectTaskActivityPanel({
   currentUserId,
   canComment,
   locked = false,
+  mode,
 }: Props) {
   const [comments, setComments] = useState<ProjectTaskComment[]>([]);
   const [activities, setActivities] = useState<ProjectTaskActivity[]>([]);
-  const [filter, setFilter] = useState<FeedFilter>("all");
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
@@ -343,24 +328,29 @@ export default function ProjectTaskActivityPanel({
         setComments(data.comments);
         setActivities(data.activities);
       } catch (error) {
-        console.error("Error loading task activity", error);
+        console.error("Error loading task conversation", error);
         if (!quiet) {
           notify.error(
-            errorMessage(error, "No se pudo cargar la actividad de la tarea."),
+            errorMessage(
+              error,
+              mode === "comments"
+                ? "No se pudieron cargar los comentarios."
+                : "No se pudo cargar el historial de actividad.",
+            ),
           );
         }
       } finally {
         if (!quiet) setLoading(false);
       }
     },
-    [taskId],
+    [mode, taskId],
   );
 
   useEffect(() => {
     void loadConversation();
 
     const channel = supabase
-      .channel(`project_task_conversation_${taskId}`)
+      .channel(`project_task_conversation_${taskId}_${mode}`)
       .on(
         "postgres_changes",
         {
@@ -369,7 +359,9 @@ export default function ProjectTaskActivityPanel({
           table: "project_task_comments",
           filter: `task_id=eq.${taskId}`,
         },
-        () => void loadConversation(true),
+        () => {
+          if (mode === "comments") void loadConversation(true);
+        },
       )
       .on(
         "postgres_changes",
@@ -379,45 +371,16 @@ export default function ProjectTaskActivityPanel({
           table: "project_task_activity",
           filter: `task_id=eq.${taskId}`,
         },
-        () => void loadConversation(true),
+        () => {
+          if (mode === "activity") void loadConversation(true);
+        },
       )
       .subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadConversation, taskId]);
-
-  const feed = useMemo(() => {
-    const items: FeedItem[] = [];
-
-    if (filter !== "changes") {
-      comments.forEach((item) => {
-        items.push({
-          kind: "comment",
-          id: `comment-${item.id}`,
-          createdAt: item.created_at,
-          comment: item,
-        });
-      });
-    }
-
-    if (filter !== "comments") {
-      activities.forEach((item) => {
-        items.push({
-          kind: "activity",
-          id: `activity-${item.id}`,
-          createdAt: item.created_at,
-          activity: item,
-        });
-      });
-    }
-
-    return items.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-  }, [activities, comments, filter]);
+  }, [loadConversation, mode, taskId]);
 
   const handlePost = async () => {
     const clean = comment.trim();
@@ -454,94 +417,121 @@ export default function ProjectTaskActivityPanel({
     }
   };
 
+  if (mode === "comments") {
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5">
+            <MessageSquare className="h-4 w-4 text-[#5ac8fa]" />
+            <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.75]">
+              Comentarios
+            </span>
+          </div>
+
+          <span className="rounded-lg bg-white/[0.055] px-2 py-1 text-[9px] font-medium text-white/[0.55]">
+            {comments.length}
+          </span>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-[14px] border border-white/[0.08] bg-white/[0.025] p-2">
+          {loading ? (
+            <div className="grid h-full min-h-[130px] place-items-center">
+              <Loader2 className="h-5 w-5 animate-spin text-white/[0.38]" />
+            </div>
+          ) : comments.length === 0 ? (
+            <div className="grid h-full min-h-[130px] place-items-center text-center">
+              <div>
+                <MessageSquare className="mx-auto h-5 w-5 text-white/[0.24]" />
+                <p className="mt-2 text-[11px] font-medium text-white/[0.55]">
+                  Todavía no hay comentarios
+                </p>
+                <p className="mt-1 text-[10px] font-normal text-white/[0.32]">
+                  Usá este espacio para coordinar el trabajo de la tarea.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {comments.map((item) => (
+                <CommentRow
+                  key={item.id}
+                  item={item}
+                  own={item.author_id === currentUserId}
+                  deleting={deletingId === item.id}
+                  onDelete={() => void handleDelete(item)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-2">
+          <textarea
+            value={comment}
+            onChange={(event) => setComment(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                void handlePost();
+              }
+            }}
+            disabled={!canComment || locked}
+            maxLength={4000}
+            rows={3}
+            placeholder={
+              locked
+                ? "La tarea está cerrada."
+                : canComment
+                  ? "Escribí un comentario..."
+                  : "Solo lectura"
+            }
+            className="w-full resize-none rounded-[14px] border border-white/[0.08] bg-white/[0.035] px-3 py-2.5 text-[11px] font-normal leading-5 text-white/[0.88] outline-none transition placeholder:text-white/[0.38] focus:border-[#0a84ff]/50 focus:bg-white/[0.05] focus:ring-4 focus:ring-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-50"
+          />
+
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-[9px] font-normal text-white/[0.30]">
+              Ctrl/⌘ + Enter para enviar
+            </span>
+            <button
+              type="button"
+              onClick={() => void handlePost()}
+              disabled={posting || !comment.trim() || !canComment || locked}
+              className="inline-flex h-8 items-center gap-1.5 rounded-[10px] bg-[#0a84ff] px-3 text-[10px] font-medium text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/[0.38]"
+            >
+              {posting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+              Publicar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const sortedActivities = useMemo(
+    () =>
+      [...activities].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      ),
+    [activities],
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="border-b border-white/[0.07] pb-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-[#5ac8fa]" />
-              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.75]">
-                Actividad y comentarios
-              </span>
-            </div>
-            <p className="mt-1 text-[11px] font-normal text-white/[0.48]">
-              Conversación y trazabilidad de cambios.
-            </p>
-          </div>
-
-          <span className="rounded-lg bg-white/[0.055] px-2 py-1 text-[10px] font-medium text-white/[0.58]">
-            {comments.length} comentario{comments.length === 1 ? "" : "s"}
+        <div className="flex items-center gap-2">
+          <History className="h-4 w-4 text-[#5ac8fa]" />
+          <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.75]">
+            Historial de actividad
           </span>
         </div>
-
-        <div className="mt-3 flex items-center gap-1 rounded-[11px] bg-white/[0.035] p-1">
-          {(
-            [
-              ["all", "Todo"],
-              ["comments", "Comentarios"],
-              ["changes", "Cambios"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setFilter(value)}
-              className={`h-7 flex-1 rounded-[8px] px-2 text-[10px] font-medium transition ${
-                filter === value
-                  ? "bg-white/[0.09] text-white/[0.90]"
-                  : "text-white/[0.46] hover:text-white/[0.70]"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="border-b border-white/[0.07] py-3">
-        <textarea
-          value={comment}
-          onChange={(event) => setComment(event.target.value)}
-          onKeyDown={(event) => {
-            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-              event.preventDefault();
-              void handlePost();
-            }
-          }}
-          disabled={!canComment || locked}
-          maxLength={4000}
-          rows={3}
-          placeholder={
-            locked
-              ? "La tarea está cerrada."
-              : canComment
-                ? "Escribí un comentario..."
-                : "Solo lectura"
-          }
-          className="w-full resize-none rounded-[14px] border border-white/[0.08] bg-white/[0.035] px-3 py-2.5 text-[11px] font-normal leading-5 text-white/[0.88] outline-none transition placeholder:text-white/[0.38] focus:border-[#0a84ff]/50 focus:bg-white/[0.05] focus:ring-4 focus:ring-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-50"
-        />
-
-        <div className="mt-2 flex items-center justify-between gap-3">
-          <span className="text-[9px] font-normal text-white/[0.30]">
-            Ctrl/⌘ + Enter para enviar
-          </span>
-          <button
-            type="button"
-            onClick={() => void handlePost()}
-            disabled={
-              posting || !comment.trim() || !canComment || locked
-            }
-            className="inline-flex h-8 items-center gap-1.5 rounded-[10px] bg-[#0a84ff] px-3 text-[10px] font-medium text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/[0.38]"
-          >
-            {posting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Send className="h-3.5 w-3.5" />
-            )}
-            Publicar
-          </button>
-        </div>
+        <p className="mt-1 text-[11px] font-normal text-white/[0.48]">
+          Trazabilidad de cambios realizados en esta tarea.
+        </p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto py-3 pr-1">
@@ -549,33 +539,23 @@ export default function ProjectTaskActivityPanel({
           <div className="grid min-h-[180px] place-items-center">
             <Loader2 className="h-5 w-5 animate-spin text-white/[0.38]" />
           </div>
-        ) : feed.length === 0 ? (
+        ) : sortedActivities.length === 0 ? (
           <div className="grid min-h-[180px] place-items-center text-center">
             <div>
               <History className="mx-auto h-5 w-5 text-white/[0.24]" />
               <p className="mt-2 text-[11px] font-medium text-white/[0.55]">
-                Todavía no hay actividad en esta vista
+                Todavía no hay actividad
               </p>
               <p className="mt-1 text-[10px] font-normal text-white/[0.32]">
-                Los cambios y comentarios aparecerán acá.
+                Los cambios de la tarea aparecerán acá.
               </p>
             </div>
           </div>
         ) : (
           <div className="space-y-1">
-            {feed.map((item) =>
-              item.kind === "comment" ? (
-                <CommentRow
-                  key={item.id}
-                  item={item.comment}
-                  own={item.comment.author_id === currentUserId}
-                  deleting={deletingId === item.comment.id}
-                  onDelete={() => void handleDelete(item.comment)}
-                />
-              ) : (
-                <ActivityRow key={item.id} item={item.activity} />
-              ),
-            )}
+            {sortedActivities.map((item) => (
+              <ActivityRow key={item.id} item={item} />
+            ))}
           </div>
         )}
       </div>
