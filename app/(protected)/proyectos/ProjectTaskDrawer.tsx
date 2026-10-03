@@ -178,16 +178,16 @@ const buildWorkspaceSnapshot = (args: {
 // ──────────────────────────────────────────────
 
 const INPUT_BASE =
-  'rounded-md border border-gray-700 bg-gray-900 text-[11px] text-white/80 placeholder:text-white/25 disabled:cursor-not-allowed disabled:opacity-60';
+  'rounded-xl border border-white/[0.08] bg-white/[0.04] text-[11px] font-normal text-white/85 outline-none placeholder:text-white/25 transition hover:bg-white/[0.055] focus:border-[#0a84ff]/55 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-50';
 
 const BADGE_BASE =
-  'rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide';
+  'rounded-lg px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em]';
 
 const PANEL_BASE =
-  'flex flex-1 min-h-0 flex-col rounded-xl border border-gray-700 bg-gray-900/70 p-3';
+  'flex flex-1 min-h-0 flex-col rounded-[18px] border border-white/[0.08] bg-white/[0.025] p-3';
 
 const BUTTON_TINY_GRAY =
-  'rounded-md bg-gray-700 px-2 py-1 text-[10px] text-white/80 hover:bg-white/[0.10]';
+  'rounded-lg bg-white/[0.06] px-2 py-1 text-[10px] font-medium text-white/60 transition hover:bg-white/[0.10] hover:text-white/85';
 
 export default function ProjectTaskDrawer({
   task,
@@ -412,7 +412,7 @@ export default function ProjectTaskDrawer({
           className="flex w-full items-center justify-between gap-2 px-3 py-2"
         >
           <div className="min-w-0 text-left">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-white/65">
+            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/55">
               {title}
             </div>
             <div className="text-[11px] font-normal text-white/35">{count}</div>
@@ -485,7 +485,7 @@ export default function ProjectTaskDrawer({
           disabled={!canEdit}
           {...attributes}
           {...listeners}
-          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-gray-500 text-white/65 disabled:cursor-not-allowed"
+          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-white/20 text-white/65 disabled:cursor-not-allowed"
           aria-label="Arrastrar"
         >
           <GripVertical className="h-4 w-4 text-white/35" />
@@ -495,7 +495,7 @@ export default function ProjectTaskDrawer({
           type="button"
           disabled={!canEdit}
           onClick={onToggle}
-          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-gray-500 text-white/65 disabled:cursor-not-allowed"
+          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-white/20 text-white/65 disabled:cursor-not-allowed"
           aria-label="Completar"
         >
           {todo.done ? (
@@ -966,7 +966,7 @@ export default function ProjectTaskDrawer({
             )}
 
             {!canEditWorkspace && !isLocked && (
-              <span className={`${BADGE_BASE} bg-gray-700 text-white/65`}>
+              <span className={`${BADGE_BASE} bg-white/[0.06] text-white/60`}>
                 Solo lectura
               </span>
             )}
@@ -1119,7 +1119,7 @@ export default function ProjectTaskDrawer({
                             className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-left ${
                               opt.value === status
                                 ? 'bg-white/[0.06]'
-                                : 'hover:bg-white/[0.055]/80'
+                                : 'hover:bg-white/[0.055]'
                             }`}
                           >
                             <span className="flex items-center gap-2">
@@ -1187,7 +1187,7 @@ export default function ProjectTaskDrawer({
                             className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-left ${
                               opt.value === priority
                                 ? 'bg-white/[0.06]'
-                                : 'hover:bg-white/[0.055]/80'
+                                : 'hover:bg-white/[0.055]'
                             }`}
                           >
                             <span className="flex items-center gap-2">
