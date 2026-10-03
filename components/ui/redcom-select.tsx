@@ -109,7 +109,7 @@ export function RedcomSelect({
         className={cn(
           "group flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-2xl border px-3 text-left text-sm font-medium outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:ring-4 data-[state=open]:ring-4 disabled:cursor-not-allowed disabled:opacity-50",
           surface === "dark"
-            ? cn(darkTriggerToneStyles[triggerTone], "shadow-none disabled:bg-white/[0.03] disabled:text-white/35")
+            ? cn(darkTriggerToneStyles[triggerTone], "shadow-none disabled:bg-white/[0.03] disabled:text-white/[0.65]")
             : "border-slate-200 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] disabled:bg-slate-100 disabled:text-slate-400",
           surface === "dark"
             ? "hover:border-white/15 hover:bg-white/[0.055] focus-visible:border-[#0a84ff]/60 focus-visible:ring-[#0a84ff]/10 data-[state=open]:border-[#0a84ff]/60 data-[state=open]:ring-[#0a84ff]/10"
@@ -126,17 +126,17 @@ export function RedcomSelect({
               "grid h-7 w-7 shrink-0 place-items-center rounded-xl transition-colors",
               surface === "dark"
                 ? triggerTone === "blue"
-                  ? "bg-sky-400/12 text-sky-200"
+                  ? "bg-sky-400/[0.14] text-sky-200"
                   : triggerTone === "green"
-                    ? "bg-emerald-400/12 text-emerald-200"
+                    ? "bg-emerald-400/[0.14] text-emerald-200"
                     : triggerTone === "amber"
-                      ? "bg-amber-400/12 text-amber-200"
+                      ? "bg-amber-400/[0.14] text-amber-200"
                       : triggerTone === "red"
-                        ? "bg-rose-400/12 text-rose-200"
-                        : "bg-white/[0.06] text-white/55"
+                        ? "bg-rose-400/[0.14] text-rose-200"
+                        : "bg-white/[0.06] text-white/[0.76]"
                 : "bg-slate-100 text-slate-600",
               surface === "dark"
-                ? "group-hover:bg-white/[0.08] group-hover:text-white/70 group-data-[state=open]:bg-[#0a84ff] group-data-[state=open]:text-white"
+                ? "group-hover:bg-white/[0.08] group-hover:text-white/[0.82] group-data-[state=open]:bg-[#0a84ff] group-data-[state=open]:text-white"
                 : cn(styles.icon, styles.openIcon),
             )}
           >
@@ -170,7 +170,7 @@ export function RedcomSelect({
                 disabled={option.disabled}
                 className={cn(
                   "relative flex min-h-10 cursor-pointer select-none items-center rounded-xl py-2 pl-3 pr-10 text-sm font-medium outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[state=checked]:font-semibold",
-                  surface === "dark" ? "text-white/80 data-[highlighted]:bg-white/[0.07] data-[highlighted]:text-white" : "text-slate-700",
+                  surface === "dark" ? "text-white/[0.88] data-[highlighted]:bg-white/[0.07] data-[highlighted]:text-white" : "text-slate-700",
                   surface === "dark" ? null : styles.item,
                 )}
               >
@@ -253,7 +253,7 @@ export function RedcomSearchableSelect({
           className={cn(
             "group flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-2xl border px-3 text-left text-sm font-medium outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:ring-4 data-[state=open]:ring-4 disabled:cursor-not-allowed disabled:opacity-50",
             surface === "dark"
-              ? cn(darkTriggerToneStyles[triggerTone], "shadow-none disabled:bg-white/[0.03] disabled:text-white/35")
+              ? cn(darkTriggerToneStyles[triggerTone], "shadow-none disabled:bg-white/[0.03] disabled:text-white/[0.65]")
               : "border-slate-200 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] disabled:bg-slate-100 disabled:text-slate-400",
             surface === "dark"
               ? "hover:border-white/15 hover:bg-white/[0.055] focus-visible:border-[#0a84ff]/60 focus-visible:ring-[#0a84ff]/10 data-[state=open]:border-[#0a84ff]/60 data-[state=open]:ring-[#0a84ff]/10"
@@ -261,7 +261,7 @@ export function RedcomSearchableSelect({
             className,
           )}
         >
-          <span className={cn("min-w-0 flex-1 truncate", !selectedOption && (surface === "dark" ? "text-white/35" : "text-slate-400"))}>
+          <span className={cn("min-w-0 flex-1 truncate", !selectedOption && (surface === "dark" ? "text-white/[0.65]" : "text-slate-400"))}>
             {selectedOption?.label ?? placeholder}
           </span>
           <span
@@ -269,17 +269,17 @@ export function RedcomSearchableSelect({
               "grid h-7 w-7 shrink-0 place-items-center rounded-xl transition-colors",
               surface === "dark"
                 ? triggerTone === "blue"
-                  ? "bg-sky-400/12 text-sky-200"
+                  ? "bg-sky-400/[0.14] text-sky-200"
                   : triggerTone === "green"
-                    ? "bg-emerald-400/12 text-emerald-200"
+                    ? "bg-emerald-400/[0.14] text-emerald-200"
                     : triggerTone === "amber"
-                      ? "bg-amber-400/12 text-amber-200"
+                      ? "bg-amber-400/[0.14] text-amber-200"
                       : triggerTone === "red"
-                        ? "bg-rose-400/12 text-rose-200"
-                        : "bg-white/[0.06] text-white/55"
+                        ? "bg-rose-400/[0.14] text-rose-200"
+                        : "bg-white/[0.06] text-white/[0.76]"
                 : "bg-slate-100 text-slate-600",
               surface === "dark"
-                ? "group-hover:bg-white/[0.08] group-hover:text-white/70 group-data-[state=open]:bg-[#0a84ff] group-data-[state=open]:text-white"
+                ? "group-hover:bg-white/[0.08] group-hover:text-white/[0.82] group-data-[state=open]:bg-[#0a84ff] group-data-[state=open]:text-white"
                 : cn(styles.icon, styles.openIcon),
             )}
           >
@@ -308,7 +308,7 @@ export function RedcomSearchableSelect({
                 placeholder={searchPlaceholder}
                 className={cn(
                   "h-11 min-w-0 flex-1 bg-transparent text-sm font-medium outline-none",
-                  surface === "dark" ? "text-white placeholder:text-white/35" : "text-slate-900 placeholder:text-slate-400",
+                  surface === "dark" ? "text-white placeholder:text-white/[0.65]" : "text-slate-900 placeholder:text-slate-400",
                 )}
               />
             </div>
@@ -327,7 +327,7 @@ export function RedcomSearchableSelect({
                   onSelect={() => handleSelect(option.value)}
                   className={cn(
                     "relative flex min-h-10 cursor-pointer select-none items-center rounded-xl py-2 pl-3 pr-10 text-sm font-medium outline-none transition-colors data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-40",
-                    surface === "dark" ? "text-white/80" : "text-slate-700",
+                    surface === "dark" ? "text-white/[0.88]" : "text-slate-700",
                     surface === "dark"
                       ? "data-[selected=true]:bg-white/[0.07] data-[selected=true]:text-white"
                       : accent === "indigo"
