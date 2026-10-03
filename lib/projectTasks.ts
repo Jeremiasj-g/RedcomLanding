@@ -440,25 +440,49 @@ export async function setTaskAssignees(
   taskId: number,
   assigneeIds: string[],
 ): Promise<void> {
-  const { error: deleteError } = await supabase
+  const desiredIds = Array.from(new Set(assigneeIds));
+
+  const { data: currentRows, error: currentError } = await supabase
     .from('project_task_assignees')
-    .delete()
+    .select('user_id')
     .eq('task_id', taskId);
 
-  if (deleteError) throw deleteError;
+  if (currentError) throw currentError;
 
-  if (assigneeIds.length === 0) return;
+  const currentIds = new Set(
+    (currentRows ?? []).map((row: any) => row.user_id as string),
+  );
+  const desiredSet = new Set(desiredIds);
 
-  const rows = assigneeIds.map((userId) => ({
-    task_id: taskId,
-    user_id: userId,
-  }));
+  const toRemove = Array.from(currentIds).filter(
+    (userId) => !desiredSet.has(userId),
+  );
+  const toAdd = desiredIds.filter((userId) => !currentIds.has(userId));
 
-  const { error: insertError } = await supabase
-    .from('project_task_assignees')
-    .insert(rows);
+  if (toRemove.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('project_task_assignees')
+      .delete()
+      .eq('task_id', taskId)
+      .in('user_id', toRemove);
 
-  if (insertError) throw insertError;
+    if (deleteError) throw deleteError;
+  }
+
+  if (toAdd.length > 0) {
+    const { error: insertError } = await supabase
+      .from('project_task_assignees')
+      .insert(
+        toAdd.map((userId) => ({
+          task_id: taskId,
+          user_id: userId,
+        })),
+      );
+
+    if (insertError) throw insertError;
+  }
+
+  if (desiredIds.length === 0) return;
 
   const { data: taskProject, error: taskProjectError } = await supabase
     .from('project_tasks')
@@ -469,7 +493,7 @@ export async function setTaskAssignees(
   if (taskProjectError) throw taskProjectError;
 
   if (taskProject?.project_id) {
-    await addProjectMembers(Number(taskProject.project_id), assigneeIds);
+    await addProjectMembers(Number(taskProject.project_id), desiredIds);
   }
 }
 
