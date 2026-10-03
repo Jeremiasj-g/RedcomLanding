@@ -16,7 +16,7 @@ export type ProjectTaskFiltersState = {
   responsibleIds: string[];
   dueFrom: string;
   dueTo: string;
-  viewMode: "table" | "grid";
+  viewMode: "table" | "kanban";
   showClosed: boolean;
 };
 
