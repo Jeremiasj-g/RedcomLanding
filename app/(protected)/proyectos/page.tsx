@@ -25,6 +25,7 @@ import {
   createProjectTask,
   updateProjectTask,
   setTaskAssignees,
+  deleteProjectTask,
   type ProjectTaskWithAssignees,
   type ProjectTaskStatus,
   type ProjectTaskPriority,
@@ -694,12 +695,7 @@ export default function ProyectosPage() {
     if (!ok) return;
 
     try {
-      const { error } = await supabase
-        .from('project_tasks')
-        .delete()
-        .eq('id', task.id);
-
-      if (error) throw error;
+      await deleteProjectTask(task.id);
       removeTask(task.id);
       notify.success('Tarea eliminada.');
     } catch (err) {
