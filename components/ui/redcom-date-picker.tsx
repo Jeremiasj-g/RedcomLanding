@@ -137,7 +137,7 @@ export function RedcomDatePicker({
           captionLayout="label"
           className={cn(
             surface === "dark"
-              ? "bg-transparent text-[#f5f5f7] [--cell-size:2.15rem]"
+              ? "bg-transparent text-[#f5f5f7] [--cell-size:2.15rem] [&_[data-day]]:text-white/[0.84] [&_[data-day]:hover]:bg-white/[0.08] [&_[data-day]:hover]:text-white [&_[data-day][data-selected-single=true]]:bg-[#0a84ff] [&_[data-day][data-selected-single=true]]:text-white"
               : "",
           )}
           classNames={{
