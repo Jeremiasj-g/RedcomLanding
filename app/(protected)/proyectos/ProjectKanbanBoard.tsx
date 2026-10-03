@@ -397,7 +397,8 @@ function SortableKanbanCard({
         task={task}
         onOpen={onOpen}
         moving={moving}
-        dragHandleProps={
+        dragging={isDragging}
+        dragProps={
           locked
             ? undefined
             : {
@@ -413,13 +414,15 @@ function SortableKanbanCard({
 function KanbanCardBody({
   task,
   onOpen,
-  dragHandleProps,
+  dragProps,
+  dragging = false,
   moving = false,
   overlay = false,
 }: {
   task: ProjectTaskWithAssignees;
   onOpen?: () => void;
-  dragHandleProps?: any;
+  dragProps?: any;
+  dragging?: boolean;
   moving?: boolean;
   overlay?: boolean;
 }) {
@@ -431,7 +434,18 @@ function KanbanCardBody({
     <div
       role={overlay ? undefined : "button"}
       tabIndex={overlay ? undefined : 0}
-      onClick={overlay ? undefined : onOpen}
+      {...(overlay ? {} : dragProps ?? {})}
+      onClick={
+        overlay
+          ? undefined
+          : (event) => {
+              if (dragging) {
+                event.preventDefault();
+                return;
+              }
+              onOpen?.();
+            }
+      }
       onKeyDown={
         overlay
           ? undefined
@@ -443,6 +457,8 @@ function KanbanCardBody({
             }
       }
       className={`group rounded-[15px] border bg-[#1c1c1e] p-3 text-left shadow-[0_8px_24px_rgba(0,0,0,.13)] transition ${
+        !overlay && !locked ? "cursor-grab select-none active:cursor-grabbing" : ""
+      } ${
         overlay
           ? "border-[#0a84ff]/40 shadow-[0_18px_50px_rgba(0,0,0,.35)]"
           : "border-white/[0.075] hover:border-white/[0.13] hover:bg-[#202023]"
@@ -465,17 +481,14 @@ function KanbanCardBody({
           >
             <LockKeyhole className="h-3.5 w-3.5" />
           </span>
-        ) : dragHandleProps ? (
-          <button
-            type="button"
-            aria-label={`Mover ${task.title}`}
+        ) : dragProps ? (
+          <span
+            aria-hidden="true"
             title="Arrastrar tarea"
-            onClick={(event) => event.stopPropagation()}
-            className="grid h-7 w-7 shrink-0 cursor-grab touch-none place-items-center rounded-lg text-white/[0.28] transition hover:bg-white/[0.06] hover:text-white/[0.64] active:cursor-grabbing"
-            {...dragHandleProps}
+            className="pointer-events-none grid h-7 w-7 shrink-0 place-items-center rounded-lg text-white/[0.28] transition group-hover:bg-white/[0.06] group-hover:text-white/[0.64]"
           >
             <GripVertical className="h-4 w-4" />
-          </button>
+          </span>
         ) : null}
       </div>
 
