@@ -357,6 +357,13 @@ export async function createProjectTask(
 
     if (assigneesError) throw assigneesError;
     assigneeRows = (inserted ?? []) as { task_id: number; user_id: string }[];
+
+    if (taskRow.project_id) {
+      await addProjectMembers(
+        taskRow.project_id,
+        assigneeRows.map((row) => row.user_id),
+      );
+    }
   }
 
   if (assigneeRows.length === 0) {
