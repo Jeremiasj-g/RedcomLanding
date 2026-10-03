@@ -476,7 +476,7 @@ export default function ProjectTaskDrawer({
       <div
         ref={setNodeRef}
         style={style}
-        className={`group relative flex items-center gap-2 rounded-lg px-2 py-1.5 pr-16 z-10 bg-gray-900 hover:bg-white/[0.055] ${
+        className={`group relative flex items-center gap-2 rounded-lg px-2 py-1.5 pr-16 z-10 bg-white/[0.035] hover:bg-white/[0.055] ${
           isDragging ? 'opacity-70' : ''
         }`}
       >
@@ -1377,7 +1377,7 @@ export default function ProjectTaskDrawer({
           </div>
 
           {/* Columna 2: checklist */}
-          <div className="flex h-full min-h-0 flex-col gap-3 border-b border-white/[0.07]/70 bg-gray-900/60 px-6 py-4 lg:border-b-0 lg:border-r">
+          <div className="flex h-full min-h-0 flex-col gap-3 border-b border-white/[0.07] bg-[#17181b] px-6 py-5 lg:border-b-0 lg:border-r">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ListChecks className="h-4 w-4 text-emerald-300" />
