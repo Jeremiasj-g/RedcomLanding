@@ -68,6 +68,7 @@ type RedcomSelectProps = {
   className?: string;
   contentClassName?: string;
   accent?: SelectAccent;
+  surface?: "light" | "dark";
   "aria-label"?: string;
 };
 
@@ -80,6 +81,7 @@ export function RedcomSelect({
   className,
   contentClassName,
   accent = "red",
+  surface = "light",
   "aria-label": ariaLabel,
 }: RedcomSelectProps) {
   const styles = accentStyles[accent];
@@ -94,7 +96,10 @@ export function RedcomSelect({
         type="button"
         aria-label={ariaLabel}
         className={cn(
-          "group flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-left text-sm font-bold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:ring-4 data-[state=open]:ring-4 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-70",
+          "group flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-2xl border px-3 text-left text-sm font-medium outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:ring-4 data-[state=open]:ring-4 disabled:cursor-not-allowed disabled:opacity-50",
+          surface === "dark"
+            ? "border-white/10 bg-white/[0.04] text-[#f5f5f7] shadow-none disabled:bg-white/[0.03] disabled:text-white/35"
+            : "border-slate-200 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] disabled:bg-slate-100 disabled:text-slate-400",
           styles.trigger,
           className,
         )}
@@ -105,7 +110,8 @@ export function RedcomSelect({
         <SelectPrimitive.Icon asChild>
           <span
             className={cn(
-              "grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600 transition-colors",
+              "grid h-7 w-7 shrink-0 place-items-center rounded-xl transition-colors",
+              surface === "dark" ? "bg-white/[0.06] text-white/55" : "bg-slate-100 text-slate-600",
               styles.icon,
               styles.openIcon,
             )}
@@ -121,7 +127,10 @@ export function RedcomSelect({
           sideOffset={6}
           collisionPadding={12}
           className={cn(
-            "z-[220] max-h-[min(22rem,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 text-slate-900 shadow-[0_18px_45px_rgba(15,23,42,.16)]",
+            "z-[220] max-h-[min(22rem,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border p-1.5 shadow-[0_18px_45px_rgba(0,0,0,.28)]",
+            surface === "dark"
+              ? "border-white/10 bg-[#1c1c1e] text-[#f5f5f7]"
+              : "border-slate-200 bg-white text-slate-900",
             contentClassName,
           )}
         >
@@ -136,7 +145,8 @@ export function RedcomSelect({
                 value={option.value}
                 disabled={option.disabled}
                 className={cn(
-                  "relative flex min-h-10 cursor-pointer select-none items-center rounded-xl py-2 pl-3 pr-10 text-sm font-semibold text-slate-700 outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[state=checked]:font-black",
+                  "relative flex min-h-10 cursor-pointer select-none items-center rounded-xl py-2 pl-3 pr-10 text-sm font-medium outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[state=checked]:font-semibold",
+                  surface === "dark" ? "text-white/80" : "text-slate-700",
                   styles.item,
                 )}
               >
@@ -174,6 +184,7 @@ type RedcomSearchableSelectProps = {
   disabled?: boolean;
   className?: string;
   accent?: SelectAccent;
+  surface?: "light" | "dark";
   "aria-label"?: string;
 };
 
@@ -187,6 +198,7 @@ export function RedcomSearchableSelect({
   disabled = false,
   className,
   accent = "red",
+  surface = "light",
   "aria-label": ariaLabel,
 }: RedcomSearchableSelectProps) {
   const [open, setOpen] = useState(false);
@@ -211,17 +223,21 @@ export function RedcomSearchableSelect({
           aria-label={ariaLabel}
           disabled={disabled}
           className={cn(
-            "group flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-left text-sm font-bold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:ring-4 data-[state=open]:ring-4 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-70",
+            "group flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-2xl border px-3 text-left text-sm font-medium outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:ring-4 data-[state=open]:ring-4 disabled:cursor-not-allowed disabled:opacity-50",
+            surface === "dark"
+              ? "border-white/10 bg-white/[0.04] text-[#f5f5f7] shadow-none disabled:bg-white/[0.03] disabled:text-white/35"
+              : "border-slate-200 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] disabled:bg-slate-100 disabled:text-slate-400",
             styles.trigger,
             className,
           )}
         >
-          <span className={cn("min-w-0 flex-1 truncate", !selectedOption && "text-slate-400")}>
+          <span className={cn("min-w-0 flex-1 truncate", !selectedOption && (surface === "dark" ? "text-white/35" : "text-slate-400"))}>
             {selectedOption?.label ?? placeholder}
           </span>
           <span
             className={cn(
-              "grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600 transition-colors",
+              "grid h-7 w-7 shrink-0 place-items-center rounded-xl transition-colors",
+              surface === "dark" ? "bg-white/[0.06] text-white/55" : "bg-slate-100 text-slate-600",
               styles.icon,
               styles.openIcon,
             )}
@@ -236,7 +252,12 @@ export function RedcomSearchableSelect({
           align="start"
           sideOffset={6}
           collisionPadding={12}
-          className="z-[220] w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 text-slate-900 shadow-[0_18px_45px_rgba(15,23,42,.16)]"
+          className={cn(
+            "z-[220] w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border p-1.5 shadow-[0_18px_45px_rgba(0,0,0,.28)]",
+            surface === "dark"
+              ? "border-white/10 bg-[#1c1c1e] text-[#f5f5f7]"
+              : "border-slate-200 bg-white text-slate-900",
+          )}
         >
           <Command loop>
             <div className="flex items-center gap-2 border-b border-slate-100 px-2.5">
@@ -244,7 +265,10 @@ export function RedcomSearchableSelect({
               <Command.Input
                 autoFocus
                 placeholder={searchPlaceholder}
-                className="h-11 min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                className={cn(
+                  "h-11 min-w-0 flex-1 bg-transparent text-sm font-medium outline-none",
+                  surface === "dark" ? "text-white placeholder:text-white/35" : "text-slate-900 placeholder:text-slate-400",
+                )}
               />
             </div>
 
@@ -261,7 +285,8 @@ export function RedcomSearchableSelect({
                   disabled={option.disabled}
                   onSelect={() => handleSelect(option.value)}
                   className={cn(
-                    "relative flex min-h-10 cursor-pointer select-none items-center rounded-xl py-2 pl-3 pr-10 text-sm font-semibold text-slate-700 outline-none transition-colors data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-40",
+                    "relative flex min-h-10 cursor-pointer select-none items-center rounded-xl py-2 pl-3 pr-10 text-sm font-medium outline-none transition-colors data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-40",
+                    surface === "dark" ? "text-white/80" : "text-slate-700",
                     accent === "indigo"
                       ? "data-[selected=true]:bg-indigo-600 data-[selected=true]:text-white"
                       : accent === "teal"
@@ -269,7 +294,7 @@ export function RedcomSearchableSelect({
                         : "data-[selected=true]:bg-slate-950 data-[selected=true]:text-white",
                   )}
                 >
-                  <span className={cn("truncate", option.value === value && "font-black")}>
+                  <span className={cn("truncate", option.value === value && "font-semibold")}>
                     {option.label}
                   </span>
                   {option.value === value ? (
