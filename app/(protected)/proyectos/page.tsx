@@ -9,6 +9,8 @@ import {
   ChevronDown,
   CircleDot,
   FolderKanban,
+  Columns3,
+  LayoutList,
   Loader2,
   LockKeyhole,
   Plus,
@@ -31,6 +33,7 @@ import {
 import { RequireAuth } from '@/components/RouteGuards';
 import { useMe } from '@/hooks/useMe';
 import ProjectTaskDrawer from './ProjectTaskDrawer';
+import ProjectKanbanBoard from './ProjectKanbanBoard';
 import { supabase } from '@/lib/supabaseClient';
 import ProjectTaskFilters, {
   ProjectTaskFiltersState,
@@ -215,8 +218,7 @@ export default function ProyectosPage() {
     showClosed: true,
   });
 
-  // vista (tabla / grid) – por ahora solo tabla pero lo dejamos listo
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [movingTaskId, setMovingTaskId] = useState<number | null>(null);
 
   // paginación
   const [page, setPage] = useState(1);
@@ -323,8 +325,16 @@ export default function ProyectosPage() {
     }
 
     // estado
-    // ✅ Por defecto NO mostramos completadas ni cerradas
-    if (filters.status === 'all' && t.status === 'done') return false;
+    // En tabla mantenemos el comportamiento anterior: las completadas se ocultan
+    // por defecto. En Kanban deben verse para poder mover tarjetas entre todas
+    // las columnas del flujo.
+    if (
+      filters.status === 'all' &&
+      filters.viewMode === 'table' &&
+      t.status === 'done'
+    ) {
+      return false;
+    }
 
     if (filters.status !== 'all' && t.status !== filters.status) return false;
 
@@ -458,6 +468,96 @@ export default function ProyectosPage() {
     }
   };
 
+
+
+  const handleKanbanMove = async ({
+    task,
+    targetStatus,
+    overTaskId,
+  }: {
+    task: ProjectTaskWithAssignees;
+    targetStatus: ProjectTaskStatus;
+    overTaskId: number | null;
+  }) => {
+    if (task.is_locked || movingTaskId === task.id) return;
+
+    const originalTask = task;
+
+    const targetTasks = hydratedTasks
+      .filter((item) => item.status === targetStatus && item.id !== task.id)
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.kanban_order ?? a.id * 1000) -
+          (b.kanban_order ?? b.id * 1000),
+      );
+
+    let nextOrder = 1000;
+
+    if (overTaskId !== null) {
+      const targetIndex = targetTasks.findIndex(
+        (item) => item.id === overTaskId,
+      );
+
+      if (targetIndex >= 0) {
+        const nextTask = targetTasks[targetIndex];
+        const previousTask = targetTasks[targetIndex - 1];
+        const nextValue = nextTask.kanban_order ?? nextTask.id * 1000;
+
+        nextOrder = previousTask
+          ? ((previousTask.kanban_order ?? previousTask.id * 1000) +
+              nextValue) /
+            2
+          : nextValue - 1000;
+      } else if (targetTasks.length > 0) {
+        const lastTask = targetTasks[targetTasks.length - 1];
+        nextOrder = (lastTask.kanban_order ?? lastTask.id * 1000) + 1000;
+      }
+    } else if (targetTasks.length > 0) {
+      const lastTask = targetTasks[targetTasks.length - 1];
+      nextOrder = (lastTask.kanban_order ?? lastTask.id * 1000) + 1000;
+    }
+
+    const optimisticTask: ProjectTaskWithAssignees = {
+      ...task,
+      status: targetStatus,
+      kanban_order: nextOrder,
+    };
+
+    setMovingTaskId(task.id);
+    patchTask(optimisticTask);
+    setSelectedTask((current) =>
+      current?.id === task.id ? optimisticTask : current,
+    );
+
+    try {
+      const updatedRow = await updateProjectTask(task.id, {
+        status: targetStatus,
+        kanban_order: nextOrder,
+      });
+
+      const updatedTask: ProjectTaskWithAssignees = {
+        ...updatedRow,
+        assignees: task.assignees,
+      };
+
+      patchTask(updatedTask);
+      setSelectedTask((current) =>
+        current?.id === task.id ? updatedTask : current,
+      );
+    } catch (err) {
+      console.error('Error moving task in Kanban', err);
+      patchTask(originalTask);
+      setSelectedTask((current) =>
+        current?.id === task.id ? originalTask : current,
+      );
+      notify.error(
+        errorMessage(err, 'No se pudo mover la tarea. Intentá nuevamente.'),
+      );
+    } finally {
+      setMovingTaskId(null);
+    }
+  };
 
 
   const handleChangePriority = async (
@@ -745,304 +845,358 @@ export default function ProyectosPage() {
                   Estado, prioridad, vencimiento y responsables de cada tarea.
                 </p>
               </div>
-              <span className="text-xs font-normal text-white/[0.65]">
-                {filteredTasks.length} resultado{filteredTasks.length === 1 ? '' : 's'}
-              </span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <div className="min-w-[1160px]">
-                <div className="grid grid-cols-[minmax(340px,2.2fr)_180px_165px_160px_minmax(360px,2fr)] border-b border-white/[0.07] bg-white/[0.025] px-5 py-3 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.58]">
-                  <div>Tarea / proyecto</div>
-                  <div>Estado</div>
-                  <div>Prioridad</div>
-                  <div>Fecha límite</div>
-                  <div>Responsables</div>
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex items-center rounded-[11px] border border-white/[0.08] bg-white/[0.035] p-1"
+                  aria-label="Vista de tareas"
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFilters((current) => ({
+                        ...current,
+                        viewMode: 'table',
+                      }))
+                    }
+                    className={`inline-flex h-7 items-center gap-1.5 rounded-[8px] px-2.5 text-[10px] font-medium transition ${
+                      filters.viewMode === 'table'
+                        ? 'bg-white/[0.09] text-white'
+                        : 'text-white/[0.48] hover:text-white/[0.76]'
+                    }`}
+                    aria-pressed={filters.viewMode === 'table'}
+                  >
+                    <LayoutList className="h-3.5 w-3.5" />
+                    Tabla
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFilters((current) => ({
+                        ...current,
+                        viewMode: 'kanban',
+                      }))
+                    }
+                    className={`inline-flex h-7 items-center gap-1.5 rounded-[8px] px-2.5 text-[10px] font-medium transition ${
+                      filters.viewMode === 'kanban'
+                        ? 'bg-white/[0.09] text-white'
+                        : 'text-white/[0.48] hover:text-white/[0.76]'
+                    }`}
+                    aria-pressed={filters.viewMode === 'kanban'}
+                  >
+                    <Columns3 className="h-3.5 w-3.5" />
+                    Kanban
+                  </button>
                 </div>
 
-                {loading ? (
-                  <div className="flex min-h-[220px] items-center justify-center text-sm font-normal text-white/[0.65]">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#0a84ff]" />
-                    Cargando tareas...
+                <span className="text-xs font-normal text-white/[0.65]">
+                  {filteredTasks.length} resultado{filteredTasks.length === 1 ? '' : 's'}
+                </span>
+              </div>
+            </div>
+
+            {filters.viewMode === 'kanban' && !loading && filteredTasks.length > 0 ? (
+              <ProjectKanbanBoard
+                tasks={filteredTasks}
+                movingTaskId={movingTaskId}
+                onOpenTask={setSelectedTask}
+                onMoveTask={handleKanbanMove}
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="min-w-[1160px]">
+                  <div className="grid grid-cols-[minmax(340px,2.2fr)_180px_165px_160px_minmax(360px,2fr)] border-b border-white/[0.07] bg-white/[0.025] px-5 py-3 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.58]">
+                    <div>Tarea / proyecto</div>
+                    <div>Estado</div>
+                    <div>Prioridad</div>
+                    <div>Fecha límite</div>
+                    <div>Responsables</div>
                   </div>
-                ) : filteredTasks.length === 0 ? (
-                  <div className="grid min-h-[240px] place-items-center px-6 text-center">
-                    <div>
-                      <FolderKanban className="mx-auto h-6 w-6 text-white/[0.50]" />
-                      <div className="mt-3 text-sm font-medium text-white/[0.84]">No hay tareas para mostrar</div>
-                      <p className="mt-1 text-xs font-normal text-white/[0.58]">
-                        Ajustá los filtros o creá una nueva tarea.
-                      </p>
+  
+                  {loading ? (
+                    <div className="flex min-h-[220px] items-center justify-center text-sm font-normal text-white/[0.65]">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#0a84ff]" />
+                      Cargando tareas...
                     </div>
-                  </div>
-                ) : (
-                  <>
-                    <AnimatePresence initial={false}>
-                      {visibleTasks.map((task) => {
-                        const statusCfg = getStatusConfig(task.status);
-                        const priorityCfg = getPriorityConfig(task.priority);
-                        const isLocked = !!(task as any).is_locked;
-
-                        const filteredUsers = supervisors.filter((user) => {
-                          const text = (user.full_name ?? user.email ?? '').toLowerCase();
-                          return text.includes(assigneeSearch.toLowerCase());
-                        });
-
-                        const isAssigneesOpen =
-                          canManage && assigneesOpenFor === task.id && !isLocked;
-
-                        return (
-                          <motion.div
-                            key={task.id}
-                            initial={{ opacity: 0, y: 3 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -3 }}
-                            transition={{ duration: 0.14 }}
-                            className="group grid cursor-pointer grid-cols-[minmax(340px,2.2fr)_180px_165px_160px_minmax(360px,2fr)] items-center border-b border-white/[0.055] px-5 py-3.5 transition hover:bg-white/[0.035]"
-                            onClick={() => setSelectedTask(task)}
-                          >
-                            <div className="min-w-0 pr-6">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate text-sm font-medium text-white/[0.94]">{task.title}</span>
-                                {isLocked ? (
-                                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/[0.055] px-1.5 py-0.5 text-[9px] font-medium text-white/[0.68]">
-                                    <LockKeyhole className="h-2.5 w-2.5" />
-                                    Cerrada
-                                  </span>
-                                ) : null}
+                  ) : filteredTasks.length === 0 ? (
+                    <div className="grid min-h-[240px] place-items-center px-6 text-center">
+                      <div>
+                        <FolderKanban className="mx-auto h-6 w-6 text-white/[0.50]" />
+                        <div className="mt-3 text-sm font-medium text-white/[0.84]">No hay tareas para mostrar</div>
+                        <p className="mt-1 text-xs font-normal text-white/[0.58]">
+                          Ajustá los filtros o creá una nueva tarea.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <AnimatePresence initial={false}>
+                        {visibleTasks.map((task) => {
+                          const statusCfg = getStatusConfig(task.status);
+                          const priorityCfg = getPriorityConfig(task.priority);
+                          const isLocked = !!(task as any).is_locked;
+  
+                          const filteredUsers = supervisors.filter((user) => {
+                            const text = (user.full_name ?? user.email ?? '').toLowerCase();
+                            return text.includes(assigneeSearch.toLowerCase());
+                          });
+  
+                          const isAssigneesOpen =
+                            canManage && assigneesOpenFor === task.id && !isLocked;
+  
+                          return (
+                            <motion.div
+                              key={task.id}
+                              initial={{ opacity: 0, y: 3 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -3 }}
+                              transition={{ duration: 0.14 }}
+                              className="group grid cursor-pointer grid-cols-[minmax(340px,2.2fr)_180px_165px_160px_minmax(360px,2fr)] items-center border-b border-white/[0.055] px-5 py-3.5 transition hover:bg-white/[0.035]"
+                              onClick={() => setSelectedTask(task)}
+                            >
+                              <div className="min-w-0 pr-6">
+                                <div className="flex items-center gap-2">
+                                  <span className="truncate text-sm font-medium text-white/[0.94]">{task.title}</span>
+                                  {isLocked ? (
+                                    <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/[0.055] px-1.5 py-0.5 text-[9px] font-medium text-white/[0.68]">
+                                      <LockKeyhole className="h-2.5 w-2.5" />
+                                      Cerrada
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="mt-1 flex min-w-0 items-center gap-2 text-[11px] font-normal">
+                                  <span className="shrink-0 text-white/[0.72]">{task.project || 'Proyecto general'}</span>
+                                  {task.summary ? (
+                                    <>
+                                      <span className="text-white/[0.35]">•</span>
+                                      <span className="truncate text-white/[0.58]">{task.summary}</span>
+                                    </>
+                                  ) : null}
+                                </div>
                               </div>
-                              <div className="mt-1 flex min-w-0 items-center gap-2 text-[11px] font-normal">
-                                <span className="shrink-0 text-white/[0.72]">{task.project || 'Proyecto general'}</span>
-                                {task.summary ? (
+  
+                              <div onClick={(event) => event.stopPropagation()} className="pr-3">
+                                <RedcomSelect
+                                  value={task.status}
+                                  surface="dark"
+                                  accent="indigo"
+                                  triggerTone={getStatusTone(task.status)}
+                                  disabled={isLocked}
+                                  className="h-9 rounded-[12px] text-xs"
+                                  onValueChange={(next) =>
+                                    void handleChangeStatus(task, next as ProjectTaskStatus)
+                                  }
+                                  options={STATUS_OPTIONS.map((option) => ({
+                                    value: option.value,
+                                    label: option.label,
+                                  }))}
+                                  aria-label={`Estado de ${task.title}`}
+                                />
+                              </div>
+  
+                              <div onClick={(event) => event.stopPropagation()} className="pr-3">
+                                <RedcomSelect
+                                  value={task.priority}
+                                  surface="dark"
+                                  accent="teal"
+                                  triggerTone={getPriorityTone(task.priority)}
+                                  disabled={isLocked}
+                                  className="h-9 rounded-[12px] text-xs"
+                                  onValueChange={(next) =>
+                                    void handleChangePriority(task, next as ProjectTaskPriority)
+                                  }
+                                  options={PRIORITY_OPTIONS.map((option) => ({
+                                    value: option.value,
+                                    label: option.label,
+                                  }))}
+                                  aria-label={`Prioridad de ${task.title}`}
+                                />
+                              </div>
+  
+                              <div className="flex items-center gap-2 text-xs font-normal text-white/[0.76]">
+                                <CalendarDays className="h-3.5 w-3.5 text-white/[0.50]" />
+                                {formatDueDate(task.due_date)}
+                              </div>
+  
+                              <div
+                                className="relative flex min-w-0 items-center gap-2"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+                                  {task.assignees.length === 0 ? (
+                                    <span className="text-xs font-normal text-white/[0.58]">Sin responsables</span>
+                                  ) : (
+                                    task.assignees.slice(0, 2).map((assignee) => {
+                                      const supervisor = supervisors.find(
+                                        (person) => String(person.id) === String(assignee.user_id),
+                                      );
+                                      const label =
+                                        assignee.full_name ??
+                                        supervisor?.full_name ??
+                                        assignee.email ??
+                                        supervisor?.email ??
+                                        'Sin nombre';
+  
+                                      return (
+                                        <span
+                                          key={assignee.user_id}
+                                          className="max-w-[145px] truncate rounded-lg bg-white/[0.055] px-2 py-1 text-[10px] font-normal text-white/[0.76]"
+                                        >
+                                          {label}
+                                        </span>
+                                      );
+                                    })
+                                  )}
+                                  {task.assignees.length > 2 ? (
+                                    <span className="shrink-0 text-[10px] font-normal text-white/[0.58]">
+                                      +{task.assignees.length - 2}
+                                    </span>
+                                  ) : null}
+                                </div>
+  
+                                {canManage ? (
+                                  <div className="ml-auto flex shrink-0 items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        if (isLocked) return;
+                                        setAssigneesOpenFor((current) =>
+                                          current === task.id ? null : task.id,
+                                        );
+                                      }}
+                                      disabled={isLocked}
+                                      className="h-8 rounded-[10px] px-2.5 text-[10px] font-medium text-[#0a84ff] transition hover:bg-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-[0.40]"
+                                    >
+                                      Gestionar
+                                    </button>
+  
+                                    {isAdmin ? (
+                                      <button
+                                        type="button"
+                                        title="Cerrar tarea"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          requestCloseTask(task);
+                                        }}
+                                        disabled={isLocked}
+                                        className="grid h-8 w-8 place-items-center rounded-[10px] text-white/[0.65] transition hover:bg-white/[0.055] hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-25"
+                                      >
+                                        <Ban className="h-3.5 w-3.5" />
+                                      </button>
+                                    ) : null}
+  
+                                    {isAdmin ? (
+                                      <button
+                                        type="button"
+                                        title="Eliminar tarea"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          void handleDeleteTask(task);
+                                        }}
+                                        className="grid h-8 w-8 place-items-center rounded-[10px] text-white/[0.58] transition hover:bg-rose-500/10 hover:text-rose-400"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+  
+                                {isAssigneesOpen ? (
                                   <>
-                                    <span className="text-white/[0.35]">•</span>
-                                    <span className="truncate text-white/[0.58]">{task.summary}</span>
+                                    <div className="fixed inset-0 z-30" onClick={closeAllPopovers} />
+                                    <div
+                                      className="absolute right-0 top-10 z-40 w-72 overflow-hidden rounded-[18px] border border-white/[0.09] bg-[#1c1c1e] p-2 text-xs text-white/[0.82] shadow-[0_24px_70px_rgba(0,0,0,.4)]"
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      <div className="p-1 pb-2">
+                                        <input
+                                          className="h-9 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 text-xs font-normal text-white outline-none placeholder:text-white/[0.46] focus:border-[#0a84ff]/[0.55] focus:ring-4 focus:ring-[#0a84ff]/10"
+                                          placeholder="Buscar responsable"
+                                          value={assigneeSearch}
+                                          onChange={(event) => setAssigneeSearch(event.target.value)}
+                                        />
+                                      </div>
+  
+                                      <div className="max-h-60 overflow-y-auto">
+                                        {filteredUsers.length === 0 ? (
+                                          <p className="px-3 py-6 text-center text-xs font-normal text-white/[0.58]">
+                                            No se encontraron responsables.
+                                          </p>
+                                        ) : (
+                                          filteredUsers.map((user) => {
+                                            const selected = task.assignees.some(
+                                              (assignee) => assignee.user_id === user.id,
+                                            );
+                                            return (
+                                              <button
+                                                key={user.id}
+                                                type="button"
+                                                onClick={() => void handleToggleAssignee(task, user.id)}
+                                                className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-white/[0.055]"
+                                              >
+                                                <span className="min-w-0">
+                                                  <span className="block truncate text-xs font-medium text-white/[0.90]">
+                                                    {user.full_name ?? user.email}
+                                                  </span>
+                                                  {user.email ? (
+                                                    <span className="mt-0.5 block truncate text-[10px] font-normal text-white/[0.58]">
+                                                      {user.email}
+                                                    </span>
+                                                  ) : null}
+                                                </span>
+                                                <span
+                                                  className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${
+                                                    selected
+                                                      ? 'border-[#0a84ff] bg-[#0a84ff] text-white'
+                                                      : 'border-white/[0.15] bg-transparent text-transparent'
+                                                  }`}
+                                                >
+                                                  <CircleDot className="h-3 w-3" />
+                                                </span>
+                                              </button>
+                                            );
+                                          })
+                                        )}
+                                      </div>
+                                    </div>
                                   </>
                                 ) : null}
                               </div>
-                            </div>
-
-                            <div onClick={(event) => event.stopPropagation()} className="pr-3">
-                              <RedcomSelect
-                                value={task.status}
-                                surface="dark"
-                                accent="indigo"
-                                triggerTone={getStatusTone(task.status)}
-                                disabled={isLocked}
-                                className="h-9 rounded-[12px] text-xs"
-                                onValueChange={(next) =>
-                                  void handleChangeStatus(task, next as ProjectTaskStatus)
-                                }
-                                options={STATUS_OPTIONS.map((option) => ({
-                                  value: option.value,
-                                  label: option.label,
-                                }))}
-                                aria-label={`Estado de ${task.title}`}
-                              />
-                            </div>
-
-                            <div onClick={(event) => event.stopPropagation()} className="pr-3">
-                              <RedcomSelect
-                                value={task.priority}
-                                surface="dark"
-                                accent="teal"
-                                triggerTone={getPriorityTone(task.priority)}
-                                disabled={isLocked}
-                                className="h-9 rounded-[12px] text-xs"
-                                onValueChange={(next) =>
-                                  void handleChangePriority(task, next as ProjectTaskPriority)
-                                }
-                                options={PRIORITY_OPTIONS.map((option) => ({
-                                  value: option.value,
-                                  label: option.label,
-                                }))}
-                                aria-label={`Prioridad de ${task.title}`}
-                              />
-                            </div>
-
-                            <div className="flex items-center gap-2 text-xs font-normal text-white/[0.76]">
-                              <CalendarDays className="h-3.5 w-3.5 text-white/[0.50]" />
-                              {formatDueDate(task.due_date)}
-                            </div>
-
-                            <div
-                              className="relative flex min-w-0 items-center gap-2"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-                                {task.assignees.length === 0 ? (
-                                  <span className="text-xs font-normal text-white/[0.58]">Sin responsables</span>
-                                ) : (
-                                  task.assignees.slice(0, 2).map((assignee) => {
-                                    const supervisor = supervisors.find(
-                                      (person) => String(person.id) === String(assignee.user_id),
-                                    );
-                                    const label =
-                                      assignee.full_name ??
-                                      supervisor?.full_name ??
-                                      assignee.email ??
-                                      supervisor?.email ??
-                                      'Sin nombre';
-
-                                    return (
-                                      <span
-                                        key={assignee.user_id}
-                                        className="max-w-[145px] truncate rounded-lg bg-white/[0.055] px-2 py-1 text-[10px] font-normal text-white/[0.76]"
-                                      >
-                                        {label}
-                                      </span>
-                                    );
-                                  })
-                                )}
-                                {task.assignees.length > 2 ? (
-                                  <span className="shrink-0 text-[10px] font-normal text-white/[0.58]">
-                                    +{task.assignees.length - 2}
-                                  </span>
-                                ) : null}
-                              </div>
-
-                              {canManage ? (
-                                <div className="ml-auto flex shrink-0 items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      if (isLocked) return;
-                                      setAssigneesOpenFor((current) =>
-                                        current === task.id ? null : task.id,
-                                      );
-                                    }}
-                                    disabled={isLocked}
-                                    className="h-8 rounded-[10px] px-2.5 text-[10px] font-medium text-[#0a84ff] transition hover:bg-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-[0.40]"
-                                  >
-                                    Gestionar
-                                  </button>
-
-                                  {isAdmin ? (
-                                    <button
-                                      type="button"
-                                      title="Cerrar tarea"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        requestCloseTask(task);
-                                      }}
-                                      disabled={isLocked}
-                                      className="grid h-8 w-8 place-items-center rounded-[10px] text-white/[0.65] transition hover:bg-white/[0.055] hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-25"
-                                    >
-                                      <Ban className="h-3.5 w-3.5" />
-                                    </button>
-                                  ) : null}
-
-                                  {isAdmin ? (
-                                    <button
-                                      type="button"
-                                      title="Eliminar tarea"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        void handleDeleteTask(task);
-                                      }}
-                                      className="grid h-8 w-8 place-items-center rounded-[10px] text-white/[0.58] transition hover:bg-rose-500/10 hover:text-rose-400"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
-                                  ) : null}
-                                </div>
-                              ) : null}
-
-                              {isAssigneesOpen ? (
-                                <>
-                                  <div className="fixed inset-0 z-30" onClick={closeAllPopovers} />
-                                  <div
-                                    className="absolute right-0 top-10 z-40 w-72 overflow-hidden rounded-[18px] border border-white/[0.09] bg-[#1c1c1e] p-2 text-xs text-white/[0.82] shadow-[0_24px_70px_rgba(0,0,0,.4)]"
-                                    onClick={(event) => event.stopPropagation()}
-                                  >
-                                    <div className="p-1 pb-2">
-                                      <input
-                                        className="h-9 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 text-xs font-normal text-white outline-none placeholder:text-white/[0.46] focus:border-[#0a84ff]/[0.55] focus:ring-4 focus:ring-[#0a84ff]/10"
-                                        placeholder="Buscar responsable"
-                                        value={assigneeSearch}
-                                        onChange={(event) => setAssigneeSearch(event.target.value)}
-                                      />
-                                    </div>
-
-                                    <div className="max-h-60 overflow-y-auto">
-                                      {filteredUsers.length === 0 ? (
-                                        <p className="px-3 py-6 text-center text-xs font-normal text-white/[0.58]">
-                                          No se encontraron responsables.
-                                        </p>
-                                      ) : (
-                                        filteredUsers.map((user) => {
-                                          const selected = task.assignees.some(
-                                            (assignee) => assignee.user_id === user.id,
-                                          );
-                                          return (
-                                            <button
-                                              key={user.id}
-                                              type="button"
-                                              onClick={() => void handleToggleAssignee(task, user.id)}
-                                              className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-white/[0.055]"
-                                            >
-                                              <span className="min-w-0">
-                                                <span className="block truncate text-xs font-medium text-white/[0.90]">
-                                                  {user.full_name ?? user.email}
-                                                </span>
-                                                {user.email ? (
-                                                  <span className="mt-0.5 block truncate text-[10px] font-normal text-white/[0.58]">
-                                                    {user.email}
-                                                  </span>
-                                                ) : null}
-                                              </span>
-                                              <span
-                                                className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${
-                                                  selected
-                                                    ? 'border-[#0a84ff] bg-[#0a84ff] text-white'
-                                                    : 'border-white/[0.15] bg-transparent text-transparent'
-                                                }`}
-                                              >
-                                                <CircleDot className="h-3 w-3" />
-                                              </span>
-                                            </button>
-                                          );
-                                        })
-                                      )}
-                                    </div>
-                                  </div>
-                                </>
-                              ) : null}
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
-
-                    <div className="flex items-center justify-between gap-4 px-5 py-3 text-[11px] font-normal text-white/[0.58]">
-                      <span>
-                        {startIndex + 1}–{Math.min(endIndex, filteredTasks.length)} de {filteredTasks.length}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setPage((current) => Math.max(1, current - 1))}
-                          disabled={page === 1}
-                          className="h-8 rounded-[10px] px-3 font-normal text-white/[0.72] transition hover:bg-white/[0.05] hover:text-white/[0.84] disabled:cursor-not-allowed disabled:opacity-25"
-                        >
-                          Anterior
-                        </button>
-                        <span className="px-2 text-white/[0.50]">{page} / {totalPages}</span>
-                        <button
-                          type="button"
-                          onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                          disabled={page === totalPages}
-                          className="h-8 rounded-[10px] px-3 font-normal text-white/[0.72] transition hover:bg-white/[0.05] hover:text-white/[0.84] disabled:cursor-not-allowed disabled:opacity-25"
-                        >
-                          Siguiente
-                        </button>
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
+  
+                      <div className="flex items-center justify-between gap-4 px-5 py-3 text-[11px] font-normal text-white/[0.58]">
+                        <span>
+                          {startIndex + 1}–{Math.min(endIndex, filteredTasks.length)} de {filteredTasks.length}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setPage((current) => Math.max(1, current - 1))}
+                            disabled={page === 1}
+                            className="h-8 rounded-[10px] px-3 font-normal text-white/[0.72] transition hover:bg-white/[0.05] hover:text-white/[0.84] disabled:cursor-not-allowed disabled:opacity-25"
+                          >
+                            Anterior
+                          </button>
+                          <span className="px-2 text-white/[0.50]">{page} / {totalPages}</span>
+                          <button
+                            type="button"
+                            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                            disabled={page === totalPages}
+                            className="h-8 rounded-[10px] px-3 font-normal text-white/[0.72] transition hover:bg-white/[0.05] hover:text-white/[0.84] disabled:cursor-not-allowed disabled:opacity-25"
+                          >
+                            Siguiente
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
+  
+            )}
           </section>
         </div>
       </div>
