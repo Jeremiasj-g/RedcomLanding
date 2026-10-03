@@ -102,6 +102,7 @@ export type ProjectTaskRow = {
   workspace_id: number | null; // preparado para futuros workspaces
   created_by: string;
   created_at: string;
+  kanban_order: number | null;
   is_locked: boolean; // <- NUEVO: indica si la tarea está bloqueada (solo lectura)
 };
 
@@ -326,6 +327,7 @@ export async function createProjectTask(
       due_date: input.due_date ?? null,
       workspace_id: input.workspace_id ?? null,
       created_by: currentUserId,
+      kanban_order: Date.now(),
       is_locked: false, // NUEVO: siempre empieza desbloqueada
     })
     .select('*')
@@ -390,6 +392,7 @@ export type UpdateProjectTaskInput = Partial<{
   priority: ProjectTaskPriority;
   due_date: string | null;
   workspace_id: number | null;
+  kanban_order: number | null;
   is_locked: boolean; // <- NUEVO: permitir bloquear/desbloquear
 }>;
 
