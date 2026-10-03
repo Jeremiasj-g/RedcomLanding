@@ -106,7 +106,7 @@ export function RedcomDatePicker({
             className={cn(
               "grid h-7 w-7 shrink-0 place-items-center rounded-xl",
               surface === "dark"
-                ? "bg-[#0a84ff]/15 text-[#5ac8fa]"
+                ? "bg-[#0a84ff]/[0.15] text-[#5ac8fa]"
                 : accentClasses.icon,
             )}
           >
@@ -163,7 +163,7 @@ export function RedcomDatePicker({
                 : "rounded-lg bg-slate-100 text-slate-950",
             outside:
               surface === "dark"
-                ? "text-white/18 aria-selected:text-white/[0.65]"
+                ? "text-white/[0.42] aria-selected:text-white/[0.65]"
                 : undefined,
             disabled:
               surface === "dark"
@@ -213,7 +213,7 @@ export function RedcomDatePicker({
               }}
               disabled={!value}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-35",
+                "inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-[0.40]",
                 surface === "dark"
                   ? "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
                   : "text-slate-500 hover:bg-rose-50 hover:text-rose-600",
