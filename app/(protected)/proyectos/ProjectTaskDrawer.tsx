@@ -178,7 +178,7 @@ const buildWorkspaceSnapshot = (args: {
 // ──────────────────────────────────────────────
 
 const INPUT_BASE =
-  'rounded-xl border border-white/[0.08] bg-white/[0.04] text-[11px] font-normal text-white/[0.90] outline-none placeholder:text-white/[0.46] transition hover:bg-white/[0.055] focus:border-[#0a84ff]/55 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-50';
+  'rounded-xl border border-white/[0.08] bg-white/[0.04] text-[11px] font-normal text-white/[0.90] outline-none placeholder:text-white/[0.46] transition hover:bg-white/[0.055] focus:border-[#0a84ff]/[0.55] focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-50';
 
 const BADGE_BASE =
   'rounded-lg px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em]';
@@ -1640,10 +1640,10 @@ export default function ProjectTaskDrawer({
                     [&_.ql-editor]:text-white/[0.88]
                     [&_.ql-editor]:min-h-0
                     [&_.ql-editor]:outline-none
-                    [&_.ql-stroke]:stroke-white/45
-                    [&_.ql-fill]:fill-white/45
+                    [&_.ql-stroke]:stroke-white/[0.45]
+                    [&_.ql-fill]:fill-white/[0.45]
                     [&_.ql-picker-label]:text-white/[0.72]
-                    [&_.ql-picker-label_.ql-stroke]:stroke-white/45
+                    [&_.ql-picker-label_.ql-stroke]:stroke-white/[0.45]
                     [&_.ql-picker-options]:border-white/[0.08]
                     [&_.ql-picker-options]:bg-[#1c1c1e]
                     [&_.ql-picker-item]:text-white/[0.80]
