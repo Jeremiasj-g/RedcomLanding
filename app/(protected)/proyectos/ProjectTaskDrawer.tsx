@@ -2,7 +2,6 @@
 
 import { supabase } from '@/lib/supabaseClient';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   DndContext,
@@ -21,7 +20,6 @@ import {
   Plus,
   Link2,
   ListChecks,
-  StickyNote,
   GripVertical,
   Pencil,
   Check,
@@ -43,35 +41,6 @@ import { RedcomDatePicker } from '@/components/ui/redcom-date-picker';
 import { RedcomSelect } from '@/components/ui/redcom-select';
 import type { ProjectWithMembers } from '@/lib/projects';
 import ProjectTaskActivityPanel from './ProjectTaskActivityPanel';
-
-// ReactQuill (editor rich text)
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
-
-// Toolbar estilo “mini Word”
-const quillModules = {
-  toolbar: [
-    [{ header: [false, 3, 4, 5, 6] }],
-    ['bold', 'italic', 'underline'],
-    [{ list: 'ordered' }, { list: 'bullet' }],
-    [{ indent: '-1' }, { indent: '+1' }],
-    [{ align: [] }],
-    [{ color: [] }, { background: [] }],
-    ['clean'],
-  ],
-};
-
-const quillFormats = [
-  'header',
-  'bold',
-  'italic',
-  'underline',
-  'list',
-  'bullet',
-  'indent',
-  'align',
-  'color',
-  'background',
-];
 
 type Props = {
   task: ProjectTaskWithAssignees;
@@ -233,7 +202,6 @@ export default function ProjectTaskDrawer({
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [todos, setTodos] = useState<ProjectTaskWorkspaceTodo[]>([]);
   const [newTodoText, setNewTodoText] = useState('');
-  const [quickNotes, setQuickNotes] = useState('');
   const [resourceLinks, setResourceLinks] = useState<ProjectTaskWorkspaceLink[]>(
     [],
   );
@@ -634,25 +602,20 @@ export default function ProjectTaskDrawer({
 
         if (ws) {
           const safeTodos = ws.todos ?? [];
-          const safeNotes = ws.quick_notes ?? '';
           const safeLinks = ws.resource_links ?? [];
 
           setTodos(safeTodos);
-          setQuickNotes(safeNotes);
           setResourceLinks(safeLinks);
 
           lastSavedSnapshotRef.current = buildWorkspaceSnapshot({
             todos: safeTodos,
-            quickNotes: safeNotes,
             resourceLinks: safeLinks,
           });
         } else {
           setTodos([]);
-          setQuickNotes('');
           setResourceLinks([]);
           lastSavedSnapshotRef.current = buildWorkspaceSnapshot({
             todos: [],
-            quickNotes: '',
             resourceLinks: [],
           });
         }
@@ -704,16 +667,13 @@ export default function ProjectTaskDrawer({
           );
 
           const safeTodos = ws.todos ?? [];
-          const safeNotes = ws.quick_notes ?? '';
           const safeLinks = ws.resource_links ?? [];
 
           setTodos(safeTodos);
-          setQuickNotes(safeNotes);
           setResourceLinks(safeLinks);
 
           lastSavedSnapshotRef.current = buildWorkspaceSnapshot({
             todos: safeTodos,
-            quickNotes: safeNotes,
             resourceLinks: safeLinks,
           });
 
@@ -840,7 +800,6 @@ export default function ProjectTaskDrawer({
 
     const currentSnapshot = buildWorkspaceSnapshot({
       todos,
-      quickNotes,
       resourceLinks,
     });
 
@@ -857,8 +816,7 @@ export default function ProjectTaskDrawer({
         await upsertTaskWorkspace({
           taskId: task.id,
           todos,
-          quickNotes,
-          resourceLinks,
+              resourceLinks,
           updatedBy: currentUserId,
         });
 
@@ -875,7 +833,6 @@ export default function ProjectTaskDrawer({
     return () => clearTimeout(handle);
   }, [
     todos,
-    quickNotes,
     resourceLinks,
     canEditWorkspace,
     task.id,
@@ -1648,7 +1605,7 @@ export default function ProjectTaskDrawer({
                     : 'text-white/[0.46] hover:text-white/[0.70]'
                 }`}
               >
-                Notas y recursos
+                Comentarios y recursos
               </button>
               <button
                 type="button"
@@ -1665,57 +1622,15 @@ export default function ProjectTaskDrawer({
 
             {rightPanel === 'notes' ? (
               <div className="flex min-h-0 flex-1 flex-col gap-5">
-            {/* Notas rápidas */}
+            {/* Comentarios */}
             <div className={PANEL_BASE}>
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <StickyNote className="h-4 w-4 text-amber-300" />
-                  <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.75]">
-                    Notas rápidas
-                  </span>
-                </div>
-                {!canEditWorkspace && (
-                  <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white/[0.65]">
-                    Solo lectura
-                  </span>
-                )}
-              </div>
-
-              <div className="flex-1 min-h-0 overflow-hidden rounded-[14px] border border-white/[0.08] bg-white/[0.03]">
-                <ReactQuill
-                  theme="snow"
-                  value={quickNotes}
-                  onChange={(value) => {
-                    if (!canEditWorkspace) return;
-                    setQuickNotes(value);
-                  }}
-                  readOnly={!canEditWorkspace}
-                  modules={quillModules}
-                  formats={quillFormats}
-                  className="
-                    h-full
-                    [&_.ql-toolbar]:border-none
-                    [&_.ql-toolbar]:bg-transparent
-                    [&_.ql-toolbar]:text-white/[0.78]
-                    [&_.ql-container]:border-none
-                    [&_.ql-container]:shadow-none
-                    [&_.ql-container]:h-[calc(100%-2.25rem)]
-                    [&_.ql-container]:overflow-y-auto
-                    [&_.ql-editor]:bg-transparent
-                    [&_.ql-editor]:text-[11px]
-                    [&_.ql-editor]:text-white/[0.88]
-                    [&_.ql-editor]:min-h-0
-                    [&_.ql-editor]:outline-none
-                    [&_.ql-stroke]:stroke-white/[0.45]
-                    [&_.ql-fill]:fill-white/[0.45]
-                    [&_.ql-picker-label]:text-white/[0.72]
-                    [&_.ql-picker-label_.ql-stroke]:stroke-white/[0.45]
-                    [&_.ql-picker-options]:border-white/[0.08]
-                    [&_.ql-picker-options]:bg-[#1c1c1e]
-                    [&_.ql-picker-item]:text-white/[0.80]
-                  "
-                />
-              </div>
+              <ProjectTaskActivityPanel
+                taskId={task.id}
+                currentUserId={currentUserId}
+                canComment={canEditWorkspace}
+                locked={isLocked}
+                mode="comments"
+              />
             </div>
 
             {/* Recursos */}
@@ -1802,8 +1717,9 @@ export default function ProjectTaskDrawer({
                 <ProjectTaskActivityPanel
                   taskId={task.id}
                   currentUserId={currentUserId}
-                  canComment={canEditWorkspace}
+                  canComment={false}
                   locked={isLocked}
+                  mode="activity"
                 />
               </div>
             )}
