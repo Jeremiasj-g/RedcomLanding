@@ -39,6 +39,7 @@ import {
   type ProjectTaskWorkspaceTodo,
   type ProjectTaskWorkspaceLink,
 } from '@/lib/projectTasks';
+import { RedcomDatePicker } from '@/components/ui/redcom-date-picker';
 
 // ReactQuill (editor rich text)
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
@@ -1215,12 +1216,14 @@ export default function ProjectTaskDrawer({
                 </span>
                 <div className="flex items-center gap-2">
                   <CalendarDays className="h-4 w-4 text-gray-400" />
-                  <input
-                    type="date"
+                  <RedcomDatePicker
                     value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className={`px-2 py-1 ${INPUT_BASE}`}
+                    onChange={setDueDate}
+                    placeholder="Sin fecha"
+                    accent="indigo"
                     disabled={isLocked}
+                    className="h-9 min-w-[190px] rounded-xl"
+                    aria-label="Fecha límite"
                   />
                 </div>
               </div>
