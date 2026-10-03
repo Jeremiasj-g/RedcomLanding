@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays, X } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -64,6 +64,7 @@ export function RedcomDatePicker({
   clearable = true,
   "aria-label": ariaLabel,
 }: Props) {
+  const [open, setOpen] = useState(false);
   const selected = useMemo(() => parseIsoDate(value), [value]);
   const accentClasses =
     accent === "teal"
@@ -81,7 +82,7 @@ export function RedcomDatePicker({
         };
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -111,7 +112,9 @@ export function RedcomDatePicker({
           mode="single"
           selected={selected}
           onSelect={(date) => {
-            if (date) onChange(formatIsoDate(date));
+            if (!date) return;
+            onChange(formatIsoDate(date));
+            setOpen(false);
           }}
           defaultMonth={selected}
           captionLayout="dropdown"
@@ -124,7 +127,10 @@ export function RedcomDatePicker({
         <div className="flex items-center justify-between border-t border-slate-100 px-2 pb-1 pt-2">
           <button
             type="button"
-            onClick={() => onChange(formatIsoDate(new Date()))}
+            onClick={() => {
+              onChange(formatIsoDate(new Date()));
+              setOpen(false);
+            }}
             className="rounded-xl px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
           >
             Hoy
@@ -133,7 +139,10 @@ export function RedcomDatePicker({
           {clearable ? (
             <button
               type="button"
-              onClick={() => onChange("")}
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
               disabled={!value}
               className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-35"
             >
