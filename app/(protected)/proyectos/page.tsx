@@ -359,7 +359,7 @@ export default function ProyectosPage() {
     // proyecto
     if (
       filters.project &&
-      !(t.project ?? '').toLowerCase().includes(filters.project.toLowerCase())
+      (t.project ?? '').toLowerCase() !== filters.project.toLowerCase()
     ) {
       return false;
     }
