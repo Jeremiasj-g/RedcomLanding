@@ -364,6 +364,9 @@ export default function ProjectTaskFilters({
               : `${activeCount} filtro${activeCount === 1 ? "" : "s"} activo${activeCount === 1 ? "" : "s"}`}
           </div>
 
+          {project ? (
+            <Chip label={project} onClear={() => handleChange({ project: "" })} />
+          ) : null}
           {status !== "all" ? (
             <Chip label={STATUS_LABELS[status]} onClear={() => handleChange({ status: "all" })} />
           ) : null}
