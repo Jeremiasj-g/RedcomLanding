@@ -61,6 +61,20 @@ const DEFAULT_FILTERS: ProjectTaskFiltersState = {
   showClosed: true,
 };
 
+function statusTone(value: ProjectTaskFiltersState["status"]) {
+  if (value === "in_progress") return "blue" as const;
+  if (value === "done") return "green" as const;
+  if (value === "cancelled") return "red" as const;
+  return "neutral" as const;
+}
+
+function priorityTone(value: ProjectTaskFiltersState["priority"]) {
+  if (value === "low") return "green" as const;
+  if (value === "medium") return "amber" as const;
+  if (value === "high") return "red" as const;
+  return "neutral" as const;
+}
+
 export default function ProjectTaskFilters({
   supervisors,
   value,
@@ -175,6 +189,7 @@ export default function ProjectTaskFilters({
               value={status}
               surface="dark"
               accent="indigo"
+              triggerTone={statusTone(status)}
               className="h-11 rounded-[14px]"
               onValueChange={(next) =>
                 handleChange({ status: next as ProjectTaskFiltersState["status"] })
@@ -192,6 +207,7 @@ export default function ProjectTaskFilters({
               value={priority}
               surface="dark"
               accent="teal"
+              triggerTone={priorityTone(priority)}
               className="h-11 rounded-[14px]"
               onValueChange={(next) =>
                 handleChange({ priority: next as ProjectTaskFiltersState["priority"] })
