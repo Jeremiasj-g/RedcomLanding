@@ -1,5 +1,6 @@
 // lib/projectTasks.ts
 import { supabase } from '@/lib/supabaseClient';
+import { addProjectMembers } from '@/lib/projects';
 
 /* ---------------------------------------------- */
 // 👇 TIPOS PARA EL WORKSPACE
@@ -99,6 +100,7 @@ export type ProjectTaskRow = {
   priority: ProjectTaskPriority;
   due_date: string | null; // ISO date (yyyy-mm-dd)
   project: string;
+  project_id: number | null;
   workspace_id: number | null; // preparado para futuros workspaces
   created_by: string;
   created_at: string;
@@ -301,6 +303,7 @@ export async function fetchProjectTasksForUser(
 export type CreateProjectTaskInput = {
   title: string;
   project: string;
+  project_id?: number | null;
   description?: string | null;
   summary?: string | null;
   status?: ProjectTaskStatus;
@@ -320,6 +323,7 @@ export async function createProjectTask(
     .insert({
       title: input.title.trim(),
       project: input.project.trim(),
+      project_id: input.project_id ?? null,
       description: input.description ?? null,
       summary: input.summary ?? null,
       status: input.status ?? 'not_started',
@@ -386,6 +390,7 @@ export async function createProjectTask(
 export type UpdateProjectTaskInput = Partial<{
   title: string;
   project: string;
+  project_id: number | null;
   description: string | null;
   summary: string | null;
   status: ProjectTaskStatus;
@@ -428,7 +433,6 @@ export async function setTaskAssignees(
   taskId: number,
   assigneeIds: string[],
 ): Promise<void> {
-  // 1) borrar todos los actuales
   const { error: deleteError } = await supabase
     .from('project_task_assignees')
     .delete()
@@ -438,7 +442,6 @@ export async function setTaskAssignees(
 
   if (assigneeIds.length === 0) return;
 
-  // 2) insertar los nuevos
   const rows = assigneeIds.map((userId) => ({
     task_id: taskId,
     user_id: userId,
@@ -449,6 +452,18 @@ export async function setTaskAssignees(
     .insert(rows);
 
   if (insertError) throw insertError;
+
+  const { data: taskProject, error: taskProjectError } = await supabase
+    .from('project_tasks')
+    .select('project_id')
+    .eq('id', taskId)
+    .maybeSingle();
+
+  if (taskProjectError) throw taskProjectError;
+
+  if (taskProject?.project_id) {
+    await addProjectMembers(Number(taskProject.project_id), assigneeIds);
+  }
 }
 
 /* ─────────────────────────────────────────────
