@@ -92,25 +92,25 @@ const STATUS_OPTIONS: {
   {
     value: 'not_started',
     label: 'Sin empezar',
-    pillClass: 'bg-gray-700 text-gray-100',
+    pillClass: 'border border-white/10 bg-white/[0.07] text-white/70',
     dotClass: 'bg-gray-300',
   },
   {
     value: 'in_progress',
     label: 'En curso',
-    pillClass: 'bg-sky-900/70 text-sky-100',
+    pillClass: 'border border-sky-400/20 bg-sky-400/10 text-sky-200',
     dotClass: 'bg-sky-400',
   },
   {
     value: 'done',
     label: 'Completada',
-    pillClass: 'bg-emerald-900/70 text-emerald-100',
+    pillClass: 'border border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
     dotClass: 'bg-emerald-400',
   },
   {
     value: 'cancelled',
     label: 'Cancelada',
-    pillClass: 'bg-rose-900/70 text-rose-100',
+    pillClass: 'border border-rose-400/20 bg-rose-400/10 text-rose-200',
     dotClass: 'bg-rose-400',
   },
 ];
@@ -124,19 +124,19 @@ const PRIORITY_OPTIONS: {
   {
     value: 'low',
     label: 'Baja',
-    pillClass: 'bg-emerald-900/60 text-emerald-100',
+    pillClass: 'border border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
     dotClass: 'bg-emerald-400',
   },
   {
     value: 'medium',
     label: 'Media',
-    pillClass: 'bg-amber-900/60 text-amber-100',
+    pillClass: 'border border-amber-400/20 bg-amber-400/10 text-amber-200',
     dotClass: 'bg-amber-400',
   },
   {
     value: 'high',
     label: 'Alta',
-    pillClass: 'bg-rose-900/60 text-rose-100',
+    pillClass: 'border border-rose-400/20 bg-rose-400/10 text-rose-200',
     dotClass: 'bg-rose-400',
   },
 ];
@@ -178,7 +178,7 @@ const buildWorkspaceSnapshot = (args: {
 // ──────────────────────────────────────────────
 
 const INPUT_BASE =
-  'rounded-md border border-gray-700 bg-gray-900 text-[11px] text-gray-100 placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60';
+  'rounded-md border border-gray-700 bg-gray-900 text-[11px] text-white/80 placeholder:text-white/25 disabled:cursor-not-allowed disabled:opacity-60';
 
 const BADGE_BASE =
   'rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide';
@@ -187,7 +187,7 @@ const PANEL_BASE =
   'flex flex-1 min-h-0 flex-col rounded-xl border border-gray-700 bg-gray-900/70 p-3';
 
 const BUTTON_TINY_GRAY =
-  'rounded-md bg-gray-700 px-2 py-1 text-[10px] text-gray-100 hover:bg-gray-600';
+  'rounded-md bg-gray-700 px-2 py-1 text-[10px] text-white/80 hover:bg-white/[0.10]';
 
 export default function ProjectTaskDrawer({
   task,
@@ -402,7 +402,7 @@ export default function ProjectTaskDrawer({
     return (
       <div
         ref={setNodeRef}
-        className={`rounded-xl border border-gray-700 bg-gray-900/40 ${
+        className={`rounded-xl border border-white/[0.08] bg-white/[0.025] ${
           isActiveDrop ? 'ring-2 ring-gray-500/50' : ''
         }`}
       >
@@ -412,16 +412,16 @@ export default function ProjectTaskDrawer({
           className="flex w-full items-center justify-between gap-2 px-3 py-2"
         >
           <div className="min-w-0 text-left">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-200">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-white/65">
               {title}
             </div>
-            <div className="text-[11px] text-gray-400">{count}</div>
+            <div className="text-[11px] font-normal text-white/35">{count}</div>
           </div>
           <motion.div
             animate={{ rotate: open ? 180 : 0 }}
             transition={{ duration: 0.18 }}
           >
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <ChevronDown className="h-4 w-4 text-white/35" />
           </motion.div>
         </button>
 
@@ -476,7 +476,7 @@ export default function ProjectTaskDrawer({
       <div
         ref={setNodeRef}
         style={style}
-        className={`group relative flex items-center gap-2 rounded-lg px-2 py-1.5 pr-16 z-10 bg-gray-900 hover:bg-gray-800 ${
+        className={`group relative flex items-center gap-2 rounded-lg px-2 py-1.5 pr-16 z-10 bg-gray-900 hover:bg-white/[0.055] ${
           isDragging ? 'opacity-70' : ''
         }`}
       >
@@ -485,31 +485,31 @@ export default function ProjectTaskDrawer({
           disabled={!canEdit}
           {...attributes}
           {...listeners}
-          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-gray-500 text-gray-200 disabled:cursor-not-allowed"
+          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-gray-500 text-white/65 disabled:cursor-not-allowed"
           aria-label="Arrastrar"
         >
-          <GripVertical className="h-4 w-4 text-gray-400" />
+          <GripVertical className="h-4 w-4 text-white/35" />
         </button>
 
         <button
           type="button"
           disabled={!canEdit}
           onClick={onToggle}
-          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-gray-500 text-gray-200 disabled:cursor-not-allowed"
+          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-gray-500 text-white/65 disabled:cursor-not-allowed"
           aria-label="Completar"
         >
           {todo.done ? (
             <CheckSquare className="h-4 w-4 text-emerald-400" />
           ) : (
-            <Square className="h-4 w-4 text-gray-400" />
+            <Square className="h-4 w-4 text-white/35" />
           )}
         </button>
 
         <div className="flex-1 min-w-0">
           {!isEditing ? (
             <p
-              className={`whitespace-pre-wrap break-words text-xs text-gray-100 ${
-                todo.done ? 'line-through text-gray-400' : ''
+              className={`whitespace-pre-wrap break-words text-xs text-white/80 ${
+                todo.done ? 'line-through text-white/35' : ''
               }`}
             >
               {todo.label}
@@ -539,7 +539,7 @@ export default function ProjectTaskDrawer({
             <button
               type="button"
               onClick={onStartEdit}
-              className="rounded-md p-1 text-gray-400 hover:bg-gray-700 hover:text-gray-100"
+              className="rounded-md p-1 text-white/35 hover:bg-white/[0.07] hover:text-white/80"
               aria-label="Editar"
             >
               <Pencil className="h-4 w-4" />
@@ -547,7 +547,7 @@ export default function ProjectTaskDrawer({
             <button
               type="button"
               onClick={onDelete}
-              className="rounded-md p-1 text-gray-400 hover:bg-gray-700 hover:text-rose-300"
+              className="rounded-md p-1 text-white/35 hover:bg-white/[0.07] hover:text-rose-300"
               aria-label="Eliminar"
             >
               <X className="h-4 w-4" />
@@ -560,7 +560,7 @@ export default function ProjectTaskDrawer({
             <button
               type="button"
               onClick={onSaveEdit}
-              className="rounded-md p-1 text-gray-400 hover:bg-gray-700 hover:text-emerald-300"
+              className="rounded-md p-1 text-white/35 hover:bg-white/[0.07] hover:text-emerald-300"
               aria-label="Guardar"
             >
               <Check className="h-4 w-4" />
@@ -568,7 +568,7 @@ export default function ProjectTaskDrawer({
             <button
               type="button"
               onClick={onCancelEdit}
-              className="rounded-md p-1 text-gray-400 hover:bg-gray-700 hover:text-gray-100"
+              className="rounded-md p-1 text-white/35 hover:bg-white/[0.07] hover:text-white/80"
               aria-label="Cancelar"
             >
               <X className="h-4 w-4" />
@@ -921,7 +921,7 @@ export default function ProjectTaskDrawer({
 
       {/* drawer */}
       <motion.div
-        className="fixed left-0 top-0 z-50 flex h-full w-full max-w-7xl flex-col border-r border-gray-700 bg-gray-800"
+        className="fixed left-0 top-0 z-50 flex h-full w-full max-w-7xl flex-col border-r border-white/[0.08] bg-[#151517] text-[#f5f5f7] shadow-[28px_0_80px_rgba(0,0,0,.32)]"
         initial={{ x: '-100%' }}
         animate={{ x: 0 }}
         exit={{ x: '-100%' }}
@@ -929,24 +929,24 @@ export default function ProjectTaskDrawer({
         onClick={(e) => e.stopPropagation()}
       >
         {/* header */}
-        <div className="flex items-center justify-between border-b border-gray-700 px-6 py-3">
+        <div className="flex items-center justify-between border-b border-white/[0.07] bg-[#171719] px-6 py-3.5">
           <div className="flex flex-col">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/35">
               Proyecto
             </span>
-            <span className="text-xs text-gray-300">
+            <span className="text-xs font-normal text-white/45">
               Gestión detallada de la tarea y espacio de trabajo.
             </span>
           </div>
           <div className="flex items-center gap-2">
             {workspaceLoading && (
-              <span className="text-[11px] text-gray-400">
+              <span className="text-[11px] font-normal text-white/35">
                 Cargando entorno...
               </span>
             )}
 
             {workspaceSaving && !workspaceLoading && (
-              <span className="text-[11px] text-sky-300">
+              <span className="text-[11px] text-[#5ac8fa]">
                 Guardando cambios...
               </span>
             )}
@@ -966,14 +966,14 @@ export default function ProjectTaskDrawer({
             )}
 
             {!canEditWorkspace && !isLocked && (
-              <span className={`${BADGE_BASE} bg-gray-700 text-gray-200`}>
+              <span className={`${BADGE_BASE} bg-gray-700 text-white/65`}>
                 Solo lectura
               </span>
             )}
 
             <button
               onClick={onClose}
-              className="rounded-full p-1 text-gray-400 hover:bg-gray-700 hover:text-gray-100"
+              className="rounded-xl p-1.5 text-white/35 transition hover:bg-white/[0.06] hover:text-white/80"
             >
               <X className="h-5 w-5" />
             </button>
@@ -983,11 +983,11 @@ export default function ProjectTaskDrawer({
         {/* contenido 3 columnas */}
         <div className="flex flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)]">
           {/* Columna 1: ficha del proyecto */}
-          <div className="flex h-full min-h-0 flex-col border-b border-gray-700/70 px-6 py-4 lg:border-b-0 lg:border-r">
+          <div className="flex h-full min-h-0 flex-col border-b border-white/[0.07] bg-[#151517] px-6 py-5 lg:border-b-0 lg:border-r">
             {/* Título */}
             <textarea
               rows={2}
-              className="mb-3 w-full max-h-24 resize-none overflow-y-auto rounded-md border border-transparent bg-transparent text-xl font-semibold tracking-tight text-gray-50 outline-none placeholder:text-gray-500 focus:border-gray-600 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mb-4 w-full max-h-24 resize-none overflow-y-auto rounded-xl border border-transparent bg-transparent px-0 text-xl font-medium tracking-[-0.025em] text-white/90 outline-none placeholder:text-white/25 focus:border-white/[0.08] focus:bg-white/[0.025] disabled:cursor-not-allowed disabled:opacity-50"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Nombre de la tarea"
@@ -995,10 +995,10 @@ export default function ProjectTaskDrawer({
             />
 
             {/* propiedades */}
-            <div className="space-y-3 border-b border-gray-700/80 pb-4 text-xs">
+            <div className="space-y-3 border-b border-white/[0.07] pb-4 text-xs">
               {/* Responsable */}
               <div className="flex items-start gap-3">
-                <span className="mt-[3px] w-24 text-[11px] font-semibold uppercase text-gray-400">
+                <span className="mt-[3px] w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
                   Responsable
                 </span>
 
@@ -1010,7 +1010,7 @@ export default function ProjectTaskDrawer({
                       if (isLocked || !canManage) return;
                       setAssigneesMenuOpen((o) => !o);
                     }}
-                    className={`flex w-full items-start px-3 py-1.5 text-left text-[11px] text-gray-100 ${INPUT_BASE}`}
+                    className={`flex w-full items-start px-3 py-1.5 text-left text-[11px] text-white/80 ${INPUT_BASE}`}
                   >
                     <span className="flex-1 whitespace-normal break-words">
                       {selectedSupervisorNames.length === 0
@@ -1026,9 +1026,9 @@ export default function ProjectTaskDrawer({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.16 }}
-                        className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-gray-700 bg-gray-900 text-[11px] text-white shadow-xl shadow-black/60"
+                        className="absolute z-20 mt-2 w-full overflow-hidden rounded-[16px] border border-white/[0.09] bg-[#1c1c1e] text-[11px] text-white/80 shadow-[0_24px_70px_rgba(0,0,0,.40)]"
                       >
-                        <div className="border-b border-gray-700 p-1.5">
+                        <div className="border-b border-white/[0.07] p-1.5">
                           <input
                             autoFocus
                             value={assigneeSearch}
@@ -1040,7 +1040,7 @@ export default function ProjectTaskDrawer({
 
                         <div className="max-h-60 overflow-y-auto">
                           {filteredSupervisors.length === 0 && (
-                            <p className="px-3 py-2 text-gray-400">
+                            <p className="px-3 py-2 text-white/35">
                               Sin resultados.
                             </p>
                           )}
@@ -1053,8 +1053,8 @@ export default function ProjectTaskDrawer({
                                 key={sup.id}
                                 type="button"
                                 onClick={() => toggleAssignee(sup.id)}
-                                className={`flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-gray-800 ${
-                                  selected ? 'bg-gray-800/80' : ''
+                                className={`flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-white/[0.055] ${
+                                  selected ? 'bg-white/[0.055]' : ''
                                 }`}
                               >
                                 <span className="flex-1 whitespace-normal break-words">
@@ -1075,7 +1075,7 @@ export default function ProjectTaskDrawer({
 
               {/* Estado */}
               <div className="flex items-center gap-3">
-                <span className="w-24 text-[11px] font-semibold uppercase text-gray-400">
+                <span className="w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
                   Estado
                 </span>
                 <div
@@ -1106,7 +1106,7 @@ export default function ProjectTaskDrawer({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.16 }}
-                        className="absolute z-20 mt-1 min-w-[170px] rounded-lg border border-gray-700 bg-gray-900 p-1 text-[11px] text-white shadow-xl shadow-black/60"
+                        className="absolute z-20 mt-1 min-w-[170px] rounded-[14px] border border-white/[0.09] bg-[#1c1c1e] p-1.5 text-[11px] text-white/75 shadow-[0_20px_60px_rgba(0,0,0,.38)]"
                       >
                         {STATUS_OPTIONS.map((opt) => (
                           <button
@@ -1118,8 +1118,8 @@ export default function ProjectTaskDrawer({
                             }}
                             className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-left ${
                               opt.value === status
-                                ? 'bg-gray-800'
-                                : 'hover:bg-gray-800/80'
+                                ? 'bg-white/[0.06]'
+                                : 'hover:bg-white/[0.055]/80'
                             }`}
                           >
                             <span className="flex items-center gap-2">
@@ -1129,7 +1129,7 @@ export default function ProjectTaskDrawer({
                               {opt.label}
                             </span>
                             {opt.value === status && (
-                              <span className="text-[10px] text-sky-300">
+                              <span className="text-[10px] text-[#5ac8fa]">
                                 Actual
                               </span>
                             )}
@@ -1143,7 +1143,7 @@ export default function ProjectTaskDrawer({
 
               {/* Prioridad */}
               <div className="flex items-center gap-3">
-                <span className="w-24 text-[11px] font-semibold uppercase text-gray-400">
+                <span className="w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
                   Prioridad
                 </span>
                 <div
@@ -1174,7 +1174,7 @@ export default function ProjectTaskDrawer({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.16 }}
-                        className="absolute z-20 mt-1 min-w-[150px] rounded-lg border border-gray-700 bg-gray-900 p-1 text-[11px] text-white shadow-xl shadow-black/60"
+                        className="absolute z-20 mt-1 min-w-[150px] rounded-[14px] border border-white/[0.09] bg-[#1c1c1e] p-1.5 text-[11px] text-white/75 shadow-[0_20px_60px_rgba(0,0,0,.38)]"
                       >
                         {PRIORITY_OPTIONS.map((opt) => (
                           <button
@@ -1186,8 +1186,8 @@ export default function ProjectTaskDrawer({
                             }}
                             className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-left ${
                               opt.value === priority
-                                ? 'bg-gray-800'
-                                : 'hover:bg-gray-800/80'
+                                ? 'bg-white/[0.06]'
+                                : 'hover:bg-white/[0.055]/80'
                             }`}
                           >
                             <span className="flex items-center gap-2">
@@ -1197,7 +1197,7 @@ export default function ProjectTaskDrawer({
                               {opt.label}
                             </span>
                             {opt.value === priority && (
-                              <span className="text-[10px] text-sky-300">
+                              <span className="text-[10px] text-[#5ac8fa]">
                                 Actual
                               </span>
                             )}
@@ -1211,11 +1211,11 @@ export default function ProjectTaskDrawer({
 
               {/* Fecha límite */}
               <div className="flex items-center gap-3">
-                <span className="w-24 text-[11px] font-semibold uppercase text-gray-400">
+                <span className="w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
                   Fecha límite
                 </span>
                 <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-gray-400" />
+                  <CalendarDays className="h-4 w-4 text-white/35" />
                   <RedcomDatePicker
                     value={dueDate}
                     onChange={setDueDate}
@@ -1223,7 +1223,7 @@ export default function ProjectTaskDrawer({
                     accent="indigo"
                     surface="dark"
                     disabled={isLocked}
-                    className="h-9 min-w-[190px] rounded-xl"
+                    className="h-9 min-w-[190px] rounded-[12px]"
                     aria-label="Fecha límite"
                   />
                 </div>
@@ -1231,7 +1231,7 @@ export default function ProjectTaskDrawer({
 
               {/* Proyecto */}
               <div className="flex items-start gap-3">
-                <span className="mt-[3px] w-24 text-[11px] font-semibold uppercase text-gray-400">
+                <span className="mt-[3px] w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
                   Proyecto
                 </span>
                 {editingProject && !isLocked ? (
@@ -1251,14 +1251,14 @@ export default function ProjectTaskDrawer({
                     </button>
                   </div>
                 ) : (
-                  <div className="group relative flex-1 rounded-md border border-gray-700 bg-gray-900 px-3 py-1.5 text-[11px] text-gray-100">
+                  <div className="group relative flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-normal text-white/80">
                     <p
                       className={
                         project
                           ? expandedProject || !needsReadMore(project)
                             ? 'whitespace-pre-wrap'
                             : 'line-clamp-1'
-                          : 'text-gray-500'
+                          : 'text-white/25'
                       }
                     >
                       {project || 'Nombre del proyecto'}
@@ -1267,7 +1267,7 @@ export default function ProjectTaskDrawer({
                       <button
                         type="button"
                         onClick={() => setExpandedProject((v) => !v)}
-                        className="mt-1 text-[10px] text-sky-300 hover:underline"
+                        className="mt-1 text-[10px] font-normal text-[#5ac8fa] hover:underline"
                       >
                         {expandedProject ? 'Ver menos' : 'Ver más'}
                       </button>
@@ -1276,7 +1276,7 @@ export default function ProjectTaskDrawer({
                       <button
                         type="button"
                         onClick={() => setEditingProject(true)}
-                        className="absolute right-2 top-1.5 hidden rounded-md bg-gray-800 px-2 py-0.5 text-[10px] text-gray-200 group-hover:inline-flex"
+                        className="absolute right-2 top-1.5 hidden rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] text-white/65 group-hover:inline-flex"
                       >
                         Editar
                       </button>
@@ -1287,7 +1287,7 @@ export default function ProjectTaskDrawer({
 
               {/* Resumen */}
               <div className="flex items-start gap-3">
-                <span className="mt-[3px] w-24 text-[11px] font-semibold uppercase text-gray-400">
+                <span className="mt-[3px] w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
                   Resumen
                 </span>
                 {editingSummary && !isLocked ? (
@@ -1307,14 +1307,14 @@ export default function ProjectTaskDrawer({
                     </button>
                   </div>
                 ) : (
-                  <div className="group relative flex-1 rounded-md border border-gray-700 bg-gray-900 px-3 py-1.5 text-[11px] text-gray-100">
+                  <div className="group relative flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-normal text-white/80">
                     <p
                       className={
                         summary
                           ? expandedSummary || !needsReadMore(summary)
                             ? 'whitespace-pre-wrap'
                             : 'line-clamp-1'
-                          : 'text-gray-500'
+                          : 'text-white/25'
                       }
                     >
                       {summary || 'Breve descripción de la tarea...'}
@@ -1323,7 +1323,7 @@ export default function ProjectTaskDrawer({
                       <button
                         type="button"
                         onClick={() => setExpandedSummary((v) => !v)}
-                        className="mt-1 text-[10px] text-sky-300 hover:underline"
+                        className="mt-1 text-[10px] font-normal text-[#5ac8fa] hover:underline"
                       >
                         {expandedSummary ? 'Ver menos' : 'Ver más'}
                       </button>
@@ -1332,7 +1332,7 @@ export default function ProjectTaskDrawer({
                       <button
                         type="button"
                         onClick={() => setEditingSummary(true)}
-                        className="absolute right-2 top-1.5 hidden rounded-md bg-gray-800 px-2 py-0.5 text-[10px] text-gray-200 group-hover:inline-flex"
+                        className="absolute right-2 top-1.5 hidden rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] text-white/65 group-hover:inline-flex"
                       >
                         Editar
                       </button>
@@ -1344,11 +1344,11 @@ export default function ProjectTaskDrawer({
 
             {/* Descripción */}
             <div className="mt-4 flex-1 overflow-hidden">
-              <p className="mb-2 text-[11px] font-semibold uppercase text-gray-400">
+              <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
                 Descripción general
               </p>
               <textarea
-                className="h-full w-full min-h-[120px] rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-full w-full min-h-[120px] rounded-[14px] border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-sm font-normal text-white/80 outline-none placeholder:text-white/25 transition focus:border-[#0a84ff]/50 focus:bg-white/[0.05] focus:ring-4 focus:ring-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Contexto, objetivos, entregables, decisiones clave..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -1357,13 +1357,13 @@ export default function ProjectTaskDrawer({
             </div>
 
             {/* footer izquierda */}
-            <div className="mt-4 flex justify-end border-t border-gray-700 pt-3">
+            <div className="mt-4 flex justify-end border-t border-white/[0.07] pt-3">
               <button
                 onClick={save}
                 disabled={loading || isLocked}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                className={`rounded-[12px] px-4 py-2 text-sm font-medium transition ${
                   isLocked
-                    ? 'cursor-not-allowed bg-gray-700 text-gray-300'
+                    ? 'cursor-not-allowed bg-gray-700 text-white/55'
                     : 'bg-sky-500 text-gray-950 hover:bg-sky-400'
                 } disabled:opacity-60`}
               >
@@ -1377,20 +1377,20 @@ export default function ProjectTaskDrawer({
           </div>
 
           {/* Columna 2: checklist */}
-          <div className="flex h-full min-h-0 flex-col gap-3 border-b border-gray-700/70 bg-gray-900/60 px-6 py-4 lg:border-b-0 lg:border-r">
+          <div className="flex h-full min-h-0 flex-col gap-3 border-b border-white/[0.07]/70 bg-gray-900/60 px-6 py-4 lg:border-b-0 lg:border-r">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ListChecks className="h-4 w-4 text-emerald-300" />
                 <div className="flex flex-col">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-300">
+                  <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/50">
                     Checklist de avance
                   </span>
-                  <span className="text-[11px] text-gray-400">
+                  <span className="text-[11px] font-normal text-white/35">
                     Dividí el proyecto en pasos accionables.
                   </span>
                 </div>
               </div>
-              <span className="text-[11px] text-gray-400">
+              <span className="text-[11px] font-normal text-white/35">
                 {todos.length === 0
                   ? 'Sin tareas internas'
                   : `${todos.filter((t) => t.done).length} / ${
@@ -1400,7 +1400,7 @@ export default function ProjectTaskDrawer({
             </div>
 
             {/* Agrupación + creación rápida */}
-            <div className="flex flex-col gap-2 border-b border-gray-700 pb-3">
+            <div className="flex flex-col gap-2 border-b border-white/[0.07] pb-3">
               {/* selector de grupo + input */}
               <div className="grid grid-cols-1 gap-2 md:items-center">
                 <div className="relative" ref={todoGroupPickerRef}>
@@ -1420,7 +1420,7 @@ export default function ProjectTaskDrawer({
                       animate={{ rotate: todoGroupMenuOpen ? 180 : 0 }}
                       transition={{ duration: 0.16 }}
                     >
-                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                      <ChevronDown className="h-4 w-4 text-white/35" />
                     </motion.span>
                   </button>
 
@@ -1431,7 +1431,7 @@ export default function ProjectTaskDrawer({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -6, scale: 0.98 }}
                         transition={{ duration: 0.16 }}
-                        className="absolute z-30 mt-2 w-full overflow-hidden rounded-xl border border-gray-700 bg-gray-900 shadow-xl shadow-black/60"
+                        className="absolute z-30 mt-2 w-full overflow-hidden rounded-[16px] border border-white/[0.09] bg-[#1c1c1e] shadow-[0_20px_60px_rgba(0,0,0,.38)]"
                       >
                         <div className="p-2 space-y-1">
                           <button
@@ -1440,8 +1440,8 @@ export default function ProjectTaskDrawer({
                               setTodoGroupSelected(null);
                               setTodoGroupMenuOpen(false);
                             }}
-                            className={`w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-gray-800 ${
-                              todoGroupSelected === null ? 'bg-gray-800' : ''
+                            className={`w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-white/[0.055] ${
+                              todoGroupSelected === null ? 'bg-white/[0.06]' : ''
                             }`}
                           >
                             Sin grupo
@@ -1455,16 +1455,16 @@ export default function ProjectTaskDrawer({
                                 setTodoGroupSelected(g);
                                 setTodoGroupMenuOpen(false);
                               }}
-                              className={`w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-gray-800 ${
-                                todoGroupSelected === g ? 'bg-gray-800' : ''
+                              className={`w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-white/[0.055] ${
+                                todoGroupSelected === g ? 'bg-white/[0.06]' : ''
                               }`}
                             >
                               {g}
                             </button>
                           ))}
 
-                          <div className="mt-2 border-t border-gray-700 pt-2">
-                            <div className="px-1 pb-1 text-[10px] uppercase tracking-wide text-gray-400">
+                          <div className="mt-2 border-t border-white/[0.07] pt-2">
+                            <div className="px-1 pb-1 text-[10px] uppercase tracking-wide text-white/35">
                               Crear grupo
                             </div>
                             <div className="flex gap-2">
@@ -1495,7 +1495,7 @@ export default function ProjectTaskDrawer({
                                   setNewTodoGroupName('');
                                   setTodoGroupMenuOpen(false);
                                 }}
-                                className="inline-flex h-9 items-center justify-center rounded-full bg-gray-700 px-4 text-[11px] font-semibold text-gray-100 hover:bg-gray-600"
+                                className="inline-flex h-9 items-center justify-center rounded-xl bg-white/[0.07] px-4 text-[11px] font-medium text-white/65 transition hover:bg-white/[0.10] hover:text-white/90"
                               >
                                 +
                               </button>
@@ -1530,7 +1530,7 @@ export default function ProjectTaskDrawer({
                   type="button"
                   onClick={addTodo}
                   disabled={!canEditWorkspace || !newTodoText.trim()}
-                  className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-1.5 text-[11px] font-semibold text-emerald-950 shadow-sm shadow-emerald-500/30 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-300"
+                  className="inline-flex items-center justify-center rounded-xl bg-[#0a84ff] px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/25"
                 >
                   <Plus className="mr-1 h-3 w-3" />
                   Añadir
@@ -1579,7 +1579,7 @@ export default function ProjectTaskDrawer({
                       ))}
 
                       {arr.length === 0 && groupName && (
-                        <p className="rounded-lg bg-gray-800/60 px-3 py-2 text-[11px] text-gray-400">
+                        <p className="rounded-lg bg-white/[0.045] px-3 py-2 text-[11px] font-normal text-white/35">
                           Arrastrá items acá para agruparlos.
                         </p>
                       )}
@@ -1589,7 +1589,7 @@ export default function ProjectTaskDrawer({
               </DndContext>
 
               {todos.length === 0 && (
-                <p className="rounded-lg bg-gray-800/80 px-3 py-2 text-[11px] text-gray-400">
+                <p className="rounded-lg bg-white/[0.055] px-3 py-2 text-[11px] font-normal text-white/35">
                   Usá este checklist para definir pasos como “Relevar
                   requerimientos”, “Diseñar UI”, “Implementar API”, etc.
                 </p>
@@ -1598,24 +1598,24 @@ export default function ProjectTaskDrawer({
           </div>
 
 {/* Columna 3: Notas + recursos */}
-          <div className="flex h-full min-h-0 flex-col gap-3 bg-gray-900/60 px-6 py-4">
+          <div className="flex h-full min-h-0 flex-col gap-3 bg-[#17181b] px-6 py-5">
             {/* Notas rápidas */}
             <div className={PANEL_BASE}>
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <StickyNote className="h-4 w-4 text-amber-300" />
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-300">
+                  <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/50">
                     Notas rápidas
                   </span>
                 </div>
                 {!canEditWorkspace && (
-                  <span className="rounded-full bg-gray-800 px-2 py-0.5 text-[10px] text-gray-400">
+                  <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white/35">
                     Solo lectura
                   </span>
                 )}
               </div>
 
-              <div className="flex-1 min-h-0 overflow-hidden rounded-md border border-gray-700 bg-gray-900">
+              <div className="flex-1 min-h-0 overflow-hidden rounded-[14px] border border-white/[0.08] bg-white/[0.03]">
                 <ReactQuill
                   theme="snow"
                   value={quickNotes}
@@ -1629,15 +1629,15 @@ export default function ProjectTaskDrawer({
                   className="
                     h-full
                     [&_.ql-toolbar]:border-none
-                    [&_.ql-toolbar]:bg-gray-900
-                    [&_.ql-toolbar]:text-gray-100
+                    [&_.ql-toolbar]:bg-transparent
+                    [&_.ql-toolbar]:text-white/60
                     [&_.ql-container]:border-none
                     [&_.ql-container]:shadow-none
                     [&_.ql-container]:h-[calc(100%-2.25rem)]
                     [&_.ql-container]:overflow-y-auto
-                    [&_.ql-editor]:bg-gray-900
+                    [&_.ql-editor]:bg-transparent
                     [&_.ql-editor]:text-[11px]
-                    [&_.ql-editor]:text-gray-100
+                    [&_.ql-editor]:text-white/80
                     [&_.ql-editor]:min-h-0
                     [&_.ql-editor]:outline-none
                   "
@@ -1649,8 +1649,8 @@ export default function ProjectTaskDrawer({
             <div className={PANEL_BASE}>
               <div className="mb-1 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <Link2 className="h-4 w-4 text-sky-300" />
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-300">
+                  <Link2 className="h-4 w-4 text-[#5ac8fa]" />
+                  <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/50">
                     Recursos del proyecto
                   </span>
                 </div>
@@ -1658,7 +1658,7 @@ export default function ProjectTaskDrawer({
 
               <div className="flex-1 min-h-0 space-y-1 overflow-y-auto pr-1">
                 {resourceLinks.length === 0 && (
-                  <p className="text-[11px] text-gray-400">
+                  <p className="text-[11px] font-normal text-white/35">
                     Guardá acá links a Figma, Looker, documentación, Sheets,
                     etc.
                   </p>
@@ -1666,13 +1666,13 @@ export default function ProjectTaskDrawer({
                 {resourceLinks.map((link) => (
                   <div
                     key={link.id}
-                    className="flex items-center justify-between rounded-lg bg-gray-800/80 px-2 py-1.5 text-[11px]"
+                    className="flex items-center justify-between rounded-xl bg-white/[0.045] px-2.5 py-2 text-[11px]"
                   >
                     <a
                       href={normalizeUrl(link.url)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 truncate text-sky-300 hover:underline"
+                      className="flex-1 truncate text-[#5ac8fa] hover:underline"
                     >
                       {link.label}
                     </a>
@@ -1680,7 +1680,7 @@ export default function ProjectTaskDrawer({
                       <button
                         type="button"
                         onClick={() => deleteLink(link.id)}
-                        className="ml-2 text-[10px] text-gray-400 hover:text-rose-300"
+                        className="ml-2 text-[10px] text-white/35 hover:text-rose-300"
                       >
                         Quitar
                       </button>
@@ -1690,7 +1690,7 @@ export default function ProjectTaskDrawer({
               </div>
 
               {canEditWorkspace && (
-                <div className="mt-2 border-t border-gray-700 pt-2">
+                <div className="mt-2 border-t border-white/[0.07] pt-2">
                   <div className="mb-1 flex flex-col gap-1">
                     <input
                       value={newLinkLabel}
@@ -1715,7 +1715,7 @@ export default function ProjectTaskDrawer({
                     type="button"
                     onClick={addLink}
                     disabled={!newLinkUrl.trim()}
-                    className="mt-1 inline-flex items-center gap-1 rounded-md bg-sky-600 px-3 py-1.5 text-[11px] font-semibold text-sky-950 hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-300"
+                    className="mt-1 inline-flex items-center gap-1 rounded-xl bg-[#0a84ff] px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/25"
                   >
                     <Plus className="h-3 w-3" />
                     Guardar recurso
