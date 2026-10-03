@@ -596,71 +596,55 @@ export default function ProyectosPage() {
 
   return (
     <RequireAuth roles={['admin', 'supervisor', 'jdv']}>
-      <div className="min-h-[calc(100vh-72px)] bg-[radial-gradient(circle_at_top_left,rgba(79,70,229,.08),transparent_28%),radial-gradient(circle_at_top_right,rgba(13,148,136,.08),transparent_26%),linear-gradient(to_bottom,#f8fafc,#f1f5f9)]">
-        <div className="mx-auto flex max-w-[1500px] flex-col gap-5 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-          <header className="relative overflow-hidden rounded-[2rem] border border-slate-800 bg-[linear-gradient(120deg,#0f172a_0%,#172554_52%,#115e59_120%)] px-6 py-7 text-white shadow-[0_24px_70px_rgba(15,23,42,.20)] sm:px-8 lg:px-10 lg:py-9">
-            <div className="pointer-events-none absolute -right-24 -top-28 h-80 w-80 rounded-full bg-indigo-400/15 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-32 left-1/3 h-72 w-72 rounded-full bg-teal-300/10 blur-3xl" />
-
-            <div className="relative flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
-              <div className="max-w-3xl">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-indigo-100 backdrop-blur">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Workspace de proyectos
-                </div>
-
-                <h1 className="mt-5 text-[clamp(2rem,4vw,3.8rem)] font-black leading-[.96] tracking-[-0.055em]">
-                  Proyectos y tareas
-                </h1>
-                <p className="mt-4 max-w-2xl text-sm font-medium leading-6 text-slate-300 sm:text-base">
-                  Un espacio operativo para priorizar trabajo, coordinar responsables y mantener cada proyecto visible de punta a punta.
-                </p>
-
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[.07] px-3 py-1.5 text-xs font-bold text-slate-200">
-                    <FolderKanban className="h-3.5 w-3.5 text-indigo-300" />
-                    {totalVisible} tareas visibles
-                  </span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[.07] px-3 py-1.5 text-xs font-bold text-slate-200">
-                    <Users2 className="h-3.5 w-3.5 text-teal-300" />
-                    {isAdmin ? 'Vista administrativa completa' : 'Solo proyectos asignados'}
-                  </span>
-                </div>
+      <div className="min-h-[calc(100vh-72px)] bg-[#0b0b0d] text-[#f5f5f7]">
+        <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+          <header className="flex flex-col gap-6 pb-7 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/35">
+                Proyectos
               </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row xl:flex-col xl:items-end">
-                <div className="min-w-[220px] rounded-2xl border border-white/10 bg-white/[.07] p-4 backdrop-blur">
-                  <div className="flex items-end justify-between gap-4">
-                    <div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Avance general</div>
-                      <div className="mt-1 text-3xl font-black tracking-tight">{completionRate}%</div>
-                    </div>
-                    <div className="text-right text-xs font-semibold text-slate-400">
-                      {completedTasks} de {totalTasks}
-                      <div>completadas</div>
-                    </div>
-                  </div>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-teal-300 transition-all duration-500"
-                      style={{ width: `${Math.max(0, Math.min(completionRate, 100))}%` }}
-                    />
-                  </div>
-                </div>
-
-                {canManage ? (
-                  <button
-                    type="button"
-                    onClick={() => setQuickCreateOpen((open) => !open)}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-black text-slate-950 shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-indigo-50"
-                  >
-                    <Plus className="h-4 w-4" />
-                    {quickCreateOpen ? 'Cerrar creación' : 'Nueva tarea'}
-                  </button>
-                ) : null}
-              </div>
+              <h1 className="mt-2 text-[clamp(2rem,4vw,3.25rem)] font-semibold tracking-[-0.045em] text-white">
+                Proyectos y tareas
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm font-normal leading-6 text-white/45">
+                Organizá prioridades, responsables y fechas desde una vista de trabajo simple y compartida.
+              </p>
             </div>
+
+            {canManage ? (
+              <button
+                type="button"
+                onClick={() => setQuickCreateOpen((open) => !open)}
+                className="inline-flex h-11 items-center justify-center gap-2 self-start rounded-[13px] bg-[#f5f5f7] px-4 text-sm font-medium text-[#1d1d1f] transition hover:bg-white lg:self-auto"
+              >
+                <Plus className="h-4 w-4" />
+                {quickCreateOpen ? 'Cerrar' : 'Nueva tarea'}
+              </button>
+            ) : null}
           </header>
+
+          <div className="mb-5 flex flex-wrap items-center gap-x-0 gap-y-3 border-y border-white/[0.07] py-4 text-sm">
+            <div className="pr-5">
+              <span className="text-white/35">Visibles</span>
+              <span className="ml-2 font-medium text-white/85">{totalVisible}</span>
+            </div>
+            <div className="border-l border-white/[0.08] px-5">
+              <span className="text-white/35">Total</span>
+              <span className="ml-2 font-medium text-white/85">{totalTasks}</span>
+            </div>
+            <div className="border-l border-white/[0.08] px-5">
+              <span className="text-white/35">Completadas</span>
+              <span className="ml-2 font-medium text-white/85">{completedTasks}</span>
+            </div>
+            <div className="border-l border-white/[0.08] pl-5">
+              <span className="text-white/35">Avance</span>
+              <span className="ml-2 font-medium text-white/85">{completionRate}%</span>
+            </div>
+            <div className="ml-auto hidden items-center gap-2 text-xs font-normal text-white/30 md:flex">
+              <Users2 className="h-3.5 w-3.5" />
+              {isAdmin ? 'Vista administrativa' : 'Proyectos asignados'}
+            </div>
+          </div>
 
           <ProjectTaskFilters
             supervisors={supervisors}
@@ -677,136 +661,104 @@ export default function ProyectosPage() {
           <AnimatePresence initial={false}>
             {canManage && quickCreateOpen ? (
               <motion.section
-                initial={{ opacity: 0, y: -8, height: 0 }}
-                animate={{ opacity: 1, y: 0, height: 'auto' }}
-                exit={{ opacity: 0, y: -8, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden rounded-[1.75rem] border border-indigo-100 bg-white shadow-[0_18px_50px_rgba(79,70,229,.08)]"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18 }}
+                className="mt-4 overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#17181b]"
               >
-                <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
                   <div>
-                    <div className="flex items-center gap-2 text-sm font-black text-slate-950">
-                      <span className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-50 text-indigo-700">
-                        <Plus className="h-4 w-4" />
-                      </span>
-                      Crear nueva tarea
-                    </div>
-                    <p className="mt-1 text-xs font-medium text-slate-500">
-                      Cargá lo esencial ahora. El detalle completo se puede completar desde la tarea.
+                    <h2 className="text-sm font-medium text-white/90">Nueva tarea</h2>
+                    <p className="mt-1 text-xs font-normal text-white/35">
+                      Cargá los datos básicos. El resto se puede completar después.
                     </p>
                   </div>
-                  <div className="flex gap-2">
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600">
-                      Sin empezar
-                    </span>
-                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-700">
-                      Prioridad media
-                    </span>
-                  </div>
+                  <span className="text-xs font-normal text-white/30">Sin empezar · Prioridad media</span>
                 </div>
 
-                <div className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,.9fr)_220px_auto] xl:items-end">
-                  <div className="space-y-3">
-                    <div>
-                      <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                        Tarea
-                      </label>
-                      <input
-                        value={newTitle}
-                        onChange={(event) => setNewTitle(event.target.value)}
-                        placeholder="Ej: Actualizar tablero de cobertura"
-                        className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
-                      />
-                    </div>
+                <div className="grid gap-3 p-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,.8fr)_210px_auto] xl:items-end">
+                  <div className="space-y-2">
+                    <input
+                      value={newTitle}
+                      onChange={(event) => setNewTitle(event.target.value)}
+                      placeholder="Nombre de la tarea"
+                      className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-medium text-white outline-none transition placeholder:font-normal placeholder:text-white/25 hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
+                    />
                     <input
                       value={newSummary}
                       onChange={(event) => setNewSummary(event.target.value)}
                       placeholder="Resumen breve (opcional)"
-                      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
+                      className="h-10 w-full rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3 text-xs font-normal text-white/80 outline-none transition placeholder:text-white/25 focus:border-[#0a84ff]/50 focus:bg-white/[0.05]"
                     />
                   </div>
 
-                  <div>
-                    <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                      Proyecto
-                    </label>
-                    <input
-                      value={newProject}
-                      onChange={(event) => setNewProject(event.target.value)}
-                      placeholder="Ej: Portal REDCOM V2"
-                      className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10"
-                    />
-                  </div>
+                  <input
+                    value={newProject}
+                    onChange={(event) => setNewProject(event.target.value)}
+                    placeholder="Proyecto"
+                    className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-normal text-white outline-none transition placeholder:text-white/25 hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
+                  />
 
-                  <div>
-                    <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                      Fecha límite
-                    </label>
-                    <RedcomDatePicker
-                      value={newDueDate}
-                      onChange={setNewDueDate}
-                      placeholder="Sin fecha"
-                      accent="teal"
-                      aria-label="Fecha límite de la nueva tarea"
-                    />
-                  </div>
+                  <RedcomDatePicker
+                    value={newDueDate}
+                    onChange={setNewDueDate}
+                    placeholder="Fecha límite"
+                    surface="dark"
+                    accent="indigo"
+                    className="h-11 rounded-[14px]"
+                    aria-label="Fecha límite de la nueva tarea"
+                  />
 
                   <button
                     type="button"
                     onClick={handleCreate}
                     disabled={creating || !newTitle.trim()}
-                    className="inline-flex h-11 min-w-[150px] items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-black text-white shadow-lg shadow-indigo-600/20 transition hover:-translate-y-0.5 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-45"
+                    className="inline-flex h-11 min-w-[130px] items-center justify-center gap-2 rounded-[13px] bg-[#0a84ff] px-4 text-sm font-medium text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    {creating ? 'Creando...' : 'Crear tarea'}
+                    {creating ? 'Creando...' : 'Crear'}
                   </button>
                 </div>
               </motion.section>
             ) : null}
           </AnimatePresence>
 
-          <section className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_18px_55px_rgba(15,23,42,.08)]">
-            <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <section className="mt-4 overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#151517] shadow-[0_16px_45px_rgba(0,0,0,.18)]">
+            <div className="flex flex-col gap-3 border-b border-white/[0.07] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-100 text-slate-700">
-                    <BriefcaseBusiness className="h-4 w-4" />
-                  </span>
-                  <h2 className="text-sm font-black text-slate-950">Bandeja de trabajo</h2>
-                </div>
-                <p className="mt-1 text-xs font-medium text-slate-500">
-                  Editá estado y prioridad en línea o abrí una tarea para ver el detalle completo.
+                <h2 className="text-sm font-medium text-white/90">Trabajo activo</h2>
+                <p className="mt-1 text-xs font-normal text-white/35">
+                  Estado, prioridad, vencimiento y responsables de cada tarea.
                 </p>
               </div>
-              <div className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-black text-slate-600">
+              <span className="text-xs font-normal text-white/35">
                 {filteredTasks.length} resultado{filteredTasks.length === 1 ? '' : 's'}
-              </div>
+              </span>
             </div>
 
             <div className="overflow-x-auto">
-              <div className="min-w-[1120px]">
-                <div className="grid grid-cols-[minmax(330px,2.2fr)_190px_180px_170px_minmax(340px,2fr)] border-b border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+              <div className="min-w-[1160px]">
+                <div className="grid grid-cols-[minmax(340px,2.2fr)_180px_165px_160px_minmax(360px,2fr)] border-b border-white/[0.07] bg-white/[0.025] px-5 py-3 text-[10px] font-medium uppercase tracking-[0.08em] text-white/30">
                   <div>Tarea / proyecto</div>
                   <div>Estado</div>
                   <div>Prioridad</div>
                   <div>Fecha límite</div>
-                  <div>Responsables y acciones</div>
+                  <div>Responsables</div>
                 </div>
 
                 {loading ? (
-                  <div className="flex min-h-[220px] items-center justify-center text-sm font-semibold text-slate-400">
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin text-indigo-500" />
+                  <div className="flex min-h-[220px] items-center justify-center text-sm font-normal text-white/35">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#0a84ff]" />
                     Cargando tareas...
                   </div>
                 ) : filteredTasks.length === 0 ? (
-                  <div className="grid min-h-[260px] place-items-center px-6 text-center">
+                  <div className="grid min-h-[240px] place-items-center px-6 text-center">
                     <div>
-                      <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
-                        <FolderKanban className="h-5 w-5" />
-                      </div>
-                      <div className="mt-4 text-sm font-black text-slate-900">No encontramos tareas</div>
-                      <p className="mt-1 text-xs font-medium text-slate-500">
-                        Probá ajustando los filtros o creando una nueva tarea.
+                      <FolderKanban className="mx-auto h-6 w-6 text-white/25" />
+                      <div className="mt-3 text-sm font-medium text-white/75">No hay tareas para mostrar</div>
+                      <p className="mt-1 text-xs font-normal text-white/30">
+                        Ajustá los filtros o creá una nueva tarea.
                       </p>
                     </div>
                   </div>
@@ -829,44 +781,41 @@ export default function ProyectosPage() {
                         return (
                           <motion.div
                             key={task.id}
-                            initial={{ opacity: 0, y: 4 }}
+                            initial={{ opacity: 0, y: 3 }}
                             animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -4 }}
-                            transition={{ duration: 0.16 }}
-                            className="group grid cursor-pointer grid-cols-[minmax(330px,2.2fr)_190px_180px_170px_minmax(340px,2fr)] items-center border-b border-slate-100 px-5 py-3.5 transition hover:bg-indigo-50/35"
+                            exit={{ opacity: 0, y: -3 }}
+                            transition={{ duration: 0.14 }}
+                            className="group grid cursor-pointer grid-cols-[minmax(340px,2.2fr)_180px_165px_160px_minmax(360px,2fr)] items-center border-b border-white/[0.055] px-5 py-3.5 transition hover:bg-white/[0.035]"
                             onClick={() => setSelectedTask(task)}
                           >
                             <div className="min-w-0 pr-6">
                               <div className="flex items-center gap-2">
-                                <span className="truncate text-sm font-black text-slate-950">{task.title}</span>
+                                <span className="truncate text-sm font-medium text-white/90">{task.title}</span>
                                 {isLocked ? (
-                                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-700">
+                                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/[0.055] px-1.5 py-0.5 text-[9px] font-medium text-white/40">
                                     <LockKeyhole className="h-2.5 w-2.5" />
                                     Cerrada
                                   </span>
                                 ) : null}
                               </div>
-                              <div className="mt-1 flex min-w-0 items-center gap-2">
-                                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
-                                  <FolderKanban className="h-3 w-3" />
-                                  {task.project || 'Proyecto general'}
-                                </span>
+                              <div className="mt-1 flex min-w-0 items-center gap-2 text-[11px] font-normal">
+                                <span className="shrink-0 text-white/45">{task.project || 'Proyecto general'}</span>
                                 {task.summary ? (
-                                  <span className="truncate text-[11px] font-medium text-slate-400">{task.summary}</span>
+                                  <>
+                                    <span className="text-white/15">•</span>
+                                    <span className="truncate text-white/28">{task.summary}</span>
+                                  </>
                                 ) : null}
                               </div>
                             </div>
 
                             <div onClick={(event) => event.stopPropagation()} className="pr-3">
-                              <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-slate-400">
-                                <span className={`h-2 w-2 rounded-full ${statusCfg.dotClass}`} />
-                                {statusCfg.label}
-                              </div>
                               <RedcomSelect
                                 value={task.status}
+                                surface="dark"
                                 accent="indigo"
                                 disabled={isLocked}
-                                className="h-9 rounded-xl text-xs"
+                                className="h-9 rounded-[12px] text-xs"
                                 onValueChange={(next) =>
                                   void handleChangeStatus(task, next as ProjectTaskStatus)
                                 }
@@ -879,15 +828,12 @@ export default function ProyectosPage() {
                             </div>
 
                             <div onClick={(event) => event.stopPropagation()} className="pr-3">
-                              <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-slate-400">
-                                <span className={`h-2 w-2 rounded-full ${priorityCfg.dotClass}`} />
-                                {priorityCfg.label}
-                              </div>
                               <RedcomSelect
                                 value={task.priority}
+                                surface="dark"
                                 accent="teal"
                                 disabled={isLocked}
-                                className="h-9 rounded-xl text-xs"
+                                className="h-9 rounded-[12px] text-xs"
                                 onValueChange={(next) =>
                                   void handleChangePriority(task, next as ProjectTaskPriority)
                                 }
@@ -899,22 +845,20 @@ export default function ProyectosPage() {
                               />
                             </div>
 
-                            <div>
-                              <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] font-black text-slate-700">
-                                <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
-                                {formatDueDate(task.due_date)}
-                              </div>
+                            <div className="flex items-center gap-2 text-xs font-normal text-white/55">
+                              <CalendarDays className="h-3.5 w-3.5 text-white/25" />
+                              {formatDueDate(task.due_date)}
                             </div>
 
                             <div
-                              className="relative flex min-w-0 flex-wrap items-center gap-1.5"
+                              className="relative flex min-w-0 items-center gap-2"
                               onClick={(event) => event.stopPropagation()}
                             >
-                              <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+                              <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
                                 {task.assignees.length === 0 ? (
-                                  <span className="text-[10px] font-semibold text-slate-400">Sin responsables</span>
+                                  <span className="text-xs font-normal text-white/30">Sin responsables</span>
                                 ) : (
-                                  task.assignees.slice(0, 3).map((assignee) => {
+                                  task.assignees.slice(0, 2).map((assignee) => {
                                     const supervisor = supervisors.find(
                                       (person) => String(person.id) === String(assignee.user_id),
                                     );
@@ -928,22 +872,22 @@ export default function ProyectosPage() {
                                     return (
                                       <span
                                         key={assignee.user_id}
-                                        className="max-w-[150px] truncate rounded-full border border-indigo-100 bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700"
+                                        className="max-w-[145px] truncate rounded-lg bg-white/[0.055] px-2 py-1 text-[10px] font-normal text-white/55"
                                       >
                                         {label}
                                       </span>
                                     );
                                   })
                                 )}
-                                {task.assignees.length > 3 ? (
-                                  <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-500">
-                                    +{task.assignees.length - 3}
+                                {task.assignees.length > 2 ? (
+                                  <span className="shrink-0 text-[10px] font-normal text-white/30">
+                                    +{task.assignees.length - 2}
                                   </span>
                                 ) : null}
                               </div>
 
                               {canManage ? (
-                                <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                                <div className="ml-auto flex shrink-0 items-center gap-1">
                                   <button
                                     type="button"
                                     onClick={(event) => {
@@ -954,38 +898,37 @@ export default function ProyectosPage() {
                                       );
                                     }}
                                     disabled={isLocked}
-                                    className="inline-flex h-8 items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 text-[10px] font-black text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-45"
+                                    className="h-8 rounded-[10px] px-2.5 text-[10px] font-medium text-[#0a84ff] transition hover:bg-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-35"
                                   >
                                     Gestionar
-                                    {!isLocked ? <ChevronDown className="h-3 w-3" /> : null}
                                   </button>
 
                                   {isAdmin ? (
                                     <button
                                       type="button"
+                                      title="Cerrar tarea"
                                       onClick={(event) => {
                                         event.stopPropagation();
                                         requestCloseTask(task);
                                       }}
                                       disabled={isLocked}
-                                      className="inline-flex h-8 items-center gap-1 rounded-xl border border-amber-200 bg-amber-50 px-2.5 text-[10px] font-black text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                      className="grid h-8 w-8 place-items-center rounded-[10px] text-white/35 transition hover:bg-white/[0.055] hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-25"
                                     >
-                                      <Ban className="h-3 w-3" />
-                                      Cerrar
+                                      <Ban className="h-3.5 w-3.5" />
                                     </button>
                                   ) : null}
 
                                   {isAdmin ? (
                                     <button
                                       type="button"
+                                      title="Eliminar tarea"
                                       onClick={(event) => {
                                         event.stopPropagation();
                                         void handleDeleteTask(task);
                                       }}
-                                      className="inline-flex h-8 items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 text-[10px] font-black text-rose-700 transition hover:bg-rose-100"
+                                      className="grid h-8 w-8 place-items-center rounded-[10px] text-white/30 transition hover:bg-rose-500/10 hover:text-rose-400"
                                     >
-                                      <Trash2 className="h-3 w-3" />
-                                      Eliminar
+                                      <Trash2 className="h-3.5 w-3.5" />
                                     </button>
                                   ) : null}
                                 </div>
@@ -995,13 +938,13 @@ export default function ProyectosPage() {
                                 <>
                                   <div className="fixed inset-0 z-30" onClick={closeAllPopovers} />
                                   <div
-                                    className="absolute right-0 top-10 z-40 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-xs text-slate-700 shadow-[0_20px_60px_rgba(15,23,42,.18)]"
+                                    className="absolute right-0 top-10 z-40 w-72 overflow-hidden rounded-[18px] border border-white/[0.09] bg-[#1c1c1e] p-2 text-xs text-white/70 shadow-[0_24px_70px_rgba(0,0,0,.4)]"
                                     onClick={(event) => event.stopPropagation()}
                                   >
                                     <div className="p-1 pb-2">
                                       <input
-                                        className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
-                                        placeholder="Buscar responsable..."
+                                        className="h-9 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 text-xs font-normal text-white outline-none placeholder:text-white/25 focus:border-[#0a84ff]/55 focus:ring-4 focus:ring-[#0a84ff]/10"
+                                        placeholder="Buscar responsable"
                                         value={assigneeSearch}
                                         onChange={(event) => setAssigneeSearch(event.target.value)}
                                       />
@@ -1009,7 +952,7 @@ export default function ProyectosPage() {
 
                                     <div className="max-h-60 overflow-y-auto">
                                       {filteredUsers.length === 0 ? (
-                                        <p className="px-3 py-6 text-center text-xs font-semibold text-slate-400">
+                                        <p className="px-3 py-6 text-center text-xs font-normal text-white/30">
                                           No se encontraron responsables.
                                         </p>
                                       ) : (
@@ -1022,26 +965,26 @@ export default function ProyectosPage() {
                                               key={user.id}
                                               type="button"
                                               onClick={() => void handleToggleAssignee(task, user.id)}
-                                              className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-indigo-50"
+                                              className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-white/[0.055]"
                                             >
                                               <span className="min-w-0">
-                                                <span className="block truncate text-xs font-bold text-slate-800">
+                                                <span className="block truncate text-xs font-medium text-white/85">
                                                   {user.full_name ?? user.email}
                                                 </span>
                                                 {user.email ? (
-                                                  <span className="mt-0.5 block truncate text-[10px] font-medium text-slate-400">
+                                                  <span className="mt-0.5 block truncate text-[10px] font-normal text-white/30">
                                                     {user.email}
                                                   </span>
                                                 ) : null}
                                               </span>
                                               <span
-                                                className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg border ${
+                                                className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${
                                                   selected
-                                                    ? 'border-indigo-600 bg-indigo-600 text-white'
-                                                    : 'border-slate-200 bg-white text-transparent'
+                                                    ? 'border-[#0a84ff] bg-[#0a84ff] text-white'
+                                                    : 'border-white/15 bg-transparent text-transparent'
                                                 }`}
                                               >
-                                                <CircleDot className="h-3.5 w-3.5" />
+                                                <CircleDot className="h-3 w-3" />
                                               </span>
                                             </button>
                                           );
@@ -1057,30 +1000,25 @@ export default function ProyectosPage() {
                       })}
                     </AnimatePresence>
 
-                    <div className="flex items-center justify-between gap-4 bg-slate-50 px-5 py-3 text-[11px] font-semibold text-slate-500">
+                    <div className="flex items-center justify-between gap-4 px-5 py-3 text-[11px] font-normal text-white/30">
                       <span>
-                        Mostrando <strong className="text-slate-900">{startIndex + 1}</strong>–
-                        <strong className="text-slate-900">{Math.min(endIndex, filteredTasks.length)}</strong> de{' '}
-                        <strong className="text-slate-900">{filteredTasks.length}</strong>
+                        {startIndex + 1}–{Math.min(endIndex, filteredTasks.length)} de {filteredTasks.length}
                       </span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => setPage((current) => Math.max(1, current - 1))}
                           disabled={page === 1}
-                          className="h-8 rounded-xl border border-slate-200 bg-white px-3 font-bold text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="h-8 rounded-[10px] px-3 font-normal text-white/45 transition hover:bg-white/[0.05] hover:text-white/75 disabled:cursor-not-allowed disabled:opacity-25"
                         >
                           Anterior
                         </button>
-                        <span className="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200">
-                          Página <strong className="text-slate-900">{page}</strong> de{' '}
-                          <strong className="text-slate-900">{totalPages}</strong>
-                        </span>
+                        <span className="px-2 text-white/25">{page} / {totalPages}</span>
                         <button
                           type="button"
                           onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                           disabled={page === totalPages}
-                          className="h-8 rounded-xl border border-slate-200 bg-white px-3 font-bold text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="h-8 rounded-[10px] px-3 font-normal text-white/45 transition hover:bg-white/[0.05] hover:text-white/75 disabled:cursor-not-allowed disabled:opacity-25"
                         >
                           Siguiente
                         </button>
@@ -1110,33 +1048,33 @@ export default function ProyectosPage() {
       <AnimatePresence>
         {closeConfirmTask && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onMouseDown={() => !closingTask && setCloseConfirmTask(null)}
           >
             <motion.div
-              className="w-full max-w-md rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_28px_80px_rgba(15,23,42,.30)]"
+              className="w-full max-w-md rounded-[22px] border border-white/[0.09] bg-[#1c1c1e] p-6 text-[#f5f5f7] shadow-[0_28px_80px_rgba(0,0,0,.42)]"
               initial={{ scale: 0.96, opacity: 0, y: 8 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.98, opacity: 0, y: 6 }}
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="mb-3 flex items-start gap-3">
-                <div className="mt-0.5 rounded-2xl bg-amber-50 p-2.5 text-amber-700 ring-1 ring-amber-200">
+                <div className="mt-0.5 rounded-xl bg-amber-400/10 p-2.5 text-amber-300">
                   <Ban className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-base font-black text-slate-950">
+                  <h3 className="text-base font-medium text-white/90">
                     ¿Cerrar tarea definitivamente?
                   </h3>
-                  <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
-                    Al cerrar esta tarea quedará <span className="font-bold text-slate-800">bloqueada</span>:
+                  <p className="mt-1 text-sm font-normal leading-6 text-white/40">
+                    Al cerrar esta tarea quedará <span className="font-medium text-white/75">bloqueada</span>:
                     no se podrá editar, reasignar ni agregar información.
                   </p>
-                  <p className="mt-2 text-xs font-semibold text-slate-600">
-                    <span className="font-black text-slate-900">Tarea:</span>{' '}
+                  <p className="mt-2 text-xs font-normal text-white/50">
+                    <span className="font-medium text-white/80">Tarea:</span>{' '}
                     {closeConfirmTask.title}
                   </p>
                 </div>
@@ -1147,7 +1085,7 @@ export default function ProyectosPage() {
                   type="button"
                   disabled={closingTask}
                   onClick={() => setCloseConfirmTask(null)}
-                  className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                  className="h-10 rounded-xl px-4 text-xs font-normal text-white/50 transition hover:bg-white/[0.05] hover:text-white/80 disabled:opacity-40"
                 >
                   Cancelar
                 </button>
@@ -1161,7 +1099,7 @@ export default function ProyectosPage() {
                     await doCloseTask(t);
                     setCloseConfirmTask(null);
                   }}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-amber-500 px-4 text-xs font-black text-white transition hover:bg-amber-600 disabled:opacity-50"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-amber-400 px-4 text-xs font-medium text-[#1d1d1f] transition hover:bg-amber-300 disabled:opacity-40"
                 >
                   {closingTask ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   Confirmar cierre
