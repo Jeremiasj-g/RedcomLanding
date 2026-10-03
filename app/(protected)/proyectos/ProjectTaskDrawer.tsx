@@ -92,7 +92,7 @@ const STATUS_OPTIONS: {
   {
     value: 'not_started',
     label: 'Sin empezar',
-    pillClass: 'border border-white/10 bg-white/[0.07] text-white/70',
+    pillClass: 'border border-white/10 bg-white/[0.07] text-white/[0.82]',
     dotClass: 'bg-gray-300',
   },
   {
@@ -178,7 +178,7 @@ const buildWorkspaceSnapshot = (args: {
 // ──────────────────────────────────────────────
 
 const INPUT_BASE =
-  'rounded-xl border border-white/[0.08] bg-white/[0.04] text-[11px] font-normal text-white/85 outline-none placeholder:text-white/25 transition hover:bg-white/[0.055] focus:border-[#0a84ff]/55 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-50';
+  'rounded-xl border border-white/[0.08] bg-white/[0.04] text-[11px] font-normal text-white/[0.90] outline-none placeholder:text-white/[0.46] transition hover:bg-white/[0.055] focus:border-[#0a84ff]/55 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-50';
 
 const BADGE_BASE =
   'rounded-lg px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em]';
@@ -187,7 +187,7 @@ const PANEL_BASE =
   'flex flex-1 min-h-0 flex-col';
 
 const BUTTON_TINY_GRAY =
-  'rounded-lg bg-white/[0.06] px-2 py-1 text-[10px] font-medium text-white/60 transition hover:bg-white/[0.10] hover:text-white/85';
+  'rounded-lg bg-white/[0.06] px-2 py-1 text-[10px] font-medium text-white/[0.78] transition hover:bg-white/[0.10] hover:text-white/[0.90]';
 
 export default function ProjectTaskDrawer({
   task,
@@ -412,16 +412,16 @@ export default function ProjectTaskDrawer({
           className="flex w-full items-center justify-between gap-2 px-3 py-2"
         >
           <div className="min-w-0 text-left">
-            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/55">
+            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/[0.76]">
               {title}
             </div>
-            <div className="text-[11px] font-normal text-white/35">{count}</div>
+            <div className="text-[11px] font-normal text-white/[0.65]">{count}</div>
           </div>
           <motion.div
             animate={{ rotate: open ? 180 : 0 }}
             transition={{ duration: 0.18 }}
           >
-            <ChevronDown className="h-4 w-4 text-white/35" />
+            <ChevronDown className="h-4 w-4 text-white/[0.65]" />
           </motion.div>
         </button>
 
@@ -485,31 +485,31 @@ export default function ProjectTaskDrawer({
           disabled={!canEdit}
           {...attributes}
           {...listeners}
-          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-white/20 text-white/65 disabled:cursor-not-allowed"
+          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-white/20 text-white/[0.80] disabled:cursor-not-allowed"
           aria-label="Arrastrar"
         >
-          <GripVertical className="h-4 w-4 text-white/35" />
+          <GripVertical className="h-4 w-4 text-white/[0.65]" />
         </button>
 
         <button
           type="button"
           disabled={!canEdit}
           onClick={onToggle}
-          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-white/20 text-white/65 disabled:cursor-not-allowed"
+          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-white/20 text-white/[0.80] disabled:cursor-not-allowed"
           aria-label="Completar"
         >
           {todo.done ? (
             <CheckSquare className="h-4 w-4 text-emerald-400" />
           ) : (
-            <Square className="h-4 w-4 text-white/35" />
+            <Square className="h-4 w-4 text-white/[0.65]" />
           )}
         </button>
 
         <div className="flex-1 min-w-0">
           {!isEditing ? (
             <p
-              className={`whitespace-pre-wrap break-words text-xs text-white/80 ${
-                todo.done ? 'line-through text-white/35' : ''
+              className={`whitespace-pre-wrap break-words text-xs text-white/[0.88] ${
+                todo.done ? 'line-through text-white/[0.65]' : ''
               }`}
             >
               {todo.label}
@@ -539,7 +539,7 @@ export default function ProjectTaskDrawer({
             <button
               type="button"
               onClick={onStartEdit}
-              className="rounded-md p-1 text-white/35 hover:bg-white/[0.07] hover:text-white/80"
+              className="rounded-md p-1 text-white/[0.65] hover:bg-white/[0.07] hover:text-white/[0.88]"
               aria-label="Editar"
             >
               <Pencil className="h-4 w-4" />
@@ -547,7 +547,7 @@ export default function ProjectTaskDrawer({
             <button
               type="button"
               onClick={onDelete}
-              className="rounded-md p-1 text-white/35 hover:bg-white/[0.07] hover:text-rose-300"
+              className="rounded-md p-1 text-white/[0.65] hover:bg-white/[0.07] hover:text-rose-300"
               aria-label="Eliminar"
             >
               <X className="h-4 w-4" />
@@ -560,7 +560,7 @@ export default function ProjectTaskDrawer({
             <button
               type="button"
               onClick={onSaveEdit}
-              className="rounded-md p-1 text-white/35 hover:bg-white/[0.07] hover:text-emerald-300"
+              className="rounded-md p-1 text-white/[0.65] hover:bg-white/[0.07] hover:text-emerald-300"
               aria-label="Guardar"
             >
               <Check className="h-4 w-4" />
@@ -568,7 +568,7 @@ export default function ProjectTaskDrawer({
             <button
               type="button"
               onClick={onCancelEdit}
-              className="rounded-md p-1 text-white/35 hover:bg-white/[0.07] hover:text-white/80"
+              className="rounded-md p-1 text-white/[0.65] hover:bg-white/[0.07] hover:text-white/[0.88]"
               aria-label="Cancelar"
             >
               <X className="h-4 w-4" />
@@ -931,16 +931,16 @@ export default function ProjectTaskDrawer({
         {/* header */}
         <div className="flex items-center justify-between border-b border-white/[0.07] bg-[#171719] px-6 py-3.5">
           <div className="flex flex-col">
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/35">
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/[0.65]">
               Proyecto
             </span>
-            <span className="text-xs font-normal text-white/45">
+            <span className="text-xs font-normal text-white/[0.72]">
               Gestión detallada de la tarea y espacio de trabajo.
             </span>
           </div>
           <div className="flex items-center gap-2">
             {workspaceLoading && (
-              <span className="text-[11px] font-normal text-white/35">
+              <span className="text-[11px] font-normal text-white/[0.65]">
                 Cargando entorno...
               </span>
             )}
@@ -966,14 +966,14 @@ export default function ProjectTaskDrawer({
             )}
 
             {!canEditWorkspace && !isLocked && (
-              <span className={`${BADGE_BASE} bg-white/[0.06] text-white/60`}>
+              <span className={`${BADGE_BASE} bg-white/[0.06] text-white/[0.78]`}>
                 Solo lectura
               </span>
             )}
 
             <button
               onClick={onClose}
-              className="rounded-xl p-1.5 text-white/35 transition hover:bg-white/[0.06] hover:text-white/80"
+              className="rounded-xl p-1.5 text-white/[0.65] transition hover:bg-white/[0.06] hover:text-white/[0.88]"
             >
               <X className="h-5 w-5" />
             </button>
@@ -987,7 +987,7 @@ export default function ProjectTaskDrawer({
             {/* Título */}
             <textarea
               rows={2}
-              className="mb-4 w-full max-h-24 resize-none overflow-y-auto rounded-xl border border-transparent bg-transparent px-0 text-xl font-medium tracking-[-0.025em] text-white/90 outline-none placeholder:text-white/25 focus:border-white/[0.08] focus:bg-white/[0.025] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mb-4 w-full max-h-24 resize-none overflow-y-auto rounded-xl border border-transparent bg-transparent px-0 text-xl font-medium tracking-[-0.025em] text-white/[0.94] outline-none placeholder:text-white/[0.46] focus:border-white/[0.08] focus:bg-white/[0.025] disabled:cursor-not-allowed disabled:opacity-50"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Nombre de la tarea"
@@ -998,7 +998,7 @@ export default function ProjectTaskDrawer({
             <div className="space-y-3 border-b border-white/[0.07] pb-4 text-xs">
               {/* Responsable */}
               <div className="flex items-start gap-3">
-                <span className="mt-[3px] w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
+                <span className="mt-[3px] w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.65]">
                   Responsable
                 </span>
 
@@ -1010,7 +1010,7 @@ export default function ProjectTaskDrawer({
                       if (isLocked || !canManage) return;
                       setAssigneesMenuOpen((o) => !o);
                     }}
-                    className={`flex w-full items-start px-3 py-1.5 text-left text-[11px] text-white/80 ${INPUT_BASE}`}
+                    className={`flex w-full items-start px-3 py-1.5 text-left text-[11px] text-white/[0.88] ${INPUT_BASE}`}
                   >
                     <span className="flex-1 whitespace-normal break-words">
                       {selectedSupervisorNames.length === 0
@@ -1026,7 +1026,7 @@ export default function ProjectTaskDrawer({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.16 }}
-                        className="absolute z-20 mt-2 w-full overflow-hidden rounded-[16px] border border-white/[0.09] bg-[#1c1c1e] text-[11px] text-white/80 shadow-[0_24px_70px_rgba(0,0,0,.40)]"
+                        className="absolute z-20 mt-2 w-full overflow-hidden rounded-[16px] border border-white/[0.09] bg-[#1c1c1e] text-[11px] text-white/[0.88] shadow-[0_24px_70px_rgba(0,0,0,.40)]"
                       >
                         <div className="border-b border-white/[0.07] p-1.5">
                           <input
@@ -1040,7 +1040,7 @@ export default function ProjectTaskDrawer({
 
                         <div className="max-h-60 overflow-y-auto">
                           {filteredSupervisors.length === 0 && (
-                            <p className="px-3 py-2 text-white/35">
+                            <p className="px-3 py-2 text-white/[0.65]">
                               Sin resultados.
                             </p>
                           )}
@@ -1075,7 +1075,7 @@ export default function ProjectTaskDrawer({
 
               {/* Estado */}
               <div className="flex items-center gap-3">
-                <span className="w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
+                <span className="w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.65]">
                   Estado
                 </span>
                 <div
@@ -1106,7 +1106,7 @@ export default function ProjectTaskDrawer({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.16 }}
-                        className="absolute z-20 mt-1 min-w-[170px] rounded-[14px] border border-white/[0.09] bg-[#1c1c1e] p-1.5 text-[11px] text-white/75 shadow-[0_20px_60px_rgba(0,0,0,.38)]"
+                        className="absolute z-20 mt-1 min-w-[170px] rounded-[14px] border border-white/[0.09] bg-[#1c1c1e] p-1.5 text-[11px] text-white/[0.84] shadow-[0_20px_60px_rgba(0,0,0,.38)]"
                       >
                         {STATUS_OPTIONS.map((opt) => (
                           <button
@@ -1119,7 +1119,7 @@ export default function ProjectTaskDrawer({
                             className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-left ${
                               opt.value === status
                                 ? opt.pillClass
-                                : 'text-white/60 hover:bg-white/[0.055]'
+                                : 'text-white/[0.78] hover:bg-white/[0.055]'
                             }`}
                           >
                             <span className="flex items-center gap-2">
@@ -1143,7 +1143,7 @@ export default function ProjectTaskDrawer({
 
               {/* Prioridad */}
               <div className="flex items-center gap-3">
-                <span className="w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
+                <span className="w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.65]">
                   Prioridad
                 </span>
                 <div
@@ -1174,7 +1174,7 @@ export default function ProjectTaskDrawer({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.16 }}
-                        className="absolute z-20 mt-1 min-w-[150px] rounded-[14px] border border-white/[0.09] bg-[#1c1c1e] p-1.5 text-[11px] text-white/75 shadow-[0_20px_60px_rgba(0,0,0,.38)]"
+                        className="absolute z-20 mt-1 min-w-[150px] rounded-[14px] border border-white/[0.09] bg-[#1c1c1e] p-1.5 text-[11px] text-white/[0.84] shadow-[0_20px_60px_rgba(0,0,0,.38)]"
                       >
                         {PRIORITY_OPTIONS.map((opt) => (
                           <button
@@ -1187,7 +1187,7 @@ export default function ProjectTaskDrawer({
                             className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-left ${
                               opt.value === priority
                                 ? opt.pillClass
-                                : 'text-white/60 hover:bg-white/[0.055]'
+                                : 'text-white/[0.78] hover:bg-white/[0.055]'
                             }`}
                           >
                             <span className="flex items-center gap-2">
@@ -1211,11 +1211,11 @@ export default function ProjectTaskDrawer({
 
               {/* Fecha límite */}
               <div className="flex items-center gap-3">
-                <span className="w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
+                <span className="w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.65]">
                   Fecha límite
                 </span>
                 <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-white/35" />
+                  <CalendarDays className="h-4 w-4 text-white/[0.65]" />
                   <RedcomDatePicker
                     value={dueDate}
                     onChange={setDueDate}
@@ -1231,7 +1231,7 @@ export default function ProjectTaskDrawer({
 
               {/* Proyecto */}
               <div className="flex items-start gap-3">
-                <span className="mt-[3px] w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
+                <span className="mt-[3px] w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.65]">
                   Proyecto
                 </span>
                 {editingProject && !isLocked ? (
@@ -1251,14 +1251,14 @@ export default function ProjectTaskDrawer({
                     </button>
                   </div>
                 ) : (
-                  <div className="group relative flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-normal text-white/80">
+                  <div className="group relative flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-normal text-white/[0.88]">
                     <p
                       className={
                         project
                           ? expandedProject || !needsReadMore(project)
                             ? 'whitespace-pre-wrap'
                             : 'line-clamp-1'
-                          : 'text-white/25'
+                          : 'text-white/[0.50]'
                       }
                     >
                       {project || 'Nombre del proyecto'}
@@ -1276,7 +1276,7 @@ export default function ProjectTaskDrawer({
                       <button
                         type="button"
                         onClick={() => setEditingProject(true)}
-                        className="absolute right-2 top-1.5 hidden rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] text-white/65 group-hover:inline-flex"
+                        className="absolute right-2 top-1.5 hidden rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] text-white/[0.80] group-hover:inline-flex"
                       >
                         Editar
                       </button>
@@ -1287,7 +1287,7 @@ export default function ProjectTaskDrawer({
 
               {/* Resumen */}
               <div className="flex items-start gap-3">
-                <span className="mt-[3px] w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
+                <span className="mt-[3px] w-24 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.65]">
                   Resumen
                 </span>
                 {editingSummary && !isLocked ? (
@@ -1307,14 +1307,14 @@ export default function ProjectTaskDrawer({
                     </button>
                   </div>
                 ) : (
-                  <div className="group relative flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-normal text-white/80">
+                  <div className="group relative flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-normal text-white/[0.88]">
                     <p
                       className={
                         summary
                           ? expandedSummary || !needsReadMore(summary)
                             ? 'whitespace-pre-wrap'
                             : 'line-clamp-1'
-                          : 'text-white/25'
+                          : 'text-white/[0.50]'
                       }
                     >
                       {summary || 'Breve descripción de la tarea...'}
@@ -1332,7 +1332,7 @@ export default function ProjectTaskDrawer({
                       <button
                         type="button"
                         onClick={() => setEditingSummary(true)}
-                        className="absolute right-2 top-1.5 hidden rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] text-white/65 group-hover:inline-flex"
+                        className="absolute right-2 top-1.5 hidden rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] text-white/[0.80] group-hover:inline-flex"
                       >
                         Editar
                       </button>
@@ -1344,11 +1344,11 @@ export default function ProjectTaskDrawer({
 
             {/* Descripción */}
             <div className="mt-4 flex-1 overflow-hidden">
-              <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">
+              <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.65]">
                 Descripción general
               </p>
               <textarea
-                className="h-full w-full min-h-[120px] rounded-[14px] border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-sm font-normal text-white/80 outline-none placeholder:text-white/25 transition focus:border-[#0a84ff]/50 focus:bg-white/[0.05] focus:ring-4 focus:ring-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-full w-full min-h-[120px] rounded-[14px] border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-sm font-normal text-white/[0.88] outline-none placeholder:text-white/[0.46] transition focus:border-[#0a84ff]/50 focus:bg-white/[0.05] focus:ring-4 focus:ring-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Contexto, objetivos, entregables, decisiones clave..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -1363,7 +1363,7 @@ export default function ProjectTaskDrawer({
                 disabled={loading || isLocked}
                 className={`rounded-[12px] px-4 py-2 text-sm font-medium transition ${
                   isLocked
-                    ? 'cursor-not-allowed bg-white/[0.06] text-white/30'
+                    ? 'cursor-not-allowed bg-white/[0.06] text-white/[0.58]'
                     : 'bg-[#0a84ff] text-white hover:bg-[#409cff]'
                 } disabled:opacity-60`}
               >
@@ -1382,15 +1382,15 @@ export default function ProjectTaskDrawer({
               <div className="flex items-center gap-2">
                 <ListChecks className="h-4 w-4 text-emerald-300" />
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/50">
+                  <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.75]">
                     Checklist de avance
                   </span>
-                  <span className="text-[11px] font-normal text-white/35">
+                  <span className="text-[11px] font-normal text-white/[0.65]">
                     Dividí el proyecto en pasos accionables.
                   </span>
                 </div>
               </div>
-              <span className="text-[11px] font-normal text-white/35">
+              <span className="text-[11px] font-normal text-white/[0.65]">
                 {todos.length === 0
                   ? 'Sin tareas internas'
                   : `${todos.filter((t) => t.done).length} / ${
@@ -1420,7 +1420,7 @@ export default function ProjectTaskDrawer({
                       animate={{ rotate: todoGroupMenuOpen ? 180 : 0 }}
                       transition={{ duration: 0.16 }}
                     >
-                      <ChevronDown className="h-4 w-4 text-white/35" />
+                      <ChevronDown className="h-4 w-4 text-white/[0.65]" />
                     </motion.span>
                   </button>
 
@@ -1464,7 +1464,7 @@ export default function ProjectTaskDrawer({
                           ))}
 
                           <div className="mt-2 border-t border-white/[0.07] pt-2">
-                            <div className="px-1 pb-1 text-[10px] uppercase tracking-wide text-white/35">
+                            <div className="px-1 pb-1 text-[10px] uppercase tracking-wide text-white/[0.65]">
                               Crear grupo
                             </div>
                             <div className="flex gap-2">
@@ -1495,7 +1495,7 @@ export default function ProjectTaskDrawer({
                                   setNewTodoGroupName('');
                                   setTodoGroupMenuOpen(false);
                                 }}
-                                className="inline-flex h-9 items-center justify-center rounded-xl bg-white/[0.07] px-4 text-[11px] font-medium text-white/65 transition hover:bg-white/[0.10] hover:text-white/90"
+                                className="inline-flex h-9 items-center justify-center rounded-xl bg-white/[0.07] px-4 text-[11px] font-medium text-white/[0.80] transition hover:bg-white/[0.10] hover:text-white/[0.94]"
                               >
                                 +
                               </button>
@@ -1530,7 +1530,7 @@ export default function ProjectTaskDrawer({
                   type="button"
                   onClick={addTodo}
                   disabled={!canEditWorkspace || !newTodoText.trim()}
-                  className="inline-flex items-center justify-center rounded-xl bg-[#0a84ff] px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/25"
+                  className="inline-flex items-center justify-center rounded-xl bg-[#0a84ff] px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/[0.50]"
                 >
                   <Plus className="mr-1 h-3 w-3" />
                   Añadir
@@ -1579,7 +1579,7 @@ export default function ProjectTaskDrawer({
                       ))}
 
                       {arr.length === 0 && groupName && (
-                        <p className="rounded-lg bg-white/[0.045] px-3 py-2 text-[11px] font-normal text-white/35">
+                        <p className="rounded-lg bg-white/[0.045] px-3 py-2 text-[11px] font-normal text-white/[0.65]">
                           Arrastrá items acá para agruparlos.
                         </p>
                       )}
@@ -1589,7 +1589,7 @@ export default function ProjectTaskDrawer({
               </DndContext>
 
               {todos.length === 0 && (
-                <p className="rounded-lg bg-white/[0.055] px-3 py-2 text-[11px] font-normal text-white/35">
+                <p className="rounded-lg bg-white/[0.055] px-3 py-2 text-[11px] font-normal text-white/[0.65]">
                   Usá este checklist para definir pasos como “Relevar
                   requerimientos”, “Diseñar UI”, “Implementar API”, etc.
                 </p>
@@ -1604,12 +1604,12 @@ export default function ProjectTaskDrawer({
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <StickyNote className="h-4 w-4 text-amber-300" />
-                  <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/50">
+                  <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.75]">
                     Notas rápidas
                   </span>
                 </div>
                 {!canEditWorkspace && (
-                  <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white/35">
+                  <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white/[0.65]">
                     Solo lectura
                   </span>
                 )}
@@ -1630,23 +1630,23 @@ export default function ProjectTaskDrawer({
                     h-full
                     [&_.ql-toolbar]:border-none
                     [&_.ql-toolbar]:bg-transparent
-                    [&_.ql-toolbar]:text-white/60
+                    [&_.ql-toolbar]:text-white/[0.78]
                     [&_.ql-container]:border-none
                     [&_.ql-container]:shadow-none
                     [&_.ql-container]:h-[calc(100%-2.25rem)]
                     [&_.ql-container]:overflow-y-auto
                     [&_.ql-editor]:bg-transparent
                     [&_.ql-editor]:text-[11px]
-                    [&_.ql-editor]:text-white/80
+                    [&_.ql-editor]:text-white/[0.88]
                     [&_.ql-editor]:min-h-0
                     [&_.ql-editor]:outline-none
                     [&_.ql-stroke]:stroke-white/45
                     [&_.ql-fill]:fill-white/45
-                    [&_.ql-picker-label]:text-white/45
+                    [&_.ql-picker-label]:text-white/[0.72]
                     [&_.ql-picker-label_.ql-stroke]:stroke-white/45
                     [&_.ql-picker-options]:border-white/[0.08]
                     [&_.ql-picker-options]:bg-[#1c1c1e]
-                    [&_.ql-picker-item]:text-white/65
+                    [&_.ql-picker-item]:text-white/[0.80]
                   "
                 />
               </div>
@@ -1657,7 +1657,7 @@ export default function ProjectTaskDrawer({
               <div className="mb-1 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Link2 className="h-4 w-4 text-[#5ac8fa]" />
-                  <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/50">
+                  <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.75]">
                     Recursos del proyecto
                   </span>
                 </div>
@@ -1665,7 +1665,7 @@ export default function ProjectTaskDrawer({
 
               <div className="flex-1 min-h-0 space-y-1 overflow-y-auto pr-1">
                 {resourceLinks.length === 0 && (
-                  <p className="text-[11px] font-normal text-white/35">
+                  <p className="text-[11px] font-normal text-white/[0.65]">
                     Guardá acá links a Figma, Looker, documentación, Sheets,
                     etc.
                   </p>
@@ -1687,7 +1687,7 @@ export default function ProjectTaskDrawer({
                       <button
                         type="button"
                         onClick={() => deleteLink(link.id)}
-                        className="ml-2 text-[10px] text-white/35 hover:text-rose-300"
+                        className="ml-2 text-[10px] text-white/[0.65] hover:text-rose-300"
                       >
                         Quitar
                       </button>
@@ -1722,7 +1722,7 @@ export default function ProjectTaskDrawer({
                     type="button"
                     onClick={addLink}
                     disabled={!newLinkUrl.trim()}
-                    className="mt-1 inline-flex items-center gap-1 rounded-xl bg-[#0a84ff] px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/25"
+                    className="mt-1 inline-flex items-center gap-1 rounded-xl bg-[#0a84ff] px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/[0.50]"
                   >
                     <Plus className="h-3 w-3" />
                     Guardar recurso
