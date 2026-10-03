@@ -100,7 +100,9 @@ export function RedcomSelect({
           surface === "dark"
             ? "border-white/10 bg-white/[0.04] text-[#f5f5f7] shadow-none disabled:bg-white/[0.03] disabled:text-white/35"
             : "border-slate-200 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] disabled:bg-slate-100 disabled:text-slate-400",
-          styles.trigger,
+          surface === "dark"
+            ? "hover:border-white/15 hover:bg-white/[0.055] focus-visible:border-[#0a84ff]/60 focus-visible:ring-[#0a84ff]/10 data-[state=open]:border-[#0a84ff]/60 data-[state=open]:ring-[#0a84ff]/10"
+            : styles.trigger,
           className,
         )}
       >
@@ -112,8 +114,9 @@ export function RedcomSelect({
             className={cn(
               "grid h-7 w-7 shrink-0 place-items-center rounded-xl transition-colors",
               surface === "dark" ? "bg-white/[0.06] text-white/55" : "bg-slate-100 text-slate-600",
-              styles.icon,
-              styles.openIcon,
+              surface === "dark"
+                ? "group-hover:bg-white/[0.08] group-hover:text-white/70 group-data-[state=open]:bg-[#0a84ff] group-data-[state=open]:text-white"
+                : cn(styles.icon, styles.openIcon),
             )}
           >
             <ChevronDown className="h-4 w-4 transition-transform duration-150 group-data-[state=open]:rotate-180" />
@@ -146,8 +149,8 @@ export function RedcomSelect({
                 disabled={option.disabled}
                 className={cn(
                   "relative flex min-h-10 cursor-pointer select-none items-center rounded-xl py-2 pl-3 pr-10 text-sm font-medium outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[state=checked]:font-semibold",
-                  surface === "dark" ? "text-white/80" : "text-slate-700",
-                  styles.item,
+                  surface === "dark" ? "text-white/80 data-[highlighted]:bg-white/[0.07] data-[highlighted]:text-white" : "text-slate-700",
+                  surface === "dark" ? null : styles.item,
                 )}
               >
                 <span className="min-w-0 truncate">
@@ -156,7 +159,9 @@ export function RedcomSelect({
                 <SelectPrimitive.ItemIndicator
                   className={cn(
                     "absolute right-3 grid h-6 w-6 place-items-center rounded-lg",
-                    styles.indicator,
+                    surface === "dark"
+                      ? "bg-[#0a84ff]/15 text-[#5ac8fa] data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
+                      : styles.indicator,
                   )}
                 >
                   <Check className="h-4 w-4" strokeWidth={2.6} />
@@ -227,7 +232,9 @@ export function RedcomSearchableSelect({
             surface === "dark"
               ? "border-white/10 bg-white/[0.04] text-[#f5f5f7] shadow-none disabled:bg-white/[0.03] disabled:text-white/35"
               : "border-slate-200 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.04)] disabled:bg-slate-100 disabled:text-slate-400",
-            styles.trigger,
+            surface === "dark"
+              ? "hover:border-white/15 hover:bg-white/[0.055] focus-visible:border-[#0a84ff]/60 focus-visible:ring-[#0a84ff]/10 data-[state=open]:border-[#0a84ff]/60 data-[state=open]:ring-[#0a84ff]/10"
+              : styles.trigger,
             className,
           )}
         >
@@ -238,8 +245,9 @@ export function RedcomSearchableSelect({
             className={cn(
               "grid h-7 w-7 shrink-0 place-items-center rounded-xl transition-colors",
               surface === "dark" ? "bg-white/[0.06] text-white/55" : "bg-slate-100 text-slate-600",
-              styles.icon,
-              styles.openIcon,
+              surface === "dark"
+                ? "group-hover:bg-white/[0.08] group-hover:text-white/70 group-data-[state=open]:bg-[#0a84ff] group-data-[state=open]:text-white"
+                : cn(styles.icon, styles.openIcon),
             )}
           >
             <ChevronsUpDown className="h-4 w-4" strokeWidth={2.3} />
@@ -287,18 +295,27 @@ export function RedcomSearchableSelect({
                   className={cn(
                     "relative flex min-h-10 cursor-pointer select-none items-center rounded-xl py-2 pl-3 pr-10 text-sm font-medium outline-none transition-colors data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-40",
                     surface === "dark" ? "text-white/80" : "text-slate-700",
-                    accent === "indigo"
-                      ? "data-[selected=true]:bg-indigo-600 data-[selected=true]:text-white"
-                      : accent === "teal"
-                        ? "data-[selected=true]:bg-teal-600 data-[selected=true]:text-white"
-                        : "data-[selected=true]:bg-slate-950 data-[selected=true]:text-white",
+                    surface === "dark"
+                      ? "data-[selected=true]:bg-white/[0.07] data-[selected=true]:text-white"
+                      : accent === "indigo"
+                        ? "data-[selected=true]:bg-indigo-600 data-[selected=true]:text-white"
+                        : accent === "teal"
+                          ? "data-[selected=true]:bg-teal-600 data-[selected=true]:text-white"
+                          : "data-[selected=true]:bg-slate-950 data-[selected=true]:text-white",
                   )}
                 >
                   <span className={cn("truncate", option.value === value && "font-semibold")}>
                     {option.label}
                   </span>
                   {option.value === value ? (
-                    <span className={cn("absolute right-3 grid h-6 w-6 place-items-center rounded-lg", styles.indicator)}>
+                    <span
+                      className={cn(
+                        "absolute right-3 grid h-6 w-6 place-items-center rounded-lg",
+                        surface === "dark"
+                          ? "bg-[#0a84ff]/15 text-[#5ac8fa]"
+                          : styles.indicator,
+                      )}
+                    >
                       <Check className="h-4 w-4" strokeWidth={2.6} />
                     </span>
                   ) : null}
