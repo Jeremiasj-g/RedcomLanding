@@ -154,16 +154,6 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         className: 'text-emerald-300 hover:text-emerald-200',
       },
       {
-        id: 'foco',
-        label: 'Focos',
-        href: '/focos',
-        icon: <ListChecks className="h-4 w-4" />,
-        enabledWhen: (ctx) => canUse('focus')(ctx),
-        enabledReason: () => 'Sin permiso para Focos',
-        // ✅ color original
-        className: 'text-red-300 hover:text-red-200',
-      },
-      {
         id: 'ccc-calificados',
         label: 'Indicadores trimestrales',
         href: '/ccc-calificados',
@@ -219,16 +209,6 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         enabledReason: () => 'Solo Admin',
         // ✅ color original admin panel
         className: 'text-amber-300 hover:text-amber-200',
-      },
-      {
-        id: 'panel-focos',
-        label: 'Panel de focos',
-        href: '/focos/panel',
-        icon: <Shield className="h-4 w-4" />,
-        enabledWhen: (ctx) => canUse('focus_panel')(ctx),
-        enabledReason: () => 'Sin permiso para el Panel de focos',
-        // ✅ color original admin panel
-        className: 'text-red-300 hover:text-red-200',
       },
     ],
   },
