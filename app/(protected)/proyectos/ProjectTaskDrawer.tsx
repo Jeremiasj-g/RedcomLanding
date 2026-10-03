@@ -40,6 +40,8 @@ import {
   type ProjectTaskWorkspaceLink,
 } from '@/lib/projectTasks';
 import { RedcomDatePicker } from '@/components/ui/redcom-date-picker';
+import { RedcomSelect } from '@/components/ui/redcom-select';
+import type { ProjectWithMembers } from '@/lib/projects';
 
 // ReactQuill (editor rich text)
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
@@ -73,6 +75,7 @@ const quillFormats = [
 type Props = {
   task: ProjectTaskWithAssignees;
   supervisors: AssigneeOption[];
+  projects: ProjectWithMembers[];
   currentUserRole: string; // 'admin' | 'jdv' | 'supervisor' | ...
   currentUserId: string | null;
   onClose: () => void;
@@ -192,6 +195,7 @@ const BUTTON_TINY_GRAY =
 export default function ProjectTaskDrawer({
   task,
   supervisors,
+  projects,
   currentUserRole,
   currentUserId,
   onClose,
@@ -204,6 +208,7 @@ export default function ProjectTaskDrawer({
   const [summary, setSummary] = useState('');
   const [description, setDescription] = useState('');
   const [project, setProject] = useState('');
+  const [projectId, setProjectId] = useState('');
   const [status, setStatus] = useState<ProjectTaskStatus>('not_started');
   const [priority, setPriority] = useState<ProjectTaskPriority>('low');
   const [dueDate, setDueDate] = useState(''); // yyyy-mm-dd
@@ -601,7 +606,7 @@ export default function ProjectTaskDrawer({
     setEditingSummary(false);
     setExpandedProject(false);
     setExpandedSummary(false);
-  }, [task]);
+  }, [task, projects]);
 
   // ───── CARGAR WORKSPACE TABLA HIJA ───────────────────
   useEffect(() => {
@@ -1236,11 +1241,26 @@ export default function ProjectTaskDrawer({
                 </span>
                 {editingProject && !isLocked ? (
                   <div className="flex flex-1 items-center gap-2">
-                    <input
-                      className={`flex-1 px-3 py-1.5 ${INPUT_BASE}`}
-                      placeholder="Nombre del proyecto"
-                      value={project}
-                      onChange={(e) => setProject(e.target.value)}
+                    <RedcomSelect
+                      value={projectId}
+                      surface="dark"
+                      accent="indigo"
+                      className="h-9 flex-1 rounded-[12px]"
+                      onValueChange={(value) => {
+                        setProjectId(value);
+                        const selected = projects.find(
+                          (item) => String(item.id) === value,
+                        );
+                        if (selected) setProject(selected.name);
+                      }}
+                      options={projects
+                        .filter((item) => item.status !== 'archived')
+                        .map((item) => ({
+                          value: String(item.id),
+                          label: item.name,
+                        }))}
+                      placeholder="Seleccionar proyecto"
+                      aria-label="Proyecto de la tarea"
                     />
                     <button
                       type="button"
