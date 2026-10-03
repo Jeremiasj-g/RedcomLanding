@@ -15,12 +15,10 @@ export type ModulePermissionKey =
   | 'personal_tasks'
   | 'projects'
   | 'boards'
-  | 'focus'
   | 'quarterly_indicators'
   | 'vendo_requests'
   | 'hr_panel'
   | 'tasks_panel'
-  | 'focus_panel'
   | 'management_resources';
 
 export type ModulePermissionGroup =
@@ -227,15 +225,6 @@ export const MODULE_PERMISSION_DEFINITIONS: ModulePermissionDefinition[] = [
     defaultRoles: ALL_ACTIVE_ROLES,
   },
   {
-    key: 'focus',
-    label: 'Focos',
-    shortLabel: 'Focos',
-    description: 'Acceso al feed operativo de focos y sus publicaciones.',
-    group: 'Espacio de trabajo',
-    routePrefixes: ['/focos'],
-    defaultRoles: ALL_ACTIVE_ROLES,
-  },
-  {
     key: 'quarterly_indicators',
     label: 'Indicadores trimestrales',
     shortLabel: 'CCC Calificados',
@@ -272,15 +261,6 @@ export const MODULE_PERMISSION_DEFINITIONS: ModulePermissionDefinition[] = [
     group: 'Paneles',
     routePrefixes: ['/tareas/panel-tareas'],
     defaultRoles: ['admin', 'jdv'],
-  },
-  {
-    key: 'focus_panel',
-    label: 'Panel de focos',
-    shortLabel: 'Panel focos',
-    description: 'Gestión y seguimiento administrativo de focos comerciales.',
-    group: 'Paneles',
-    routePrefixes: ['/focos/panel'],
-    defaultRoles: ['admin', 'jdv', 'supervisor'],
   },
   {
     key: 'management_resources',
