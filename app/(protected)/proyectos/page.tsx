@@ -568,7 +568,7 @@ export default function ProyectosPage() {
     const ok = window.confirm(
       `¿Seguro que querés eliminar la tarea "${task.title}
 {task.is_locked && (
-  <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+  <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/[0.15] px-2 py-0.5 text-[10px] font-semibold text-amber-300">
     Cerrada
   </span>
 )}"? Esta acción no se puede deshacer.`,
@@ -913,7 +913,7 @@ export default function ProyectosPage() {
                                       );
                                     }}
                                     disabled={isLocked}
-                                    className="h-8 rounded-[10px] px-2.5 text-[10px] font-medium text-[#0a84ff] transition hover:bg-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-35"
+                                    className="h-8 rounded-[10px] px-2.5 text-[10px] font-medium text-[#0a84ff] transition hover:bg-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-[0.40]"
                                   >
                                     Gestionar
                                   </button>
@@ -958,7 +958,7 @@ export default function ProyectosPage() {
                                   >
                                     <div className="p-1 pb-2">
                                       <input
-                                        className="h-9 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 text-xs font-normal text-white outline-none placeholder:text-white/[0.46] focus:border-[#0a84ff]/55 focus:ring-4 focus:ring-[#0a84ff]/10"
+                                        className="h-9 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 text-xs font-normal text-white outline-none placeholder:text-white/[0.46] focus:border-[#0a84ff]/[0.55] focus:ring-4 focus:ring-[#0a84ff]/10"
                                         placeholder="Buscar responsable"
                                         value={assigneeSearch}
                                         onChange={(event) => setAssigneeSearch(event.target.value)}
@@ -996,7 +996,7 @@ export default function ProyectosPage() {
                                                 className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${
                                                   selected
                                                     ? 'border-[#0a84ff] bg-[#0a84ff] text-white'
-                                                    : 'border-white/15 bg-transparent text-transparent'
+                                                    : 'border-white/[0.15] bg-transparent text-transparent'
                                                 }`}
                                               >
                                                 <CircleDot className="h-3 w-3" />
@@ -1063,7 +1063,7 @@ export default function ProyectosPage() {
       <AnimatePresence>
         {closeConfirmTask && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-md"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/[0.55] p-4 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
