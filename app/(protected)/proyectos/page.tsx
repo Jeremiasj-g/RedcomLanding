@@ -193,6 +193,11 @@ export default function ProyectosPage() {
     useState<ProjectTaskWithAssignees | null>(null);
   const [closingTask, setClosingTask] = useState(false);
 
+  // confirmar eliminación
+  const [deleteConfirmTask, setDeleteConfirmTask] =
+    useState<ProjectTaskWithAssignees | null>(null);
+  const [deletingTask, setDeletingTask] = useState(false);
+
   const [loading, setLoading] = useState(true);
 
   // creación rápida (admin + JDV)
@@ -682,26 +687,31 @@ export default function ProyectosPage() {
 
 
   // Eliminar tarea
-  const handleDeleteTask = async (task: ProjectTaskWithAssignees) => {
+  const handleDeleteTask = (task: ProjectTaskWithAssignees) => {
     if (!canManage) return;
-    const ok = window.confirm(
-      `¿Seguro que querés eliminar la tarea "${task.title}
-{task.is_locked && (
-  <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/[0.15] px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-    Cerrada
-  </span>
-)}"? Esta acción no se puede deshacer.`,
-    );
-    if (!ok) return;
+    closeAllPopovers();
+    setDeleteConfirmTask(task);
+  };
+
+  const doDeleteTask = async (task: ProjectTaskWithAssignees) => {
+    if (!canManage || deletingTask) return;
 
     try {
+      setDeletingTask(true);
       await deleteProjectTask(task.id);
       removeTask(task.id);
+
+      setSelectedTask((current) =>
+        current?.id === task.id ? null : current,
+      );
+
       notify.success('Tarea eliminada.');
+      setDeleteConfirmTask(null);
     } catch (err) {
       console.error('Error deleting task', err);
       notify.error(errorMessage(err, 'No se pudo eliminar la tarea.'));
     } finally {
+      setDeletingTask(false);
       setAssigneesOpenFor(null);
     }
   };
@@ -1355,6 +1365,107 @@ export default function ProyectosPage() {
                 >
                   {closingTask ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   Confirmar cierre
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteConfirmTask && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/[0.55] p-4 backdrop-blur-md"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={() => !deletingTask && setDeleteConfirmTask(null)}
+          >
+            <motion.div
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="delete-task-title"
+              aria-describedby="delete-task-description"
+              className="w-full max-w-md rounded-[22px] border border-white/[0.09] bg-[#1c1c1e] p-6 text-[#f5f5f7] shadow-[0_28px_80px_rgba(0,0,0,.42)]"
+              initial={{ scale: 0.96, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.98, opacity: 0, y: 6 }}
+              transition={{ duration: 0.16 }}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-400/10 text-rose-300">
+                  <Trash2 className="h-5 w-5" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h3
+                    id="delete-task-title"
+                    className="text-base font-medium text-white/[0.94]"
+                  >
+                    ¿Eliminar esta tarea?
+                  </h3>
+
+                  <p
+                    id="delete-task-description"
+                    className="mt-1 text-sm font-normal leading-6 text-white/[0.68]"
+                  >
+                    La tarea y su información asociada se eliminarán de forma
+                    permanente. Esta acción no se puede deshacer.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-[14px] border border-white/[0.07] bg-white/[0.035] px-3.5 py-3">
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-white/[0.90]">
+                    {deleteConfirmTask.title}
+                  </span>
+
+                  {deleteConfirmTask.is_locked ? (
+                    <span className="shrink-0 rounded-lg border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[9px] font-medium text-amber-200">
+                      Cerrada
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="mt-1.5 flex items-center gap-2 text-[10px] font-normal text-white/[0.42]">
+                  <FolderKanban className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {deleteConfirmTask.project || 'Proyecto general'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-[12px] border border-rose-400/10 bg-rose-400/[0.055] px-3 py-2.5">
+                <p className="text-[10px] font-normal leading-4 text-rose-100/[0.78]">
+                  Se eliminarán también comentarios, historial de actividad,
+                  checklist, recursos y responsables vinculados a esta tarea.
+                </p>
+              </div>
+
+              <div className="mt-5 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={deletingTask}
+                  onClick={() => setDeleteConfirmTask(null)}
+                  className="h-10 rounded-xl px-4 text-xs font-normal text-white/[0.75] transition hover:bg-white/[0.05] hover:text-white/[0.90] disabled:opacity-40"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  disabled={deletingTask}
+                  onClick={() => void doDeleteTask(deleteConfirmTask)}
+                  className="inline-flex h-10 min-w-[128px] items-center justify-center gap-2 rounded-xl bg-rose-500 px-4 text-xs font-medium text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {deletingTask ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  {deletingTask ? 'Eliminando...' : 'Eliminar tarea'}
                 </button>
               </div>
             </motion.div>
