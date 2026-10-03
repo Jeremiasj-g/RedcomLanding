@@ -1,19 +1,34 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Filter, Search, ChevronDown, X, Users2 } from 'lucide-react';
-import type { AssigneeOption } from '@/lib/projectTasks';
+import { useMemo, useState } from "react";
+import {
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
+  Filter,
+  ListChecks,
+  RotateCcw,
+  Search,
+  TrendingUp,
+  Users2,
+  X,
+} from "lucide-react";
+
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RedcomDatePicker } from "@/components/ui/redcom-date-picker";
+import { RedcomSelect } from "@/components/ui/redcom-select";
+import type { AssigneeOption } from "@/lib/projectTasks";
 
 export type ProjectTaskFiltersState = {
   search: string;
-  status: 'all' | 'not_started' | 'in_progress' | 'done' | 'cancelled';
-  priority: 'all' | 'low' | 'medium' | 'high';
+  status: "all" | "not_started" | "in_progress" | "done" | "cancelled";
+  priority: "all" | "low" | "medium" | "high";
   project: string;
   responsibleIds: string[];
   dueFrom: string;
   dueTo: string;
-  viewMode: 'table' | 'grid';
+  viewMode: "table" | "grid";
   showClosed: boolean;
 };
 
@@ -27,23 +42,35 @@ type Stats = {
 type Props = {
   supervisors?: AssigneeOption[];
   value?: ProjectTaskFiltersState;
-  stats?: Stats; // 👈 ahora opcional
+  stats?: Stats;
   onChange: (next: ProjectTaskFiltersState) => void;
 };
 
-const STATUS_LABELS: Record<ProjectTaskFiltersState['status'], string> = {
-  all: 'Todos',
-  not_started: 'Sin empezar',
-  in_progress: 'En curso',
-  done: 'Completadas',
-  cancelled: 'Canceladas',
+const STATUS_LABELS: Record<ProjectTaskFiltersState["status"], string> = {
+  all: "Todos",
+  not_started: "Sin empezar",
+  in_progress: "En curso",
+  done: "Completadas",
+  cancelled: "Canceladas",
 };
 
-const PRIORITY_LABELS: Record<ProjectTaskFiltersState['priority'], string> = {
-  all: 'Todas',
-  low: 'Baja',
-  medium: 'Media',
-  high: 'Alta',
+const PRIORITY_LABELS: Record<ProjectTaskFiltersState["priority"], string> = {
+  all: "Todas",
+  low: "Baja",
+  medium: "Media",
+  high: "Alta",
+};
+
+const defaultFilters: ProjectTaskFiltersState = {
+  search: "",
+  status: "all",
+  priority: "all",
+  project: "",
+  responsibleIds: [],
+  dueFrom: "",
+  dueTo: "",
+  viewMode: "table",
+  showClosed: true,
 };
 
 export default function ProjectTaskFilters({
@@ -52,19 +79,6 @@ export default function ProjectTaskFilters({
   stats,
   onChange,
 }: Props) {
-  // 🔒 defaults
-  const defaultFilters: ProjectTaskFiltersState = {
-    search: '',
-    status: 'all',
-    priority: 'all',
-    project: '',
-    responsibleIds: [],
-    dueFrom: '',
-    dueTo: '',
-    viewMode: 'table',
-    showClosed: true,
-  };
-
   const safeValue = value ?? defaultFilters;
   const safeSupervisors = supervisors ?? [];
   const safeStats: Stats = stats ?? {
@@ -82,397 +96,347 @@ export default function ProjectTaskFilters({
     responsibleIds,
     dueFrom,
     dueTo,
-    viewMode,
-    showClosed,
   } = safeValue;
 
-  // dropdown responsables
   const [responsibleOpen, setResponsibleOpen] = useState(false);
-  const [responsibleSearch, setResponsibleSearch] = useState('');
-
-  // cerrar con ESC
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setResponsibleOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
+  const [responsibleSearch, setResponsibleSearch] = useState("");
 
   const filteredSupervisors = useMemo(() => {
     const term = responsibleSearch.trim().toLowerCase();
     if (!term) return safeSupervisors;
-    return safeSupervisors.filter((s) => {
-      const text = `${s.full_name ?? ''} ${s.email ?? ''}`.toLowerCase();
-      return text.includes(term);
-    });
-  }, [safeSupervisors, responsibleSearch]);
+
+    return safeSupervisors.filter((person) =>
+      `${person.full_name ?? ""} ${person.email ?? ""}`
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [responsibleSearch, safeSupervisors]);
 
   const selectedSupervisors = useMemo(
-    () => safeSupervisors.filter((s) => responsibleIds.includes(s.id)),
-    [safeSupervisors, responsibleIds],
+    () => safeSupervisors.filter((person) => responsibleIds.includes(person.id)),
+    [responsibleIds, safeSupervisors],
   );
+
+  const activeFilterCount = [
+    Boolean(search),
+    Boolean(project),
+    status !== "all",
+    priority !== "all",
+    responsibleIds.length > 0,
+    Boolean(dueFrom),
+    Boolean(dueTo),
+  ].filter(Boolean).length;
 
   const handleChange = (patch: Partial<ProjectTaskFiltersState>) => {
     onChange({ ...safeValue, ...patch });
   };
 
   const toggleResponsible = (id: string) => {
-    const has = responsibleIds.includes(id);
-    const next = has
-      ? responsibleIds.filter((x) => x !== id)
+    const next = responsibleIds.includes(id)
+      ? responsibleIds.filter((current) => current !== id)
       : [...responsibleIds, id];
+
     handleChange({ responsibleIds: next });
   };
 
   const clearResponsibles = () => {
     handleChange({ responsibleIds: [] });
-    setResponsibleSearch('');
+    setResponsibleSearch("");
   };
 
+  const clearAll = () => {
+    onChange({
+      ...defaultFilters,
+      viewMode: safeValue.viewMode,
+      showClosed: safeValue.showClosed,
+    });
+    setResponsibleSearch("");
+  };
+
+  const responsibleLabel =
+    responsibleIds.length === 0
+      ? "Todos los responsables"
+      : responsibleIds.length === 1
+        ? selectedSupervisors[0]?.full_name ??
+          selectedSupervisors[0]?.email ??
+          "1 responsable"
+        : `${responsibleIds.length} responsables seleccionados`;
+
   return (
-    <section className="flex flex-col gap-4 rounded-2xl">
-      {/* Resumen / métricas */}
-      <div className="grid gap-3 sm:grid-cols-4">
+    <section className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
-          label="Tareas filtradas"
+          label="Tareas visibles"
           value={safeStats.total}
-          description="Total de tareas que cumplen los filtros."
+          helper="Según los filtros actuales"
+          icon={<ListChecks className="h-5 w-5" />}
+          tone="indigo"
         />
         <MetricCard
           label="Completadas"
           value={safeStats.completed}
-          description="Tareas marcadas como realizadas."
-          accent="emerald"
+          helper="Marcadas como realizadas"
+          icon={<CheckCircle2 className="h-5 w-5" />}
+          tone="teal"
         />
         <MetricCard
           label="Pendientes"
           value={safeStats.pending}
-          description="Tareas en curso o sin empezar."
-          accent="amber"
+          helper="En curso o por iniciar"
+          icon={<Clock3 className="h-5 w-5" />}
+          tone="amber"
         />
         <MetricCard
-          label="Avance"
+          label="Avance global"
           value={`${safeStats.completionRate}%`}
-          description="Porcentaje completado del total."
-          accent="sky"
+          helper="Sobre todas las tareas visibles"
+          icon={<TrendingUp className="h-5 w-5" />}
+          tone="sky"
+          progress={safeStats.completionRate}
         />
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/90 p-3 text-xs text-slate-100">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          <Filter className="h-3.5 w-3.5" />
-          Filtros de vista
-        </div>
-
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          {/* Search principal + proyecto */}
-          <div className="flex flex-1 flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
-                <input
-                  value={search}
-                  onChange={(e) => handleChange({ search: e.target.value })}
-                  placeholder="Buscar por título, resumen o proyecto..."
-                  className="w-full rounded-lg border border-slate-800 bg-slate-950 pl-7 pr-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                />
-              </div>
+      <div className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,.07)]">
+        <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-black text-slate-950">
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-50 text-indigo-700">
+                <Filter className="h-4 w-4" />
+              </span>
+              Filtros inteligentes
             </div>
-
-            <div className="flex gap-2">
-              <input
-                value={project}
-                onChange={(e) => handleChange({ project: e.target.value })}
-                placeholder="Filtrar por nombre de proyecto..."
-                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              Encontrá tareas por estado, prioridad, responsable, proyecto o fecha.
+            </p>
           </div>
 
-          {/* Estado / Prioridad */}
-          <div className="flex flex-wrap gap-2 md:w-[280px] md:justify-end">
-            <select
-              value={status}
-              onChange={(e) =>
-                handleChange({
-                  status: e.target.value as ProjectTaskFiltersState['status'],
-                })
-              }
-              className="min-w-[130px] rounded-full border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-[11px] text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-            >
-              <option value="all">Estado: Todos</option>
-              <option value="not_started">Estado: Sin empezar</option>
-              <option value="in_progress">Estado: En curso</option>
-              <option value="done">Estado: Completadas</option>
-              <option value="cancelled">Estado: Canceladas</option>
-            </select>
-
-            <select
-              value={priority}
-              onChange={(e) =>
-                handleChange({
-                  priority: e.target
-                    .value as ProjectTaskFiltersState['priority'],
-                })
-              }
-              className="min-w-[130px] rounded-full border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-[11px] text-slate-100 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-            >
-              <option value="all">Prioridad: Todas</option>
-              <option value="low">Prioridad: Baja</option>
-              <option value="medium">Prioridad: Media</option>
-              <option value="high">Prioridad: Alta</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Responsables + fechas */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          {/* Dropdown responsables */}
-          <div className="relative md:w-[380px]">
+          <div className="flex items-center gap-2">
+            {activeFilterCount > 0 ? (
+              <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-black text-indigo-700">
+                {activeFilterCount} activo{activeFilterCount === 1 ? "" : "s"}
+              </span>
+            ) : null}
             <button
               type="button"
-              onClick={() => setResponsibleOpen((o) => !o)}
-              className="flex w-full items-center justify-between rounded-full border border-slate-800 bg-slate-950 px-3 py-1.5 text-[11px] text-slate-100 hover:bg-slate-800"
+              onClick={clearAll}
+              disabled={activeFilterCount === 0}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <span className="flex items-center gap-2">
-                <Users2 className="h-3.5 w-3.5 text-slate-400" />
-                {responsibleIds.length === 0 ? (
-                  <span className="text-slate-400">
-                    Responsables: Todos
-                  </span>
-                ) : responsibleIds.length === 1 ? (
-                  <span>
-                    Responsable:{' '}
-                    <strong>
-                      {selectedSupervisors[0]?.full_name ??
-                        selectedSupervisors[0]?.email ??
-                        'Sin nombre'}
-                    </strong>
-                  </span>
-                ) : (
-                  <span>
-                    Responsables seleccionados:{' '}
-                    <strong>{responsibleIds.length}</strong>
-                  </span>
-                )}
-              </span>
-              <div className="flex items-center gap-1">
-                {responsibleIds.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearResponsibles();
-                    }}
-                    className="rounded-full p-0.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-                <ChevronDown className="h-3 w-3 text-slate-400" />
-              </div>
+              <RotateCcw className="h-3.5 w-3.5" />
+              Restablecer
             </button>
-
-            <AnimatePresence>
-              {responsibleOpen && (
-                <>
-                  {/* overlay para cerrar con click fuera */}
-                  <motion.div
-                    className="fixed inset-0 z-20"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 0 }}
-                    exit={{ opacity: 0 }}
-                    onClick={() => setResponsibleOpen(false)}
-                  />
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.16 }}
-                    className="absolute z-30 mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/95 p-2 text-[11px] text-slate-100 shadow-xl shadow-slate-950/70"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="mb-2 flex items-center gap-1">
-                      <Search className="h-3.5 w-3.5 text-slate-500" />
-                      <input
-                        value={responsibleSearch}
-                        onChange={(e) =>
-                          setResponsibleSearch(e.target.value)
-                        }
-                        placeholder="Buscar supervisor..."
-                        className="w-full rounded-md border border-slate-800 bg-slate-900 px-2 py-1 text-[10px] text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                      />
-                    </div>
-
-                    {filteredSupervisors.length === 0 ? (
-                      <p className="px-1 py-1 text-[10px] text-slate-500">
-                        No se encontraron supervisores.
-                      </p>
-                    ) : (
-                      <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
-                        {filteredSupervisors.map((sup) => {
-                          const isSelected = responsibleIds.includes(sup.id);
-                          return (
-                            <button
-                              key={sup.id}
-                              type="button"
-                              onClick={() => toggleResponsible(sup.id)}
-                              className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-left hover:bg-slate-800 ${
-                                isSelected
-                                  ? 'text-sky-200'
-                                  : 'text-slate-100'
-                              }`}
-                            >
-                              <span className="flex flex-col">
-                                <span className="text-[11px]">
-                                  {sup.full_name ?? sup.email ?? 'Sin nombre'}
-                                </span>
-                                {sup.email && (
-                                  <span className="text-[10px] text-slate-500">
-                                    {sup.email}
-                                  </span>
-                                )}
-                              </span>
-                              <span
-                                className={`h-3 w-3 rounded-sm border border-slate-500 ${
-                                  isSelected
-                                    ? 'bg-sky-500/80 border-sky-400'
-                                    : 'bg-transparent'
-                                }`}
-                              />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <div className="mt-2 flex items-center justify-between border-t border-slate-800 pt-2">
-                      <button
-                        type="button"
-                        onClick={clearResponsibles}
-                        className="text-[10px] text-slate-400 hover:text-slate-200"
-                      >
-                        Limpiar selección
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setResponsibleOpen(false)}
-                        className="rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-medium text-sky-50 hover:bg-sky-500"
-                      >
-                        Aplicar
-                      </button>
-                    </div>
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Rango de fechas */}
-          <div className="flex flex-wrap gap-2 md:justify-end">
-            <div className="flex items-center gap-1">
-              <span className="text-[11px] text-slate-400">Desde</span>
-              <input
-                type="date"
-                value={dueFrom}
-                onChange={(e) => handleChange({ dueFrom: e.target.value })}
-                className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[11px] text-slate-400">Hasta</span>
-              <input
-                type="date"
-                value={dueTo}
-                onChange={(e) => handleChange({ dueTo: e.target.value })}
-                className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
-              />
-            </div>
           </div>
         </div>
 
-        {/* Chips resumen filtros activos */}
-        <div className="flex flex-wrap gap-1.5 text-[10px] text-slate-300">
-          {search ||
-          project ||
-          status !== 'all' ||
-          priority !== 'all' ||
-          responsibleIds.length > 0 ||
-          dueFrom ||
-          dueTo ? (
-            <>
-              <span className="mr-1 text-slate-500">Filtros activos:</span>
-
-              {search && (
-                <FilterChip
-                  label={`Texto: "${search}"`}
-                  onClear={() => handleChange({ search: '' })}
+        <div className="space-y-4 p-5">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(220px,.8fr)_190px_190px]">
+            <Field label="Buscar">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={(event) => handleChange({ search: event.target.value })}
+                  placeholder="Título, resumen o proyecto..."
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50/70 pl-10 pr-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 hover:border-indigo-200 hover:bg-white focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
                 />
-              )}
+              </div>
+            </Field>
 
-              {project && (
-                <FilterChip
-                  label={`Proyecto: "${project}"`}
-                  onClear={() => handleChange({ project: '' })}
-                />
-              )}
+            <Field label="Proyecto">
+              <input
+                value={project}
+                onChange={(event) => handleChange({ project: event.target.value })}
+                placeholder="Nombre del proyecto"
+                className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 hover:border-indigo-200 hover:bg-white focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+              />
+            </Field>
 
-              {status !== 'all' && (
-                <FilterChip
-                  label={`Estado: ${STATUS_LABELS[status]}`}
-                  onClear={() => handleChange({ status: 'all' })}
-                />
-              )}
-
-              {priority !== 'all' && (
-                <FilterChip
-                  label={`Prioridad: ${PRIORITY_LABELS[priority]}`}
-                  onClear={() => handleChange({ priority: 'all' })}
-                />
-              )}
-
-              {responsibleIds.length > 0 && (
-                <FilterChip
-                  label={`Responsables: ${responsibleIds.length}`}
-                  onClear={clearResponsibles}
-                />
-              )}
-
-              {dueFrom && (
-                <FilterChip
-                  label={`Desde: ${dueFrom}`}
-                  onClear={() => handleChange({ dueFrom: '' })}
-                />
-              )}
-
-              {dueTo && (
-                <FilterChip
-                  label={`Hasta: ${dueTo}`}
-                  onClear={() => handleChange({ dueTo: '' })}
-                />
-              )}
-
-              <button
-                type="button"
-                onClick={() =>
-                  onChange({
-                    ...defaultFilters,
-                    viewMode, // respetamos el modo de vista actual
+            <Field label="Estado">
+              <RedcomSelect
+                value={status}
+                accent="indigo"
+                onValueChange={(next) =>
+                  handleChange({
+                    status: next as ProjectTaskFiltersState["status"],
                   })
                 }
-                className="ml-2 rounded-full border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800"
-              >
-                Limpiar todo
-              </button>
-            </>
+                options={[
+                  { value: "all", label: "Todos" },
+                  { value: "not_started", label: "Sin empezar" },
+                  { value: "in_progress", label: "En curso" },
+                  { value: "done", label: "Completadas" },
+                  { value: "cancelled", label: "Canceladas" },
+                ]}
+                aria-label="Filtrar por estado"
+              />
+            </Field>
+
+            <Field label="Prioridad">
+              <RedcomSelect
+                value={priority}
+                accent="teal"
+                onValueChange={(next) =>
+                  handleChange({
+                    priority: next as ProjectTaskFiltersState["priority"],
+                  })
+                }
+                options={[
+                  { value: "all", label: "Todas" },
+                  { value: "low", label: "Baja" },
+                  { value: "medium", label: "Media" },
+                  { value: "high", label: "Alta" },
+                ]}
+                aria-label="Filtrar por prioridad"
+              />
+            </Field>
+          </div>
+
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_220px_220px]">
+            <Field label="Responsables">
+              <Popover open={responsibleOpen} onOpenChange={setResponsibleOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="group flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-left text-sm font-bold text-slate-800 shadow-[0_1px_2px_rgba(15,23,42,.04)] outline-none transition hover:border-indigo-300 hover:bg-indigo-50/40 focus-visible:border-indigo-600 focus-visible:ring-4 focus-visible:ring-indigo-600/10 data-[state=open]:border-indigo-600 data-[state=open]:ring-4 data-[state=open]:ring-indigo-600/10"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-700">
+                        <Users2 className="h-4 w-4" />
+                      </span>
+                      <span className="truncate">{responsibleLabel}</span>
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition group-data-[state=open]:rotate-180" />
+                  </button>
+                </PopoverTrigger>
+
+                <PopoverContent
+                  align="start"
+                  sideOffset={8}
+                  className="z-[240] w-[var(--radix-popover-trigger-width)] min-w-[320px] rounded-3xl border border-slate-200 bg-white p-2 shadow-[0_22px_60px_rgba(15,23,42,.16)]"
+                >
+                  <div className="relative border-b border-slate-100 p-2 pb-3">
+                    <Search className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-[calc(50%+2px)] text-slate-400" />
+                    <input
+                      value={responsibleSearch}
+                      onChange={(event) => setResponsibleSearch(event.target.value)}
+                      placeholder="Buscar responsable..."
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                    />
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto p-1">
+                    {filteredSupervisors.length === 0 ? (
+                      <div className="px-3 py-8 text-center text-sm font-semibold text-slate-400">
+                        No se encontraron responsables.
+                      </div>
+                    ) : (
+                      filteredSupervisors.map((person) => {
+                        const selected = responsibleIds.includes(person.id);
+                        return (
+                          <button
+                            key={person.id}
+                            type="button"
+                            onClick={() => toggleResponsible(person.id)}
+                            className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-indigo-50"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-bold text-slate-800">
+                                {person.full_name ?? person.email ?? "Sin nombre"}
+                              </span>
+                              {person.email ? (
+                                <span className="mt-0.5 block truncate text-xs font-medium text-slate-400">
+                                  {person.email}
+                                </span>
+                              ) : null}
+                            </span>
+                            <span
+                              className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg border transition ${
+                                selected
+                                  ? "border-indigo-600 bg-indigo-600 text-white"
+                                  : "border-slate-200 bg-white text-transparent"
+                              }`}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 border-t border-slate-100 p-2 pt-3">
+                    <button
+                      type="button"
+                      onClick={clearResponsibles}
+                      disabled={responsibleIds.length === 0}
+                      className="rounded-xl px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
+                    >
+                      Limpiar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResponsibleOpen(false)}
+                      className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-black text-white transition hover:bg-indigo-700"
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </Field>
+
+            <Field label="Vencimiento desde">
+              <RedcomDatePicker
+                value={dueFrom}
+                onChange={(next) => handleChange({ dueFrom: next })}
+                placeholder="Desde"
+                accent="indigo"
+                aria-label="Vencimiento desde"
+              />
+            </Field>
+
+            <Field label="Vencimiento hasta">
+              <RedcomDatePicker
+                value={dueTo}
+                onChange={(next) => handleChange({ dueTo: next })}
+                placeholder="Hasta"
+                accent="teal"
+                aria-label="Vencimiento hasta"
+              />
+            </Field>
+          </div>
+
+          {activeFilterCount > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+              <span className="mr-1 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+                Filtros activos
+              </span>
+              {search ? (
+                <FilterChip label={`Texto: “${search}”`} onClear={() => handleChange({ search: "" })} />
+              ) : null}
+              {project ? (
+                <FilterChip label={`Proyecto: “${project}”`} onClear={() => handleChange({ project: "" })} />
+              ) : null}
+              {status !== "all" ? (
+                <FilterChip label={`Estado: ${STATUS_LABELS[status]}`} onClear={() => handleChange({ status: "all" })} />
+              ) : null}
+              {priority !== "all" ? (
+                <FilterChip label={`Prioridad: ${PRIORITY_LABELS[priority]}`} onClear={() => handleChange({ priority: "all" })} />
+              ) : null}
+              {responsibleIds.length > 0 ? (
+                <FilterChip label={`Responsables: ${responsibleIds.length}`} onClear={clearResponsibles} />
+              ) : null}
+              {dueFrom ? (
+                <FilterChip label={`Desde: ${dueFrom}`} onClear={() => handleChange({ dueFrom: "" })} />
+              ) : null}
+              {dueTo ? (
+                <FilterChip label={`Hasta: ${dueTo}`} onClear={() => handleChange({ dueTo: "" })} />
+              ) : null}
+            </div>
           ) : (
-            <span className="text-slate-500">
-              Sin filtros activos. Mostrando todas las tareas permitidas.
-            </span>
+            <div className="border-t border-slate-100 pt-4 text-xs font-medium text-slate-400">
+              Sin filtros activos. Se muestran todas las tareas permitidas para tu usuario.
+            </div>
           )}
         </div>
       </div>
@@ -480,35 +444,69 @@ export default function ProjectTaskFilters({
   );
 }
 
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
 function MetricCard({
   label,
   value,
-  description,
-  accent = 'slate',
+  helper,
+  icon,
+  tone,
+  progress,
 }: {
   label: string;
   value: number | string;
-  description: string;
-  accent?: 'slate' | 'emerald' | 'amber' | 'sky';
+  helper: string;
+  icon: React.ReactNode;
+  tone: "indigo" | "teal" | "amber" | "sky";
+  progress?: number;
 }) {
-  const accentClasses: Record<string, string> = {
-    slate: 'border-slate-700/70 bg-slate-900 text-slate-100',
-    emerald: 'border-emerald-700/60 bg-emerald-900 text-emerald-50',
-    amber: 'border-amber-700/60 bg-yellow-600 text-amber-50',
-    sky: 'border-sky-700/60 bg-sky-950 text-sky-50',
-  };
+  const toneClasses = {
+    indigo: "bg-indigo-50 text-indigo-700 ring-indigo-100",
+    teal: "bg-teal-50 text-teal-700 ring-teal-100",
+    amber: "bg-amber-50 text-amber-700 ring-amber-100",
+    sky: "bg-sky-50 text-sky-700 ring-sky-100",
+  }[tone];
+
+  const barClasses = {
+    indigo: "bg-indigo-600",
+    teal: "bg-teal-600",
+    amber: "bg-amber-500",
+    sky: "bg-sky-600",
+  }[tone];
 
   return (
-    <div
-      className={`flex flex-col rounded-xl border px-3 py-2 text-xs shadow-sm ${accentClasses[accent]}`}
-    >
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-white/90">
-        {label}
-      </span>
-      <span className="mt-1 text-lg font-semibold">{value}</span>
-      <span className="mt-1 text-[10px] text-white/90">
-        {description}
-      </span>
+    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,.05)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">{label}</div>
+          <div className="mt-2 text-2xl font-black tracking-tight text-slate-950">{value}</div>
+          <div className="mt-1 text-xs font-medium text-slate-500">{helper}</div>
+        </div>
+        <div className={`grid h-10 w-10 place-items-center rounded-2xl ring-1 ${toneClasses}`}>
+          {icon}
+        </div>
+      </div>
+      {typeof progress === "number" ? (
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100">
+          <div className={`h-full rounded-full ${barClasses}`} style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }} />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -521,12 +519,13 @@ function FilterChip({
   onClear: () => void;
 }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700">
       <span>{label}</span>
       <button
         type="button"
         onClick={onClear}
-        className="rounded-full p-0.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+        className="grid h-4 w-4 place-items-center rounded-full text-indigo-400 transition hover:bg-indigo-100 hover:text-indigo-800"
+        aria-label={`Quitar filtro ${label}`}
       >
         <X className="h-3 w-3" />
       </button>
