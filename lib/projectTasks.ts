@@ -51,11 +51,10 @@ export async function fetchTaskWorkspace(
 export async function upsertTaskWorkspace(params: {
   taskId: number;
   todos: ProjectTaskWorkspaceTodo[];
-  quickNotes: string;
   resourceLinks: ProjectTaskWorkspaceLink[];
   updatedBy?: string | null;
 }): Promise<ProjectTaskWorkspace> {
-  const { taskId, todos, quickNotes, resourceLinks, updatedBy } = params;
+  const { taskId, todos, resourceLinks, updatedBy } = params;
 
   const { data, error } = await supabase
     .from('project_task_workspace')
@@ -63,7 +62,6 @@ export async function upsertTaskWorkspace(params: {
       {
         task_id: taskId,
         todos,
-        quick_notes: quickNotes,
         resource_links: resourceLinks,
         updated_by: updatedBy ?? null,
       },
