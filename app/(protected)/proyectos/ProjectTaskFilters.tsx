@@ -5,8 +5,9 @@ import { Check, ChevronDown, Filter, Search, Users2, X } from "lucide-react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RedcomDatePicker } from "@/components/ui/redcom-date-picker";
-import { RedcomSelect } from "@/components/ui/redcom-select";
+import { RedcomSearchableSelect, RedcomSelect } from "@/components/ui/redcom-select";
 import type { AssigneeOption } from "@/lib/projectTasks";
+import type { ProjectWithMembers } from "@/lib/projects";
 
 export type ProjectTaskFiltersState = {
   search: string;
@@ -29,6 +30,7 @@ type Stats = {
 
 type Props = {
   supervisors?: AssigneeOption[];
+  projects?: ProjectWithMembers[];
   value?: ProjectTaskFiltersState;
   stats?: Stats;
   onChange: (next: ProjectTaskFiltersState) => void;
@@ -77,12 +79,14 @@ function priorityTone(value: ProjectTaskFiltersState["priority"]) {
 
 export default function ProjectTaskFilters({
   supervisors,
+  projects,
   value,
   stats,
   onChange,
 }: Props) {
   const safeValue = value ?? DEFAULT_FILTERS;
   const safeSupervisors = supervisors ?? [];
+  const safeProjects = projects ?? [];
   const safeStats = stats ?? {
     total: 0,
     completed: 0,
@@ -224,11 +228,26 @@ export default function ProjectTaskFilters({
         </div>
 
         <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_190px_190px]">
-          <input
+          <RedcomSearchableSelect
             value={project}
-            onChange={(event) => handleChange({ project: event.target.value })}
-            placeholder="Proyecto"
-            className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-normal text-[#f5f5f7] outline-none transition placeholder:text-white/[0.58] hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
+            surface="dark"
+            accent="indigo"
+            className="h-11 rounded-[14px]"
+            onValueChange={(next) => handleChange({ project: next })}
+            placeholder="Todos los proyectos"
+            searchPlaceholder="Buscar proyecto..."
+            emptyMessage="No se encontraron proyectos."
+            options={[
+              { value: "", label: "Todos los proyectos" },
+              ...safeProjects
+                .filter((item) => item.status !== "archived")
+                .map((item) => ({
+                  value: item.name,
+                  label: item.name,
+                  keywords: [item.description ?? "", item.status],
+                })),
+            ]}
+            aria-label="Filtrar por proyecto"
           />
 
           <Popover open={responsibleOpen} onOpenChange={setResponsibleOpen}>
