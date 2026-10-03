@@ -102,7 +102,14 @@ export function RedcomDatePicker({
           <span className={cn("truncate", !selected && (surface === "dark" ? "text-white/35" : "text-slate-400"))}>
             {selected ? formatDisplayDate(selected) : placeholder}
           </span>
-          <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-xl", accentClasses.icon)}>
+          <span
+            className={cn(
+              "grid h-7 w-7 shrink-0 place-items-center rounded-xl",
+              surface === "dark"
+                ? "bg-[#0a84ff]/15 text-[#5ac8fa]"
+                : accentClasses.icon,
+            )}
+          >
             <CalendarDays className="h-4 w-4" />
           </span>
         </button>
@@ -127,10 +134,53 @@ export function RedcomDatePicker({
             setOpen(false);
           }}
           defaultMonth={selected}
-          captionLayout="dropdown"
+          captionLayout="label"
+          className={cn(
+            surface === "dark"
+              ? "bg-transparent text-[#f5f5f7] [--cell-size:2.15rem]"
+              : "",
+          )}
           classNames={{
-            selected: accentClasses.selected,
-            today: "rounded-lg bg-slate-100 text-slate-950",
+            month_caption:
+              surface === "dark"
+                ? "flex h-[--cell-size] w-full items-center justify-center px-[--cell-size] text-sm font-medium text-white/85"
+                : undefined,
+            caption_label:
+              surface === "dark"
+                ? "select-none text-sm font-medium text-white/85"
+                : undefined,
+            weekday:
+              surface === "dark"
+                ? "flex-1 select-none rounded-md text-[0.78rem] font-normal text-white/35"
+                : undefined,
+            day:
+              surface === "dark"
+                ? "group/day relative aspect-square h-full w-full select-none p-0 text-center text-white/75"
+                : undefined,
+            today:
+              surface === "dark"
+                ? "rounded-lg bg-white/[0.07] text-white"
+                : "rounded-lg bg-slate-100 text-slate-950",
+            outside:
+              surface === "dark"
+                ? "text-white/18 aria-selected:text-white/35"
+                : undefined,
+            disabled:
+              surface === "dark"
+                ? "text-white/15 opacity-40"
+                : undefined,
+            button_previous:
+              surface === "dark"
+                ? "h-[--cell-size] w-[--cell-size] select-none rounded-lg border border-white/[0.08] bg-white/[0.04] p-0 text-white/60 hover:bg-white/[0.08] hover:text-white"
+                : undefined,
+            button_next:
+              surface === "dark"
+                ? "h-[--cell-size] w-[--cell-size] select-none rounded-lg border border-white/[0.08] bg-white/[0.04] p-0 text-white/60 hover:bg-white/[0.08] hover:text-white"
+                : undefined,
+            selected:
+              surface === "dark"
+                ? "rounded-lg bg-[#0a84ff] text-white"
+                : accentClasses.selected,
           }}
         />
 
