@@ -1221,6 +1221,7 @@ export default function ProjectTaskDrawer({
                     onChange={setDueDate}
                     placeholder="Sin fecha"
                     accent="indigo"
+                    surface="dark"
                     disabled={isLocked}
                     className="h-9 min-w-[190px] rounded-xl"
                     aria-label="Fecha límite"
