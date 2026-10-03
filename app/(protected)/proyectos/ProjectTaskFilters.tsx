@@ -175,12 +175,12 @@ export default function ProjectTaskFilters({
       <div className="px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/[0.58]" />
             <input
               value={search}
               onChange={(event) => handleChange({ search: event.target.value })}
               placeholder="Buscar tarea, resumen o proyecto"
-              className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] pl-10 pr-3 text-sm font-normal text-[#f5f5f7] outline-none transition placeholder:text-white/30 hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
+              className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] pl-10 pr-3 text-sm font-normal text-[#f5f5f7] outline-none transition placeholder:text-white/[0.58] hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
             />
           </div>
 
@@ -228,7 +228,7 @@ export default function ProjectTaskFilters({
             value={project}
             onChange={(event) => handleChange({ project: event.target.value })}
             placeholder="Proyecto"
-            className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-normal text-[#f5f5f7] outline-none transition placeholder:text-white/30 hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
+            className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-normal text-[#f5f5f7] outline-none transition placeholder:text-white/[0.58] hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
           />
 
           <Popover open={responsibleOpen} onOpenChange={setResponsibleOpen}>
@@ -238,10 +238,10 @@ export default function ProjectTaskFilters({
                 className="flex h-11 w-full items-center justify-between gap-3 rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-left text-sm font-normal text-[#f5f5f7] outline-none transition hover:bg-white/[0.055] focus-visible:border-[#0a84ff]/60 focus-visible:ring-4 focus-visible:ring-[#0a84ff]/10 data-[state=open]:border-[#0a84ff]/60 data-[state=open]:bg-white/[0.06]"
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <Users2 className="h-4 w-4 shrink-0 text-white/35" />
+                  <Users2 className="h-4 w-4 shrink-0 text-white/[0.65]" />
                   <span className="truncate">Responsables · {responsibleLabel}</span>
                 </span>
-                <ChevronDown className="h-4 w-4 shrink-0 text-white/30" />
+                <ChevronDown className="h-4 w-4 shrink-0 text-white/[0.58]" />
               </button>
             </PopoverTrigger>
             <PopoverContent
@@ -250,17 +250,17 @@ export default function ProjectTaskFilters({
               className="z-[240] w-[var(--radix-popover-trigger-width)] min-w-[320px] rounded-[18px] border border-white/[0.09] bg-[#1c1c1e] p-2 text-[#f5f5f7] shadow-[0_24px_70px_rgba(0,0,0,.38)]"
             >
               <div className="relative border-b border-white/[0.07] p-1 pb-2">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-[calc(50%+2px)] text-white/25" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-[calc(50%+2px)] text-white/[0.50]" />
                 <input
                   value={responsibleSearch}
                   onChange={(event) => setResponsibleSearch(event.target.value)}
                   placeholder="Buscar responsable"
-                  className="h-10 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] pl-9 pr-3 text-sm font-normal text-white outline-none placeholder:text-white/25 focus:border-[#0a84ff]/55 focus:ring-4 focus:ring-[#0a84ff]/10"
+                  className="h-10 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] pl-9 pr-3 text-sm font-normal text-white outline-none placeholder:text-white/[0.46] focus:border-[#0a84ff]/55 focus:ring-4 focus:ring-[#0a84ff]/10"
                 />
               </div>
               <div className="max-h-64 overflow-y-auto py-1">
                 {filteredSupervisors.length === 0 ? (
-                  <div className="px-3 py-8 text-center text-sm font-normal text-white/35">
+                  <div className="px-3 py-8 text-center text-sm font-normal text-white/[0.65]">
                     No se encontraron responsables.
                   </div>
                 ) : (
@@ -274,11 +274,11 @@ export default function ProjectTaskFilters({
                         className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.055]"
                       >
                         <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium text-white/90">
+                          <span className="block truncate text-sm font-medium text-white/[0.94]">
                             {person.full_name ?? person.email ?? "Sin nombre"}
                           </span>
                           {person.email ? (
-                            <span className="mt-0.5 block truncate text-xs font-normal text-white/35">
+                            <span className="mt-0.5 block truncate text-xs font-normal text-white/[0.65]">
                               {person.email}
                             </span>
                           ) : null}
@@ -302,7 +302,7 @@ export default function ProjectTaskFilters({
                   type="button"
                   onClick={clearResponsibles}
                   disabled={responsibleIds.length === 0}
-                  className="rounded-xl px-3 py-2 text-xs font-medium text-white/45 transition hover:bg-white/[0.05] hover:text-white/80 disabled:opacity-30"
+                  className="rounded-xl px-3 py-2 text-xs font-medium text-white/[0.72] transition hover:bg-white/[0.05] hover:text-white/[0.88] disabled:opacity-30"
                 >
                   Limpiar
                 </button>
@@ -338,7 +338,7 @@ export default function ProjectTaskFilters({
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/[0.07] pt-3">
-          <div className="mr-auto flex items-center gap-2 text-xs font-normal text-white/40">
+          <div className="mr-auto flex items-center gap-2 text-xs font-normal text-white/[0.68]">
             <Filter className="h-3.5 w-3.5" />
             {activeCount === 0
               ? "Sin filtros activos"
@@ -381,7 +381,7 @@ function Metric({
 }) {
   return (
     <div className={`px-4 py-4 sm:px-5 ${last ? "" : "border-r border-white/[0.07]"}`}>
-      <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">{label}</div>
+      <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.65]">{label}</div>
       <div className="mt-1 text-2xl font-medium tracking-[-0.035em] text-white">{value}</div>
     </div>
   );
@@ -389,12 +389,12 @@ function Metric({
 
 function Chip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-lg bg-white/[0.055] px-2 py-1 text-[11px] font-normal text-white/60">
+    <span className="inline-flex items-center gap-1 rounded-lg bg-white/[0.055] px-2 py-1 text-[11px] font-normal text-white/[0.78]">
       {label}
       <button
         type="button"
         onClick={onClear}
-        className="rounded-md p-0.5 text-white/30 transition hover:bg-white/[0.07] hover:text-white/70"
+        className="rounded-md p-0.5 text-white/[0.58] transition hover:bg-white/[0.07] hover:text-white/[0.82]"
         aria-label={`Quitar filtro ${label}`}
       >
         <X className="h-3 w-3" />
