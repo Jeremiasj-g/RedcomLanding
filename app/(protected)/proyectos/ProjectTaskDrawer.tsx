@@ -598,6 +598,16 @@ export default function ProjectTaskDrawer({
     setSummary(task.summary ?? '');
     setDescription(task.description ?? '');
     setProject(task.project ?? '');
+    setProjectId(
+      task.project_id
+        ? String(task.project_id)
+        : String(
+            projects.find(
+              (item) =>
+                item.name.toLowerCase() === (task.project ?? '').toLowerCase(),
+            )?.id ?? '',
+          ),
+    );
     setStatus(task.status);
     setPriority(task.priority);
     setDueDate(task.due_date ? task.due_date.slice(0, 10) : '');
@@ -775,11 +785,18 @@ export default function ProjectTaskDrawer({
 
     setLoading(true);
     try {
+      const selectedProject =
+        projects.find((item) => String(item.id) === projectId) ??
+        projects.find(
+          (item) => item.name.toLowerCase() === project.toLowerCase(),
+        );
+
       const updatedRow = await updateProjectTask(task.id, {
         title,
         summary,
         description,
-        project,
+        project: selectedProject?.name ?? project,
+        project_id: selectedProject?.id ?? task.project_id ?? null,
         status,
         priority,
         due_date: dueDate || null,
