@@ -34,6 +34,7 @@ import { RequireAuth } from '@/components/RouteGuards';
 import { useMe } from '@/hooks/useMe';
 import ProjectTaskDrawer from './ProjectTaskDrawer';
 import ProjectKanbanBoard from './ProjectKanbanBoard';
+import ProjectPortfolio from './ProjectPortfolio';
 import { supabase } from '@/lib/supabaseClient';
 import ProjectTaskFilters, {
   ProjectTaskFiltersState,
@@ -42,6 +43,7 @@ import DualSpinner from '@/components/ui/DualSpinner';
 import { errorMessage, notify } from '@/lib/notifications';
 import { RedcomDatePicker } from '@/components/ui/redcom-date-picker';
 import { RedcomSelect } from '@/components/ui/redcom-select';
+import { fetchProjectsForUser, type ProjectWithMembers } from '@/lib/projects';
 
 // ─────────────────────────────────────────
 //  Tailwind helpers
@@ -179,7 +181,9 @@ export default function ProyectosPage() {
   const { me, loading: loadingMe } = useMe();
 
   const [tasks, setTasks] = useState<ProjectTaskWithAssignees[]>([]);
+  const [projects, setProjects] = useState<ProjectWithMembers[]>([]);
   const [supervisors, setSupervisors] = useState<AssigneeOption[]>([]);
+  const [workspaceView, setWorkspaceView] = useState<'tasks' | 'projects'>('tasks');
   const [selectedTask, setSelectedTask] =
     useState<ProjectTaskWithAssignees | null>(null);
 
@@ -195,7 +199,7 @@ export default function ProyectosPage() {
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newSummary, setNewSummary] = useState('');
-  const [newProject, setNewProject] = useState('');
+  const [newProjectId, setNewProjectId] = useState('');
   const [newDueDate, setNewDueDate] = useState(''); // yyyy-mm-dd
 
   // dropdowns por fila
@@ -241,9 +245,10 @@ export default function ProyectosPage() {
     const load = async () => {
       try {
         setLoading(true);
-        const [tasksData, supervisorsData] = await Promise.all([
+        const [tasksData, supervisorsData, projectsData] = await Promise.all([
           fetchProjectTasksForUser(me.id, me.role),
           fetchEligibleAssignees(me.role),
+          fetchProjectsForUser(me.id, me.role),
         ]);
         setTasks((tasksData ?? []).slice().sort((a: any, b: any) => {
           const da = a?.created_at ? new Date(a.created_at).getTime() : 0;
@@ -251,6 +256,14 @@ export default function ProyectosPage() {
           return db - da;
         }));
         setSupervisors(supervisorsData);
+        setProjects(projectsData ?? []);
+        setNewProjectId((current) => {
+          if (current) return current;
+          const general = (projectsData ?? []).find(
+            (project) => project.name.toLowerCase() === 'proyecto general',
+          );
+          return general ? String(general.id) : String(projectsData?.[0]?.id ?? '');
+        });
       } catch (err) {
         console.error('Error cargando proyectos/tareas', err);
       } finally {
@@ -411,9 +424,15 @@ export default function ProyectosPage() {
     try {
       setCreating(true);
 
+      const selectedProject =
+        projects.find((project) => String(project.id) === newProjectId) ??
+        projects.find((project) => project.name.toLowerCase() === 'proyecto general') ??
+        projects[0];
+
       const payload = {
         title: newTitle.trim(),
-        project: newProject.trim() || 'Proyecto general',
+        project: selectedProject?.name ?? 'Proyecto general',
+        project_id: selectedProject?.id ?? null,
         summary: newSummary.trim() || null,
         status: 'not_started' as ProjectTaskStatus,
         priority: 'medium' as ProjectTaskPriority,
@@ -425,7 +444,6 @@ export default function ProyectosPage() {
       setTasks((prev) => [created, ...prev]);
       setNewTitle('');
       setNewSummary('');
-      setNewProject('');
       setNewDueDate('');
       setQuickCreateOpen(false);
       setPage(1);
@@ -724,18 +742,75 @@ export default function ProyectosPage() {
               </p>
             </div>
 
-            {canManage ? (
-              <button
-                type="button"
-                onClick={() => setQuickCreateOpen((open) => !open)}
-                className="inline-flex h-11 items-center justify-center gap-2 self-start rounded-[13px] bg-[#1d1d1f] px-4 text-sm font-medium text-white shadow-[0_8px_22px_rgba(0,0,0,.12)] transition hover:bg-[#2c2c2e] lg:self-auto"
-              >
-                <Plus className="h-4 w-4" />
-                {quickCreateOpen ? 'Cerrar' : 'Nueva tarea'}
-              </button>
-            ) : null}
+            <div className="flex items-center gap-2 self-start lg:self-auto">
+              <div className="flex h-11 items-center rounded-[13px] border border-slate-200 bg-white p-1 shadow-[0_4px_16px_rgba(15,23,42,.05)]">
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceView('tasks')}
+                  className={`h-9 rounded-[9px] px-3 text-xs font-medium transition ${
+                    workspaceView === 'tasks'
+                      ? 'bg-slate-950 text-white'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  Tareas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorkspaceView('projects');
+                    setQuickCreateOpen(false);
+                  }}
+                  className={`h-9 rounded-[9px] px-3 text-xs font-medium transition ${
+                    workspaceView === 'projects'
+                      ? 'bg-slate-950 text-white'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  Proyectos
+                </button>
+              </div>
+
+              {canManage && workspaceView === 'tasks' ? (
+                <button
+                  type="button"
+                  onClick={() => setQuickCreateOpen((open) => !open)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-[13px] bg-[#1d1d1f] px-4 text-sm font-medium text-white shadow-[0_8px_22px_rgba(0,0,0,.12)] transition hover:bg-[#2c2c2e]"
+                >
+                  <Plus className="h-4 w-4" />
+                  {quickCreateOpen ? 'Cerrar' : 'Nueva tarea'}
+                </button>
+              ) : null}
+            </div>
           </header>
 
+          {workspaceView === 'projects' && me ? (
+            <ProjectPortfolio
+              projects={projects}
+              tasks={hydratedTasks}
+              currentUserId={me.id}
+              canManage={canManage}
+              onProjectCreated={(project) =>
+                setProjects((current) =>
+                  [...current, project].sort((a, b) => a.name.localeCompare(b.name, 'es')),
+                )
+              }
+              onProjectUpdated={(project) =>
+                setProjects((current) =>
+                  current.map((item) => (item.id === project.id ? project : item)),
+                )
+              }
+              onOpenTasks={(project) => {
+                setFilters((current) => ({
+                  ...current,
+                  project: project.name,
+                }));
+                setWorkspaceView('tasks');
+              }}
+            />
+          ) : null}
+
+          <div className={workspaceView === 'projects' ? 'hidden' : ''}>
           <div className="mb-5 flex flex-wrap items-center gap-x-0 gap-y-3 border-y border-slate-200 py-4 text-sm">
             <div className="pr-5">
               <span className="text-slate-500">Visibles</span>
@@ -761,6 +836,7 @@ export default function ProyectosPage() {
 
           <ProjectTaskFilters
             supervisors={supervisors}
+            projects={projects}
             value={filters}
             onChange={setFilters}
             stats={{
@@ -806,11 +882,20 @@ export default function ProyectosPage() {
                     />
                   </div>
 
-                  <input
-                    value={newProject}
-                    onChange={(event) => setNewProject(event.target.value)}
-                    placeholder="Proyecto"
-                    className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-normal text-white outline-none transition placeholder:text-white/[0.46] hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
+                  <RedcomSelect
+                    value={newProjectId}
+                    surface="dark"
+                    accent="indigo"
+                    className="h-11 rounded-[14px]"
+                    onValueChange={setNewProjectId}
+                    options={projects
+                      .filter((project) => project.status !== 'archived')
+                      .map((project) => ({
+                        value: String(project.id),
+                        label: project.name,
+                      }))}
+                    placeholder="Seleccionar proyecto"
+                    aria-label="Proyecto de la nueva tarea"
                   />
 
                   <RedcomDatePicker
@@ -1198,6 +1283,7 @@ export default function ProyectosPage() {
   
             )}
           </section>
+          </div>
         </div>
       </div>
       <AnimatePresence>
@@ -1206,6 +1292,7 @@ export default function ProyectosPage() {
             key={selectedTask.id}
             task={selectedTask}
             supervisors={supervisors}
+            projects={projects}
             currentUserRole={me?.role ?? 'vendedor'}
             currentUserId={me?.id ?? null}
             onClose={() => setSelectedTask(null)}
