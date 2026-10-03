@@ -255,7 +255,7 @@ export default function ProjectTaskFilters({
                   value={responsibleSearch}
                   onChange={(event) => setResponsibleSearch(event.target.value)}
                   placeholder="Buscar responsable"
-                  className="h-10 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] pl-9 pr-3 text-sm font-normal text-white outline-none placeholder:text-white/[0.46] focus:border-[#0a84ff]/55 focus:ring-4 focus:ring-[#0a84ff]/10"
+                  className="h-10 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] pl-9 pr-3 text-sm font-normal text-white outline-none placeholder:text-white/[0.46] focus:border-[#0a84ff]/[0.55] focus:ring-4 focus:ring-[#0a84ff]/10"
                 />
               </div>
               <div className="max-h-64 overflow-y-auto py-1">
@@ -287,7 +287,7 @@ export default function ProjectTaskFilters({
                           className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg border transition ${
                             selected
                               ? "border-[#0a84ff] bg-[#0a84ff] text-white"
-                              : "border-white/15 bg-transparent text-transparent"
+                              : "border-white/[0.15] bg-transparent text-transparent"
                           }`}
                         >
                           <Check className="h-3.5 w-3.5" />
