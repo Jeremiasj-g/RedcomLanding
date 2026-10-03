@@ -682,12 +682,12 @@ export default function ProyectosPage() {
               >
                 <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
                   <div>
-                    <h2 className="text-sm font-medium text-white/90">Nueva tarea</h2>
-                    <p className="mt-1 text-xs font-normal text-white/35">
+                    <h2 className="text-sm font-medium text-white/[0.94]">Nueva tarea</h2>
+                    <p className="mt-1 text-xs font-normal text-white/[0.65]">
                       Cargá los datos básicos. El resto se puede completar después.
                     </p>
                   </div>
-                  <span className="text-xs font-normal text-white/30">Sin empezar · Prioridad media</span>
+                  <span className="text-xs font-normal text-white/[0.58]">Sin empezar · Prioridad media</span>
                 </div>
 
                 <div className="grid gap-3 p-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,.8fr)_210px_auto] xl:items-end">
@@ -696,13 +696,13 @@ export default function ProyectosPage() {
                       value={newTitle}
                       onChange={(event) => setNewTitle(event.target.value)}
                       placeholder="Nombre de la tarea"
-                      className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-medium text-white outline-none transition placeholder:font-normal placeholder:text-white/25 hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
+                      className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-medium text-white outline-none transition placeholder:font-normal placeholder:text-white/[0.46] hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
                     />
                     <input
                       value={newSummary}
                       onChange={(event) => setNewSummary(event.target.value)}
                       placeholder="Resumen breve (opcional)"
-                      className="h-10 w-full rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3 text-xs font-normal text-white/80 outline-none transition placeholder:text-white/25 focus:border-[#0a84ff]/50 focus:bg-white/[0.05]"
+                      className="h-10 w-full rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3 text-xs font-normal text-white/[0.88] outline-none transition placeholder:text-white/[0.46] focus:border-[#0a84ff]/50 focus:bg-white/[0.05]"
                     />
                   </div>
 
@@ -710,7 +710,7 @@ export default function ProyectosPage() {
                     value={newProject}
                     onChange={(event) => setNewProject(event.target.value)}
                     placeholder="Proyecto"
-                    className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-normal text-white outline-none transition placeholder:text-white/25 hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
+                    className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-normal text-white outline-none transition placeholder:text-white/[0.46] hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
                   />
 
                   <RedcomDatePicker
@@ -740,19 +740,19 @@ export default function ProyectosPage() {
           <section className="mt-4 overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#151517] shadow-[0_16px_45px_rgba(0,0,0,.18)]">
             <div className="flex flex-col gap-3 border-b border-white/[0.07] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-sm font-medium text-white/90">Trabajo activo</h2>
-                <p className="mt-1 text-xs font-normal text-white/35">
+                <h2 className="text-sm font-medium text-white/[0.94]">Trabajo activo</h2>
+                <p className="mt-1 text-xs font-normal text-white/[0.65]">
                   Estado, prioridad, vencimiento y responsables de cada tarea.
                 </p>
               </div>
-              <span className="text-xs font-normal text-white/35">
+              <span className="text-xs font-normal text-white/[0.65]">
                 {filteredTasks.length} resultado{filteredTasks.length === 1 ? '' : 's'}
               </span>
             </div>
 
             <div className="overflow-x-auto">
               <div className="min-w-[1160px]">
-                <div className="grid grid-cols-[minmax(340px,2.2fr)_180px_165px_160px_minmax(360px,2fr)] border-b border-white/[0.07] bg-white/[0.025] px-5 py-3 text-[10px] font-medium uppercase tracking-[0.08em] text-white/30">
+                <div className="grid grid-cols-[minmax(340px,2.2fr)_180px_165px_160px_minmax(360px,2fr)] border-b border-white/[0.07] bg-white/[0.025] px-5 py-3 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.58]">
                   <div>Tarea / proyecto</div>
                   <div>Estado</div>
                   <div>Prioridad</div>
@@ -761,16 +761,16 @@ export default function ProyectosPage() {
                 </div>
 
                 {loading ? (
-                  <div className="flex min-h-[220px] items-center justify-center text-sm font-normal text-white/35">
+                  <div className="flex min-h-[220px] items-center justify-center text-sm font-normal text-white/[0.65]">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#0a84ff]" />
                     Cargando tareas...
                   </div>
                 ) : filteredTasks.length === 0 ? (
                   <div className="grid min-h-[240px] place-items-center px-6 text-center">
                     <div>
-                      <FolderKanban className="mx-auto h-6 w-6 text-white/25" />
-                      <div className="mt-3 text-sm font-medium text-white/75">No hay tareas para mostrar</div>
-                      <p className="mt-1 text-xs font-normal text-white/30">
+                      <FolderKanban className="mx-auto h-6 w-6 text-white/[0.50]" />
+                      <div className="mt-3 text-sm font-medium text-white/[0.84]">No hay tareas para mostrar</div>
+                      <p className="mt-1 text-xs font-normal text-white/[0.58]">
                         Ajustá los filtros o creá una nueva tarea.
                       </p>
                     </div>
@@ -803,20 +803,20 @@ export default function ProyectosPage() {
                           >
                             <div className="min-w-0 pr-6">
                               <div className="flex items-center gap-2">
-                                <span className="truncate text-sm font-medium text-white/90">{task.title}</span>
+                                <span className="truncate text-sm font-medium text-white/[0.94]">{task.title}</span>
                                 {isLocked ? (
-                                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/[0.055] px-1.5 py-0.5 text-[9px] font-medium text-white/40">
+                                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/[0.055] px-1.5 py-0.5 text-[9px] font-medium text-white/[0.68]">
                                     <LockKeyhole className="h-2.5 w-2.5" />
                                     Cerrada
                                   </span>
                                 ) : null}
                               </div>
                               <div className="mt-1 flex min-w-0 items-center gap-2 text-[11px] font-normal">
-                                <span className="shrink-0 text-white/45">{task.project || 'Proyecto general'}</span>
+                                <span className="shrink-0 text-white/[0.72]">{task.project || 'Proyecto general'}</span>
                                 {task.summary ? (
                                   <>
-                                    <span className="text-white/15">•</span>
-                                    <span className="truncate text-white/28">{task.summary}</span>
+                                    <span className="text-white/[0.35]">•</span>
+                                    <span className="truncate text-white/[0.58]">{task.summary}</span>
                                   </>
                                 ) : null}
                               </div>
@@ -860,8 +860,8 @@ export default function ProyectosPage() {
                               />
                             </div>
 
-                            <div className="flex items-center gap-2 text-xs font-normal text-white/55">
-                              <CalendarDays className="h-3.5 w-3.5 text-white/25" />
+                            <div className="flex items-center gap-2 text-xs font-normal text-white/[0.76]">
+                              <CalendarDays className="h-3.5 w-3.5 text-white/[0.50]" />
                               {formatDueDate(task.due_date)}
                             </div>
 
@@ -871,7 +871,7 @@ export default function ProyectosPage() {
                             >
                               <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
                                 {task.assignees.length === 0 ? (
-                                  <span className="text-xs font-normal text-white/30">Sin responsables</span>
+                                  <span className="text-xs font-normal text-white/[0.58]">Sin responsables</span>
                                 ) : (
                                   task.assignees.slice(0, 2).map((assignee) => {
                                     const supervisor = supervisors.find(
@@ -887,7 +887,7 @@ export default function ProyectosPage() {
                                     return (
                                       <span
                                         key={assignee.user_id}
-                                        className="max-w-[145px] truncate rounded-lg bg-white/[0.055] px-2 py-1 text-[10px] font-normal text-white/55"
+                                        className="max-w-[145px] truncate rounded-lg bg-white/[0.055] px-2 py-1 text-[10px] font-normal text-white/[0.76]"
                                       >
                                         {label}
                                       </span>
@@ -895,7 +895,7 @@ export default function ProyectosPage() {
                                   })
                                 )}
                                 {task.assignees.length > 2 ? (
-                                  <span className="shrink-0 text-[10px] font-normal text-white/30">
+                                  <span className="shrink-0 text-[10px] font-normal text-white/[0.58]">
                                     +{task.assignees.length - 2}
                                   </span>
                                 ) : null}
@@ -927,7 +927,7 @@ export default function ProyectosPage() {
                                         requestCloseTask(task);
                                       }}
                                       disabled={isLocked}
-                                      className="grid h-8 w-8 place-items-center rounded-[10px] text-white/35 transition hover:bg-white/[0.055] hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-25"
+                                      className="grid h-8 w-8 place-items-center rounded-[10px] text-white/[0.65] transition hover:bg-white/[0.055] hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-25"
                                     >
                                       <Ban className="h-3.5 w-3.5" />
                                     </button>
@@ -941,7 +941,7 @@ export default function ProyectosPage() {
                                         event.stopPropagation();
                                         void handleDeleteTask(task);
                                       }}
-                                      className="grid h-8 w-8 place-items-center rounded-[10px] text-white/30 transition hover:bg-rose-500/10 hover:text-rose-400"
+                                      className="grid h-8 w-8 place-items-center rounded-[10px] text-white/[0.58] transition hover:bg-rose-500/10 hover:text-rose-400"
                                     >
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </button>
@@ -953,12 +953,12 @@ export default function ProyectosPage() {
                                 <>
                                   <div className="fixed inset-0 z-30" onClick={closeAllPopovers} />
                                   <div
-                                    className="absolute right-0 top-10 z-40 w-72 overflow-hidden rounded-[18px] border border-white/[0.09] bg-[#1c1c1e] p-2 text-xs text-white/70 shadow-[0_24px_70px_rgba(0,0,0,.4)]"
+                                    className="absolute right-0 top-10 z-40 w-72 overflow-hidden rounded-[18px] border border-white/[0.09] bg-[#1c1c1e] p-2 text-xs text-white/[0.82] shadow-[0_24px_70px_rgba(0,0,0,.4)]"
                                     onClick={(event) => event.stopPropagation()}
                                   >
                                     <div className="p-1 pb-2">
                                       <input
-                                        className="h-9 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 text-xs font-normal text-white outline-none placeholder:text-white/25 focus:border-[#0a84ff]/55 focus:ring-4 focus:ring-[#0a84ff]/10"
+                                        className="h-9 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 text-xs font-normal text-white outline-none placeholder:text-white/[0.46] focus:border-[#0a84ff]/55 focus:ring-4 focus:ring-[#0a84ff]/10"
                                         placeholder="Buscar responsable"
                                         value={assigneeSearch}
                                         onChange={(event) => setAssigneeSearch(event.target.value)}
@@ -967,7 +967,7 @@ export default function ProyectosPage() {
 
                                     <div className="max-h-60 overflow-y-auto">
                                       {filteredUsers.length === 0 ? (
-                                        <p className="px-3 py-6 text-center text-xs font-normal text-white/30">
+                                        <p className="px-3 py-6 text-center text-xs font-normal text-white/[0.58]">
                                           No se encontraron responsables.
                                         </p>
                                       ) : (
@@ -983,11 +983,11 @@ export default function ProyectosPage() {
                                               className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-white/[0.055]"
                                             >
                                               <span className="min-w-0">
-                                                <span className="block truncate text-xs font-medium text-slate-900">
+                                                <span className="block truncate text-xs font-medium text-white/[0.90]">
                                                   {user.full_name ?? user.email}
                                                 </span>
                                                 {user.email ? (
-                                                  <span className="mt-0.5 block truncate text-[10px] font-normal text-white/30">
+                                                  <span className="mt-0.5 block truncate text-[10px] font-normal text-white/[0.58]">
                                                     {user.email}
                                                   </span>
                                                 ) : null}
@@ -1015,7 +1015,7 @@ export default function ProyectosPage() {
                       })}
                     </AnimatePresence>
 
-                    <div className="flex items-center justify-between gap-4 px-5 py-3 text-[11px] font-normal text-white/30">
+                    <div className="flex items-center justify-between gap-4 px-5 py-3 text-[11px] font-normal text-white/[0.58]">
                       <span>
                         {startIndex + 1}–{Math.min(endIndex, filteredTasks.length)} de {filteredTasks.length}
                       </span>
@@ -1024,16 +1024,16 @@ export default function ProyectosPage() {
                           type="button"
                           onClick={() => setPage((current) => Math.max(1, current - 1))}
                           disabled={page === 1}
-                          className="h-8 rounded-[10px] px-3 font-normal text-white/45 transition hover:bg-white/[0.05] hover:text-white/75 disabled:cursor-not-allowed disabled:opacity-25"
+                          className="h-8 rounded-[10px] px-3 font-normal text-white/[0.72] transition hover:bg-white/[0.05] hover:text-white/[0.84] disabled:cursor-not-allowed disabled:opacity-25"
                         >
                           Anterior
                         </button>
-                        <span className="px-2 text-white/25">{page} / {totalPages}</span>
+                        <span className="px-2 text-white/[0.50]">{page} / {totalPages}</span>
                         <button
                           type="button"
                           onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                           disabled={page === totalPages}
-                          className="h-8 rounded-[10px] px-3 font-normal text-white/45 transition hover:bg-white/[0.05] hover:text-white/75 disabled:cursor-not-allowed disabled:opacity-25"
+                          className="h-8 rounded-[10px] px-3 font-normal text-white/[0.72] transition hover:bg-white/[0.05] hover:text-white/[0.84] disabled:cursor-not-allowed disabled:opacity-25"
                         >
                           Siguiente
                         </button>
@@ -1081,15 +1081,15 @@ export default function ProyectosPage() {
                   <Ban className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-base font-medium text-white/90">
+                  <h3 className="text-base font-medium text-white/[0.94]">
                     ¿Cerrar tarea definitivamente?
                   </h3>
-                  <p className="mt-1 text-sm font-normal leading-6 text-white/40">
-                    Al cerrar esta tarea quedará <span className="font-medium text-white/75">bloqueada</span>:
+                  <p className="mt-1 text-sm font-normal leading-6 text-white/[0.68]">
+                    Al cerrar esta tarea quedará <span className="font-medium text-white/[0.84]">bloqueada</span>:
                     no se podrá editar, reasignar ni agregar información.
                   </p>
-                  <p className="mt-2 text-xs font-normal text-white/50">
-                    <span className="font-medium text-white/80">Tarea:</span>{' '}
+                  <p className="mt-2 text-xs font-normal text-white/[0.75]">
+                    <span className="font-medium text-white/[0.88]">Tarea:</span>{' '}
                     {closeConfirmTask.title}
                   </p>
                 </div>
@@ -1100,7 +1100,7 @@ export default function ProyectosPage() {
                   type="button"
                   disabled={closingTask}
                   onClick={() => setCloseConfirmTask(null)}
-                  className="h-10 rounded-xl px-4 text-xs font-normal text-white/50 transition hover:bg-white/[0.05] hover:text-white/80 disabled:opacity-40"
+                  className="h-10 rounded-xl px-4 text-xs font-normal text-white/[0.75] transition hover:bg-white/[0.05] hover:text-white/[0.88] disabled:opacity-40"
                 >
                   Cancelar
                 </button>
