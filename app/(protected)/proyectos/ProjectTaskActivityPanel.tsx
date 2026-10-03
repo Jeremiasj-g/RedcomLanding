@@ -417,6 +417,15 @@ export default function ProjectTaskActivityPanel({
     }
   };
 
+  const sortedActivities = useMemo(
+    () =>
+      [...activities].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      ),
+    [activities],
+  );
+
   if (mode === "comments") {
     return (
       <div className="flex h-full min-h-0 flex-col">
@@ -510,15 +519,6 @@ export default function ProjectTaskActivityPanel({
       </div>
     );
   }
-
-  const sortedActivities = useMemo(
-    () =>
-      [...activities].sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      ),
-    [activities],
-  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
