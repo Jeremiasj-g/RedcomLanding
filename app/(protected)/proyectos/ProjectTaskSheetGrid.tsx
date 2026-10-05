@@ -24,7 +24,6 @@ import {
   Plus,
   Redo2,
   RotateCcw,
-  Save,
   Table2,
   TextCursorInput,
   Undo2,
@@ -56,10 +55,18 @@ import {
 } from "@/lib/projectTaskSheet";
 import { supabase } from "@/lib/supabaseClient";
 
+export type ProjectTaskSheetSaveState =
+  | "idle"
+  | "dirty"
+  | "saving"
+  | "saved"
+  | "error";
+
 type Props = {
   taskId: number;
   currentUserId: string | null;
   canEdit: boolean;
+  onSaveStateChange?: (state: ProjectTaskSheetSaveState) => void;
 };
 
 type HistoryEntry = {
@@ -69,7 +76,7 @@ type HistoryEntry = {
   columnsCount: number;
 };
 
-type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
+type SaveState = ProjectTaskSheetSaveState;
 
 type TypedCellProps = ColumnDataSchemaModel & {
   sheetMeta?: ProjectTaskSheetColumnMeta;
@@ -527,6 +534,7 @@ export default function ProjectTaskSheetGrid({
   taskId,
   currentUserId,
   canEdit,
+  onSaveStateChange,
 }: Props) {
   const [rowsCount, setRowsCount] = useState(DEFAULT_SHEET_ROWS);
   const [columnsCount, setColumnsCount] = useState(DEFAULT_SHEET_COLUMNS);
@@ -550,6 +558,10 @@ export default function ProjectTaskSheetGrid({
   const savingRef = useRef(false);
   const ignoreRealtimeUntilRef = useRef(0);
   const lastHistoryAtRef = useRef(0);
+
+  useEffect(() => {
+    onSaveStateChange?.(saveState);
+  }, [onSaveStateChange, saveState]);
 
   const snapshot = useCallback(
     (
@@ -1302,15 +1314,6 @@ export default function ProjectTaskSheetGrid({
     setMenuOpen(false);
   };
 
-  const saveLabel =
-    saveState === "saving"
-      ? "Guardando..."
-      : saveState === "dirty"
-        ? "Cambios sin guardar"
-        : saveState === "error"
-          ? "Error al guardar"
-          : "Guardado";
-
   return (
     <div
       ref={rootRef}
@@ -1332,33 +1335,6 @@ export default function ProjectTaskSheetGrid({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <div className="mr-1 inline-flex items-center gap-1.5 text-[9px] font-normal">
-            {saveState === "saving" ? (
-              <Loader2 className="h-3 w-3 animate-spin text-[#5ac8fa]" />
-            ) : (
-              <Save
-                className={`h-3 w-3 ${
-                  saveState === "error"
-                    ? "text-rose-300"
-                    : saveState === "dirty"
-                      ? "text-amber-300"
-                      : "text-emerald-300"
-                }`}
-              />
-            )}
-            <span
-              className={
-                saveState === "error"
-                  ? "text-rose-300"
-                  : saveState === "dirty"
-                    ? "text-amber-300"
-                    : "text-white/[0.42]"
-              }
-            >
-              {saveLabel}
-            </span>
-          </div>
-
           <div className="relative">
             <button
               type="button"
