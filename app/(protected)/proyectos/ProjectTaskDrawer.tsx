@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabaseClient';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -25,6 +26,8 @@ import {
   Pencil,
   Check,
   ChevronDown,
+  Table2,
+  Columns3,
 } from 'lucide-react';
 import {
   updateProjectTask,
@@ -46,6 +49,18 @@ import type { ProjectWithMembers } from '@/lib/projects';
 import ProjectTaskActivityPanel from './ProjectTaskActivityPanel';
 import { errorMessage, notify } from '@/lib/notifications';
 import { isPastIsoDate, localTodayIso } from '@/lib/dateValidation';
+
+const ProjectTaskSheetGrid = dynamic(
+  () => import('./ProjectTaskSheetGrid'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid h-full min-h-[460px] place-items-center bg-[#17181b] text-[11px] text-white/[0.45]">
+        Preparando planilla...
+      </div>
+    ),
+  },
+);
 
 type Props = {
   task: ProjectTaskWithAssignees;
@@ -248,6 +263,8 @@ export default function ProjectTaskDrawer({
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [rightPanel, setRightPanel] = useState<'notes' | 'activity'>('notes');
+  const [workspaceViewMode, setWorkspaceViewMode] =
+    useState<'workspace' | 'sheet'>('workspace');
 
 
   // ───── CHECKLIST AGRUPADO (columna 2) ────────────────
@@ -1109,6 +1126,28 @@ export default function ProjectTaskDrawer({
     [supervisors, selectedAssignees],
   );
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const storageKey = `project-task-drawer-view:${currentUserId ?? 'anon'}:${task.id}`;
+    const saved = window.localStorage.getItem(storageKey);
+
+    if (saved === 'sheet' || saved === 'workspace') {
+      setWorkspaceViewMode(saved);
+    } else {
+      setWorkspaceViewMode('workspace');
+    }
+  }, [currentUserId, task.id]);
+
+  const changeWorkspaceViewMode = (next: 'workspace' | 'sheet') => {
+    setWorkspaceViewMode(next);
+
+    if (typeof window !== 'undefined') {
+      const storageKey = `project-task-drawer-view:${currentUserId ?? 'anon'}:${task.id}`;
+      window.localStorage.setItem(storageKey, next);
+    }
+  };
+
   // ───── GUARDAR FICHA PRINCIPAL (botón) ───────────────
   const save = async () => {
     if (task.is_locked) return;
@@ -1409,6 +1448,28 @@ export default function ProjectTaskDrawer({
                 Solo lectura
               </span>
             )}
+
+            <button
+              type="button"
+              onClick={() =>
+                changeWorkspaceViewMode(
+                  workspaceViewMode === 'sheet' ? 'workspace' : 'sheet',
+                )
+              }
+              className={`inline-flex h-9 items-center gap-2 rounded-[11px] border px-3 text-[10px] font-medium transition ${
+                workspaceViewMode === 'sheet'
+                  ? 'border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#5ac8fa]'
+                  : 'border-white/[0.08] bg-white/[0.035] text-white/[0.68] hover:bg-white/[0.06] hover:text-white/[0.90]'
+              }`}
+              aria-pressed={workspaceViewMode === 'sheet'}
+            >
+              {workspaceViewMode === 'sheet' ? (
+                <Columns3 className="h-3.5 w-3.5" />
+              ) : (
+                <Table2 className="h-3.5 w-3.5" />
+              )}
+              {workspaceViewMode === 'sheet' ? 'Vista normal' : 'Modo tabla'}
+            </button>
 
             <button
               onClick={onClose}
@@ -1834,6 +1895,8 @@ export default function ProjectTaskDrawer({
             </div>
           </div>
 
+          {workspaceViewMode === 'workspace' ? (
+            <>
           {/* Columna 2: checklist */}
           <div className="flex h-full min-h-0 flex-col gap-3 border-b border-white/[0.07] bg-[#17181b] px-6 py-5 lg:border-b-0 lg:border-r">
             <div className="flex items-center justify-between">
@@ -2325,6 +2388,16 @@ export default function ProjectTaskDrawer({
               </div>
             )}
           </div>
+            </>
+          ) : (
+            <div className="relative flex h-full min-h-0 flex-col overflow-hidden border-b border-white/[0.07] bg-[#17181b] lg:col-span-2 lg:border-b-0">
+              <ProjectTaskSheetGrid
+                taskId={task.id}
+                currentUserId={currentUserId}
+                canEdit={canEditWorkspace && !isLocked}
+              />
+            </div>
+          )}
         </div>
       </motion.div>
 
