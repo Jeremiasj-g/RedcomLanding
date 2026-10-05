@@ -338,6 +338,50 @@ export default function ProjectTaskSheetGrid({
     });
   };
 
+  const handleRangeEdit = (event: any) => {
+    if (!canEdit) {
+      event.preventDefault?.();
+      return;
+    }
+
+    const changedRows = (event.detail?.data ?? {}) as Record<
+      string,
+      Record<string, unknown>
+    >;
+
+    const entries = Object.entries(changedRows);
+    if (entries.length === 0) return;
+
+    pushHistory();
+
+    setCells((current) => {
+      const next = { ...current };
+
+      for (const [rowKey, rowChanges] of entries) {
+        const rowIndex = Number(rowKey);
+        if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= rowsCount) {
+          continue;
+        }
+
+        for (const [prop, value] of Object.entries(rowChanges ?? {})) {
+          const columnIndex = columns.findIndex(
+            (column) => String(column.prop) === prop,
+          );
+
+          if (columnIndex < 0 || columnIndex >= columnsCount) continue;
+
+          const id = cellId(rowIndex, columnIndex);
+          const nextValue = value == null ? "" : String(value);
+
+          if (nextValue === "") delete next[id];
+          else next[id] = nextValue;
+        }
+      }
+
+      return next;
+    });
+  };
+
   const addRow = () => {
     if (!canEdit) return;
     if (rowsCount >= MAX_SHEET_ROWS) {
@@ -578,13 +622,14 @@ export default function ProjectTaskSheetGrid({
               theme="darkCompact"
               columns={columns as any}
               source={source as any}
-              rowHeaders={{ size: 48 }}
+              rowHeaders={{ size: 48 } as any}
               range
               useClipboard={{ rangeFill: true }}
               resize
               stretch={false}
               readonly={!canEdit}
               onBeforeedit={handleCellEdit}
+              onBeforerangeedit={handleRangeEdit}
               style={{ height: "100%", width: "100%" }}
             />
           </div>
