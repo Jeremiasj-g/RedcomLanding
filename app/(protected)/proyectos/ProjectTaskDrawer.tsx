@@ -704,20 +704,25 @@ export default function ProjectTaskDrawer({
 
         if (ws) {
           const safeTodos = ws.todos ?? [];
+          const safeTodoGroups = ws.todo_groups ?? [];
           const safeLinks = ws.resource_links ?? [];
 
           setTodos(safeTodos);
+          setTodoGroups(safeTodoGroups);
           setResourceLinks(safeLinks);
 
           lastSavedSnapshotRef.current = buildWorkspaceSnapshot({
             todos: safeTodos,
+            todoGroups: safeTodoGroups,
             resourceLinks: safeLinks,
           });
         } else {
           setTodos([]);
+          setTodoGroups([]);
           setResourceLinks([]);
           lastSavedSnapshotRef.current = buildWorkspaceSnapshot({
             todos: [],
+            todoGroups: [],
             resourceLinks: [],
           });
         }
@@ -769,13 +774,16 @@ export default function ProjectTaskDrawer({
           );
 
           const safeTodos = ws.todos ?? [];
+          const safeTodoGroups = ws.todo_groups ?? [];
           const safeLinks = ws.resource_links ?? [];
 
           setTodos(safeTodos);
+          setTodoGroups(safeTodoGroups);
           setResourceLinks(safeLinks);
 
           lastSavedSnapshotRef.current = buildWorkspaceSnapshot({
             todos: safeTodos,
+            todoGroups: safeTodoGroups,
             resourceLinks: safeLinks,
           });
 
@@ -902,6 +910,7 @@ export default function ProjectTaskDrawer({
 
     const currentSnapshot = buildWorkspaceSnapshot({
       todos,
+      todoGroups,
       resourceLinks,
     });
 
@@ -918,7 +927,8 @@ export default function ProjectTaskDrawer({
         await upsertTaskWorkspace({
           taskId: task.id,
           todos,
-              resourceLinks,
+          todoGroups,
+          resourceLinks,
           updatedBy: currentUserId,
         });
 
@@ -935,6 +945,7 @@ export default function ProjectTaskDrawer({
     return () => clearTimeout(handle);
   }, [
     todos,
+    todoGroups,
     resourceLinks,
     canEditWorkspace,
     task.id,
@@ -1511,8 +1522,17 @@ export default function ProjectTaskDrawer({
                     }}
                     className={`flex w-full items-center justify-between rounded-full px-3 py-1.5 text-left text-[11px] ${INPUT_BASE}`}
                   >
-                    <span className="truncate">
-                      {todoGroupSelected ?? 'Sin grupo'}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate">
+                        {todoGroupSelected ?? 'Sin grupo'}
+                      </span>
+                      <span
+                        className={`h-[3px] w-8 shrink-0 rounded-full ${
+                          getTodoGroupPriorityOption(
+                            getTodoGroup(todoGroupSelected)?.priority ?? null,
+                          )?.lineClass ?? 'bg-white/[0.18]'
+                        }`}
+                      />
                     </span>
                     <motion.span
                       animate={{ rotate: todoGroupMenuOpen ? 180 : 0 }}
@@ -1545,19 +1565,29 @@ export default function ProjectTaskDrawer({
                             Sin grupo
                           </button>
 
-                          {todoGroups.map((g) => (
+                          {todoGroups.map((group) => (
                             <button
-                              key={g}
+                              key={group.name}
                               type="button"
                               onClick={() => {
-                                setTodoGroupSelected(g);
+                                setTodoGroupSelected(group.name);
                                 setTodoGroupMenuOpen(false);
                               }}
-                              className={`w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-white/[0.055] ${
-                                todoGroupSelected === g ? 'bg-white/[0.06]' : ''
+                              className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-white/[0.055] ${
+                                todoGroupSelected === group.name
+                                  ? 'bg-white/[0.06]'
+                                  : ''
                               }`}
                             >
-                              {g}
+                              <span className="truncate">{group.name}</span>
+                              <span
+                                className={`h-[3px] w-9 shrink-0 rounded-full ${
+                                  getTodoGroupPriorityOption(group.priority)?.lineClass
+                                }`}
+                                title={`Prioridad ${
+                                  getTodoGroupPriorityOption(group.priority)?.label
+                                }`}
+                              />
                             </button>
                           ))}
 
@@ -1565,6 +1595,34 @@ export default function ProjectTaskDrawer({
                             <div className="px-1 pb-1 text-[10px] uppercase tracking-wide text-white/[0.65]">
                               Crear grupo
                             </div>
+
+                            <div className="mb-2 grid grid-cols-3 gap-1.5">
+                              {TODO_GROUP_PRIORITY_OPTIONS.map((option) => {
+                                const selected =
+                                  newTodoGroupPriority === option.value;
+
+                                return (
+                                  <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() =>
+                                      setNewTodoGroupPriority(option.value)
+                                    }
+                                    className={`flex h-8 items-center justify-center gap-1.5 rounded-[9px] border px-2 text-[10px] font-medium transition ${
+                                      selected
+                                        ? option.selectedClass
+                                        : 'border-white/[0.07] bg-white/[0.025] text-white/[0.50] hover:bg-white/[0.055] hover:text-white/[0.75]'
+                                    }`}
+                                  >
+                                    <span
+                                      className={`h-[3px] w-4 rounded-full ${option.lineClass}`}
+                                    />
+                                    {option.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
                             <div className="flex gap-2">
                               <input
                                 value={newTodoGroupName}
@@ -1574,31 +1632,20 @@ export default function ProjectTaskDrawer({
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') {
                                     e.preventDefault();
-                                    const name = newTodoGroupName.trim();
-                                    if (!name) return;
-                                    addTodoGroup(name);
-                                    setTodoGroupSelected(name);
-                                    setNewTodoGroupName('');
-                                    setTodoGroupMenuOpen(false);
+                                    createTodoGroupFromDraft();
                                   }
                                 }}
                               />
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const name = newTodoGroupName.trim();
-                                  if (!name) return;
-                                  addTodoGroup(name);
-                                  setTodoGroupSelected(name);
-                                  setNewTodoGroupName('');
-                                  setTodoGroupMenuOpen(false);
-                                }}
-                                className="inline-flex h-9 items-center justify-center rounded-xl bg-white/[0.07] px-4 text-[11px] font-medium text-white/[0.80] transition hover:bg-white/[0.10] hover:text-white/[0.94]"
+                                onClick={createTodoGroupFromDraft}
+                                disabled={!newTodoGroupName.trim()}
+                                className="inline-flex h-9 items-center justify-center rounded-xl bg-white/[0.07] px-4 text-[11px] font-medium text-white/[0.80] transition hover:bg-white/[0.10] hover:text-white/[0.94] disabled:cursor-not-allowed disabled:opacity-35"
                               >
                                 +
                               </button>
                             </div>
-                          </div>
+                          </div>                          </div>
                         </div>
                       </motion.div>
                     )}
@@ -1658,6 +1705,7 @@ export default function ProjectTaskDrawer({
                       dropId={dropId}
                       title={groupName ?? 'Sin grupo'}
                       count={`${done}/${total}`}
+                      priority={getTodoGroup(groupName)?.priority ?? null}
                       isActiveDrop={isActiveDrop}
                     >
                       {arr.map((t) => (
