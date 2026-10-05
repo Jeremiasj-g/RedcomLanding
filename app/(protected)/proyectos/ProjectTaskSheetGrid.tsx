@@ -69,6 +69,7 @@ export default function ProjectTaskSheetGrid({
   const [undoStack, setUndoStack] = useState<HistoryEntry[]>([]);
   const [redoStack, setRedoStack] = useState<HistoryEntry[]>([]);
 
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const lastSavedRef = useRef("");
   const dirtyRef = useRef(false);
   const savingRef = useRef(false);
@@ -146,6 +147,76 @@ export default function ProjectTaskSheetGrid({
     ]);
     applyHistoryEntry(next);
   };
+
+  useEffect(() => {
+    const handleKeyboardUndoRedo = (event: KeyboardEvent) => {
+      if (!canEdit || event.altKey) return;
+
+      const modifierPressed = event.ctrlKey || event.metaKey;
+      if (!modifierPressed) return;
+
+      const key = event.key.toLowerCase();
+      const wantsUndo = key === "z" && !event.shiftKey;
+      const wantsRedo =
+        key === "y" || (key === "z" && event.shiftKey);
+
+      if (!wantsUndo && !wantsRedo) return;
+
+      const root = rootRef.current;
+      if (!root) return;
+
+      const path = event.composedPath?.() ?? [];
+      const target = event.target;
+      const eventInsideSheet =
+        path.includes(root) ||
+        (target instanceof Node && root.contains(target));
+
+      const activeElement = document.activeElement;
+      const focusInsideSheet =
+        activeElement instanceof Node && root.contains(activeElement);
+
+      if (!eventInsideSheet && !focusInsideSheet) return;
+
+      // Mientras RevoGrid está editando una celda dejamos que el input haga
+      // su propio undo de texto. Al confirmar la celda, Ctrl/Cmd+Z vuelve al
+      // historial general de la planilla, igual que Excel/Sheets.
+      const editingText = path.some((node) => {
+        if (node instanceof HTMLInputElement) return true;
+        if (node instanceof HTMLTextAreaElement) return true;
+        return node instanceof HTMLElement && node.isContentEditable;
+      });
+
+      if (editingText) return;
+
+      if (wantsUndo) {
+        if (undoStack.length === 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        undo();
+        return;
+      }
+
+      if (wantsRedo) {
+        if (redoStack.length === 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        redo();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyboardUndoRedo, true);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyboardUndoRedo, true);
+    };
+  }, [
+    canEdit,
+    undoStack,
+    redoStack,
+    cells,
+    rowsCount,
+    columnsCount,
+  ]);
 
   const loadSheet = useCallback(
     async (quiet = false) => {
@@ -477,7 +548,10 @@ export default function ProjectTaskSheetGrid({
           : "Guardado";
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[#17181b]">
+    <div
+      ref={rootRef}
+      className="flex h-full min-h-0 flex-col bg-[#17181b]"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-3">
         <div className="flex items-center gap-2">
           <div className="grid h-8 w-8 place-items-center rounded-[10px] bg-[#0a84ff]/10 text-[#5ac8fa]">
@@ -522,14 +596,14 @@ export default function ProjectTaskSheetGrid({
           </div>
 
           <ToolbarButton
-            label="Deshacer"
+            label="Deshacer (Ctrl/⌘ + Z)"
             onClick={undo}
             disabled={!canEdit || undoStack.length === 0}
           >
             <Undo2 className="h-3.5 w-3.5" />
           </ToolbarButton>
           <ToolbarButton
-            label="Rehacer"
+            label="Rehacer (Ctrl+Y / Ctrl+Shift+Z)"
             onClick={redo}
             disabled={!canEdit || redoStack.length === 0}
           >
@@ -602,8 +676,8 @@ export default function ProjectTaskSheetGrid({
       </div>
 
       <div className="border-b border-white/[0.06] bg-white/[0.015] px-4 py-2 text-[9px] font-normal text-white/[0.34]">
-        Doble clic para editar · Ctrl/⌘ + C y V para copiar/pegar · Arrastrá los
-        encabezados para redimensionar columnas.
+        Doble clic para editar · Ctrl/⌘ + C y V para copiar/pegar · Ctrl/⌘ + Z
+        para deshacer · Arrastrá los encabezados para redimensionar columnas.
       </div>
 
       <div className="min-h-0 flex-1 p-3">
