@@ -28,6 +28,8 @@ import {
   ChevronDown,
   Table2,
   Columns3,
+  Loader2,
+  Save,
 } from 'lucide-react';
 import {
   updateProjectTask,
@@ -47,6 +49,7 @@ import { RedcomDatePicker } from '@/components/ui/redcom-date-picker';
 import { RedcomSelect } from '@/components/ui/redcom-select';
 import type { ProjectWithMembers } from '@/lib/projects';
 import ProjectTaskActivityPanel from './ProjectTaskActivityPanel';
+import type { ProjectTaskSheetSaveState } from './ProjectTaskSheetGrid';
 import { errorMessage, notify } from '@/lib/notifications';
 import { isPastIsoDate, localTodayIso } from '@/lib/dateValidation';
 
@@ -265,6 +268,8 @@ export default function ProjectTaskDrawer({
   const [rightPanel, setRightPanel] = useState<'notes' | 'activity'>('notes');
   const [workspaceViewMode, setWorkspaceViewMode] =
     useState<'workspace' | 'sheet'>('workspace');
+  const [sheetSaveState, setSheetSaveState] =
+    useState<ProjectTaskSheetSaveState>('idle');
 
 
   // ───── CHECKLIST AGRUPADO (columna 2) ────────────────
@@ -1127,6 +1132,7 @@ export default function ProjectTaskDrawer({
   );
 
   useEffect(() => {
+    setSheetSaveState('idle');
     if (typeof window === 'undefined') return;
 
     const storageKey = `project-task-drawer-view:${currentUserId ?? 'anon'}:${task.id}`;
@@ -1386,6 +1392,39 @@ export default function ProjectTaskDrawer({
   };
 
   // ───── UI ────────────────────────────────────────────
+  const drawerSaveState: ProjectTaskSheetSaveState | 'loading' =
+    workspaceViewMode === 'sheet'
+      ? sheetSaveState === 'idle'
+        ? 'loading'
+        : sheetSaveState
+      : workspaceLoading
+        ? 'loading'
+        : workspaceSaving
+          ? 'saving'
+          : workspaceDirty
+            ? 'dirty'
+            : 'saved';
+
+  const drawerSaveLabel =
+    drawerSaveState === 'loading'
+      ? 'Cargando...'
+      : drawerSaveState === 'saving'
+        ? 'Guardando cambios...'
+        : drawerSaveState === 'dirty'
+          ? 'Cambios sin guardar'
+          : drawerSaveState === 'error'
+            ? 'Error al guardar'
+            : 'Guardado';
+
+  const drawerSaveClass =
+    drawerSaveState === 'error'
+      ? 'text-rose-300'
+      : drawerSaveState === 'dirty'
+        ? 'text-amber-300'
+        : drawerSaveState === 'saving' || drawerSaveState === 'loading'
+          ? 'text-[#5ac8fa]'
+          : 'text-emerald-300';
+
   return (
     <AnimatePresence>
       {/* overlay */}
@@ -1417,24 +1456,6 @@ export default function ProjectTaskDrawer({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {workspaceLoading && (
-              <span className="text-[11px] font-normal text-white/[0.65]">
-                Cargando entorno...
-              </span>
-            )}
-
-            {workspaceSaving && !workspaceLoading && (
-              <span className="text-[11px] text-[#5ac8fa]">
-                Guardando cambios...
-              </span>
-            )}
-
-            {!workspaceSaving && workspaceDirty && !workspaceLoading && (
-              <span className="text-[11px] text-amber-300">
-                Cambios sin guardar
-              </span>
-            )}
-
             {isLocked && (
               <span
                 className={`${BADGE_BASE} bg-amber-900/60 text-amber-100`}
@@ -1447,6 +1468,22 @@ export default function ProjectTaskDrawer({
               <span className={`${BADGE_BASE} bg-white/[0.06] text-white/[0.78]`}>
                 Solo lectura
               </span>
+            )}
+
+            {canEditWorkspace && !isLocked && (
+              <div
+                className={`inline-flex min-w-[104px] items-center justify-end gap-1.5 text-[10px] font-normal ${drawerSaveClass}`}
+                aria-live="polite"
+                aria-label={drawerSaveLabel}
+              >
+                {drawerSaveState === 'saving' ||
+                drawerSaveState === 'loading' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                <span>{drawerSaveLabel}</span>
+              </div>
             )}
 
             <button
@@ -2395,6 +2432,7 @@ export default function ProjectTaskDrawer({
                 taskId={task.id}
                 currentUserId={currentUserId}
                 canEdit={canEditWorkspace && !isLocked}
+                onSaveStateChange={setSheetSaveState}
               />
             </div>
           )}
