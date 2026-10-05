@@ -35,6 +35,8 @@ import {
   type ProjectTaskStatus,
   type ProjectTaskPriority,
   type ProjectTaskWorkspaceTodo,
+  type ProjectTaskWorkspaceTodoGroup,
+  type ProjectTaskWorkspaceGroupPriority,
   type ProjectTaskWorkspaceLink,
 } from '@/lib/projectTasks';
 import { RedcomDatePicker } from '@/components/ui/redcom-date-picker';
@@ -114,6 +116,41 @@ const PRIORITY_OPTIONS: {
   },
 ];
 
+const TODO_GROUP_PRIORITY_OPTIONS: {
+  value: ProjectTaskWorkspaceGroupPriority;
+  label: string;
+  lineClass: string;
+  selectedClass: string;
+}[] = [
+  {
+    value: 'low',
+    label: 'Baja',
+    lineClass: 'bg-emerald-400',
+    selectedClass:
+      'border-emerald-400/25 bg-emerald-400/10 text-emerald-200',
+  },
+  {
+    value: 'medium',
+    label: 'Media',
+    lineClass: 'bg-amber-400',
+    selectedClass:
+      'border-amber-400/25 bg-amber-400/10 text-amber-200',
+  },
+  {
+    value: 'high',
+    label: 'Alta',
+    lineClass: 'bg-rose-400',
+    selectedClass:
+      'border-rose-400/25 bg-rose-400/10 text-rose-200',
+  },
+];
+
+const getTodoGroupPriorityOption = (
+  priority?: ProjectTaskWorkspaceGroupPriority | null,
+) =>
+  TODO_GROUP_PRIORITY_OPTIONS.find((option) => option.value === priority) ??
+  null;
+
 // ──────────────────────────────────────────────
 // Helpers generales
 // ──────────────────────────────────────────────
@@ -137,10 +174,12 @@ const needsReadMore = (text: string, limit = 80) => text.length > limit;
 // snapshot de workspace para comparar
 const buildWorkspaceSnapshot = (args: {
   todos: ProjectTaskWorkspaceTodo[];
+  todoGroups: ProjectTaskWorkspaceTodoGroup[];
   resourceLinks: ProjectTaskWorkspaceLink[];
 }) =>
   JSON.stringify({
     todos: args.todos,
+    todoGroups: args.todoGroups,
     resourceLinks: args.resourceLinks,
   });
 
@@ -228,10 +267,12 @@ export default function ProjectTaskDrawer({
     return `${TODO_GROUP_PREFIX}${group}${TODO_GROUP_PREFIX} ${label}`;
   };
 
-  const [todoGroups, setTodoGroups] = useState<string[]>([]);
+  const [todoGroups, setTodoGroups] = useState<ProjectTaskWorkspaceTodoGroup[]>([]);
   const [todoGroupSelected, setTodoGroupSelected] = useState<string | null>(null);
   const [todoGroupMenuOpen, setTodoGroupMenuOpen] = useState(false);
   const [newTodoGroupName, setNewTodoGroupName] = useState('');
+  const [newTodoGroupPriority, setNewTodoGroupPriority] =
+    useState<ProjectTaskWorkspaceGroupPriority>('medium');
   const todoGroupPickerRef = useRef<HTMLDivElement | null>(null);
 
   // edición inline
@@ -260,55 +301,103 @@ export default function ProjectTaskDrawer({
     return () => document.removeEventListener('mousedown', onDown);
   }, [todoGroupMenuOpen]);
 
-  const addTodoGroup = (name: string) => {
-    const g = name.trim();
-    if (!g) return;
+  const addTodoGroup = (
+    name: string,
+    priority: ProjectTaskWorkspaceGroupPriority = 'medium',
+  ) => {
+    const cleanName = name.trim();
+    if (!cleanName) return;
+
     setTodoGroups((prev) => {
-      if (prev.includes(g)) return prev;
-      return [...prev, g].sort((a, b) => a.localeCompare(b, 'es'));
+      const existing = prev.find(
+        (group) =>
+          group.name.localeCompare(cleanName, 'es', {
+            sensitivity: 'base',
+          }) === 0,
+      );
+
+      if (existing) {
+        return prev
+          .map((group) =>
+            group.name === existing.name ? { ...group, priority } : group,
+          )
+          .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+      }
+
+      return [...prev, { name: cleanName, priority }].sort((a, b) =>
+        a.name.localeCompare(b.name, 'es'),
+      );
     });
   };
 
-  // recomputar grupos existentes cuando cambian todos
+  const createTodoGroupFromDraft = () => {
+    const name = newTodoGroupName.trim();
+    if (!name) return;
+
+    addTodoGroup(name, newTodoGroupPriority);
+    setTodoGroupSelected(name);
+    setNewTodoGroupName('');
+    setNewTodoGroupPriority('medium');
+    setTodoGroupMenuOpen(false);
+  };
+
+  // Compatibilidad con grupos históricos guardados dentro del texto del todo.
   useEffect(() => {
-    const uniq = Array.from(
+    const discoveredNames = Array.from(
       new Set(
         (todos ?? [])
-          .map((t) => decodeTodo((t as any).text).group)
+          .map((todo) => decodeTodo((todo as any).text).group)
           .filter(Boolean) as string[],
       ),
-    ).sort((a, b) => a.localeCompare(b, 'es'));
+    );
+
+    if (discoveredNames.length === 0) return;
 
     setTodoGroups((prev) => {
-      const merged = Array.from(new Set([...(prev ?? []), ...uniq]));
-      return merged.sort((a, b) => a.localeCompare(b, 'es'));
+      const byName = new Map(prev.map((group) => [group.name, group]));
+
+      for (const name of discoveredNames) {
+        if (!byName.has(name)) {
+          byName.set(name, { name, priority: 'medium' });
+        }
+      }
+
+      return Array.from(byName.values()).sort((a, b) =>
+        a.name.localeCompare(b.name, 'es'),
+      );
     });
   }, [todos]);
 
   const todosUi = useMemo(() => {
-    return (todos ?? []).map((t) => {
-      const { group, label } = decodeTodo((t as any).text);
-      return { ...t, group, label };
+    return (todos ?? []).map((todo) => {
+      const { group, label } = decodeTodo((todo as any).text);
+      return { ...todo, group, label };
     });
   }, [todos]);
 
   const { todoGroupKeys, todosByGroup } = useMemo(() => {
     const map = new Map<string, any[]>();
-    for (const t of todosUi as any[]) {
-      const key = t.group ?? TODO_NO_GROUP_KEY;
-      const arr = map.get(key) ?? [];
-      arr.push(t);
-      map.set(key, arr);
+
+    for (const todo of todosUi as any[]) {
+      const key = todo.group ?? TODO_NO_GROUP_KEY;
+      const current = map.get(key) ?? [];
+      current.push(todo);
+      map.set(key, current);
     }
 
-    const keys = Array.from(map.keys()).sort((a, b) => {
+    const keys = Array.from(
+      new Set([...map.keys(), ...todoGroups.map((group) => group.name)]),
+    ).sort((a, b) => {
       if (a === TODO_NO_GROUP_KEY) return -1;
       if (b === TODO_NO_GROUP_KEY) return 1;
       return a.localeCompare(b, 'es');
     });
 
     return { todoGroupKeys: keys, todosByGroup: map };
-  }, [todosUi]);
+  }, [todoGroups, todosUi]);
+
+  const getTodoGroup = (name: string | null) =>
+    name ? todoGroups.find((group) => group.name === name) ?? null : null;
 
   const startEditTodo = (t: any) => {
     setEditingTodoId(t.id);
@@ -360,12 +449,14 @@ export default function ProjectTaskDrawer({
     dropId,
     title,
     count,
+    priority,
     isActiveDrop,
     children,
   }: {
     dropId: string;
     title: string;
     count: string;
+    priority: ProjectTaskWorkspaceGroupPriority | null;
     isActiveDrop: boolean;
     children: React.ReactNode;
   }) {
@@ -385,8 +476,21 @@ export default function ProjectTaskDrawer({
           className="flex w-full items-center justify-between gap-2 px-3 py-2"
         >
           <div className="min-w-0 text-left">
-            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/[0.76]">
-              {title}
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="truncate text-[11px] font-medium uppercase tracking-[0.08em] text-white/[0.76]">
+                {title}
+              </div>
+              <span
+                className={`h-[3px] w-9 shrink-0 rounded-full ${
+                  getTodoGroupPriorityOption(priority)?.lineClass ??
+                  'bg-white/[0.18]'
+                }`}
+                title={
+                  priority
+                    ? `Prioridad ${getTodoGroupPriorityOption(priority)?.label ?? ''}`
+                    : 'Sin prioridad'
+                }
+              />
             </div>
             <div className="text-[11px] font-normal text-white/[0.65]">{count}</div>
           </div>
