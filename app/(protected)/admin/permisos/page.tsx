@@ -18,7 +18,6 @@ import {
   FolderKanban,
   Gauge,
   KeyRound,
-  ListChecks,
   LayoutDashboard,
   Loader2,
   RefreshCw,
@@ -132,12 +131,10 @@ const MODULE_ICONS: Record<ModulePermissionKey, ComponentType<{ className?: stri
   personal_tasks: CalendarCheck2,
   projects: FolderKanban,
   boards: LayoutDashboard,
-  focus: ListChecks,
   quarterly_indicators: Gauge,
   vendo_requests: Smartphone,
   hr_panel: UsersRound,
   tasks_panel: ClipboardList,
-  focus_panel: BarChart3,
   management_resources: BriefcaseBusiness,
 };
 
