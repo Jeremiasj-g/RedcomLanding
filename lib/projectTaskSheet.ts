@@ -2,12 +2,33 @@ import { supabase } from '@/lib/supabaseClient';
 
 export type ProjectTaskSheetCells = Record<string, string>;
 
+export type ProjectTaskSheetColumnType =
+  | 'text'
+  | 'number'
+  | 'currency'
+  | 'percent'
+  | 'date'
+  | 'checkbox'
+  | 'select';
+
+export type ProjectTaskSheetColumnMeta = {
+  type: ProjectTaskSheetColumnType;
+  options?: string[];
+  currency?: 'ARS' | 'USD';
+};
+
+export type ProjectTaskSheetColumnMetaMap = Record<
+  string,
+  ProjectTaskSheetColumnMeta
+>;
+
 export type ProjectTaskSheet = {
   id: number | null;
   task_id: number;
   rows_count: number;
   columns_count: number;
   cells: ProjectTaskSheetCells;
+  column_meta: ProjectTaskSheetColumnMetaMap;
   updated_by: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -239,6 +260,7 @@ export async function fetchProjectTaskSheet(
       rows_count: DEFAULT_SHEET_ROWS,
       columns_count: DEFAULT_SHEET_COLUMNS,
       cells: {},
+      column_meta: {},
       updated_by: null,
       created_at: null,
       updated_at: null,
@@ -252,6 +274,7 @@ export async function fetchProjectTaskSheet(
     rows_count: Number(data.rows_count),
     columns_count: Number(data.columns_count),
     cells: (data.cells ?? {}) as ProjectTaskSheetCells,
+    column_meta: (data.column_meta ?? {}) as ProjectTaskSheetColumnMetaMap,
   } as ProjectTaskSheet;
 }
 
@@ -260,9 +283,10 @@ export async function upsertProjectTaskSheet(params: {
   rowsCount: number;
   columnsCount: number;
   cells: ProjectTaskSheetCells;
+  columnMeta: ProjectTaskSheetColumnMetaMap;
   updatedBy: string | null;
 }): Promise<ProjectTaskSheet> {
-  const { taskId, rowsCount, columnsCount, cells, updatedBy } = params;
+  const { taskId, rowsCount, columnsCount, cells, columnMeta, updatedBy } = params;
 
   if (rowsCount < 1 || rowsCount > MAX_SHEET_ROWS) {
     throw new Error('Cantidad de filas fuera de rango.');
@@ -280,6 +304,7 @@ export async function upsertProjectTaskSheet(params: {
         rows_count: rowsCount,
         columns_count: columnsCount,
         cells,
+        column_meta: columnMeta,
         updated_by: updatedBy,
       },
       { onConflict: 'task_id' },
@@ -296,5 +321,6 @@ export async function upsertProjectTaskSheet(params: {
     rows_count: Number(data.rows_count),
     columns_count: Number(data.columns_count),
     cells: (data.cells ?? {}) as ProjectTaskSheetCells,
+    column_meta: (data.column_meta ?? {}) as ProjectTaskSheetColumnMetaMap,
   } as ProjectTaskSheet;
 }
