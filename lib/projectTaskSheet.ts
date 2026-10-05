@@ -89,8 +89,8 @@ function tokenizeFormula(value: string): FormulaToken[] {
     if ('+-*/()'.includes(char)) {
       tokens.push({
         type: 'op',
-        value: char as FormulaToken & never,
-      } as FormulaToken);
+        value: char as '+' | '-' | '*' | '/' | '(' | ')',
+      });
       index += 1;
       continue;
     }
