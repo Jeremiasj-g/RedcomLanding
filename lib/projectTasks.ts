@@ -11,6 +11,13 @@ export type ProjectTaskWorkspaceTodo = {
   done: boolean;
 };
 
+export type ProjectTaskWorkspaceGroupPriority = 'low' | 'medium' | 'high';
+
+export type ProjectTaskWorkspaceTodoGroup = {
+  name: string;
+  priority: ProjectTaskWorkspaceGroupPriority;
+};
+
 export type ProjectTaskWorkspaceLink = {
   id: string;
   label: string;
@@ -21,6 +28,7 @@ export type ProjectTaskWorkspace = {
   id: number;
   task_id: number;
   todos: ProjectTaskWorkspaceTodo[];
+  todo_groups: ProjectTaskWorkspaceTodoGroup[];
   quick_notes: string | null;
   resource_links: ProjectTaskWorkspaceLink[];
   updated_by: string | null;
@@ -63,6 +71,7 @@ export async function upsertTaskWorkspace(params: {
       {
         task_id: taskId,
         todos,
+        todo_groups: todoGroups,
         resource_links: resourceLinks,
         updated_by: updatedBy ?? null,
       },
