@@ -18,6 +18,8 @@ type Props = {
   accent?: Accent;
   surface?: "light" | "dark";
   clearable?: boolean;
+  minDate?: string;
+  maxDate?: string;
   "aria-label"?: string;
 };
 
@@ -64,10 +66,45 @@ export function RedcomDatePicker({
   accent = "indigo",
   surface = "light",
   clearable = true,
+  minDate,
+  maxDate,
   "aria-label": ariaLabel,
 }: Props) {
   const [open, setOpen] = useState(false);
   const selected = useMemo(() => parseIsoDate(value), [value]);
+  const min = useMemo(() => parseIsoDate(minDate), [minDate]);
+  const max = useMemo(() => parseIsoDate(maxDate), [maxDate]);
+
+  const isOutOfRange = (date: Date) => {
+    const valueTime = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+    ).getTime();
+
+    if (min) {
+      const minTime = new Date(
+        min.getFullYear(),
+        min.getMonth(),
+        min.getDate(),
+      ).getTime();
+      if (valueTime < minTime) return true;
+    }
+
+    if (max) {
+      const maxTime = new Date(
+        max.getFullYear(),
+        max.getMonth(),
+        max.getDate(),
+      ).getTime();
+      if (valueTime > maxTime) return true;
+    }
+
+    return false;
+  };
+
+  const today = new Date();
+  const todayDisabled = isOutOfRange(today);
   const accentClasses =
     accent === "teal"
       ? {
@@ -129,10 +166,14 @@ export function RedcomDatePicker({
           mode="single"
           selected={selected}
           onSelect={(date) => {
-            if (!date) return;
+            if (!date || isOutOfRange(date)) return;
             onChange(formatIsoDate(date));
             setOpen(false);
           }}
+          disabled={[
+            ...(min ? [{ before: min }] : []),
+            ...(max ? [{ after: max }] : []),
+          ]}
           defaultMonth={selected}
           captionLayout="label"
           className={cn(
@@ -191,11 +232,13 @@ export function RedcomDatePicker({
           <button
             type="button"
             onClick={() => {
-              onChange(formatIsoDate(new Date()));
+              if (todayDisabled) return;
+              onChange(formatIsoDate(today));
               setOpen(false);
             }}
+            disabled={todayDisabled}
             className={cn(
-              "rounded-xl px-3 py-2 text-xs font-medium transition",
+              "rounded-xl px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40",
               surface === "dark"
                 ? "text-white/[0.80] hover:bg-white/[0.06] hover:text-white"
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
