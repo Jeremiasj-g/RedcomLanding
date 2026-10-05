@@ -530,6 +530,11 @@ export default function ProjectTaskDrawer({
     );
   };
 
+  const activeTodo =
+    activeTodoId === null
+      ? null
+      : (todosUi as any[]).find((todo) => todo.id === activeTodoId) ?? null;
+
   function TodoGroup({
     dropId,
     groupName,
@@ -1705,178 +1710,234 @@ export default function ProjectTaskDrawer({
               </span>
             </div>
 
-            {/* Agrupación + creación rápida */}
-            <div className="flex flex-col gap-2 border-b border-white/[0.07] pb-3">
-              {/* selector de grupo + input */}
-              <div className="grid grid-cols-1 gap-2 md:items-center">
-                <div className="relative" ref={todoGroupPickerRef}>
-                  <button
-                    type="button"
-                    disabled={!canEditWorkspace}
-                    onClick={() => {
-                      if (!canEditWorkspace) return;
-                      setTodoGroupMenuOpen((v) => !v);
-                    }}
-                    className={`flex w-full items-center justify-between rounded-full px-3 py-1.5 text-left text-[11px] ${INPUT_BASE}`}
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate">
-                        {todoGroupSelected ?? 'Sin grupo'}
-                      </span>
-                      <span
-                        className={`h-[3px] w-8 shrink-0 rounded-full ${
-                          getTodoGroupPriorityOption(
-                            getTodoGroup(todoGroupSelected)?.priority ?? null,
-                          )?.lineClass ?? 'bg-white/[0.18]'
-                        }`}
-                      />
-                    </span>
-                    <motion.span
-                      animate={{ rotate: todoGroupMenuOpen ? 180 : 0 }}
-                      transition={{ duration: 0.16 }}
+            {/* Composer de checklist */}
+            <div className="border-b border-white/[0.07] pb-3">
+              <div className="rounded-[16px] border border-white/[0.07] bg-white/[0.025] p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.72]">
+                      Nuevo paso
+                    </div>
+                    <div className="mt-0.5 text-[10px] font-normal text-white/[0.38]">
+                      Escribí la tarea y elegí dónde organizarla.
+                    </div>
+                  </div>
+
+                  {canEditWorkspace && !isLocked ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTodoGroupMenuOpen(false);
+                        setNewTodoGroupPanelOpen((open) => !open);
+                      }}
+                      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[10px] bg-white/[0.055] px-2.5 text-[10px] font-medium text-white/[0.62] transition hover:bg-white/[0.085] hover:text-white/[0.88]"
                     >
-                      <ChevronDown className="h-4 w-4 text-white/[0.65]" />
-                    </motion.span>
-                  </button>
-
-                  <AnimatePresence>
-                    {todoGroupMenuOpen && canEditWorkspace && !isLocked && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                        transition={{ duration: 0.16 }}
-                        className="absolute z-30 mt-2 w-full overflow-hidden rounded-[16px] border border-white/[0.09] bg-[#1c1c1e] shadow-[0_20px_60px_rgba(0,0,0,.38)]"
-                      >
-                        <div className="p-2 space-y-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTodoGroupSelected(null);
-                              setTodoGroupMenuOpen(false);
-                            }}
-                            className={`w-full rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-white/[0.055] ${
-                              todoGroupSelected === null ? 'bg-white/[0.06]' : ''
-                            }`}
-                          >
-                            Sin grupo
-                          </button>
-
-                          {todoGroups.map((group) => (
-                            <button
-                              key={group.name}
-                              type="button"
-                              onClick={() => {
-                                setTodoGroupSelected(group.name);
-                                setTodoGroupMenuOpen(false);
-                              }}
-                              className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[11px] text-white hover:bg-white/[0.055] ${
-                                todoGroupSelected === group.name
-                                  ? 'bg-white/[0.06]'
-                                  : ''
-                              }`}
-                            >
-                              <span className="truncate">{group.name}</span>
-                              <span
-                                className={`h-[3px] w-9 shrink-0 rounded-full ${
-                                  getTodoGroupPriorityOption(group.priority)?.lineClass
-                                }`}
-                                title={`Prioridad ${
-                                  getTodoGroupPriorityOption(group.priority)?.label
-                                }`}
-                              />
-                            </button>
-                          ))}
-
-                          <div className="mt-2 border-t border-white/[0.07] pt-2">
-                            <div className="px-1 pb-1 text-[10px] uppercase tracking-wide text-white/[0.65]">
-                              Crear grupo
-                            </div>
-
-                            <div className="mb-2 grid grid-cols-3 gap-1.5">
-                              {TODO_GROUP_PRIORITY_OPTIONS.map((option) => {
-                                const selected =
-                                  newTodoGroupPriority === option.value;
-
-                                return (
-                                  <button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() =>
-                                      setNewTodoGroupPriority(option.value)
-                                    }
-                                    className={`flex h-8 items-center justify-center gap-1.5 rounded-[9px] border px-2 text-[10px] font-medium transition ${
-                                      selected
-                                        ? option.selectedClass
-                                        : 'border-white/[0.07] bg-white/[0.025] text-white/[0.50] hover:bg-white/[0.055] hover:text-white/[0.75]'
-                                    }`}
-                                  >
-                                    <span
-                                      className={`h-[3px] w-4 rounded-full ${option.lineClass}`}
-                                    />
-                                    {option.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            <div className="flex gap-2">
-                              <input
-                                value={newTodoGroupName}
-                                onChange={(e) => setNewTodoGroupName(e.target.value)}
-                                placeholder="Ej: Categorías"
-                                className={`h-9 flex-1 px-2 ${INPUT_BASE}`}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    createTodoGroupFromDraft();
-                                  }
-                                }}
-                              />
-                              <button
-                                type="button"
-                                onClick={createTodoGroupFromDraft}
-                                disabled={!newTodoGroupName.trim()}
-                                className="inline-flex h-9 items-center justify-center rounded-xl bg-white/[0.07] px-4 text-[11px] font-medium text-white/[0.80] transition hover:bg-white/[0.10] hover:text-white/[0.94] disabled:cursor-not-allowed disabled:opacity-35"
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                      <Plus className="h-3.5 w-3.5" />
+                      Nuevo grupo
+                    </button>
+                  ) : null}
                 </div>
 
-                <input
-                  ref={newTodoInputRef}
-                  value={newTodoText}
-                  onChange={(e) => setNewTodoText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && canEditWorkspace) {
-                      e.preventDefault();
-                      addTodo();
-                    }
-                  }}
-                  disabled={!canEditWorkspace}
-                  placeholder={
-                    canEditWorkspace
-                      ? 'Escribí y presioná Enter...'
-                      : 'Solo lectura'
-                  }
-                  className={`flex-1 px-3 py-1.5 text-xs ${INPUT_BASE}`}
-                />
+                <AnimatePresence initial={false}>
+                  {newTodoGroupPanelOpen && canEditWorkspace && !isLocked ? (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0, y: -4 }}
+                      animate={{ height: 'auto', opacity: 1, y: 0 }}
+                      exit={{ height: 0, opacity: 0, y: -4 }}
+                      transition={{ duration: 0.18 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-3 rounded-[13px] border border-white/[0.07] bg-black/[0.10] p-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.58]">
+                            Crear grupo
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setNewTodoGroupPanelOpen(false)}
+                            className="grid h-6 w-6 place-items-center rounded-lg text-white/[0.30] transition hover:bg-white/[0.06] hover:text-white/[0.70]"
+                            aria-label="Cerrar creador de grupo"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
 
-                <button
-                  type="button"
-                  onClick={addTodo}
-                  disabled={!canEditWorkspace || !newTodoText.trim()}
-                  className="inline-flex items-center justify-center rounded-xl bg-[#0a84ff] px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/[0.50]"
-                >
-                  <Plus className="mr-1 h-3 w-3" />
-                  Añadir
-                </button>
+                        <input
+                          value={newTodoGroupName}
+                          onChange={(event) =>
+                            setNewTodoGroupName(event.target.value)
+                          }
+                          placeholder="Nombre del grupo, ej: Horarios"
+                          className={`h-9 w-full px-2.5 text-xs ${INPUT_BASE}`}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              createTodoGroupFromDraft();
+                            }
+                          }}
+                        />
+
+                        <div className="mt-2 grid grid-cols-3 gap-1.5">
+                          {TODO_GROUP_PRIORITY_OPTIONS.map((option) => {
+                            const selected =
+                              newTodoGroupPriority === option.value;
+
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() =>
+                                  setNewTodoGroupPriority(option.value)
+                                }
+                                className={`flex h-8 items-center justify-center gap-1.5 rounded-[9px] border px-2 text-[10px] font-medium transition ${
+                                  selected
+                                    ? option.selectedClass
+                                    : 'border-white/[0.07] bg-white/[0.025] text-white/[0.50] hover:bg-white/[0.055] hover:text-white/[0.75]'
+                                }`}
+                              >
+                                <span
+                                  className={`h-[3px] w-4 rounded-full ${option.lineClass}`}
+                                />
+                                {option.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={createTodoGroupFromDraft}
+                          disabled={!newTodoGroupName.trim()}
+                          className="mt-2 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[10px] bg-white/[0.07] px-3 text-[10px] font-medium text-white/[0.80] transition hover:bg-white/[0.10] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Crear grupo
+                        </button>
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+
+                <div className="mt-3">
+                  <input
+                    ref={newTodoInputRef}
+                    value={newTodoText}
+                    onChange={(event) => setNewTodoText(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && canEditWorkspace) {
+                        event.preventDefault();
+                        addTodo();
+                      }
+                    }}
+                    disabled={!canEditWorkspace}
+                    placeholder={
+                      canEditWorkspace
+                        ? '¿Qué hay que hacer?'
+                        : 'Solo lectura'
+                    }
+                    className={`h-10 w-full px-3 text-xs ${INPUT_BASE}`}
+                  />
+
+                  <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                    <div className="relative" ref={todoGroupPickerRef}>
+                      <button
+                        type="button"
+                        disabled={!canEditWorkspace}
+                        onClick={() => {
+                          if (!canEditWorkspace) return;
+                          setNewTodoGroupPanelOpen(false);
+                          setTodoGroupMenuOpen((open) => !open);
+                        }}
+                        className={`flex h-9 w-full items-center justify-between rounded-[11px] px-3 text-left text-[10px] ${INPUT_BASE}`}
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="text-white/[0.38]">Grupo</span>
+                          <span className="truncate text-white/[0.78]">
+                            {todoGroupSelected ?? 'Sin grupo'}
+                          </span>
+                          <span
+                            className={`h-[3px] w-7 shrink-0 rounded-full ${
+                              getTodoGroupPriorityOption(
+                                getTodoGroup(todoGroupSelected)?.priority ?? null,
+                              )?.lineClass ?? 'bg-white/[0.18]'
+                            }`}
+                          />
+                        </span>
+
+                        <motion.span
+                          animate={{ rotate: todoGroupMenuOpen ? 180 : 0 }}
+                          transition={{ duration: 0.16 }}
+                        >
+                          <ChevronDown className="h-3.5 w-3.5 text-white/[0.45]" />
+                        </motion.span>
+                      </button>
+
+                      <AnimatePresence>
+                        {todoGroupMenuOpen &&
+                        canEditWorkspace &&
+                        !isLocked ? (
+                          <motion.div
+                            initial={{ opacity: 0, y: -5, scale: 0.985 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -5, scale: 0.985 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute z-30 mt-2 w-full overflow-hidden rounded-[14px] border border-white/[0.09] bg-[#1c1c1e] p-1.5 shadow-[0_20px_60px_rgba(0,0,0,.38)]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTodoGroupSelected(null);
+                                setTodoGroupMenuOpen(false);
+                              }}
+                              className={`flex w-full items-center justify-between rounded-[9px] px-2.5 py-2 text-left text-[10px] transition hover:bg-white/[0.055] ${
+                                todoGroupSelected === null
+                                  ? 'bg-white/[0.06] text-white/[0.88]'
+                                  : 'text-white/[0.58]'
+                              }`}
+                            >
+                              <span>Sin grupo</span>
+                              <span className="h-[3px] w-7 rounded-full bg-white/[0.18]" />
+                            </button>
+
+                            {todoGroups.map((group) => (
+                              <button
+                                key={group.name}
+                                type="button"
+                                onClick={() => {
+                                  setTodoGroupSelected(group.name);
+                                  setTodoGroupMenuOpen(false);
+                                }}
+                                className={`flex w-full items-center justify-between gap-3 rounded-[9px] px-2.5 py-2 text-left text-[10px] transition hover:bg-white/[0.055] ${
+                                  todoGroupSelected === group.name
+                                    ? 'bg-white/[0.06] text-white/[0.88]'
+                                    : 'text-white/[0.58]'
+                                }`}
+                              >
+                                <span className="truncate">{group.name}</span>
+                                <span
+                                  className={`h-[3px] w-7 shrink-0 rounded-full ${
+                                    getTodoGroupPriorityOption(group.priority)
+                                      ?.lineClass
+                                  }`}
+                                />
+                              </button>
+                            ))}
+                          </motion.div>
+                        ) : null}
+                      </AnimatePresence>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={addTodo}
+                      disabled={!canEditWorkspace || !newTodoText.trim()}
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[11px] bg-[#0a84ff] px-3.5 text-[10px] font-medium text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/[0.40]"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Añadir paso
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1884,8 +1945,17 @@ export default function ProjectTaskDrawer({
             <div className="flex-1 min-h-0 space-y-3 overflow-y-auto pr-1">
               <DndContext
                 sensors={todoDndSensors}
+                onDragStart={(event) =>
+                  setActiveTodoId(String(event.active.id))
+                }
+                onDragCancel={() => {
+                  setActiveTodoId(null);
+                  setActiveTodoDropId('');
+                }}
                 onDragEnd={handleTodoDragEnd}
-                onDragOver={(e) => setActiveTodoDropId(String(e.over?.id ?? ''))}
+                onDragOver={(event) =>
+                  setActiveTodoDropId(String(event.over?.id ?? ''))
+                }
               >
                 {todoGroupKeys.map((key) => {
                   const groupName = key === TODO_NO_GROUP_KEY ? null : key;
@@ -1900,6 +1970,7 @@ export default function ProjectTaskDrawer({
                     <TodoGroup
                       key={key}
                       dropId={dropId}
+                      groupName={groupName}
                       title={groupName ?? 'Sin grupo'}
                       count={`${done}/${total}`}
                       priority={getTodoGroup(groupName)?.priority ?? null}
@@ -1929,6 +2000,38 @@ export default function ProjectTaskDrawer({
                     </TodoGroup>
                   );
                 })}
+
+                <DragOverlay
+                  dropAnimation={{ duration: 160, easing: 'ease-out' }}
+                >
+                  {activeTodo ? (
+                    <div className="w-[280px] rotate-[1deg]">
+                      <div className="flex items-center gap-2 rounded-[12px] border border-[#0a84ff]/40 bg-[#242426] px-2.5 py-2 shadow-[0_18px_50px_rgba(0,0,0,.35)]">
+                        <div className="grid h-5 w-5 place-items-center text-white/[0.52]">
+                          <GripVertical className="h-4 w-4" />
+                        </div>
+
+                        <div className="grid h-5 w-5 place-items-center text-white/[0.65]">
+                          {activeTodo.done ? (
+                            <CheckSquare className="h-4 w-4 text-emerald-400" />
+                          ) : (
+                            <Square className="h-4 w-4" />
+                          )}
+                        </div>
+
+                        <span
+                          className={`min-w-0 flex-1 truncate text-xs font-normal ${
+                            activeTodo.done
+                              ? 'text-white/[0.48] line-through'
+                              : 'text-white/[0.90]'
+                          }`}
+                        >
+                          {activeTodo.label}
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
+                </DragOverlay>
               </DndContext>
 
               {todos.length === 0 && (
