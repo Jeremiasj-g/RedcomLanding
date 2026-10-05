@@ -72,6 +72,7 @@ export default function ProjectTaskSheetGrid({
   const lastSavedRef = useRef("");
   const dirtyRef = useRef(false);
   const savingRef = useRef(false);
+  const ignoreRealtimeUntilRef = useRef(0);
   const lastHistoryAtRef = useRef(0);
 
   const snapshot = useCallback(
@@ -200,7 +201,11 @@ export default function ProjectTaskSheetGrid({
           filter: `task_id=eq.${taskId}`,
         },
         () => {
-          if (!dirtyRef.current && !savingRef.current) {
+          if (
+            !dirtyRef.current &&
+            !savingRef.current &&
+            Date.now() > ignoreRealtimeUntilRef.current
+          ) {
             void loadSheet(true);
           }
         },
@@ -240,6 +245,7 @@ export default function ProjectTaskSheetGrid({
 
         lastSavedRef.current = current;
         dirtyRef.current = false;
+        ignoreRealtimeUntilRef.current = Date.now() + 1500;
         setSaveState("saved");
       } catch (error) {
         console.error("Error autosaving task sheet", error);
@@ -259,7 +265,6 @@ export default function ProjectTaskSheetGrid({
     canEdit,
     loading,
     snapshot,
-    saveState,
   ]);
 
   const columns = useMemo(
