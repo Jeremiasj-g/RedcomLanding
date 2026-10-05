@@ -44,6 +44,8 @@ import { RedcomDatePicker } from '@/components/ui/redcom-date-picker';
 import { RedcomSelect } from '@/components/ui/redcom-select';
 import type { ProjectWithMembers } from '@/lib/projects';
 import ProjectTaskActivityPanel from './ProjectTaskActivityPanel';
+import { errorMessage, notify } from '@/lib/notifications';
+import { isPastIsoDate, localTodayIso } from '@/lib/dateValidation';
 
 type Props = {
   task: ProjectTaskWithAssignees;
@@ -279,6 +281,10 @@ export default function ProjectTaskDrawer({
   const [editingTodoGroupValue, setEditingTodoGroupValue] = useState('');
   const [editingTodoGroupPriority, setEditingTodoGroupPriority] =
     useState<ProjectTaskWorkspaceGroupPriority>('medium');
+  const [deleteTodoGroupConfirm, setDeleteTodoGroupConfirm] = useState<{
+    name: string;
+    itemCount: number;
+  } | null>(null);
   const todoGroupPickerRef = useRef<HTMLDivElement | null>(null);
 
   // edición inline
@@ -313,35 +319,42 @@ export default function ProjectTaskDrawer({
     priority: ProjectTaskWorkspaceGroupPriority = 'medium',
   ) => {
     const cleanName = name.trim();
-    if (!cleanName) return;
 
-    setTodoGroups((prev) => {
-      const existing = prev.find(
-        (group) =>
-          group.name.localeCompare(cleanName, 'es', {
-            sensitivity: 'base',
-          }) === 0,
-      );
+    if (!cleanName) {
+      notify.error('Ingresá un nombre para el grupo.');
+      return false;
+    }
 
-      if (existing) {
-        return prev
-          .map((group) =>
-            group.name === existing.name ? { ...group, priority } : group,
-          )
-          .sort((a, b) => a.name.localeCompare(b.name, 'es'));
-      }
+    if (cleanName.length > 50) {
+      notify.error('El nombre del grupo no puede superar los 50 caracteres.');
+      return false;
+    }
 
-      return [...prev, { name: cleanName, priority }].sort((a, b) =>
+    const duplicate = todoGroups.some(
+      (group) =>
+        group.name.localeCompare(cleanName, 'es', {
+          sensitivity: 'base',
+        }) === 0,
+    );
+
+    if (duplicate) {
+      notify.error('Ya existe un grupo con ese nombre.');
+      return false;
+    }
+
+    setTodoGroups((prev) =>
+      [...prev, { name: cleanName, priority }].sort((a, b) =>
         a.name.localeCompare(b.name, 'es'),
-      );
-    });
+      ),
+    );
+
+    return true;
   };
 
   const createTodoGroupFromDraft = () => {
     const name = newTodoGroupName.trim();
-    if (!name) return;
+    if (!addTodoGroup(name, newTodoGroupPriority)) return;
 
-    addTodoGroup(name, newTodoGroupPriority);
     setTodoGroupSelected(name);
     setNewTodoGroupName('');
     setNewTodoGroupPriority('medium');
@@ -426,9 +439,29 @@ export default function ProjectTaskDrawer({
     if (!editingTodoGroupName) return;
 
     const nextName = editingTodoGroupValue.trim();
-    if (!nextName) return;
+    if (!nextName) {
+      notify.error('El nombre del grupo no puede quedar vacío.');
+      return;
+    }
+
+    if (nextName.length > 50) {
+      notify.error('El nombre del grupo no puede superar los 50 caracteres.');
+      return;
+    }
 
     const previousName = editingTodoGroupName;
+    const duplicate = todoGroups.some(
+      (group) =>
+        group.name !== previousName &&
+        group.name.localeCompare(nextName, 'es', {
+          sensitivity: 'base',
+        }) === 0,
+    );
+
+    if (duplicate) {
+      notify.error('Ya existe otro grupo con ese nombre.');
+      return;
+    }
 
     setTodos((prev) =>
       prev.map((todo) => {
@@ -460,7 +493,16 @@ export default function ProjectTaskDrawer({
     cancelEditTodoGroup();
   };
 
-  const deleteTodoGroup = (name: string) => {
+  const requestDeleteTodoGroup = (name: string) => {
+    const itemCount = todosUi.filter((todo) => todo.group === name).length;
+    setDeleteTodoGroupConfirm({ name, itemCount });
+  };
+
+  const confirmDeleteTodoGroup = () => {
+    if (!deleteTodoGroupConfirm) return;
+
+    const { name } = deleteTodoGroupConfirm;
+
     // El grupo desaparece, pero sus pasos se conservan en "Sin grupo".
     setTodos((prev) =>
       prev.map((todo) => {
@@ -475,12 +517,14 @@ export default function ProjectTaskDrawer({
     );
 
     setTodoGroups((prev) => prev.filter((group) => group.name !== name));
-
     setTodoGroupSelected((current) => (current === name ? null : current));
 
     if (editingTodoGroupName === name) {
       cancelEditTodoGroup();
     }
+
+    setDeleteTodoGroupConfirm(null);
+    notify.success('Grupo eliminado. Sus pasos quedaron en Sin grupo.');
   };
 
   const startEditTodo = (t: any) => {
@@ -495,7 +539,16 @@ export default function ProjectTaskDrawer({
 
   const saveEditTodo = (t: any) => {
     const nextLabel = editingTodoValue.trim();
-    if (!nextLabel) return;
+
+    if (!nextLabel) {
+      notify.error('El paso no puede quedar vacío.');
+      return;
+    }
+
+    if (nextLabel.length > 180) {
+      notify.error('Cada paso puede tener hasta 180 caracteres.');
+      return;
+    }
 
     const nextText = encodeTodo(t.group ?? null, nextLabel);
 
@@ -572,6 +625,7 @@ export default function ProjectTaskDrawer({
               <input
                 autoFocus
                 value={editingTodoGroupValue}
+                maxLength={50}
                 onChange={(event) =>
                   setEditingTodoGroupValue(event.target.value)
                 }
@@ -683,7 +737,7 @@ export default function ProjectTaskDrawer({
 
                 <button
                   type="button"
-                  onClick={() => deleteTodoGroup(groupName)}
+                  onClick={() => requestDeleteTodoGroup(groupName)}
                   className="grid h-7 w-7 place-items-center rounded-lg text-white/[0.28] transition hover:bg-rose-400/10 hover:text-rose-300"
                   aria-label={`Eliminar grupo ${groupName}`}
                   title="Eliminar grupo y mover sus pasos a Sin grupo"
@@ -797,6 +851,7 @@ export default function ProjectTaskDrawer({
             <input
               autoFocus
               value={editingValue}
+              maxLength={180}
               onChange={(e) => onChangeEditingValue(e.target.value)}
               className={`w-full px-2 py-1 text-xs ${INPUT_BASE}`}
               onKeyDown={(e) => {
@@ -1026,6 +1081,7 @@ export default function ProjectTaskDrawer({
   );
 
   const canEditWorkspace = !isLocked && (canManage || isAssignee);
+  const todayIso = localTodayIso();
 
   const toggleAssignee = (id: string) => {
     if (isLocked || !canManage) return;
@@ -1057,20 +1113,59 @@ export default function ProjectTaskDrawer({
   const save = async () => {
     if (task.is_locked) return;
 
+    const cleanTitle = title.trim();
+    const cleanSummary = summary.trim();
+    const cleanDescription = description.trim();
+    const originalDueDate = task.due_date ? task.due_date.slice(0, 10) : '';
+
+    if (!cleanTitle) {
+      notify.error('El nombre de la tarea es obligatorio.');
+      return;
+    }
+
+    if (cleanTitle.length > 160) {
+      notify.error('El nombre de la tarea no puede superar los 160 caracteres.');
+      return;
+    }
+
+    if (cleanSummary.length > 300) {
+      notify.error('El resumen no puede superar los 300 caracteres.');
+      return;
+    }
+
+    if (cleanDescription.length > 5000) {
+      notify.error('La descripción no puede superar los 5000 caracteres.');
+      return;
+    }
+
+    if (
+      dueDate &&
+      dueDate !== originalDueDate &&
+      isPastIsoDate(dueDate, todayIso)
+    ) {
+      notify.error('La fecha límite no puede ser anterior a hoy.');
+      return;
+    }
+
+    const selectedProject =
+      projects.find((item) => String(item.id) === projectId) ??
+      projects.find(
+        (item) => item.name.toLowerCase() === project.toLowerCase(),
+      );
+
+    if (!selectedProject) {
+      notify.error('Seleccioná un proyecto válido.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const selectedProject =
-        projects.find((item) => String(item.id) === projectId) ??
-        projects.find(
-          (item) => item.name.toLowerCase() === project.toLowerCase(),
-        );
-
       const updatedRow = await updateProjectTask(task.id, {
-        title,
-        summary,
-        description,
-        project: selectedProject?.name ?? project,
-        project_id: selectedProject?.id ?? task.project_id ?? null,
+        title: cleanTitle,
+        summary: cleanSummary || null,
+        description: cleanDescription || null,
+        project: selectedProject.name,
+        project_id: selectedProject.id,
         status,
         priority,
         due_date: dueDate || null,
@@ -1098,7 +1193,11 @@ export default function ProjectTaskDrawer({
       };
 
       onUpdated(enriched);
+      notify.success('Cambios guardados.');
       onClose();
+    } catch (err) {
+      console.error('Error saving task', err);
+      notify.error(errorMessage(err, 'No se pudieron guardar los cambios.'));
     } finally {
       setLoading(false);
     }
@@ -1157,9 +1256,18 @@ export default function ProjectTaskDrawer({
 
   // ───── HELPERS WORKSPACE ─────────────────────────────
   const addTodo = () => {
-    if (!newTodoText.trim()) return;
-
     const label = newTodoText.trim();
+
+    if (!label) {
+      notify.error('Escribí un paso antes de añadirlo.');
+      return;
+    }
+
+    if (label.length > 180) {
+      notify.error('Cada paso puede tener hasta 180 caracteres.');
+      return;
+    }
+
     const text = encodeTodo(todoGroupSelected, label);
 
     setTodos((prev) => [
@@ -1183,15 +1291,50 @@ export default function ProjectTaskDrawer({
   };
 
   const addLink = () => {
-    if (!newLinkUrl.trim()) return;
+    const rawUrl = newLinkUrl.trim();
+    const cleanLabel = newLinkLabel.trim();
 
-    const normalized = normalizeUrl(newLinkUrl);
+    if (!rawUrl) {
+      notify.error('Ingresá una URL para guardar el recurso.');
+      return;
+    }
+
+    if (rawUrl.length > 2048) {
+      notify.error('La URL es demasiado larga.');
+      return;
+    }
+
+    if (cleanLabel.length > 120) {
+      notify.error('El nombre del recurso no puede superar los 120 caracteres.');
+      return;
+    }
+
+    const normalized = normalizeUrl(rawUrl);
+
+    try {
+      const parsed = new URL(normalized);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        throw new Error('invalid protocol');
+      }
+    } catch {
+      notify.error('Ingresá una URL válida.');
+      return;
+    }
+
+    if (
+      resourceLinks.some(
+        (link) => link.url.toLowerCase() === normalized.toLowerCase(),
+      )
+    ) {
+      notify.error('Ese recurso ya está agregado.');
+      return;
+    }
 
     setResourceLinks((prev) => [
       ...prev,
       {
         id: makeId(),
-        label: newLinkLabel.trim() || newLinkUrl.trim(),
+        label: cleanLabel || rawUrl,
         url: normalized,
       },
     ]);
@@ -1285,6 +1428,7 @@ export default function ProjectTaskDrawer({
               rows={2}
               className="mb-4 w-full max-h-24 resize-none overflow-y-auto rounded-xl border border-transparent bg-transparent px-0 text-xl font-medium tracking-[-0.025em] text-white/[0.94] outline-none placeholder:text-white/[0.46] focus:border-white/[0.08] focus:bg-white/[0.025] disabled:cursor-not-allowed disabled:opacity-50"
               value={title}
+              maxLength={160}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Nombre de la tarea"
               disabled={isLocked}
@@ -1515,6 +1659,7 @@ export default function ProjectTaskDrawer({
                   <RedcomDatePicker
                     value={dueDate}
                     onChange={setDueDate}
+                    minDate={todayIso}
                     placeholder="Sin fecha"
                     accent="indigo"
                     surface="dark"
@@ -1607,6 +1752,7 @@ export default function ProjectTaskDrawer({
                       className={`flex-1 px-3 py-1.5 ${INPUT_BASE}`}
                       placeholder="Breve descripción de la tarea..."
                       value={summary}
+                      maxLength={300}
                       onChange={(e) => setSummary(e.target.value)}
                     />
                     <button
@@ -1662,6 +1808,7 @@ export default function ProjectTaskDrawer({
                 className="h-full w-full min-h-[120px] rounded-[14px] border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-sm font-normal text-white/[0.88] outline-none placeholder:text-white/[0.46] transition focus:border-[#0a84ff]/50 focus:bg-white/[0.05] focus:ring-4 focus:ring-[#0a84ff]/10 disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Contexto, objetivos, entregables, decisiones clave..."
                 value={description}
+                maxLength={5000}
                 onChange={(e) => setDescription(e.target.value)}
                 disabled={isLocked}
               />
@@ -1764,6 +1911,7 @@ export default function ProjectTaskDrawer({
 
                         <input
                           value={newTodoGroupName}
+                          maxLength={50}
                           onChange={(event) =>
                             setNewTodoGroupName(event.target.value)
                           }
@@ -1822,6 +1970,7 @@ export default function ProjectTaskDrawer({
                   <input
                     ref={newTodoInputRef}
                     value={newTodoText}
+                    maxLength={180}
                     onChange={(event) => setNewTodoText(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' && canEditWorkspace) {
@@ -2132,12 +2281,14 @@ export default function ProjectTaskDrawer({
                   <div className="mb-1 flex flex-col gap-1">
                     <input
                       value={newLinkLabel}
+                      maxLength={120}
                       onChange={(e) => setNewLinkLabel(e.target.value)}
                       placeholder="Nombre del recurso (opcional)"
                       className={`w-full px-2 py-1 ${INPUT_BASE}`}
                     />
                     <input
                       value={newLinkUrl}
+                      maxLength={2048}
                       onChange={(e) => setNewLinkUrl(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -2176,6 +2327,79 @@ export default function ProjectTaskDrawer({
           </div>
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {deleteTodoGroupConfirm ? (
+          <motion.div
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/[0.58] p-4 backdrop-blur-md"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={() => setDeleteTodoGroupConfirm(null)}
+          >
+            <motion.div
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="delete-checklist-group-title"
+              className="w-full max-w-md rounded-[22px] border border-white/[0.09] bg-[#1c1c1e] p-6 text-[#f5f5f7] shadow-[0_28px_80px_rgba(0,0,0,.45)]"
+              initial={{ scale: 0.97, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.98, opacity: 0, y: 6 }}
+              transition={{ duration: 0.16 }}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-400/10 text-rose-300">
+                  <X className="h-5 w-5" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h3
+                    id="delete-checklist-group-title"
+                    className="text-base font-medium text-white/[0.94]"
+                  >
+                    ¿Eliminar el grupo?
+                  </h3>
+                  <p className="mt-1 text-sm font-normal leading-6 text-white/[0.65]">
+                    Se eliminará el grupo <span className="font-medium text-white/[0.90]">{deleteTodoGroupConfirm.name}</span>.
+                    Sus pasos no se perderán.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-[14px] border border-white/[0.07] bg-white/[0.035] px-3.5 py-3">
+                <div className="text-xs font-medium text-white/[0.82]">
+                  {deleteTodoGroupConfirm.itemCount === 0
+                    ? 'Este grupo está vacío.'
+                    : `${deleteTodoGroupConfirm.itemCount} paso${
+                        deleteTodoGroupConfirm.itemCount === 1 ? '' : 's'
+                      } se moverán a “Sin grupo”.`}
+                </div>
+                <div className="mt-1 text-[10px] font-normal text-white/[0.42]">
+                  Podés volver a organizarlos después mediante drag & drop.
+                </div>
+              </div>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteTodoGroupConfirm(null)}
+                  className="h-10 rounded-xl px-4 text-xs font-normal text-white/[0.72] transition hover:bg-white/[0.055] hover:text-white"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteTodoGroup}
+                  className="h-10 rounded-xl bg-rose-500 px-4 text-xs font-medium text-white transition hover:bg-rose-400"
+                >
+                  Eliminar grupo
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </AnimatePresence>
   );
 }
