@@ -45,6 +45,7 @@ import { errorMessage, notify } from '@/lib/notifications';
 import { RedcomDatePicker } from '@/components/ui/redcom-date-picker';
 import { RedcomSelect } from '@/components/ui/redcom-select';
 import { fetchProjectsForUser, type ProjectWithMembers } from '@/lib/projects';
+import { isPastIsoDate, localTodayIso } from '@/lib/dateValidation';
 
 // ─────────────────────────────────────────
 //  Tailwind helpers
@@ -235,6 +236,7 @@ export default function ProyectosPage() {
 
   const isAdmin = me?.role === 'admin';
   const canManage = isAdmin || me?.role === 'jdv';
+  const todayIso = localTodayIso();
 
   const closeAllPopovers = () => {
     setStatusOpenFor(null);
@@ -423,23 +425,51 @@ export default function ProyectosPage() {
   // 2) Crear tarea nueva (solo admin)
   // ─────────────────────────────────────────
   const handleCreate = async () => {
-    if (!canManage) return;
-    if (!me) return;
-    if (!newTitle.trim()) return;
+    if (!canManage || !me) return;
+
+    const cleanTitle = newTitle.trim();
+    const cleanSummary = newSummary.trim();
+
+    if (!cleanTitle) {
+      notify.error('Ingresá un nombre para la tarea.');
+      return;
+    }
+
+    if (cleanTitle.length > 160) {
+      notify.error('El nombre de la tarea no puede superar los 160 caracteres.');
+      return;
+    }
+
+    if (cleanSummary.length > 300) {
+      notify.error('El resumen no puede superar los 300 caracteres.');
+      return;
+    }
+
+    if (newDueDate && isPastIsoDate(newDueDate, todayIso)) {
+      notify.error('La fecha límite no puede ser anterior a hoy.');
+      return;
+    }
+
+    const selectedProject =
+      projects.find((project) => String(project.id) === newProjectId) ??
+      projects.find(
+        (project) => project.name.toLowerCase() === 'proyecto general',
+      ) ??
+      projects[0];
+
+    if (!selectedProject) {
+      notify.error('Seleccioná un proyecto antes de crear la tarea.');
+      return;
+    }
 
     try {
       setCreating(true);
 
-      const selectedProject =
-        projects.find((project) => String(project.id) === newProjectId) ??
-        projects.find((project) => project.name.toLowerCase() === 'proyecto general') ??
-        projects[0];
-
       const payload = {
-        title: newTitle.trim(),
-        project: selectedProject?.name ?? 'Proyecto general',
-        project_id: selectedProject?.id ?? null,
-        summary: newSummary.trim() || null,
+        title: cleanTitle,
+        project: selectedProject.name,
+        project_id: selectedProject.id,
+        summary: cleanSummary || null,
         status: 'not_started' as ProjectTaskStatus,
         priority: 'medium' as ProjectTaskPriority,
         due_date: newDueDate || null,
@@ -453,8 +483,10 @@ export default function ProyectosPage() {
       setNewDueDate('');
       setQuickCreateOpen(false);
       setPage(1);
+      notify.success('Tarea creada.');
     } catch (err) {
       console.error('Error creating project task', err);
+      notify.error(errorMessage(err, 'No se pudo crear la tarea.'));
     } finally {
       setCreating(false);
     }
@@ -877,12 +909,14 @@ export default function ProyectosPage() {
                     <input
                       value={newTitle}
                       onChange={(event) => setNewTitle(event.target.value)}
+                      maxLength={160}
                       placeholder="Nombre de la tarea"
                       className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-medium text-white outline-none transition placeholder:font-normal placeholder:text-white/[0.46] hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
                     />
                     <input
                       value={newSummary}
                       onChange={(event) => setNewSummary(event.target.value)}
+                      maxLength={300}
                       placeholder="Resumen breve (opcional)"
                       className="h-10 w-full rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3 text-xs font-normal text-white/[0.88] outline-none transition placeholder:text-white/[0.46] focus:border-[#0a84ff]/50 focus:bg-white/[0.05]"
                     />
@@ -907,6 +941,7 @@ export default function ProyectosPage() {
                   <RedcomDatePicker
                     value={newDueDate}
                     onChange={setNewDueDate}
+                    minDate={todayIso}
                     placeholder="Fecha límite"
                     surface="dark"
                     accent="indigo"
