@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   DndContext,
   DragEndEvent,
+  DragOverlay,
   PointerSensor,
   useDraggable,
   useDroppable,
@@ -273,6 +274,11 @@ export default function ProjectTaskDrawer({
   const [newTodoGroupName, setNewTodoGroupName] = useState('');
   const [newTodoGroupPriority, setNewTodoGroupPriority] =
     useState<ProjectTaskWorkspaceGroupPriority>('medium');
+  const [newTodoGroupPanelOpen, setNewTodoGroupPanelOpen] = useState(false);
+  const [editingTodoGroupName, setEditingTodoGroupName] = useState<string | null>(null);
+  const [editingTodoGroupValue, setEditingTodoGroupValue] = useState('');
+  const [editingTodoGroupPriority, setEditingTodoGroupPriority] =
+    useState<ProjectTaskWorkspaceGroupPriority>('medium');
   const todoGroupPickerRef = useRef<HTMLDivElement | null>(null);
 
   // edición inline
@@ -281,6 +287,7 @@ export default function ProjectTaskDrawer({
 
   // DnD
   const [activeTodoDropId, setActiveTodoDropId] = useState('');
+  const [activeTodoId, setActiveTodoId] = useState<string | null>(null);
   const todoDndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
@@ -338,6 +345,7 @@ export default function ProjectTaskDrawer({
     setTodoGroupSelected(name);
     setNewTodoGroupName('');
     setNewTodoGroupPriority('medium');
+    setNewTodoGroupPanelOpen(false);
     setTodoGroupMenuOpen(false);
   };
 
@@ -399,6 +407,82 @@ export default function ProjectTaskDrawer({
   const getTodoGroup = (name: string | null) =>
     name ? todoGroups.find((group) => group.name === name) ?? null : null;
 
+  const startEditTodoGroup = (name: string) => {
+    const group = getTodoGroup(name);
+    if (!group) return;
+
+    setEditingTodoGroupName(name);
+    setEditingTodoGroupValue(group.name);
+    setEditingTodoGroupPriority(group.priority);
+  };
+
+  const cancelEditTodoGroup = () => {
+    setEditingTodoGroupName(null);
+    setEditingTodoGroupValue('');
+    setEditingTodoGroupPriority('medium');
+  };
+
+  const saveEditTodoGroup = () => {
+    if (!editingTodoGroupName) return;
+
+    const nextName = editingTodoGroupValue.trim();
+    if (!nextName) return;
+
+    const previousName = editingTodoGroupName;
+
+    setTodos((prev) =>
+      prev.map((todo) => {
+        const decoded = decodeTodo(todo.text);
+        if (decoded.group !== previousName) return todo;
+
+        return {
+          ...todo,
+          text: encodeTodo(nextName, decoded.label),
+        };
+      }),
+    );
+
+    setTodoGroups((prev) => {
+      const withoutCurrent = prev.filter(
+        (group) => group.name !== previousName && group.name !== nextName,
+      );
+
+      return [
+        ...withoutCurrent,
+        { name: nextName, priority: editingTodoGroupPriority },
+      ].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    });
+
+    setTodoGroupSelected((current) =>
+      current === previousName ? nextName : current,
+    );
+
+    cancelEditTodoGroup();
+  };
+
+  const deleteTodoGroup = (name: string) => {
+    // El grupo desaparece, pero sus pasos se conservan en "Sin grupo".
+    setTodos((prev) =>
+      prev.map((todo) => {
+        const decoded = decodeTodo(todo.text);
+        if (decoded.group !== name) return todo;
+
+        return {
+          ...todo,
+          text: encodeTodo(null, decoded.label),
+        };
+      }),
+    );
+
+    setTodoGroups((prev) => prev.filter((group) => group.name !== name));
+
+    setTodoGroupSelected((current) => (current === name ? null : current));
+
+    if (editingTodoGroupName === name) {
+      cancelEditTodoGroup();
+    }
+  };
+
   const startEditTodo = (t: any) => {
     setEditingTodoId(t.id);
     setEditingTodoValue(t.label ?? '');
@@ -427,6 +511,7 @@ export default function ProjectTaskDrawer({
     const overId = String(e.over?.id ?? '');
 
     setActiveTodoDropId('');
+    setActiveTodoId(null);
 
     if (!activeId || !overId.startsWith('drop:')) return;
 
@@ -447,6 +532,7 @@ export default function ProjectTaskDrawer({
 
   function TodoGroup({
     dropId,
+    groupName,
     title,
     count,
     priority,
@@ -454,6 +540,7 @@ export default function ProjectTaskDrawer({
     children,
   }: {
     dropId: string;
+    groupName: string | null;
     title: string;
     count: string;
     priority: ProjectTaskWorkspaceGroupPriority | null;
@@ -462,45 +549,160 @@ export default function ProjectTaskDrawer({
   }) {
     const { setNodeRef } = useDroppable({ id: dropId });
     const [open, setOpen] = useState(true);
+    const isEditingGroup =
+      groupName !== null && editingTodoGroupName === groupName;
 
     return (
       <div
         ref={setNodeRef}
-        className={`rounded-xl border border-white/[0.08] bg-white/[0.025] ${
-          isActiveDrop ? 'ring-2 ring-gray-500/50' : ''
+        className={`rounded-xl border border-white/[0.08] bg-white/[0.025] transition ${
+          isActiveDrop
+            ? 'border-[#0a84ff]/40 bg-[#0a84ff]/[0.035] ring-2 ring-[#0a84ff]/15'
+            : ''
         }`}
       >
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-center justify-between gap-2 px-3 py-2"
-        >
-          <div className="min-w-0 text-left">
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="truncate text-[11px] font-medium uppercase tracking-[0.08em] text-white/[0.76]">
-                {title}
-              </div>
-              <span
-                className={`h-[3px] w-9 shrink-0 rounded-full ${
-                  getTodoGroupPriorityOption(priority)?.lineClass ??
-                  'bg-white/[0.18]'
-                }`}
-                title={
-                  priority
-                    ? `Prioridad ${getTodoGroupPriorityOption(priority)?.label ?? ''}`
-                    : 'Sin prioridad'
+        {isEditingGroup ? (
+          <div className="border-b border-white/[0.06] px-3 py-3">
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                value={editingTodoGroupValue}
+                onChange={(event) =>
+                  setEditingTodoGroupValue(event.target.value)
                 }
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    saveEditTodoGroup();
+                  }
+
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cancelEditTodoGroup();
+                  }
+                }}
+                className={`h-9 min-w-0 flex-1 px-2.5 text-xs ${INPUT_BASE}`}
+                placeholder="Nombre del grupo"
               />
+
+              <button
+                type="button"
+                onClick={saveEditTodoGroup}
+                disabled={!editingTodoGroupValue.trim()}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#0a84ff] text-white transition hover:bg-[#409cff] disabled:opacity-35"
+                aria-label="Guardar grupo"
+              >
+                <Check className="h-4 w-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={cancelEditTodoGroup}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-white/[0.055] text-white/[0.60] transition hover:bg-white/[0.09] hover:text-white/[0.88]"
+                aria-label="Cancelar edición"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <div className="text-[11px] font-normal text-white/[0.65]">{count}</div>
+
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              {TODO_GROUP_PRIORITY_OPTIONS.map((option) => {
+                const selected =
+                  editingTodoGroupPriority === option.value;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() =>
+                      setEditingTodoGroupPriority(option.value)
+                    }
+                    className={`flex h-8 items-center justify-center gap-1.5 rounded-[9px] border px-2 text-[10px] font-medium transition ${
+                      selected
+                        ? option.selectedClass
+                        : 'border-white/[0.07] bg-white/[0.025] text-white/[0.50] hover:bg-white/[0.055] hover:text-white/[0.75]'
+                    }`}
+                  >
+                    <span
+                      className={`h-[3px] w-4 rounded-full ${option.lineClass}`}
+                    />
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <motion.div
-            animate={{ rotate: open ? 180 : 0 }}
-            transition={{ duration: 0.18 }}
-          >
-            <ChevronDown className="h-4 w-4 text-white/[0.65]" />
-          </motion.div>
-        </button>
+        ) : (
+          <div className="flex items-center gap-1 px-3 py-2">
+            <button
+              type="button"
+              onClick={() => setOpen((value) => !value)}
+              className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
+            >
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="truncate text-[11px] font-medium uppercase tracking-[0.08em] text-white/[0.76]">
+                    {title}
+                  </div>
+                  <span
+                    className={`h-[3px] w-9 shrink-0 rounded-full ${
+                      getTodoGroupPriorityOption(priority)?.lineClass ??
+                      'bg-white/[0.18]'
+                    }`}
+                    title={
+                      priority
+                        ? `Prioridad ${
+                            getTodoGroupPriorityOption(priority)?.label ?? ''
+                          }`
+                        : 'Sin prioridad'
+                    }
+                  />
+                </div>
+                <div className="text-[11px] font-normal text-white/[0.65]">
+                  {count}
+                </div>
+              </div>
+            </button>
+
+            {groupName && canEditWorkspace && !isLocked ? (
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => startEditTodoGroup(groupName)}
+                  className="grid h-7 w-7 place-items-center rounded-lg text-white/[0.28] transition hover:bg-white/[0.06] hover:text-white/[0.72]"
+                  aria-label={`Editar grupo ${groupName}`}
+                  title="Editar grupo"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => deleteTodoGroup(groupName)}
+                  className="grid h-7 w-7 place-items-center rounded-lg text-white/[0.28] transition hover:bg-rose-400/10 hover:text-rose-300"
+                  aria-label={`Eliminar grupo ${groupName}`}
+                  title="Eliminar grupo y mover sus pasos a Sin grupo"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setOpen((value) => !value)}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-white/[0.42] transition hover:bg-white/[0.05] hover:text-white/[0.72]"
+              aria-label={open ? 'Contraer grupo' : 'Expandir grupo'}
+            >
+              <motion.span
+                animate={{ rotate: open ? 180 : 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                <ChevronDown className="h-4 w-4" />
+              </motion.span>
+            </button>
+          </div>
+        )}
 
         <AnimatePresence initial={false}>
           {open && (
@@ -542,19 +744,14 @@ export default function ProjectTaskDrawer({
     onToggle: () => void;
     onDelete: () => void;
   }) {
-    const { attributes, listeners, setNodeRef, transform, isDragging } =
+    const { attributes, listeners, setNodeRef, isDragging } =
       useDraggable({ id: todo.id });
-
-    const style: React.CSSProperties | undefined = transform
-      ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
-      : undefined;
 
     return (
       <div
         ref={setNodeRef}
-        style={style}
-        className={`group relative flex items-center gap-2 rounded-lg px-2 py-1.5 pr-16 z-10 bg-white/[0.035] hover:bg-white/[0.055] ${
-          isDragging ? 'opacity-70' : ''
+        className={`group relative z-10 flex items-center gap-2 rounded-lg bg-white/[0.035] px-2 py-1.5 pr-16 transition hover:bg-white/[0.055] ${
+          isDragging ? 'opacity-25' : 'opacity-100'
         }`}
       >
         <button
@@ -562,7 +759,7 @@ export default function ProjectTaskDrawer({
           disabled={!canEdit}
           {...attributes}
           {...listeners}
-          className="mt-0.5 flex h-5 w-5 items-center justify-center rounded border-white/20 text-white/[0.80] disabled:cursor-not-allowed"
+          className="mt-0.5 flex h-5 w-5 touch-none items-center justify-center rounded border-white/20 text-white/[0.80] disabled:cursor-not-allowed"
           aria-label="Arrastrar"
         >
           <GripVertical className="h-4 w-4 text-white/[0.65]" />
