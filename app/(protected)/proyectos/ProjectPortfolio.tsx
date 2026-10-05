@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 import { RedcomDatePicker } from "@/components/ui/redcom-date-picker";
 import { RedcomSelect } from "@/components/ui/redcom-select";
 import { errorMessage, notify } from "@/lib/notifications";
+import { isPastIsoDate, laterIsoDate, localTodayIso } from "@/lib/dateValidation";
 import type { ProjectTaskWithAssignees } from "@/lib/projectTasks";
 import {
   createProject,
@@ -91,6 +92,7 @@ export default function ProjectPortfolio({
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const todayIso = localTodayIso();
 
   const metrics = useMemo(() => {
     const active = projects.filter((project) => project.status === "active").length;
@@ -142,13 +144,51 @@ export default function ProjectPortfolio({
   };
 
   const handleCreate = async () => {
-    if (!name.trim()) return;
+    const cleanName = name.trim();
+    const cleanDescription = description.trim();
+
+    if (!cleanName) {
+      notify.error("Ingresá un nombre para el proyecto.");
+      return;
+    }
+
+    if (cleanName.length > 120) {
+      notify.error("El nombre del proyecto no puede superar los 120 caracteres.");
+      return;
+    }
+
+    if (cleanDescription.length > 500) {
+      notify.error("La descripción no puede superar los 500 caracteres.");
+      return;
+    }
+
+    const duplicate = projects.some(
+      (project) =>
+        project.name.localeCompare(cleanName, "es", {
+          sensitivity: "base",
+        }) === 0,
+    );
+
+    if (duplicate) {
+      notify.error("Ya existe un proyecto con ese nombre.");
+      return;
+    }
+
+    if (dueDate && isPastIsoDate(dueDate, todayIso)) {
+      notify.error("La fecha objetivo no puede ser anterior a hoy.");
+      return;
+    }
+
+    if (startDate && dueDate && dueDate < startDate) {
+      notify.error("La fecha objetivo no puede ser anterior a la fecha de inicio.");
+      return;
+    }
 
     try {
       setSaving(true);
       const created = await createProject(currentUserId, {
-        name,
-        description,
+        name: cleanName,
+        description: cleanDescription,
         start_date: startDate || null,
         due_date: dueDate || null,
       });
@@ -232,6 +272,7 @@ export default function ProjectPortfolio({
               </label>
               <input
                 value={name}
+                maxLength={120}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Ej: Portal comercial 2027"
                 className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-medium text-white/[0.92] outline-none transition placeholder:font-normal placeholder:text-white/[0.40] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
@@ -244,6 +285,7 @@ export default function ProjectPortfolio({
               </label>
               <input
                 value={description}
+                maxLength={500}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Objetivo o alcance del proyecto"
                 className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-normal text-white/[0.88] outline-none transition placeholder:text-white/[0.40] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
@@ -256,7 +298,12 @@ export default function ProjectPortfolio({
               </label>
               <RedcomDatePicker
                 value={startDate}
-                onChange={setStartDate}
+                onChange={(value) => {
+                  setStartDate(value);
+                  if (value && dueDate && dueDate < value) {
+                    setDueDate("");
+                  }
+                }}
                 placeholder="Sin fecha"
                 surface="dark"
                 accent="indigo"
@@ -272,6 +319,7 @@ export default function ProjectPortfolio({
               <RedcomDatePicker
                 value={dueDate}
                 onChange={setDueDate}
+                minDate={laterIsoDate(todayIso, startDate)}
                 placeholder="Sin fecha"
                 surface="dark"
                 accent="indigo"
