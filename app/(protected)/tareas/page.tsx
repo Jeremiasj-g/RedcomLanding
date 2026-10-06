@@ -25,7 +25,7 @@ export default function TareasPage() {
   if (loadingMe && !me) {
     return (
       <RequireAuth roles={['admin', 'supervisor', 'jdv']}>
-        <div className="grid min-h-[80vh] place-items-center">
+        <div className="grid min-h-[80vh] place-items-center bg-[#F4F5F7]">
           <DualSpinner size={60} thickness={4} />
         </div>
       </RequireAuth>
@@ -34,7 +34,8 @@ export default function TareasPage() {
 
   return (
     <RequireAuth roles={['admin', 'supervisor', 'jdv']}>
-      <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5 px-6 pb-14 pt-10 lg:px-10">
+      <div className="min-h-[calc(100vh-72px)] bg-[#F4F5F7]">
+        <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5 px-6 pb-14 pt-10 lg:px-10">
         <header className="flex flex-col gap-6 border-b border-black/[0.08] pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="mb-4 text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400">
@@ -53,6 +54,7 @@ export default function TareasPage() {
         </header>
 
         {me && <MyTasksBoard userId={me.id} range={rangeState.range} />}
+        </div>
       </div>
     </RequireAuth>
   );
