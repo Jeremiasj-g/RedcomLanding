@@ -37,7 +37,7 @@ export default function MyTasksBoard(props: Props) {
 
 function BoardInner({ userId, range }: Props) {
   const { loading } = useTasksLoader(userId, range);
-  const actions = useTaskActions();
+  const actions = useTaskActions(range);
   const { tasks, setTasks } = useTasks();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [viewMode, setViewMode] = useState<TaskViewMode>('week');
