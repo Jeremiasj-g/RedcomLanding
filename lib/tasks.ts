@@ -354,3 +354,13 @@ export async function createTaskComment(
     author_name: row.profiles?.full_name ?? null,
   };
 }
+
+
+export async function deleteTaskComment(commentId: number) {
+  const { error } = await supabase
+    .from('task_comments')
+    .delete()
+    .eq('id', commentId);
+
+  if (error) throw error;
+}
