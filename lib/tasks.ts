@@ -3,6 +3,16 @@ import { supabase } from '@/lib/supabaseClient';
 
 export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'cancelled';
 export type TaskPriority = 'low' | 'medium' | 'high';
+export type TaskRecurrenceType = 'daily' | 'weekly' | 'first_business_day_month' | 'every_n_days';
+
+export type TaskComment = {
+  id: number;
+  task_id: number;
+  user_id: string;
+  content: string;
+  created_at: string;
+  author_name?: string | null;
+};
 
 export type TaskItem = {
   id: number;
@@ -158,6 +168,13 @@ export async function createTask(input: {
       scheduled_at: input.scheduled_at,
       priority: input.priority ?? 'medium',
       category: input.category ?? null,
+      recurrence_type: input.recurrence_type ?? null,
+      recurrence_interval_days: input.recurrence_interval_days ?? null,
+      recurrence_series_id:
+        input.recurrence_type
+          ? (input.recurrence_series_id ?? crypto.randomUUID())
+          : null,
+      recurrence_generated_from: input.recurrence_generated_from ?? null,
     })
     .select('*')
     .single();
@@ -214,4 +231,125 @@ export async function updateTaskScheduledAt(taskId: number, scheduled_at: string
 
   if (error) throw error;
   return data;
+}
+
+function nextRecurringDate(task: Task) {
+  const current = new Date(task.scheduled_at);
+  const next = new Date(current);
+
+  if (task.recurrence_type === 'daily') {
+    next.setDate(next.getDate() + 1);
+    return next;
+  }
+
+  if (task.recurrence_type === 'weekly') {
+    next.setDate(next.getDate() + 7);
+    return next;
+  }
+
+  if (task.recurrence_type === 'every_n_days') {
+    next.setDate(next.getDate() + Math.max(1, task.recurrence_interval_days ?? 1));
+    return next;
+  }
+
+  if (task.recurrence_type === 'first_business_day_month') {
+    next.setMonth(next.getMonth() + 1, 1);
+    while (next.getDay() === 0 || next.getDay() === 6) {
+      next.setDate(next.getDate() + 1);
+    }
+    return next;
+  }
+
+  return null;
+}
+
+export async function ensureNextRecurringTask(task: Task): Promise<Task | null> {
+  if (!task.recurrence_type || task.status !== 'done') return null;
+
+  const { data: existing, error: existingError } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('recurrence_generated_from', task.id)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+  if (existing) return existing as Task;
+
+  const nextDate = nextRecurringDate(task);
+  if (!nextDate) return null;
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert({
+      title: task.title,
+      description: task.description,
+      scheduled_at: nextDate.toISOString(),
+      priority: task.priority,
+      category: task.category,
+      recurrence_type: task.recurrence_type,
+      recurrence_interval_days: task.recurrence_interval_days,
+      recurrence_series_id: task.recurrence_series_id ?? crypto.randomUUID(),
+      recurrence_generated_from: task.id,
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    // Si dos acciones intentan generar la siguiente instancia al mismo tiempo,
+    // el índice único evita duplicados. Recuperamos la ya creada.
+    if ((error as any)?.code === '23505') {
+      const { data: duplicate, error: duplicateError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('recurrence_generated_from', task.id)
+        .single();
+      if (duplicateError) throw duplicateError;
+      return duplicate as Task;
+    }
+    throw error;
+  }
+
+  return data as Task;
+}
+
+export async function fetchTaskComments(taskId: number): Promise<TaskComment[]> {
+  const { data, error } = await supabase
+    .from('task_comments')
+    .select('id, task_id, user_id, content, created_at, profiles(full_name)')
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    task_id: row.task_id,
+    user_id: row.user_id,
+    content: row.content,
+    created_at: row.created_at,
+    author_name: row.profiles?.full_name ?? null,
+  })) as TaskComment[];
+}
+
+export async function createTaskComment(taskId: number, content: string): Promise<TaskComment> {
+  const clean = content.trim();
+  if (!clean) throw new Error('El comentario no puede estar vacío.');
+
+  const { data, error } = await supabase
+    .from('task_comments')
+    .insert({ task_id: taskId, content: clean })
+    .select('id, task_id, user_id, content, created_at, profiles(full_name)')
+    .single();
+
+  if (error) throw error;
+
+  const row: any = data;
+  return {
+    id: row.id,
+    task_id: row.task_id,
+    user_id: row.user_id,
+    content: row.content,
+    created_at: row.created_at,
+    author_name: row.profiles?.full_name ?? null,
+  };
 }
