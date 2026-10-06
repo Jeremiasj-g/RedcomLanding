@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { errorMessage, notify } from '@/lib/notifications';
 
 import TaskChecklistSection from '../TaskChecklistSection';
+import TaskCommentsTimeline from './TaskCommentsTimeline';
 import { buildISOFromLocal, toYMD } from '../date';
 
 // shadcn/ui
@@ -483,7 +484,7 @@ export default function TaskDetailModal({
               </div>
 
               {/* Right */}
-              <div className="min-h-0 overflow-hidden bg-[#151517]">
+              <div className="min-h-0 overflow-y-auto bg-[#151517]">
                 <TaskChecklistSection
                   taskId={task.id}
                   notes={task.notes ?? null}
@@ -495,6 +496,7 @@ export default function TaskDetailModal({
                     onTaskUpdate(updated);
                   }}
                 />
+                <TaskCommentsTimeline taskId={task.id} />
               </div>
             </div>
           </motion.div>
