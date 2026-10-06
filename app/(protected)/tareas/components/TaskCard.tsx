@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CheckCircle2, Loader2, StickyNote, Trash2, Pencil } from 'lucide-react';
+import { Loader2, StickyNote, Trash2, Pencil } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 
 import type { Task } from '@/lib/tasks';
 import TaskChecklistIndicator from '../TaskChecklistIndicator';
+import { RedcomSelect } from '@/components/ui/redcom-select';
 
 type Props = {
   dndId: string;
@@ -16,7 +17,7 @@ type Props = {
   savingNotesId: number | null;
   deletingId: number | null;
 
-  onToggleStatus: (task: Task) => Promise<Task>;
+  onStatusChange: (task: Task, status: Task['status']) => Promise<Task>;
   onSaveNotes: (task: Task, notes: string) => Promise<Task>;
   onDelete: (task: Task) => Promise<boolean>;
 
@@ -33,7 +34,7 @@ export default function TaskCard({
   changingStatusId,
   savingNotesId,
   deletingId,
-  onToggleStatus,
+  onStatusChange,
   onSaveNotes,
   onDelete,
   onOpenDetail,
@@ -98,23 +99,42 @@ export default function TaskCard({
       {/* Header */}
       <div className="mb-1 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <button
+          <div
             data-no-dnd
-            onClick={async (e) => {
-              e.stopPropagation();
-              await onToggleStatus(task);
-            }}
-            disabled={changingStatusId === task.id}
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-medium ${statusPill}`}
-            title="Cambiar estado"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="min-w-[126px]"
           >
+            <RedcomSelect
+              value={task.status}
+              options={[
+                { value: 'pending', label: BRIEF_STATUS.pending },
+                { value: 'in_progress', label: BRIEF_STATUS.in_progress },
+                { value: 'done', label: BRIEF_STATUS.done },
+                { value: 'cancelled', label: BRIEF_STATUS.cancelled },
+              ]}
+              onValueChange={(value) => {
+                void onStatusChange(task, value as Task['status']);
+              }}
+              disabled={changingStatusId === task.id}
+              surface="dark"
+              triggerTone={
+                task.status === 'done'
+                  ? 'green'
+                  : task.status === 'in_progress'
+                    ? 'blue'
+                    : task.status === 'cancelled'
+                      ? 'red'
+                      : 'neutral'
+              }
+              aria-label={`Cambiar estado de ${task.title}`}
+              className={`h-7 rounded-full px-2 text-[9px] font-medium ${statusPill}`}
+              contentClassName="text-[11px]"
+            />
             {changingStatusId === task.id ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-3 w-3" />
-            )}
-            {BRIEF_STATUS?.[task.status] ?? task.status}
-          </button>
+              <span className="sr-only">Actualizando estado...</span>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex items-center gap-1">
