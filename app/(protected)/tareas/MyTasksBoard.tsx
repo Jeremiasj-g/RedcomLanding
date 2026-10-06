@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Columns3, KanbanSquare, ListChecks } from 'lucide-react';
+import { CalendarDays, Columns3, ListChecks } from 'lucide-react';
 import type { Task } from '@/lib/tasks';
 
 import { TasksProvider } from './TasksContext';
@@ -99,7 +99,7 @@ function BoardInner({ userId, range }: Props) {
           {[
             { value: 'week' as const, label: 'Semana', icon: Columns3 },
             { value: 'list' as const, label: 'Lista', icon: ListChecks },
-            { value: 'kanban' as const, label: 'Kanban', icon: KanbanSquare },
+            { value: 'kanban' as const, label: 'Kanban', icon: Columns3 },
             { value: 'calendar' as const, label: 'Calendario', icon: CalendarDays },
           ].map((item) => {
             const Icon = item.icon;
