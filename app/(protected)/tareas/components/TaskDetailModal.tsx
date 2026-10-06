@@ -407,10 +407,10 @@ export default function TaskDetailModal({
             </div>
 
             {/* Body: izquierda edición | derecha checklist */}
-            <div className="grid h-[calc(88dvh-73px)] min-h-0 grid-cols-1 md:grid-cols-[0.92fr,1.08fr]">
+            <div className="grid h-[calc(88dvh-73px)] min-h-0 grid-cols-1 md:grid-cols-[0.86fr,1.14fr]">
               {/* Left */}
-              <div className="min-h-0 overflow-y-auto border-b border-white/[0.07] p-6 md:border-b-0 md:border-r">
-                <div className="space-y-5">
+              <div className="min-h-0 overflow-y-auto border-b border-white/[0.07] p-5 md:border-b-0 md:border-r">
+                <div className="space-y-4">
                   {/* Título */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
@@ -460,7 +460,7 @@ export default function TaskDetailModal({
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       disabled={!editDescription}
-                      className="min-h-[135px] resize-none rounded-[12px] border-white/[0.08] bg-[#1c1c1e] text-[11px] font-normal leading-5 text-white/[0.82] disabled:cursor-default disabled:opacity-100 focus-visible:border-[#0a84ff]/45 focus-visible:ring-2 focus-visible:ring-[#0a84ff]/10"
+                      className="min-h-[108px] resize-none rounded-[12px] border-white/[0.08] bg-[#1c1c1e] text-[11px] font-normal leading-5 text-white/[0.82] disabled:cursor-default disabled:opacity-100 focus-visible:border-[#0a84ff]/45 focus-visible:ring-2 focus-visible:ring-[#0a84ff]/10"
                     />
                   </div>
 
@@ -536,11 +536,11 @@ export default function TaskDetailModal({
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-2">
+                  <div className="sticky bottom-0 -mx-1 flex items-center justify-end gap-2 border-t border-white/[0.05] bg-[#17181b]/95 px-1 pt-3 backdrop-blur">
                     <Button
                       onClick={saveEdits}
                       disabled={saving || !title.trim() || !hasChanges}
-                      className="h-10 rounded-[12px] bg-white px-4 text-[11px] font-medium text-[#0b1020] shadow-none transition hover:bg-white/[0.90] disabled:opacity-30"
+                      className="h-10 min-w-[148px] rounded-[12px] bg-white px-4 text-[11px] font-medium text-[#0b1020] shadow-none transition hover:bg-white/[0.90] disabled:opacity-30"
                     >
                       {saving ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -554,19 +554,24 @@ export default function TaskDetailModal({
               </div>
 
               {/* Right */}
-              <div className="min-h-0 overflow-y-auto bg-[#151517]">
-                <TaskChecklistSection
+              <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-[#151517]">
+                <div className="min-h-0">
+                  <TaskChecklistSection
                   taskId={task.id}
                   notes={task.notes ?? null}
                   editable={true}
                   variant="owner"
+                  compact
                   onAllDoneChange={async (allDone) => {
                     if (!allDone) return;
                     const updated = await onAllDone(task);
                     onTaskUpdate(updated);
                   }}
-                />
-                <TaskCommentsTimeline taskId={task.id} />
+                  />
+                </div>
+                <div className="min-h-0 overflow-hidden border-t border-white/[0.02]">
+                  <TaskCommentsTimeline taskId={task.id} compact />
+                </div>
               </div>
             </div>
           </motion.div>
