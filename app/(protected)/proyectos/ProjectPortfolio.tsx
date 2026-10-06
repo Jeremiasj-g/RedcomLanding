@@ -108,7 +108,12 @@ export default function ProjectPortfolio({
         total: number;
         done: number;
         pending: number;
-        members: Set<string>;
+        members: Map<
+          string,
+          ProjectTaskWithAssignees["assignees"][number]
+        >;
+        firstTaskDate: string | null;
+        lastDueDate: string | null;
       }
     >();
 
@@ -117,7 +122,9 @@ export default function ProjectPortfolio({
         total: 0,
         done: 0,
         pending: 0,
-        members: new Set(project.members.map((member) => member.user_id)),
+        members: new Map(),
+        firstTaskDate: null,
+        lastDueDate: null,
       });
     }
 
@@ -130,7 +137,24 @@ export default function ProjectPortfolio({
       if (task.status === "done") current.done += 1;
       else if (task.status !== "cancelled") current.pending += 1;
 
-      task.assignees.forEach((assignee) => current.members.add(assignee.user_id));
+      task.assignees.forEach((assignee) => {
+        current.members.set(assignee.user_id, assignee);
+      });
+
+      const createdDate = task.created_at?.slice(0, 10) ?? null;
+      if (
+        createdDate &&
+        (!current.firstTaskDate || createdDate < current.firstTaskDate)
+      ) {
+        current.firstTaskDate = createdDate;
+      }
+
+      if (
+        task.due_date &&
+        (!current.lastDueDate || task.due_date > current.lastDueDate)
+      ) {
+        current.lastDueDate = task.due_date;
+      }
     }
 
     return map;
@@ -370,11 +394,31 @@ export default function ProjectPortfolio({
                 total: 0,
                 done: 0,
                 pending: 0,
-                members: new Set<string>(),
+                members: new Map<
+                  string,
+                  ProjectTaskWithAssignees["assignees"][number]
+                >(),
+                firstTaskDate: null,
+                lastDueDate: null,
               };
               const progress = stats.total
                 ? Math.round((stats.done / stats.total) * 100)
                 : 0;
+
+              // Administradores/JDV ven la entidad proyecto completa.
+              // Un supervisor, en cambio, sólo debe ver el alcance de las
+              // tareas que efectivamente tiene visibles/asignadas.
+              const scopedMembers = canManage
+                ? project.members
+                : Array.from(stats.members.values());
+
+              const visibleStartDate = canManage
+                ? project.start_date
+                : stats.firstTaskDate ?? project.start_date;
+
+              const visibleDueDate = canManage
+                ? project.due_date
+                : stats.lastDueDate ?? project.due_date;
               const owner =
                 project.owner_name ??
                 project.owner_email ??
@@ -442,17 +486,17 @@ export default function ProjectPortfolio({
                   <div className="space-y-1 text-[10px] font-normal text-white/[0.55]">
                     <div className="flex items-center gap-1.5">
                       <CalendarDays className="h-3 w-3 text-white/[0.28]" />
-                      {formatDate(project.start_date)}
+                      {formatDate(visibleStartDate)}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <CheckCircle2 className="h-3 w-3 text-white/[0.28]" />
-                      {formatDate(project.due_date)}
+                      {formatDate(visibleDueDate)}
                     </div>
                   </div>
 
                   <div className="flex min-w-0 items-center gap-2">
                     <div className="flex -space-x-1.5">
-                      {project.members.slice(0, 4).map((member) => {
+                      {scopedMembers.slice(0, 4).map((member) => {
                         const label =
                           member.full_name ?? member.email ?? "Miembro";
                         return (
@@ -465,15 +509,15 @@ export default function ProjectPortfolio({
                           </span>
                         );
                       })}
-                      {project.members.length > 4 ? (
+                      {scopedMembers.length > 4 ? (
                         <span className="grid h-7 w-7 place-items-center rounded-full border border-[#151517] bg-white/[0.055] text-[9px] font-medium text-white/[0.50]">
-                          +{project.members.length - 4}
+                          +{scopedMembers.length - 4}
                         </span>
                       ) : null}
                     </div>
                     <span className="inline-flex items-center gap-1 text-[10px] font-normal text-white/[0.38]">
                       <Users2 className="h-3 w-3" />
-                      {stats.members.size}
+                      {scopedMembers.length}
                     </span>
                   </div>
 
