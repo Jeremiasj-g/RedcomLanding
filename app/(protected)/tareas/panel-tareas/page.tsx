@@ -343,7 +343,7 @@ export default function PanelTasksPage() {
   if (loadingMe && !me) {
     return (
       <RequireAuth roles={['admin', 'jdv']}>
-        <div className="grid min-h-[80vh] place-items-center bg-[#0f1012]">
+        <div className="grid min-h-[80vh] place-items-center bg-white">
           <DualSpinner size={60} thickness={4} />
         </div>
       </RequireAuth>
@@ -352,7 +352,7 @@ export default function PanelTasksPage() {
 
   return (
     <RequireAuth roles={['admin', 'jdv']}>
-      <div className="min-h-screen bg-[#0f1012] text-white">
+      <div className="min-h-screen bg-white text-white">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-5 px-4 py-7 sm:px-6 lg:px-8">
           <header className="rounded-[24px] border border-white/[0.08] bg-[#151517] px-5 py-5 shadow-[0_18px_55px_rgba(0,0,0,.16)] sm:px-6">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
