@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import {
   deleteTask,
   type Task,
+  ensureNextRecurringTask,
   updateTaskNotes,
   updateTaskStatus,
 } from '@/lib/tasks';
@@ -31,8 +32,24 @@ export function useTaskActions() {
       try {
         setChangingStatusId(task.id);
         const updated = await updateTaskStatus(task.id, newStatus);
-        setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
-        notify.success(`Estado actualizado: ${BRIEF_STATUS[newStatus]}.`);
+        let nextRecurring: Task | null = null;
+        if (newStatus === 'done') {
+          nextRecurring = await ensureNextRecurringTask(updated);
+        }
+
+        setTasks((prev) => {
+          const replaced = prev.map((t) => (t.id === task.id ? updated : t));
+          if (!nextRecurring || replaced.some((t) => t.id === nextRecurring!.id)) return replaced;
+          return [...replaced, nextRecurring].sort(
+            (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
+          );
+        });
+
+        notify.success(
+          nextRecurring
+            ? `Estado actualizado: ${BRIEF_STATUS[newStatus]}. Próxima tarea recurrente creada.`
+            : `Estado actualizado: ${BRIEF_STATUS[newStatus]}.`,
+        );
         return updated;
       } catch (error) {
         notify.error(errorMessage(error, 'No se pudo actualizar el estado.'));
@@ -113,8 +130,21 @@ export function useTaskActions() {
       try {
         setChangingStatusId(task.id);
         const updated = await updateTaskStatus(task.id, 'done');
-        setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
-        notify.success('Tarea completada.');
+        const nextRecurring = await ensureNextRecurringTask(updated);
+
+        setTasks((prev) => {
+          const replaced = prev.map((t) => (t.id === task.id ? updated : t));
+          if (!nextRecurring || replaced.some((t) => t.id === nextRecurring.id)) return replaced;
+          return [...replaced, nextRecurring].sort(
+            (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
+          );
+        });
+
+        notify.success(
+          nextRecurring
+            ? 'Tarea completada. Próxima tarea recurrente creada.'
+            : 'Tarea completada.',
+        );
         return updated;
       } catch (error) {
         notify.error(errorMessage(error, 'No se pudo completar la tarea.'));
