@@ -90,7 +90,9 @@ export default function TaskCommentsTimeline({
             Comentarios y actualizaciones
           </div>
           <p className="mt-1 text-[10px] leading-4 text-white/[0.34]">
-            Registrá avances breves para conservar el contexto cronológico de la tarea.
+            {readOnly
+              ? 'Historial cronológico registrado por el usuario.'
+              : 'Registrá avances breves para conservar el contexto cronológico de la tarea.'}
           </p>
         </div>
         <span className="rounded-full bg-white/[0.045] px-2 py-1 text-[9px] font-medium text-white/[0.38]">
