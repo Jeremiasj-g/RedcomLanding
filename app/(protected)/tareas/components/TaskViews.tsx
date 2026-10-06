@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, type ComponentType } from 'react';
+import { useMemo, type ComponentType, type ReactNode } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -68,12 +68,14 @@ export function TaskListView({
   tasks,
   onSelectTask,
   onStatusChange,
-  changingStatusId,
+  changingStatusId = null,
+  getMeta,
 }: {
   tasks: Task[];
   onSelectTask: (task: Task) => void;
-  onStatusChange: (task: Task, status: Task['status']) => Promise<Task>;
-  changingStatusId: number | null;
+  onStatusChange?: (task: Task, status: Task['status']) => Promise<Task>;
+  changingStatusId?: number | null;
+  getMeta?: (task: Task) => ReactNode;
 }) {
   const sorted = useMemo(
     () =>
@@ -128,6 +130,11 @@ export function TaskListView({
                       {recurrent}
                     </span>
                   ) : null}
+                  {getMeta ? (
+                    <span className="min-w-0 truncate text-[9px] text-white/[0.30]">
+                      {getMeta(task)}
+                    </span>
+                  ) : null}
                 </div>
               </div>
 
@@ -135,22 +142,37 @@ export function TaskListView({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
               >
-                <RedcomSelect
-                  value={task.status}
-                  options={[
-                    { value: 'pending', label: STATUS_LABELS.pending },
-                    { value: 'in_progress', label: STATUS_LABELS.in_progress },
-                    { value: 'done', label: STATUS_LABELS.done },
-                    { value: 'cancelled', label: STATUS_LABELS.cancelled },
-                  ]}
-                  onValueChange={(value) =>
-                    void onStatusChange(task, value as Task['status'])
-                  }
-                  disabled={changingStatusId === task.id}
-                  surface="dark"
-                  triggerTone={STATUS_TONES[task.status]}
-                  className="h-8 rounded-full !border-transparent px-2 text-[10px] hover:!border-transparent focus-visible:!border-transparent data-[state=open]:!border-transparent"
-                />
+                {onStatusChange ? (
+                  <RedcomSelect
+                    value={task.status}
+                    options={[
+                      { value: 'pending', label: STATUS_LABELS.pending },
+                      { value: 'in_progress', label: STATUS_LABELS.in_progress },
+                      { value: 'done', label: STATUS_LABELS.done },
+                      { value: 'cancelled', label: STATUS_LABELS.cancelled },
+                    ]}
+                    onValueChange={(value) =>
+                      void onStatusChange(task, value as Task['status'])
+                    }
+                    disabled={changingStatusId === task.id}
+                    surface="dark"
+                    triggerTone={STATUS_TONES[task.status]}
+                    className="h-8 rounded-full !border-transparent px-2 text-[10px] hover:!border-transparent focus-visible:!border-transparent data-[state=open]:!border-transparent"
+                  />
+                ) : (
+                  <span className={[
+                    'inline-flex h-8 items-center rounded-full px-2.5 text-[10px] font-medium',
+                    task.status === 'done'
+                      ? 'bg-emerald-400/10 text-emerald-300'
+                      : task.status === 'in_progress'
+                        ? 'bg-sky-400/10 text-sky-300'
+                        : task.status === 'cancelled'
+                          ? 'bg-rose-400/10 text-rose-300'
+                          : 'bg-white/[0.05] text-white/[0.55]',
+                  ].join(' ')}>
+                    {STATUS_LABELS[task.status]}
+                  </span>
+                )}
               </div>
 
               <span className="inline-flex items-center gap-1.5 text-[10px] text-white/[0.38]">
@@ -176,10 +198,12 @@ export function TaskKanbanView({
   tasks,
   onSelectTask,
   onStatusChange,
+  getMeta,
 }: {
   tasks: Task[];
   onSelectTask: (task: Task) => void;
-  onStatusChange: (task: Task, status: Task['status']) => Promise<Task>;
+  onStatusChange?: (task: Task, status: Task['status']) => Promise<Task>;
+  getMeta?: (task: Task) => ReactNode;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -188,7 +212,7 @@ export function TaskKanbanView({
     const status = String(event.over?.id ?? '').replace('kanban-column:', '') as Task['status'];
     const task = tasks.find((item) => item.id === taskId);
 
-    if (!task || !KANBAN_COLUMNS.some((column) => column.status === status)) return;
+    if (!onStatusChange || !task || !KANBAN_COLUMNS.some((column) => column.status === status)) return;
     if (task.status === status) return;
 
     await onStatusChange(task, status);
@@ -204,6 +228,8 @@ export function TaskKanbanView({
             label={column.label}
             tasks={tasks.filter((task) => task.status === column.status)}
             onSelectTask={onSelectTask}
+            draggable={!!onStatusChange}
+            getMeta={getMeta}
           />
         ))}
       </section>
@@ -216,11 +242,15 @@ function KanbanColumn({
   label,
   tasks,
   onSelectTask,
+  draggable,
+  getMeta,
 }: {
   status: Task['status'];
   label: string;
   tasks: Task[];
   onSelectTask: (task: Task) => void;
+  draggable: boolean;
+  getMeta?: (task: Task) => ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `kanban-column:${status}` });
 
@@ -251,7 +281,13 @@ function KanbanColumn({
           </div>
         ) : (
           tasks.map((task) => (
-            <KanbanTask key={task.id} task={task} onSelectTask={onSelectTask} />
+            <KanbanTask
+              key={task.id}
+              task={task}
+              onSelectTask={onSelectTask}
+              draggable={draggable}
+              getMeta={getMeta}
+            />
           ))
         )}
       </div>
@@ -262,12 +298,17 @@ function KanbanColumn({
 function KanbanTask({
   task,
   onSelectTask,
+  draggable,
+  getMeta,
 }: {
   task: Task;
   onSelectTask: (task: Task) => void;
+  draggable: boolean;
+  getMeta?: (task: Task) => ReactNode;
 }) {
   const { setNodeRef, attributes, listeners, isDragging, transform } = useDraggable({
     id: `kanban-task:${task.id}`,
+    disabled: !draggable,
   });
 
   const dragStyle = {
@@ -286,7 +327,7 @@ function KanbanTask({
         if (!isDragging) onSelectTask(task);
       }}
       className={[
-        'cursor-grab rounded-[14px] border border-white/[0.07] bg-[#1c1c1e] p-3 transition-[border-color,background-color,box-shadow,opacity] duration-150 hover:border-white/[0.12] hover:bg-[#202023] active:cursor-grabbing',
+        `${draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} rounded-[14px] border border-white/[0.07] bg-[#1c1c1e] p-3 transition-[border-color,background-color,box-shadow,opacity] duration-150 hover:border-white/[0.12] hover:bg-[#202023]`,
         isDragging
           ? 'border-[#5ac8fa]/35 bg-[#242426] opacity-95 shadow-[0_20px_55px_rgba(0,0,0,.42)] ring-1 ring-[#5ac8fa]/15'
           : '',
@@ -297,7 +338,7 @@ function KanbanTask({
           <Clock3 className="h-3 w-3" />
           {timeLabel(task)}
         </span>
-        <GripVertical className="h-3.5 w-3.5 text-white/[0.20]" />
+        {draggable ? <GripVertical className="h-3.5 w-3.5 text-white/[0.20]" /> : null}
       </div>
       <div className="text-[11px] font-medium leading-4 text-white/[0.88]">{task.title}</div>
       {task.description ? (
@@ -305,12 +346,17 @@ function KanbanTask({
           {task.description}
         </p>
       ) : null}
-      {task.recurrence_type ? (
-        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#0a84ff]/10 px-2 py-0.5 text-[9px] text-[#5ac8fa]">
-          <Repeat2 className="h-3 w-3" />
-          {recurrenceLabel(task)}
-        </div>
-      ) : null}
+      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+        {task.recurrence_type ? (
+          <div className="inline-flex items-center gap-1 rounded-full bg-[#0a84ff]/10 px-2 py-0.5 text-[9px] text-[#5ac8fa]">
+            <Repeat2 className="h-3 w-3" />
+            {recurrenceLabel(task)}
+          </div>
+        ) : null}
+        {getMeta ? (
+          <span className="min-w-0 truncate text-[9px] text-white/[0.30]">{getMeta(task)}</span>
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -319,10 +365,12 @@ export function TaskCalendarView({
   tasks,
   range,
   onSelectTask,
+  getMeta,
 }: {
   tasks: Task[];
   range: { from: Date; to: Date };
   onSelectTask: (task: Task) => void;
+  getMeta?: (task: Task) => ReactNode;
 }) {
   const days = useMemo(
     () => eachDayOfInterval({ start: range.from, end: range.to }),
@@ -400,8 +448,15 @@ export function TaskCalendarView({
                     className="flex w-full items-center gap-2 rounded-[9px] border border-white/[0.055] bg-white/[0.025] px-2 py-1.5 text-left transition hover:bg-white/[0.055]"
                   >
                     <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[task.status]}`} />
-                    <span className="min-w-0 flex-1 truncate text-[9px] font-medium text-white/[0.68]">
-                      {task.title}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[9px] font-medium text-white/[0.68]">
+                        {task.title}
+                      </span>
+                      {getMeta ? (
+                        <span className="block truncate text-[8px] text-white/[0.25]">
+                          {getMeta(task)}
+                        </span>
+                      ) : null}
                     </span>
                     <span className="text-[8px] text-white/[0.25]">{timeLabel(task)}</span>
                   </button>
