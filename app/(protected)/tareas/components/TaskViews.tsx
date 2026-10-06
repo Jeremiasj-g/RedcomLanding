@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, type ComponentType } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -14,8 +14,7 @@ import {
   CalendarDays,
   Clock3,
   GripVertical,
-  KanbanSquare,
-  ListChecks,
+   ListChecks,
   Repeat2,
 } from 'lucide-react';
 import { eachDayOfInterval, startOfWeek } from 'date-fns';
@@ -415,7 +414,7 @@ function EmptyState({
   icon: Icon,
   text,
 }: {
-  icon: typeof CalendarDays | typeof KanbanSquare | typeof ListChecks;
+  icon: ComponentType<{ className?: string }>;
   text: string;
 }) {
   return (
