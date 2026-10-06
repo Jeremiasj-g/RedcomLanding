@@ -51,6 +51,7 @@ import {
   type ProjectTaskSheetColumnMeta,
   type ProjectTaskSheetColumnMetaMap,
   type ProjectTaskSheetColumnType,
+  type TaskSheetScope,
   upsertProjectTaskSheet,
 } from "@/lib/projectTaskSheet";
 import { supabase } from "@/lib/supabaseClient";
@@ -67,6 +68,7 @@ type Props = {
   currentUserId: string | null;
   canEdit: boolean;
   onSaveStateChange?: (state: ProjectTaskSheetSaveState) => void;
+  scope?: TaskSheetScope;
 };
 
 type HistoryEntry = {
@@ -535,6 +537,7 @@ export default function ProjectTaskSheetGrid({
   currentUserId,
   canEdit,
   onSaveStateChange,
+  scope = 'project',
 }: Props) {
   const [rowsCount, setRowsCount] = useState(DEFAULT_SHEET_ROWS);
   const [columnsCount, setColumnsCount] = useState(DEFAULT_SHEET_COLUMNS);
@@ -721,7 +724,7 @@ export default function ProjectTaskSheetGrid({
     async (quiet = false) => {
       try {
         if (!quiet) setLoading(true);
-        const sheet = await fetchProjectTaskSheet(taskId);
+        const sheet = await fetchProjectTaskSheet(taskId, scope);
 
         const nextCells = sheet.cells ?? {};
         const nextMeta = sheet.column_meta ?? {};
@@ -757,20 +760,20 @@ export default function ProjectTaskSheetGrid({
         if (!quiet) setLoading(false);
       }
     },
-    [taskId],
+    [scope, taskId],
   );
 
   useEffect(() => {
     void loadSheet();
 
     const channel = supabase
-      .channel(`project_task_sheet_${taskId}`)
+      .channel(`${scope}_task_sheet_${taskId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "project_task_sheets",
+          table: scope === 'personal' ? 'task_sheets' : 'project_task_sheets',
           filter: `task_id=eq.${taskId}`,
         },
         () => {
@@ -788,7 +791,7 @@ export default function ProjectTaskSheetGrid({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadSheet, taskId]);
+  }, [loadSheet, scope, taskId]);
 
   useEffect(() => {
     if (loading || !canEdit) return;
@@ -815,6 +818,7 @@ export default function ProjectTaskSheetGrid({
           cells,
           columnMeta,
           updatedBy: currentUserId,
+          scope,
         });
 
         lastSavedRef.current = current;
