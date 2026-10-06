@@ -511,8 +511,9 @@ export default function TaskDetailModal({
                 />
               </div>
             ) : (
-              {/* Body: izquierda edición | derecha checklist */}
-              <div className="grid h-[calc(88dvh-73px)] min-h-0 grid-cols-1 md:grid-cols-[0.86fr,1.14fr]">
+              <>
+                {/* Body: izquierda edición | derecha checklist */}
+                <div className="grid h-[calc(88dvh-73px)] min-h-0 grid-cols-1 md:grid-cols-[0.86fr,1.14fr]">
               {/* Left */}
               <div className="min-h-0 overflow-y-auto border-b border-white/[0.07] p-5 md:border-b-0 md:border-r">
                 <div className="space-y-4">
@@ -678,7 +679,8 @@ export default function TaskDetailModal({
                   <TaskCommentsTimeline taskId={task.id} compact />
                 </div>
               </div>
-            </div>
+                </div>
+              </>
             )}
           </motion.div>
         </motion.div>
