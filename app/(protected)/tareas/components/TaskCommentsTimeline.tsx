@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Clock3, Loader2, MessageSquareText, Send } from 'lucide-react';
+import { Clock3, Loader2, MessageSquareText, Send, Trash2 } from 'lucide-react';
 
 import {
   createTaskComment,
+  deleteTaskComment,
   fetchTaskComments,
   type TaskComment,
 } from '@/lib/tasks';
@@ -14,6 +15,7 @@ export default function TaskCommentsTimeline({ taskId }: { taskId: number }) {
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [text, setText] = useState('');
 
   useEffect(() => {
@@ -37,6 +39,22 @@ export default function TaskCommentsTimeline({ taskId }: { taskId: number }) {
       cancelled = true;
     };
   }, [taskId]);
+
+  async function removeComment(comment: TaskComment) {
+    if (!confirm('¿Eliminar este comentario?')) return;
+
+    try {
+      setDeletingId(comment.id);
+      await deleteTaskComment(comment.id);
+      setComments((prev) => prev.filter((item) => item.id !== comment.id));
+      notify.success('Comentario eliminado.');
+    } catch (error) {
+      console.error('Error deleting task comment', error);
+      notify.error(errorMessage(error, 'No se pudo eliminar el comentario.'));
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   async function submit() {
     const clean = text.trim();
@@ -119,11 +137,26 @@ export default function TaskCommentsTimeline({ taskId }: { taskId: number }) {
                     <span className="text-[10px] font-medium text-white/[0.68]">
                       {comment.author_name || 'Usuario'}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[9px] text-white/[0.30]">
-                      <Clock3 className="h-3 w-3" />
-                      {date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}{' '}
-                      {date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 text-[9px] text-white/[0.30]">
+                        <Clock3 className="h-3 w-3" />
+                        {date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}{' '}
+                        {date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void removeComment(comment)}
+                        disabled={deletingId === comment.id}
+                        className="grid h-7 w-7 place-items-center rounded-[8px] text-white/[0.24] transition hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-30"
+                        title="Eliminar comentario"
+                      >
+                        {deletingId === comment.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <p className="whitespace-pre-wrap text-[11px] leading-5 text-white/[0.66]">
                     {comment.content}
