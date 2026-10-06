@@ -44,6 +44,7 @@ import DualSpinner from '@/components/ui/DualSpinner';
 import { errorMessage, notify } from '@/lib/notifications';
 import { RedcomDatePicker } from '@/components/ui/redcom-date-picker';
 import { RedcomSelect } from '@/components/ui/redcom-select';
+import { WorkTable } from '@/components/ui/work-table';
 import { fetchProjectsForUser, type ProjectWithMembers } from '@/lib/projects';
 import { isPastIsoDate, localTodayIso } from '@/lib/dateValidation';
 
@@ -1077,16 +1078,13 @@ export default function ProyectosPage() {
                 onMoveTask={handleKanbanMove}
               />
             ) : (
-              <div className="overflow-x-auto">
-                <div className="min-w-[1160px]">
-                  <div className="grid grid-cols-[minmax(340px,2.2fr)_180px_165px_160px_minmax(360px,2fr)] border-b border-white/[0.07] bg-white/[0.025] px-5 py-3 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.58]">
-                    <div>Tarea / proyecto</div>
-                    <div>Estado</div>
-                    <div>Prioridad</div>
-                    <div>Fecha límite</div>
-                    <div>Responsables</div>
-                  </div>
-  
+
+              <WorkTable
+                embedded
+                minWidth="1160px"
+                columns="minmax(340px,2.2fr) 180px 165px 160px minmax(360px,2fr)"
+                headers={['Tarea / proyecto', 'Estado', 'Prioridad', 'Fecha límite', 'Responsables']}
+              >
                   {loading ? (
                     <div className="flex min-h-[220px] items-center justify-center text-sm font-normal text-white/[0.65]">
                       <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#0a84ff]" />
@@ -1367,10 +1365,10 @@ export default function ProyectosPage() {
                         </div>
                       </div>
                     </>
+
                   )}
-                </div>
-              </div>
-  
+              </WorkTable>
+
             )}
           </section>
           </div>
