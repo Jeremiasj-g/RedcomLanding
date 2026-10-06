@@ -16,6 +16,7 @@ export type ProjectTaskWorkspaceGroupPriority = 'low' | 'medium' | 'high';
 export type ProjectTaskWorkspaceTodoGroup = {
   name: string;
   priority: ProjectTaskWorkspaceGroupPriority;
+  assignee_ids?: string[];
 };
 
 export type ProjectTaskWorkspaceLink = {
