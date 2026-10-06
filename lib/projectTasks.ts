@@ -530,20 +530,16 @@ export async function setTaskAssignees(
  * ──────────────────────────────────────────── */
 
 export async function deleteProjectTask(id: number): Promise<void> {
-  // Primero limpiamos asignados (por si no tenés ON DELETE CASCADE)
-  const { error: assigneesError } = await supabase
-    .from('project_task_assignees')
-    .delete()
-    .eq('task_id', id);
-
-  if (assigneesError) throw assigneesError;
-
-  const { error: taskError } = await supabase
+  // Todas las relaciones de project_tasks usan ON DELETE CASCADE.
+  // Eliminamos directamente la tarea padre para que una tarea bloqueada
+  // siga siendo inmutable, pero pueda eliminarse junto con su información
+  // asociada. Los triggers de hijos permiten los DELETE producidos por cascada.
+  const { error } = await supabase
     .from('project_tasks')
     .delete()
     .eq('id', id);
 
-  if (taskError) throw taskError;
+  if (error) throw error;
 }
 
 /* ─────────────────────────────────────────────
