@@ -453,6 +453,18 @@ export default function PanelTasksPage() {
                 Cargando tareas...
               </div>
             </div>
+          ) : filteredTasks.length === 0 ? (
+            <div className="grid min-h-[240px] place-items-center rounded-[22px] border border-dashed border-white/[0.07] bg-[#151517] px-6 text-center">
+              <div>
+                <Users2 className="mx-auto h-6 w-6 text-white/[0.20]" />
+                <div className="mt-3 text-sm font-medium text-white/[0.70]">
+                  No hay tareas para mostrar
+                </div>
+                <p className="mt-1 text-[11px] text-white/[0.30]">
+                  Probá modificando el rango o alguno de los filtros.
+                </p>
+              </div>
+            </div>
           ) : viewMode === 'week' ? (
             <TasksGrid
               daysInRange={daysInRange}
@@ -479,20 +491,6 @@ export default function PanelTasksPage() {
               getMeta={supervisionMeta}
             />
           )}
-
-          {!loading && filteredTasks.length === 0 ? (
-            <div className="grid min-h-[240px] place-items-center rounded-[22px] border border-dashed border-white/[0.07] bg-[#151517] px-6 text-center">
-              <div>
-                <Users2 className="mx-auto h-6 w-6 text-white/[0.20]" />
-                <div className="mt-3 text-sm font-medium text-white/[0.70]">
-                  No hay tareas para mostrar
-                </div>
-                <p className="mt-1 text-[11px] text-white/[0.30]">
-                  Probá modificando el rango o alguno de los filtros.
-                </p>
-              </div>
-            </div>
-          ) : null}
         </div>
 
         <TaskDetailsModal
