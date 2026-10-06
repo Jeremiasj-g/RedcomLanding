@@ -282,6 +282,55 @@ export default function ProyectosPage() {
     load();
   }, [me]);
 
+  // Mantiene la UI sincronizada si la página queda abierta al pasar
+  // la medianoche. La base es la fuente de verdad y aplica el lock definitivo.
+  useEffect(() => {
+    if (!me) return;
+
+    let syncing = false;
+
+    const syncExpiredTasks = async () => {
+      if (syncing) return;
+
+      const today = localTodayIso();
+      const hasLocallyExpiredTask = tasks.some(
+        (task) =>
+          !task.is_locked &&
+          Boolean(task.due_date) &&
+          String(task.due_date) < today,
+      );
+
+      if (!hasLocallyExpiredTask) return;
+
+      try {
+        syncing = true;
+        const refreshed = await fetchProjectTasksForUser(me.id, me.role);
+        const sorted = (refreshed ?? []).slice().sort((a: any, b: any) => {
+          const da = a?.created_at ? new Date(a.created_at).getTime() : 0;
+          const db = b?.created_at ? new Date(b.created_at).getTime() : 0;
+          return db - da;
+        });
+
+        setTasks(sorted);
+        setSelectedTask((current) => {
+          if (!current) return current;
+          return sorted.find((task) => task.id === current.id) ?? current;
+        });
+      } catch (error) {
+        console.error('Error sincronizando cierres automáticos', error);
+      } finally {
+        syncing = false;
+      }
+    };
+
+    void syncExpiredTasks();
+    const intervalId = window.setInterval(() => {
+      void syncExpiredTasks();
+    }, 60_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [me, tasks]);
+
   // reset search cuando cerramos el popup de responsables
   useEffect(() => {
     if (assigneesOpenFor === null) {
