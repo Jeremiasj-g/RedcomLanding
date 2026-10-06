@@ -38,7 +38,7 @@ type Props = {
   savingNotesId: number | null;
   deletingId: number | null;
 
-  onToggleStatus: (task: Task) => Promise<Task>;
+  onStatusChange: (task: Task, status: Task['status']) => Promise<Task>;
   onSaveNotes: (task: Task, notes: string) => Promise<Task>;
   onDelete: (task: Task) => Promise<boolean>;
 
@@ -74,7 +74,7 @@ export default function TasksGrid({
   changingStatusId,
   savingNotesId,
   deletingId,
-  onToggleStatus,
+  onStatusChange,
   onSaveNotes,
   onDelete,
   onDeleteDay,
@@ -440,7 +440,7 @@ useEffect(() => {
                     changingStatusId={changingStatusId}
                     savingNotesId={savingNotesId}
                     deletingId={deletingId}
-                    onToggleStatus={onToggleStatus}
+                    onStatusChange={onStatusChange}
                     onSaveNotes={onSaveNotes}
                     onDelete={onDelete}
                     onOpenDetail={() => {
