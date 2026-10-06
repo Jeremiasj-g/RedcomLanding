@@ -14,9 +14,11 @@ import { errorMessage, notify } from '@/lib/notifications';
 export default function TaskCommentsTimeline({
   taskId,
   compact = false,
+  readOnly = false,
 }: {
   taskId: number;
   compact?: boolean;
+  readOnly?: boolean;
 }) {
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,30 +98,36 @@ export default function TaskCommentsTimeline({
         </span>
       </div>
 
-      <div className="mb-4 flex gap-2">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-              e.preventDefault();
-              void submit();
-            }
-          }}
-          rows={2}
-          placeholder="Ej: Ya enviaron el archivo, continúo con la revisión..."
-          className="min-h-[66px] flex-1 resize-none rounded-[12px] border border-white/[0.08] bg-[#1c1c1e] px-3 py-2 text-[11px] leading-5 text-white/[0.82] outline-none placeholder:text-white/[0.24] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
-        />
-        <button
-          type="button"
-          onClick={() => void submit()}
-          disabled={sending || !text.trim()}
-          className="grid h-10 w-10 shrink-0 place-items-center self-end rounded-[11px] bg-[#0a84ff] text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:opacity-30"
-          title="Agregar actualización"
-        >
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </button>
-      </div>
+      {!readOnly ? (
+              <div className="mb-4 flex gap-2">
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                      e.preventDefault();
+                      void submit();
+                    }
+                  }}
+                  rows={2}
+                  placeholder="Ej: Ya enviaron el archivo, continúo con la revisión..."
+                  className="min-h-[66px] flex-1 resize-none rounded-[12px] border border-white/[0.08] bg-[#1c1c1e] px-3 py-2 text-[11px] leading-5 text-white/[0.82] outline-none placeholder:text-white/[0.24] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
+                />
+                <button
+                  type="button"
+                  onClick={() => void submit()}
+                  disabled={sending || !text.trim()}
+                  className="grid h-10 w-10 shrink-0 place-items-center self-end rounded-[11px] bg-[#0a84ff] text-white transition hover:bg-[#409cff] disabled:cursor-not-allowed disabled:opacity-30"
+                  title="Agregar actualización"
+                >
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </button>
+              </div>
+      ) : comments.length > 0 ? (
+        <p className="mb-3 text-[10px] leading-4 text-white/[0.28]">
+          Historial registrado por el usuario. Vista de supervisión en solo lectura.
+        </p>
+      ) : null}
 
       {loading ? (
         <div className="flex items-center gap-2 py-4 text-[10px] text-white/[0.32]">
@@ -149,19 +157,21 @@ export default function TaskCommentsTimeline({
                         {date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}{' '}
                         {date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => void removeComment(comment)}
-                        disabled={deletingId === comment.id}
-                        className="grid h-7 w-7 place-items-center rounded-[8px] text-white/[0.24] transition hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-30"
-                        title="Eliminar comentario"
-                      >
-                        {deletingId === comment.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-3 w-3" />
-                        )}
-                      </button>
+                      {!readOnly ? (
+                                              <button
+                                                type="button"
+                                                onClick={() => void removeComment(comment)}
+                                                disabled={deletingId === comment.id}
+                                                className="grid h-7 w-7 place-items-center rounded-[8px] text-white/[0.24] transition hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-30"
+                                                title="Eliminar comentario"
+                                              >
+                                                {deletingId === comment.id ? (
+                                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                                ) : (
+                                                  <Trash2 className="h-3 w-3" />
+                                                )}
+                                              </button>
+                      ) : null}
                     </div>
                   </div>
                   <p className="whitespace-pre-wrap text-[11px] leading-5 text-white/[0.66]">
