@@ -1,10 +1,10 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { CalendarDays, Check, Clock, Loader2, Pencil, Save, X } from 'lucide-react';
+import { CalendarDays, Check, Clock, Loader2, Pencil, Repeat2, Save, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Task } from '@/lib/tasks';
+import type { Task, TaskRecurrenceType } from '@/lib/tasks';
 import { supabase } from '@/lib/supabaseClient';
 import { errorMessage, notify } from '@/lib/notifications';
 
@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { RedcomSelect } from '@/components/ui/redcom-select';
 
 
 type Props = {
@@ -237,6 +238,8 @@ export default function TaskDetailModal({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [time, setTime] = useState('09:00');
+  const [recurrence, setRecurrence] = useState<'none' | TaskRecurrenceType>('none');
+  const [recurrenceIntervalDays, setRecurrenceIntervalDays] = useState(15);
 
   const [editTitle, setEditTitle] = useState(false);
   const [editDescription, setEditDescription] = useState(false);
@@ -252,6 +255,8 @@ export default function TaskDetailModal({
     setTitle(task.title ?? '');
     setDescription(task.description ?? '');
     setTime(hhmmLocal(task.scheduled_at));
+    setRecurrence(task.recurrence_type ?? 'none');
+    setRecurrenceIntervalDays(task.recurrence_interval_days ?? 15);
     setEditTitle(false);
     setEditDescription(false);
     setEditTime(false);
@@ -276,9 +281,12 @@ export default function TaskDetailModal({
     return (
       title.trim() !== originalTitle.trim() ||
       (description ?? '').trim() !== originalDesc.trim() ||
-      normalizeTimeInput(time) !== normalizeTimeInput(originalTime)
+      normalizeTimeInput(time) !== normalizeTimeInput(originalTime) ||
+      recurrence !== (task.recurrence_type ?? 'none') ||
+      (recurrence === 'every_n_days' &&
+        recurrenceIntervalDays !== (task.recurrence_interval_days ?? 15))
     );
-  }, [task, title, description, time]);
+  }, [task, title, description, time, recurrence, recurrenceIntervalDays]);
 
   async function saveEdits() {
     if (!task) return;
@@ -301,6 +309,13 @@ export default function TaskDetailModal({
         title: nextTitle,
         description: description?.trim() ? description.trim() : null,
         scheduled_at: nextScheduledAt,
+        recurrence_type: recurrence === 'none' ? null : recurrence,
+        recurrence_interval_days:
+          recurrence === 'every_n_days' ? recurrenceIntervalDays : null,
+        recurrence_series_id:
+          recurrence === 'none'
+            ? null
+            : (task.recurrence_series_id ?? crypto.randomUUID()),
       };
 
       const { data, error } = await supabase
@@ -372,6 +387,12 @@ export default function TaskDetailModal({
                   <span className="rounded-full border border-white/[0.07] bg-white/[0.035] px-2.5 py-1">
                     {briefStatusLabel(task.status)}
                   </span>
+                  {task.recurrence_type ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#0a84ff]/15 bg-[#0a84ff]/10 px-2.5 py-1 text-[#5ac8fa]">
+                      <Repeat2 className="h-3 w-3" />
+                      Recurrente
+                    </span>
+                  ) : null}
                 </div>
               </div>
 
@@ -463,6 +484,55 @@ export default function TaskDetailModal({
                     <p className="text-[10px] font-normal text-white/[0.30]">
                       Escribí “13” y te sugiere <span className="text-white/[0.64]">13:00</span>,{' '}
                       <span className="text-white/[0.64]">13:30</span>, etc. (Enter autocompleta).
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.42]">
+                        <Repeat2 className="h-3.5 w-3.5 text-[#5ac8fa]" />
+                        Repetición
+                      </Label>
+                    </div>
+
+                    <RedcomSelect
+                      value={recurrence}
+                      onValueChange={(value) =>
+                        setRecurrence(value as 'none' | TaskRecurrenceType)
+                      }
+                      surface="dark"
+                      options={[
+                        { value: 'none', label: 'No repetir' },
+                        { value: 'daily', label: 'Todos los días' },
+                        { value: 'weekly', label: 'Semanal · mismo día' },
+                        { value: 'first_business_day_month', label: 'Primer día hábil del mes' },
+                        { value: 'every_n_days', label: 'Cada cierta cantidad de días' },
+                      ]}
+                      aria-label="Frecuencia de repetición"
+                      className="h-10 rounded-[12px] text-[11px]"
+                    />
+
+                    {recurrence === 'every_n_days' ? (
+                      <label className="flex items-center gap-2 text-[10px] text-white/[0.40]">
+                        Repetir cada
+                        <input
+                          type="number"
+                          min={1}
+                          max={365}
+                          value={recurrenceIntervalDays}
+                          onChange={(e) =>
+                            setRecurrenceIntervalDays(
+                              Math.max(1, Number(e.target.value || 1)),
+                            )
+                          }
+                          className="h-9 w-20 rounded-[10px] border border-white/[0.08] bg-[#1c1c1e] px-2 text-center text-[11px] text-white/[0.82] outline-none focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
+                        />
+                        días
+                      </label>
+                    ) : null}
+
+                    <p className="text-[10px] leading-4 text-white/[0.30]">
+                      La próxima instancia se crea únicamente cuando esta tarea se marca como completada.
                     </p>
                   </div>
 
