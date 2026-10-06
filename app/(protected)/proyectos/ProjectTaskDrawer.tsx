@@ -390,6 +390,29 @@ export default function ProjectTaskDrawer({
           assignee?.full_name ?? assignee?.email ?? 'Sin nombre',
       );
 
+  useEffect(() => {
+    const allowed = new Set(task.assignees.map((assignee) => assignee.user_id));
+
+    setTodoGroups((current) => {
+      let changed = false;
+
+      const next = current.map((group) => {
+        const assigned = group.assignee_ids ?? [];
+        const valid = assigned.filter((id) => allowed.has(id));
+
+        if (valid.length === assigned.length) return group;
+
+        changed = true;
+        return {
+          ...group,
+          assignee_ids: valid,
+        };
+      });
+
+      return changed ? next : current;
+    });
+  }, [task.assignees]);
+
   const addTodoGroup = (
     name: string,
     priority: ProjectTaskWorkspaceGroupPriority = 'medium',
