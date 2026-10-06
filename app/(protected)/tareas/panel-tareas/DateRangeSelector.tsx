@@ -129,66 +129,66 @@ export function DateRangeSelector({ state, onChange }: Props) {
   };
 
   return (
-    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-2">
-      {/* Modos: Semana / Mes / Multi-semana */}
-      <div className="inline-flex h-10 items-center rounded-[13px] border border-black/[0.08] bg-[#f5f5f7] p-1 text-[11px] font-normal text-slate-500 shadow-sm">
-        <button
-          onClick={() => setMode('week')}
-          className={`rounded-[9px] px-3 py-1.5 ${
-            mode === 'week'
-              ? 'bg-white text-[#0b1020] shadow-sm'
-              : 'text-slate-500 hover:bg-black/[0.045] hover:text-slate-800'
-          }`}
-        >
-          Semana
-        </button>
-        <button
-          onClick={() => setMode('month')}
-          className={`rounded-[9px] px-3 py-1.5 ${
-            mode === 'month'
-              ? 'bg-white text-[#0b1020] shadow-sm'
-              : 'text-slate-500 hover:bg-black/[0.045] hover:text-slate-800'
-          }`}
-        >
-          Mes
-        </button>
-        <button
-          onClick={() => setMode('multi-week')}
-          className={`rounded-[9px] px-3 py-1.5 ${
-            mode === 'multi-week'
-              ? 'bg-white text-[#0b1020] shadow-sm'
-              : 'text-slate-500 hover:bg-black/[0.045] hover:text-slate-800'
-          }`}
-        >
-          Multi-semana
-        </button>
+    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+      <div className="inline-flex h-10 items-center rounded-[12px] border border-white/[0.08] bg-white/[0.035] p-1">
+        {[
+          { value: 'week' as const, label: 'Semana' },
+          { value: 'month' as const, label: 'Mes' },
+          { value: 'multi-week' as const, label: 'Multi-semana' },
+        ].map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setMode(option.value)}
+            className={[
+              'h-8 rounded-[9px] px-3 text-[10px] font-medium transition',
+              mode === option.value
+                ? 'bg-white text-[#0b1020] shadow-sm'
+                : 'text-white/[0.42] hover:bg-white/[0.05] hover:text-white/[0.72]',
+            ].join(' ')}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
 
-      {/* Cantidad de semanas cuando estamos en multi-semana */}
-      {mode === 'multi-week' && (
-        <select
-          className="h-10 rounded-[13px] border border-black/[0.08] bg-[#f5f5f7] px-3 text-[11px] text-slate-700 outline-none transition focus:border-[#0a84ff]/40 focus:ring-2 focus:ring-[#0a84ff]/10"
-          value={weeksSpan}
-          onChange={(e) => setWeeksSpan(Number(e.target.value) || 1)}
-        >
-          <option value={1}>1 semana</option>
-          <option value={2}>2 semanas</option>
-          <option value={3}>3 semanas</option>
-        </select>
-      )}
+      {mode === 'multi-week' ? (
+        <div className="inline-flex h-10 items-center rounded-[12px] border border-white/[0.08] bg-white/[0.035] p-1">
+          {[1, 2, 3, 4].map((span) => (
+            <button
+              key={span}
+              type="button"
+              onClick={() => setWeeksSpan(span)}
+              className={[
+                'h-8 rounded-[9px] px-2.5 text-[10px] font-medium transition',
+                weeksSpan === span
+                  ? 'bg-[#0a84ff]/15 text-[#8bc7ff]'
+                  : 'text-white/[0.38] hover:bg-white/[0.05] hover:text-white/[0.70]',
+              ].join(' ')}
+            >
+              {span} sem
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-      {/* Navegación anterior / siguiente */}
-      <div className="inline-flex h-10 items-center gap-1 rounded-[13px] border border-black/[0.08] bg-[#f5f5f7] px-2 text-xs text-slate-600 shadow-sm">
+      <div className="inline-flex h-10 items-center rounded-[12px] border border-white/[0.08] bg-white/[0.035] p-1">
         <button
+          type="button"
           onClick={() => go(-1)}
-          className="mr-1 rounded-[9px] px-2 py-1 text-slate-400 transition hover:bg-black/[0.05] hover:text-slate-800"
+          className="grid h-8 w-8 place-items-center rounded-[9px] text-white/[0.40] transition hover:bg-white/[0.05] hover:text-white"
+          aria-label="Rango anterior"
         >
           ‹
         </button>
-        <span className="min-w-[110px] text-center font-medium text-[#0b1020]">{label}</span>
+        <span className="min-w-[130px] px-2 text-center text-[10px] font-medium text-white/[0.68]">
+          {label}
+        </span>
         <button
+          type="button"
           onClick={() => go(1)}
-          className="ml-1 rounded-[9px] px-2 py-1 text-slate-400 transition hover:bg-black/[0.05] hover:text-slate-800"
+          className="grid h-8 w-8 place-items-center rounded-[9px] text-white/[0.40] transition hover:bg-white/[0.05] hover:text-white"
+          aria-label="Rango siguiente"
         >
           ›
         </button>
