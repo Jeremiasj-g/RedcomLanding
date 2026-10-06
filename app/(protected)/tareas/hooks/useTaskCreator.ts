@@ -1,7 +1,7 @@
 'use client';
 
 import { addDays } from 'date-fns';
-import { createTask, type Task } from '@/lib/tasks';
+import { createTask, type Task, type TaskRecurrenceType } from '@/lib/tasks';
 import { useTasks } from '../TasksContext';
 import { buildISOFromLocal, toYMD } from '../date';
 
@@ -25,7 +25,14 @@ export function useTaskCreator() {
     while (current <= to) {
       const dateStr = toYMD(current);
       const scheduled_at = buildISOFromLocal(dateStr, time);
-      const task = await createTask({ title, description, scheduled_at });
+      const task = await createTask({
+        title,
+        description,
+        scheduled_at,
+        recurrence_type: recurrenceType ?? null,
+        recurrence_interval_days:
+          recurrenceType === 'every_n_days' ? (recurrenceIntervalDays ?? 15) : null,
+      });
       created.push(task);
       current = addDays(current, 1);
     }
