@@ -252,7 +252,10 @@ function KanbanColumn({
   draggable: boolean;
   getMeta?: (task: Task) => ReactNode;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `kanban-column:${status}` });
+  const { setNodeRef, isOver } = useDroppable({
+    id: `kanban-column:${status}`,
+    disabled: !draggable,
+  });
 
   return (
     <div
@@ -277,7 +280,7 @@ function KanbanColumn({
       <div className="space-y-2">
         {tasks.length === 0 ? (
           <div className="grid min-h-[260px] place-items-center rounded-[14px] border border-dashed border-white/[0.06] text-[10px] text-white/[0.22]">
-            Soltá una tarea aquí
+            {draggable ? 'Soltá una tarea aquí' : 'Sin tareas'}
           </div>
         ) : (
           tasks.map((task) => (
