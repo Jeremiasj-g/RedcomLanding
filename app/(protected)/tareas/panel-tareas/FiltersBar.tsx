@@ -1,9 +1,10 @@
-import { Filter, LayoutGrid, Search, Table as TableIcon } from 'lucide-react';
+'use client';
+
+import { Search, SlidersHorizontal } from 'lucide-react';
 import type { TaskStatus } from '@/lib/tasks';
+import { RedcomSelect } from '@/components/ui/redcom-select';
 
 type StatusFilter = 'all' | TaskStatus;
-type ViewMode = 'table' | 'grid';
-
 type RoleOption = { value: string; label: string };
 
 type Props = {
@@ -17,11 +18,7 @@ type Props = {
   onSearchChange: (value: string) => void;
   branchesFromData: string[];
   supervisorsFromData: string[];
-  viewMode: ViewMode;
-  onViewModeChange: (value: ViewMode) => void;
   isAdmin: boolean;
-
-  // ✅ Nuevo (solo admin): filtrar por tipo de usuario que “posee” la tarea
   ownerRoleFilter: 'all' | string;
   onOwnerRoleFilterChange: (value: 'all' | string) => void;
   ownerRoleOptions: RoleOption[];
@@ -38,151 +35,137 @@ export default function FiltersBar({
   onSearchChange,
   branchesFromData,
   supervisorsFromData,
-  viewMode,
-  onViewModeChange,
   isAdmin,
-
   ownerRoleFilter,
   onOwnerRoleFilterChange,
   ownerRoleOptions,
 }: Props) {
   return (
-    <section className="rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-md shadow-slate-950/40">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
-          <Filter className="h-4 w-4 text-sky-400" />
-          Filtros
-        </div>
-
-        {/* Toggle vista tabla / grid */}
-        <div className="inline-flex items-center gap-1 rounded-full bg-slate-950/80 p-1 text-[11px] text-slate-300">
-          <button
-            type="button"
-            onClick={() => onViewModeChange('table')}
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
-              viewMode === 'table'
-                ? 'bg-sky-500 text-slate-950'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-          >
-            <TableIcon className="h-3 w-3" />
-            Tabla
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewModeChange('grid')}
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
-              viewMode === 'grid'
-                ? 'bg-sky-500 text-slate-950'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-          >
-            <LayoutGrid className="h-3 w-3" />
-            Grid
-          </button>
+    <section className="rounded-[22px] border border-white/[0.08] bg-[#151517] p-4 shadow-[0_16px_45px_rgba(0,0,0,.12)]">
+      <div className="mb-3 flex items-center gap-2">
+        <SlidersHorizontal className="h-4 w-4 text-[#5ac8fa]" />
+        <div>
+          <div className="text-[10px] font-medium uppercase tracking-[0.10em] text-white/[0.48]">
+            Filtros de supervisión
+          </div>
+          <p className="mt-0.5 text-[10px] text-white/[0.28]">
+            Acotá la cartera por sucursal, usuario, estado o búsqueda.
+          </p>
         </div>
       </div>
 
       <div
-        className={`grid gap-3 ${
+        className={[
+          'grid gap-3',
           isAdmin
-            ? 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,2fr)]'
-            : 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,2fr)]'
-        }`}
+            ? 'md:grid-cols-2 xl:grid-cols-[1fr_0.9fr_0.95fr_1.15fr_1.6fr]'
+            : 'md:grid-cols-2 xl:grid-cols-[1fr_0.9fr_1.15fr_1.7fr]',
+        ].join(' ')}
       >
-        {/* Sucursal */}
-        <div className="flex flex-col gap-1 text-xs text-slate-300">
-          <span>Sucursal</span>
-          <select
+        <FilterField label="Sucursal">
+          <RedcomSelect
             value={branchFilter}
-            onChange={(e) =>
-              onBranchFilterChange(e.target.value as 'all' | string)
-            }
-            className="rounded-xl border border-slate-700/80 bg-slate-950/70 px-3 py-2 text-xs text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          >
-            <option value="all">
-              {isAdmin ? 'Todas mis sucursales' : 'Todas las sucursales'}
-            </option>
-            {branchesFromData.map((b) => (
-              <option key={b} value={b}>
-                {b.charAt(0).toUpperCase() + b.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
+            onValueChange={(value) => onBranchFilterChange(value)}
+            surface="dark"
+            options={[
+              {
+                value: 'all',
+                label: isAdmin ? 'Todas mis sucursales' : 'Todas las sucursales',
+              },
+              ...branchesFromData.map((branch) => ({
+                value: branch,
+                label: branch.charAt(0).toUpperCase() + branch.slice(1),
+              })),
+            ]}
+            className="h-10 rounded-[12px] text-[11px]"
+            aria-label="Filtrar por sucursal"
+          />
+        </FilterField>
 
-        {/* Estado */}
-        <div className="flex flex-col gap-1 text-xs text-slate-300">
-          <span>Estado</span>
-          <select
+        <FilterField label="Estado">
+          <RedcomSelect
             value={statusFilter}
-            onChange={(e) =>
-              onStatusFilterChange(e.target.value as StatusFilter)
+            onValueChange={(value) =>
+              onStatusFilterChange(value as StatusFilter)
             }
-            className="rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          >
-            <option value="all">Todos</option>
-            <option value="pending">Pendiente</option>
-            <option value="in_progress">En progreso</option>
-            <option value="done">Completada</option>
-            <option value="cancelled">Cancelada</option>
-          </select>
-        </div>
+            surface="dark"
+            options={[
+              { value: 'all', label: 'Todos los estados' },
+              { value: 'pending', label: 'Pendiente' },
+              { value: 'in_progress', label: 'En progreso' },
+              { value: 'done', label: 'Completada' },
+              { value: 'cancelled', label: 'Cancelada' },
+            ]}
+            className="h-10 rounded-[12px] text-[11px]"
+            aria-label="Filtrar por estado"
+          />
+        </FilterField>
 
-        {/* Tipo de usuario (solo admin) */}
-        {isAdmin && (
-          <div className="flex flex-col gap-1 text-xs text-slate-300">
-            <span>Tipo de usuario</span>
-            <select
+        {isAdmin ? (
+          <FilterField label="Tipo de usuario">
+            <RedcomSelect
               value={ownerRoleFilter}
-              onChange={(e) =>
-                onOwnerRoleFilterChange(e.target.value as 'all' | string)
-              }
-              className="rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-            >
-              <option value="all">Todos</option>
-              {ownerRoleOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+              onValueChange={(value) => onOwnerRoleFilterChange(value)}
+              surface="dark"
+              options={[
+                { value: 'all', label: 'Todos los tipos' },
+                ...ownerRoleOptions.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                })),
+              ]}
+              className="h-10 rounded-[12px] text-[11px]"
+              aria-label="Filtrar por tipo de usuario"
+            />
+          </FilterField>
+        ) : null}
 
-        {/* Responsable */}
-        <div className="flex flex-col gap-1 text-xs text-slate-300">
-          <span>Responsable</span>
-          <select
+        <FilterField label="Usuario">
+          <RedcomSelect
             value={supervisorFilter}
-            onChange={(e) =>
-              onSupervisorFilterChange(e.target.value as 'all' | string)
-            }
-            className="rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          >
-            <option value="all">Todos</option>
-            {supervisorsFromData.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
+            onValueChange={(value) => onSupervisorFilterChange(value)}
+            surface="dark"
+            options={[
+              { value: 'all', label: 'Todos los usuarios' },
+              ...supervisorsFromData.map((name) => ({
+                value: name,
+                label: name,
+              })),
+            ]}
+            className="h-10 rounded-[12px] text-[11px]"
+            aria-label="Filtrar por usuario"
+          />
+        </FilterField>
 
-        {/* Búsqueda */}
-        <div className="flex flex-col gap-1 text-xs text-slate-300">
-          <span>Búsqueda rápida</span>
+        <FilterField label="Búsqueda">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/[0.28]" />
             <input
               value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Ej: matinal, corrientes, control..."
-              className="w-full rounded-xl border border-slate-700/80 bg-slate-950/80 px-8 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="Título, descripción, usuario o sucursal..."
+              className="h-10 w-full rounded-[12px] border border-white/[0.08] bg-[#1c1c1e] pl-9 pr-3 text-[11px] text-white/[0.82] outline-none placeholder:text-white/[0.24] transition focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
             />
           </div>
-        </div>
+        </FilterField>
       </div>
     </section>
+  );
+}
+
+function FilterField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="min-w-0">
+      <span className="mb-1.5 block text-[9px] font-medium uppercase tracking-[0.08em] text-white/[0.32]">
+        {label}
+      </span>
+      {children}
+    </label>
   );
 }
