@@ -18,7 +18,7 @@ const BRIEF_STATUS: Record<Task['status'], string> = {
   cancelled: 'Cancelada',
 };
 
-export function useTaskActions() {
+export function useTaskActions(range?: { from: Date; to: Date }) {
   const { setTasks } = useTasks();
 
   const [savingNotesId, setSavingNotesId] = useState<number | null>(null);
@@ -39,7 +39,15 @@ export function useTaskActions() {
 
         setTasks((prev) => {
           const replaced = prev.map((t) => (t.id === task.id ? updated : t));
-          if (!nextRecurring || replaced.some((t) => t.id === nextRecurring!.id)) return replaced;
+          const nextTime = nextRecurring ? new Date(nextRecurring.scheduled_at).getTime() : 0;
+          const inVisibleRange =
+            !range ||
+            (nextTime >= range.from.getTime() && nextTime < range.to.getTime());
+          if (
+            !nextRecurring ||
+            !inVisibleRange ||
+            replaced.some((t) => t.id === nextRecurring.id)
+          ) return replaced;
           return [...replaced, nextRecurring].sort(
             (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
           );
@@ -134,7 +142,15 @@ export function useTaskActions() {
 
         setTasks((prev) => {
           const replaced = prev.map((t) => (t.id === task.id ? updated : t));
-          if (!nextRecurring || replaced.some((t) => t.id === nextRecurring.id)) return replaced;
+          const nextTime = nextRecurring ? new Date(nextRecurring.scheduled_at).getTime() : 0;
+          const inVisibleRange =
+            !range ||
+            (nextTime >= range.from.getTime() && nextTime < range.to.getTime());
+          if (
+            !nextRecurring ||
+            !inVisibleRange ||
+            replaced.some((t) => t.id === nextRecurring.id)
+          ) return replaced;
           return [...replaced, nextRecurring].sort(
             (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
           );
