@@ -89,7 +89,7 @@ function BoardInner({ userId, range }: Props) {
         changingStatusId={actions.changingStatusId}
         savingNotesId={actions.savingNotesId}
         deletingId={actions.deletingId}
-        onToggleStatus={actions.toggleStatus}
+        onStatusChange={actions.setStatus}
         onSaveNotes={actions.saveNotes}
         onDelete={actions.removeTask}
         onDeleteDay={async (dayKey, dayTasks) => {
