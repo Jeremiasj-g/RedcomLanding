@@ -3,7 +3,19 @@ import { supabase } from '@/lib/supabaseClient';
 
 export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'cancelled';
 export type TaskPriority = 'low' | 'medium' | 'high';
-export type TaskRecurrenceType = 'daily' | 'weekly' | 'first_business_day_month' | 'every_n_days';
+export type TaskRecurrenceType =
+  | 'daily'
+  | 'weekly'
+  | 'first_business_day_month'
+  | 'every_n_days';
+
+export type TaskItem = {
+  id: number;
+  task_id: number;
+  content: string;
+  is_done: boolean;
+  created_at: string;
+};
 
 export type TaskComment = {
   id: number;
@@ -14,15 +26,30 @@ export type TaskComment = {
   author_name?: string | null;
 };
 
-export type TaskItem = {
+export type Task = {
   id: number;
-  task_id: number;
-  content: string;
-  is_done: boolean;
+  user_id: string;
+  title: string;
+  description: string | null;
+  scheduled_at: string;
+  status: TaskStatus;
+  notes: string | null;
+  priority: TaskPriority;
+  category: string | null;
   created_at: string;
+  updated_at: string;
+  recurrence_type: TaskRecurrenceType | null;
+  recurrence_interval_days: number | null;
+  recurrence_series_id: string | null;
+  recurrence_generated_from: number | null;
 };
 
-// obtener items de una tarea
+export type TaskWithOwner = Task & {
+  owner_full_name: string | null;
+  owner_branches: string[] | null;
+  owner_role: string | null;
+};
+
 export async function fetchTaskItems(taskId: number): Promise<TaskItem[]> {
   const { data, error } = await supabase
     .from('task_items')
@@ -31,10 +58,9 @@ export async function fetchTaskItems(taskId: number): Promise<TaskItem[]> {
     .order('created_at', { ascending: true });
 
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as TaskItem[];
 }
 
-// crear item
 export async function createTaskItem(taskId: number, content: string) {
   const { data, error } = await supabase
     .from('task_items')
@@ -46,7 +72,6 @@ export async function createTaskItem(taskId: number, content: string) {
   return data as TaskItem;
 }
 
-// toggle done
 export async function toggleTaskItem(id: number, is_done: boolean) {
   const { data, error } = await supabase
     .from('task_items')
@@ -59,35 +84,11 @@ export async function toggleTaskItem(id: number, is_done: boolean) {
   return data as TaskItem;
 }
 
-// eliminar
 export async function deleteTaskItem(id: number) {
   const { error } = await supabase.from('task_items').delete().eq('id', id);
   if (error) throw error;
 }
 
-export type Task = {
-  id: number;
-  user_id: string;
-  title: string;
-  description: string | null;
-  scheduled_at: string; // ISO
-  status: TaskStatus;
-  notes: string | null;
-  priority: TaskPriority;
-  category: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type TaskWithOwner = Task & {
-  owner_full_name: string | null;
-  owner_branches: string[] | null; // 👈 ahora es array
-  owner_role: string | null;
-};
-
-/**
- * Tareas del usuario actual en un rango de fechas
- */
 export async function fetchMyTasksByRange(
   from: string,
   to: string,
@@ -100,32 +101,26 @@ export async function fetchMyTasksByRange(
     .lt('scheduled_at', to)
     .order('scheduled_at', { ascending: true });
 
-  // 👇 importante: siempre filtrar por el usuario logueado
   query = query.eq('user_id', userId);
 
   const { data, error } = await query;
-
   if (error) throw error;
   return (data ?? []) as Task[];
 }
 
-
-/**
- * Tareas de supervisores para el admin (usa la vista tasks_with_owner)
- */
 export async function fetchSupervisorTasksByRange(params: {
   from: string;
   to: string;
-  ownerRoles?: string[]; // roles del dueño (supervisor/jdv/admin/...)
-  branch?: string; // sucursal en minúsculas
+  ownerRoles?: string[];
+  branch?: string;
   status?: TaskStatus;
 }) {
   const { from, to, branch, status, ownerRoles } = params;
 
-  // Por compatibilidad: si no pasan roles, mantenemos el comportamiento anterior.
-  const roles = Array.isArray(ownerRoles) && ownerRoles.length > 0
-    ? ownerRoles
-    : ['supervisor'];
+  const roles =
+    Array.isArray(ownerRoles) && ownerRoles.length > 0
+      ? ownerRoles
+      : ['supervisor'];
 
   let query = supabase
     .from('tasks_with_owner')
@@ -136,7 +131,6 @@ export async function fetchSupervisorTasksByRange(params: {
     .order('scheduled_at', { ascending: true });
 
   if (branch && branch !== 'all') {
-    // owner_branches @> ARRAY[branch]
     query = query.contains('owner_branches', [branch.toLowerCase()]);
   }
 
@@ -145,20 +139,20 @@ export async function fetchSupervisorTasksByRange(params: {
   }
 
   const { data, error } = await query;
-
   if (error) throw error;
   return (data ?? []) as TaskWithOwner[];
 }
 
-/**
- * Crear tarea
- */
 export async function createTask(input: {
   title: string;
   description?: string;
-  scheduled_at: string; // ISO
+  scheduled_at: string;
   priority?: TaskPriority;
   category?: string;
+  recurrence_type?: TaskRecurrenceType | null;
+  recurrence_interval_days?: number | null;
+  recurrence_series_id?: string | null;
+  recurrence_generated_from?: number | null;
 }) {
   const { data, error } = await supabase
     .from('tasks')
@@ -170,10 +164,9 @@ export async function createTask(input: {
       category: input.category ?? null,
       recurrence_type: input.recurrence_type ?? null,
       recurrence_interval_days: input.recurrence_interval_days ?? null,
-      recurrence_series_id:
-        input.recurrence_type
-          ? (input.recurrence_series_id ?? crypto.randomUUID())
-          : null,
+      recurrence_series_id: input.recurrence_type
+        ? (input.recurrence_series_id ?? crypto.randomUUID())
+        : null,
       recurrence_generated_from: input.recurrence_generated_from ?? null,
     })
     .select('*')
@@ -183,9 +176,6 @@ export async function createTask(input: {
   return data as Task;
 }
 
-/**
- * Actualizar estado de tarea y devolver fila actualizada
- */
 export async function updateTaskStatus(id: number, status: TaskStatus) {
   const { data, error } = await supabase
     .from('tasks')
@@ -198,9 +188,6 @@ export async function updateTaskStatus(id: number, status: TaskStatus) {
   return data as Task;
 }
 
-/**
- * Actualizar notas de tarea y devolver fila actualizada
- */
 export async function updateTaskNotes(id: number, notes: string) {
   const { data, error } = await supabase
     .from('tasks')
@@ -213,15 +200,15 @@ export async function updateTaskNotes(id: number, notes: string) {
   return data as Task;
 }
 
-/**
- * Eliminar tarea
- */
 export async function deleteTask(id: number) {
   const { error } = await supabase.from('tasks').delete().eq('id', id);
   if (error) throw error;
 }
 
-export async function updateTaskScheduledAt(taskId: number, scheduled_at: string) {
+export async function updateTaskScheduledAt(
+  taskId: number,
+  scheduled_at: string,
+) {
   const { data, error } = await supabase
     .from('tasks')
     .update({ scheduled_at })
@@ -230,7 +217,7 @@ export async function updateTaskScheduledAt(taskId: number, scheduled_at: string
     .single();
 
   if (error) throw error;
-  return data;
+  return data as Task;
 }
 
 function nextRecurringDate(task: Task) {
@@ -248,7 +235,9 @@ function nextRecurringDate(task: Task) {
   }
 
   if (task.recurrence_type === 'every_n_days') {
-    next.setDate(next.getDate() + Math.max(1, task.recurrence_interval_days ?? 1));
+    next.setDate(
+      next.getDate() + Math.max(1, task.recurrence_interval_days ?? 1),
+    );
     return next;
   }
 
@@ -263,7 +252,9 @@ function nextRecurringDate(task: Task) {
   return null;
 }
 
-export async function ensureNextRecurringTask(task: Task): Promise<Task | null> {
+export async function ensureNextRecurringTask(
+  task: Task,
+): Promise<Task | null> {
   if (!task.recurrence_type || task.status !== 'done') return null;
 
   const { data: existing, error: existingError } = await supabase
@@ -288,34 +279,39 @@ export async function ensureNextRecurringTask(task: Task): Promise<Task | null> 
       category: task.category,
       recurrence_type: task.recurrence_type,
       recurrence_interval_days: task.recurrence_interval_days,
-      recurrence_series_id: task.recurrence_series_id ?? crypto.randomUUID(),
+      recurrence_series_id:
+        task.recurrence_series_id ?? crypto.randomUUID(),
       recurrence_generated_from: task.id,
     })
     .select('*')
     .single();
 
   if (error) {
-    // Si dos acciones intentan generar la siguiente instancia al mismo tiempo,
-    // el índice único evita duplicados. Recuperamos la ya creada.
-    if ((error as any)?.code === '23505') {
+    if ((error as { code?: string })?.code === '23505') {
       const { data: duplicate, error: duplicateError } = await supabase
         .from('tasks')
         .select('*')
         .eq('recurrence_generated_from', task.id)
         .single();
+
       if (duplicateError) throw duplicateError;
       return duplicate as Task;
     }
+
     throw error;
   }
 
   return data as Task;
 }
 
-export async function fetchTaskComments(taskId: number): Promise<TaskComment[]> {
+export async function fetchTaskComments(
+  taskId: number,
+): Promise<TaskComment[]> {
   const { data, error } = await supabase
     .from('task_comments')
-    .select('id, task_id, user_id, content, created_at, profiles(full_name)')
+    .select(
+      'id, task_id, user_id, content, created_at, profiles(full_name)',
+    )
     .eq('task_id', taskId)
     .order('created_at', { ascending: true });
 
@@ -331,14 +327,19 @@ export async function fetchTaskComments(taskId: number): Promise<TaskComment[]> 
   })) as TaskComment[];
 }
 
-export async function createTaskComment(taskId: number, content: string): Promise<TaskComment> {
+export async function createTaskComment(
+  taskId: number,
+  content: string,
+): Promise<TaskComment> {
   const clean = content.trim();
   if (!clean) throw new Error('El comentario no puede estar vacío.');
 
   const { data, error } = await supabase
     .from('task_comments')
     .insert({ task_id: taskId, content: clean })
-    .select('id, task_id, user_id, content, created_at, profiles(full_name)')
+    .select(
+      'id, task_id, user_id, content, created_at, profiles(full_name)',
+    )
     .single();
 
   if (error) throw error;
