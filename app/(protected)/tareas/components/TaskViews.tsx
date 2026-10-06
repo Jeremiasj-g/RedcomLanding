@@ -18,6 +18,7 @@ import {
   Repeat2,
 } from 'lucide-react';
 import { eachDayOfInterval, startOfWeek } from 'date-fns';
+import { CSS } from '@dnd-kit/utilities';
 
 import type { Task } from '@/lib/tasks';
 import { RedcomSelect } from '@/components/ui/redcom-select';
@@ -265,21 +266,30 @@ function KanbanTask({
   task: Task;
   onSelectTask: (task: Task) => void;
 }) {
-  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
+  const { setNodeRef, attributes, listeners, isDragging, transform } = useDraggable({
     id: `kanban-task:${task.id}`,
   });
+
+  const dragStyle = {
+    transform: CSS.Translate.toString(transform),
+    zIndex: isDragging ? 60 : undefined,
+    position: 'relative' as const,
+  };
 
   return (
     <article
       ref={setNodeRef}
+      style={dragStyle}
       {...attributes}
       {...listeners}
       onClick={() => {
         if (!isDragging) onSelectTask(task);
       }}
       className={[
-        'cursor-grab rounded-[14px] border border-white/[0.07] bg-[#1c1c1e] p-3 transition hover:border-white/[0.12] hover:bg-[#202023] active:cursor-grabbing',
-        isDragging ? 'opacity-35' : '',
+        'cursor-grab rounded-[14px] border border-white/[0.07] bg-[#1c1c1e] p-3 transition-[border-color,background-color,box-shadow,opacity] duration-150 hover:border-white/[0.12] hover:bg-[#202023] active:cursor-grabbing',
+        isDragging
+          ? 'border-[#5ac8fa]/35 bg-[#242426] opacity-95 shadow-[0_20px_55px_rgba(0,0,0,.42)] ring-1 ring-[#5ac8fa]/15'
+          : '',
       ].join(' ')}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
