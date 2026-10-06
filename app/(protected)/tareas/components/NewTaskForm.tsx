@@ -3,11 +3,13 @@
 import 'react-day-picker/dist/style.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DayPicker, type DateRange } from 'react-day-picker';
-import { CalendarDays, Clock3, Loader2, Plus } from 'lucide-react';
+import { CalendarDays, Clock3, Loader2, Plus, Repeat2 } from 'lucide-react';
 import { es } from 'date-fns/locale';
 
 import { useTaskCreator } from '../hooks/useTaskCreator';
 import { errorMessage, notify } from '@/lib/notifications';
+import { RedcomSelect } from '@/components/ui/redcom-select';
+import type { TaskRecurrenceType } from '@/lib/tasks';
 
 function buildTimeOptions(stepMinutes = 30) {
   const out: string[] = [];
@@ -61,6 +63,8 @@ export default function NewTaskForm() {
   const { createByRange } = useTaskCreator();
   const [creating, setCreating] = useState(false);
   const [newTask, setNewTask] = useState({ title: '', description: '', time: '09:00' });
+  const [recurrence, setRecurrence] = useState<'none' | TaskRecurrenceType>('none');
+  const [recurrenceIntervalDays, setRecurrenceIntervalDays] = useState(15);
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
@@ -125,6 +129,9 @@ export default function NewTaskForm() {
         time: newTask.time,
         from,
         to,
+        recurrenceType: recurrence === 'none' ? null : recurrence,
+        recurrenceIntervalDays:
+          recurrence === 'every_n_days' ? recurrenceIntervalDays : null,
       });
       setNewTask((p) => ({ ...p, title: '', description: '' }));
       notify.success(
@@ -372,6 +379,60 @@ export default function NewTaskForm() {
             </>
           )}
         </button>
+      </div>
+
+      <div className="mt-3 flex flex-col gap-2 rounded-[14px] border border-white/[0.06] bg-white/[0.025] p-3 sm:flex-row sm:items-center">
+        <div className="flex min-w-[150px] items-center gap-2 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.42]">
+          <Repeat2 className="h-3.5 w-3.5 text-[#5ac8fa]" />
+          Repetición
+        </div>
+
+        <div className="w-full sm:max-w-[290px]">
+          <RedcomSelect
+            value={recurrence}
+            onValueChange={(value) =>
+              setRecurrence(value as 'none' | TaskRecurrenceType)
+            }
+            surface="dark"
+            options={[
+              { value: 'none', label: 'No repetir' },
+              { value: 'daily', label: 'Todos los días' },
+              {
+                value: 'weekly',
+                label: dateRange?.from
+                  ? `Todos los ${dateRange.from.toLocaleDateString('es-AR', { weekday: 'long' })}`
+                  : 'Todas las semanas',
+              },
+              { value: 'first_business_day_month', label: 'Primer día hábil del mes' },
+              { value: 'every_n_days', label: 'Cada cierta cantidad de días' },
+            ]}
+            aria-label="Frecuencia de repetición"
+            className="h-10 rounded-[12px] text-[11px]"
+          />
+        </div>
+
+        {recurrence === 'every_n_days' ? (
+          <label className="flex items-center gap-2 text-[11px] text-white/[0.48]">
+            Cada
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={recurrenceIntervalDays}
+              onChange={(e) =>
+                setRecurrenceIntervalDays(
+                  Math.max(1, Number(e.target.value || 1)),
+                )
+              }
+              className="h-10 w-20 rounded-[12px] border border-white/[0.08] bg-[#1c1c1e] px-3 text-center text-[11px] text-white/[0.84] outline-none focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
+            />
+            días
+          </label>
+        ) : null}
+
+        <p className="text-[10px] leading-4 text-white/[0.30] sm:ml-auto sm:max-w-[360px] sm:text-right">
+          Al completar una tarea recurrente se crea automáticamente la próxima instancia.
+        </p>
       </div>
 
       <p className="mt-3 text-[10px] font-normal text-white/[0.34]">
