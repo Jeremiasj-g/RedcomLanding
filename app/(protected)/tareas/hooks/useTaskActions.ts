@@ -66,7 +66,7 @@ export function useTaskActions(range?: { from: Date; to: Date }) {
         setChangingStatusId(null);
       }
     },
-    [setTasks],
+    [range, setTasks],
   );
 
   const saveNotes = useCallback(
@@ -169,7 +169,7 @@ export function useTaskActions(range?: { from: Date; to: Date }) {
         setChangingStatusId(null);
       }
     },
-    [setTasks],
+    [range, setTasks],
   );
 
   return {
