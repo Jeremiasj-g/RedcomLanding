@@ -474,19 +474,19 @@ export default function Navbar() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -8, scale: 0.975 }}
                         transition={{ duration: 0.16, ease: 'easeOut' }}
-                        className="absolute right-0 mt-2.5 w-[min(420px,calc(100vw-24px))] overflow-hidden rounded-[22px] border border-white/[0.09] bg-[#17181b]/[0.985] text-white shadow-[0_28px_80px_rgba(0,0,0,.50)] backdrop-blur-2xl"
+                        className="absolute right-0 mt-2.5 w-[min(460px,calc(100vw-24px))] overflow-hidden rounded-[22px] border border-white/[0.09] bg-[#17181b]/[0.985] text-white shadow-[0_28px_80px_rgba(0,0,0,.50)] backdrop-blur-2xl"
                         onClick={(event) => event.stopPropagation()}
                       >
-                        <div className="flex items-start justify-between gap-4 border-b border-white/[0.065] px-4 py-4">
+                        <div className="flex items-start justify-between gap-4 border-b border-white/[0.065] px-5 py-5">
                           <div className="flex min-w-0 items-start gap-3">
                             <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] border border-[#0a84ff]/15 bg-[#0a84ff]/10 text-[#5ac8fa]">
                               <Bell className="h-4 w-4" />
                             </div>
                             <div>
-                              <div className="text-[12px] font-medium text-white/[0.92]">
+                              <div className="text-[15px] font-semibold text-white/[0.94]">
                                 Notificaciones
                               </div>
-                              <p className="mt-0.5 text-[9px] leading-4 text-white/[0.30]">
+                              <p className="mt-0.5 text-[11px] leading-5 text-white/[0.34]">
                                 Actividad pendiente y asignaciones recientes.
                               </p>
                             </div>
@@ -496,20 +496,20 @@ export default function Navbar() {
                             <button
                               type="button"
                               onClick={handleMarkAllRead}
-                              className="shrink-0 rounded-[9px] px-2.5 py-1.5 text-[9px] font-medium text-[#8bc7ff] transition hover:bg-[#0a84ff]/10"
+                              className="shrink-0 rounded-[9px] px-2.5 py-1.5 text-[11px] font-medium text-[#8bc7ff] transition hover:bg-[#0a84ff]/10"
                             >
                               Marcar leídas
                             </button>
                           ) : null}
                         </div>
 
-                        <div className="max-h-[min(70vh,560px)] overflow-y-auto p-3">
+                        <div className="max-h-[min(72vh,620px)] overflow-y-auto p-4">
                           {isAdmin ? (
                             <Link
                               href="/admin/vendo"
                               onClick={() => setNotifOpen(false)}
                               className={cn(
-                                'group mb-3 block rounded-[15px] border p-3.5 transition',
+                                'group mb-3 block rounded-[16px] border p-4 transition',
                                 vendoPending.total > 0
                                   ? 'border-amber-300/12 bg-amber-400/[0.055] hover:bg-amber-400/[0.08]'
                                   : 'border-white/[0.06] bg-white/[0.025] hover:bg-white/[0.045]',
@@ -521,10 +521,10 @@ export default function Navbar() {
                                     <ClipboardList className="h-3.5 w-3.5" />
                                   </div>
                                   <div className="min-w-0">
-                                    <div className="text-[10px] font-medium text-white/[0.82]">
+                                    <div className="text-[12px] font-semibold text-white/[0.84]">
                                       Solicitudes VENDO
                                     </div>
-                                    <div className="mt-0.5 text-[9px] text-white/[0.30]">
+                                    <div className="mt-0.5 text-[11px] text-white/[0.34]">
                                       {vendoPending.total > 0
                                         ? `${vendoPending.total} pendiente${vendoPending.total === 1 ? '' : 's'} de revisión`
                                         : 'Sin solicitudes pendientes'}
@@ -534,7 +534,7 @@ export default function Navbar() {
 
                                 <div className="flex shrink-0 items-center gap-2">
                                   {vendoPending.total > 0 ? (
-                                    <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-amber-400/15 px-2 py-1 text-[9px] font-semibold text-amber-200">
+                                    <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-amber-400/15 px-2 py-1 text-[10px] font-semibold text-amber-200">
                                       {vendoPending.total}
                                     </span>
                                   ) : null}
@@ -544,10 +544,10 @@ export default function Navbar() {
 
                               {vendoPending.total > 0 ? (
                                 <div className="mt-3 flex gap-1.5 pl-[42px]">
-                                  <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[8px] font-medium text-emerald-300">
+                                  <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[10px] font-medium text-emerald-300">
                                     Altas {vendoPending.altas}
                                   </span>
-                                  <span className="rounded-full bg-rose-400/10 px-2 py-1 text-[8px] font-medium text-rose-300">
+                                  <span className="rounded-full bg-rose-400/10 px-2 py-1 text-[10px] font-medium text-rose-300">
                                     Bajas {vendoPending.bajas}
                                   </span>
                                 </div>
@@ -556,13 +556,13 @@ export default function Navbar() {
                           ) : null}
 
                           <div className="mb-2 flex items-center justify-between px-1">
-                            <div className="flex items-center gap-1.5 text-[9px] font-medium uppercase tracking-[0.09em] text-white/[0.28]">
+                            <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-white/[0.32]">
                               <Sparkles className="h-3 w-3" />
                               Proyectos asignados
                             </div>
                             <Link
                               href="/proyectos"
-                              className="text-[9px] font-medium text-[#8bc7ff] transition hover:text-[#b9ddff]"
+                              className="text-[11px] font-medium text-[#8bc7ff] transition hover:text-[#b9ddff]"
                               onClick={() => setNotifOpen(false)}
                             >
                               Ver proyectos
@@ -575,10 +575,10 @@ export default function Navbar() {
                                 <div className="mx-auto grid h-9 w-9 place-items-center rounded-full bg-white/[0.035] text-white/[0.20]">
                                   <Inbox className="h-4 w-4" />
                                 </div>
-                                <div className="mt-2.5 text-[10px] font-medium text-white/[0.52]">
+                                <div className="mt-2.5 text-[12px] font-semibold text-white/[0.56]">
                                   Todo al día
                                 </div>
-                                <p className="mt-1 text-[9px] leading-4 text-white/[0.24]">
+                                <p className="mt-1 text-[11px] leading-5 text-white/[0.28]">
                                   No tenés nuevas asignaciones de proyectos.
                                 </p>
                               </div>
@@ -596,7 +596,7 @@ export default function Navbar() {
                                   <div
                                     key={notification.id}
                                     className={cn(
-                                      'group relative rounded-[14px] border px-3.5 py-3 transition',
+                                      'group relative rounded-[15px] border px-4 py-3.5 transition',
                                       notification.read
                                         ? 'border-white/[0.045] bg-white/[0.018]'
                                         : 'border-[#0a84ff]/12 bg-[#0a84ff]/[0.045]',
@@ -615,11 +615,11 @@ export default function Navbar() {
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-start justify-between gap-3">
                                           <div className="min-w-0">
-                                            <div className="truncate text-[10px] font-medium text-white/[0.82]">
+                                            <div className="truncate text-[12px] font-semibold text-white/[0.84]">
                                               {notification.title}
                                             </div>
                                             {notification.project ? (
-                                              <div className="mt-0.5 truncate text-[8px] uppercase tracking-[0.07em] text-white/[0.24]">
+                                              <div className="mt-0.5 truncate text-[10px] uppercase tracking-[0.06em] text-white/[0.28]">
                                                 {notification.project}
                                               </div>
                                             ) : null}
@@ -638,12 +638,12 @@ export default function Navbar() {
                                           ) : null}
                                         </div>
 
-                                        <p className="mt-1.5 line-clamp-2 text-[9px] leading-4 text-white/[0.34]">
+                                        <p className="mt-1.5 line-clamp-2 text-[11px] leading-5 text-white/[0.38]">
                                           {notification.summary || 'Sin descripción registrada.'}
                                         </p>
 
                                         {date && !Number.isNaN(date.getTime()) ? (
-                                          <div className="mt-2 inline-flex items-center gap-1 text-[8px] text-white/[0.22]">
+                                          <div className="mt-2 inline-flex items-center gap-1 text-[10px] text-white/[0.26]">
                                             <Clock3 className="h-3 w-3" />
                                             {date.toLocaleDateString('es-AR', {
                                               day: '2-digit',
@@ -665,7 +665,7 @@ export default function Navbar() {
                           )}
                         </div>
 
-                        <div className="border-t border-white/[0.055] bg-black/[0.08] px-4 py-2.5 text-center text-[8px] text-white/[0.18]">
+                        <div className="border-t border-white/[0.055] bg-black/[0.08] px-4 py-2.5 text-center text-[10px] text-white/[0.22]">
                           Las nuevas asignaciones aparecen en tiempo real.
                         </div>
                       </motion.div>
