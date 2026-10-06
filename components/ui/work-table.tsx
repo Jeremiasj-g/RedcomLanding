@@ -15,7 +15,46 @@ type WorkTableProps = {
   loading?: boolean;
   loadingContent?: ReactNode;
   actions?: ReactNode;
+  embedded?: boolean;
 };
+
+function WorkTableBody({
+  minWidth,
+  columns,
+  headers,
+  children,
+  empty,
+  emptyContent,
+  loading,
+  loadingContent,
+}: Pick<
+  WorkTableProps,
+  | 'minWidth'
+  | 'columns'
+  | 'headers'
+  | 'children'
+  | 'empty'
+  | 'emptyContent'
+  | 'loading'
+  | 'loadingContent'
+>) {
+  return (
+    <div className="overflow-x-auto">
+      <div style={{ minWidth }}>
+        <div
+          className="grid border-b border-white/[0.07] bg-white/[0.025] px-5 py-3 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.52]"
+          style={{ gridTemplateColumns: columns }}
+        >
+          {headers.map((header, index) => (
+            <div key={index}>{header}</div>
+          ))}
+        </div>
+
+        {loading ? loadingContent : empty ? emptyContent : children}
+      </div>
+    </div>
+  );
+}
 
 export function WorkTable({
   title,
@@ -30,7 +69,24 @@ export function WorkTable({
   loading = false,
   loadingContent,
   actions,
+  embedded = false,
 }: WorkTableProps) {
+  const body = (
+    <WorkTableBody
+      minWidth={minWidth}
+      columns={columns}
+      headers={headers}
+      empty={empty}
+      emptyContent={emptyContent}
+      loading={loading}
+      loadingContent={loadingContent}
+    >
+      {children}
+    </WorkTableBody>
+  );
+
+  if (embedded) return body;
+
   return (
     <section className="overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#151517] shadow-[0_16px_45px_rgba(0,0,0,.18)]">
       {(title || subtitle || actions || typeof resultCount === 'number') ? (
@@ -49,21 +105,7 @@ export function WorkTable({
           </div>
         </div>
       ) : null}
-
-      <div className="overflow-x-auto">
-        <div style={{ minWidth }}>
-          <div
-            className="grid border-b border-white/[0.07] bg-white/[0.025] px-5 py-3 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.52]"
-            style={{ gridTemplateColumns: columns }}
-          >
-            {headers.map((header, index) => (
-              <div key={index}>{header}</div>
-            ))}
-          </div>
-
-          {loading ? loadingContent : empty ? emptyContent : children}
-        </div>
-      </div>
+      {body}
     </section>
   );
 }
