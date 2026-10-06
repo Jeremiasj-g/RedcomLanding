@@ -30,6 +30,7 @@ import {
   Columns3,
   Loader2,
   Save,
+  UsersRound,
 } from 'lucide-react';
 import {
   updateProjectTask,
@@ -298,11 +299,14 @@ export default function ProjectTaskDrawer({
   const [newTodoGroupName, setNewTodoGroupName] = useState('');
   const [newTodoGroupPriority, setNewTodoGroupPriority] =
     useState<ProjectTaskWorkspaceGroupPriority>('medium');
+  const [newTodoGroupAssigneeIds, setNewTodoGroupAssigneeIds] = useState<string[]>([]);
   const [newTodoGroupPanelOpen, setNewTodoGroupPanelOpen] = useState(false);
   const [editingTodoGroupName, setEditingTodoGroupName] = useState<string | null>(null);
   const [editingTodoGroupValue, setEditingTodoGroupValue] = useState('');
   const [editingTodoGroupPriority, setEditingTodoGroupPriority] =
     useState<ProjectTaskWorkspaceGroupPriority>('medium');
+  const [editingTodoGroupAssigneeIds, setEditingTodoGroupAssigneeIds] =
+    useState<string[]>([]);
   const [deleteTodoGroupConfirm, setDeleteTodoGroupConfirm] = useState<{
     name: string;
     itemCount: number;
@@ -336,9 +340,60 @@ export default function ProjectTaskDrawer({
     return () => document.removeEventListener('mousedown', onDown);
   }, [todoGroupMenuOpen]);
 
+  const groupAssigneeOptions = useMemo(
+    () =>
+      task.assignees
+        .map((assignee) => ({
+          id: assignee.user_id,
+          full_name: assignee.full_name,
+          email: assignee.email,
+        }))
+        .sort((a, b) =>
+          (a.full_name ?? a.email ?? '').localeCompare(
+            b.full_name ?? b.email ?? '',
+            'es',
+          ),
+        ),
+    [task.assignees],
+  );
+
+  const groupAssigneeById = useMemo(
+    () =>
+      new Map(
+        groupAssigneeOptions.map((assignee) => [assignee.id, assignee]),
+      ),
+    [groupAssigneeOptions],
+  );
+
+  const sanitizeGroupAssigneeIds = (ids: string[]) => {
+    const allowed = new Set(groupAssigneeOptions.map((assignee) => assignee.id));
+    return Array.from(new Set(ids)).filter((id) => allowed.has(id));
+  };
+
+  const toggleAssigneeId = (
+    id: string,
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+  ) => {
+    setter((current) =>
+      current.includes(id)
+        ? current.filter((value) => value !== id)
+        : [...current, id],
+    );
+  };
+
+  const getGroupAssigneeNames = (ids?: string[]) =>
+    (ids ?? [])
+      .map((id) => groupAssigneeById.get(id))
+      .filter(Boolean)
+      .map(
+        (assignee) =>
+          assignee?.full_name ?? assignee?.email ?? 'Sin nombre',
+      );
+
   const addTodoGroup = (
     name: string,
     priority: ProjectTaskWorkspaceGroupPriority = 'medium',
+    assigneeIds: string[] = [],
   ) => {
     const cleanName = name.trim();
 
@@ -364,10 +419,17 @@ export default function ProjectTaskDrawer({
       return false;
     }
 
+    const cleanAssigneeIds = sanitizeGroupAssigneeIds(assigneeIds);
+
     setTodoGroups((prev) =>
-      [...prev, { name: cleanName, priority }].sort((a, b) =>
-        a.name.localeCompare(b.name, 'es'),
-      ),
+      [
+        ...prev,
+        {
+          name: cleanName,
+          priority,
+          assignee_ids: cleanAssigneeIds,
+        },
+      ].sort((a, b) => a.name.localeCompare(b.name, 'es')),
     );
 
     return true;
@@ -375,11 +437,20 @@ export default function ProjectTaskDrawer({
 
   const createTodoGroupFromDraft = () => {
     const name = newTodoGroupName.trim();
-    if (!addTodoGroup(name, newTodoGroupPriority)) return;
+    if (
+      !addTodoGroup(
+        name,
+        newTodoGroupPriority,
+        newTodoGroupAssigneeIds,
+      )
+    ) {
+      return;
+    }
 
     setTodoGroupSelected(name);
     setNewTodoGroupName('');
     setNewTodoGroupPriority('medium');
+    setNewTodoGroupAssigneeIds([]);
     setNewTodoGroupPanelOpen(false);
     setTodoGroupMenuOpen(false);
   };
@@ -401,7 +472,11 @@ export default function ProjectTaskDrawer({
 
       for (const name of discoveredNames) {
         if (!byName.has(name)) {
-          byName.set(name, { name, priority: 'medium' });
+          byName.set(name, {
+            name,
+            priority: 'medium',
+            assignee_ids: [],
+          });
         }
       }
 
@@ -449,12 +524,16 @@ export default function ProjectTaskDrawer({
     setEditingTodoGroupName(name);
     setEditingTodoGroupValue(group.name);
     setEditingTodoGroupPriority(group.priority);
+    setEditingTodoGroupAssigneeIds(
+      sanitizeGroupAssigneeIds(group.assignee_ids ?? []),
+    );
   };
 
   const cancelEditTodoGroup = () => {
     setEditingTodoGroupName(null);
     setEditingTodoGroupValue('');
     setEditingTodoGroupPriority('medium');
+    setEditingTodoGroupAssigneeIds([]);
   };
 
   const saveEditTodoGroup = () => {
@@ -504,7 +583,13 @@ export default function ProjectTaskDrawer({
 
       return [
         ...withoutCurrent,
-        { name: nextName, priority: editingTodoGroupPriority },
+        {
+          name: nextName,
+          priority: editingTodoGroupPriority,
+          assignee_ids: sanitizeGroupAssigneeIds(
+            editingTodoGroupAssigneeIds,
+          ),
+        },
       ].sort((a, b) => a.name.localeCompare(b.name, 'es'));
     });
 
@@ -616,6 +701,7 @@ export default function ProjectTaskDrawer({
     title,
     count,
     priority,
+    assigneeIds,
     isActiveDrop,
     children,
   }: {
@@ -624,6 +710,7 @@ export default function ProjectTaskDrawer({
     title: string;
     count: string;
     priority: ProjectTaskWorkspaceGroupPriority | null;
+    assigneeIds: string[];
     isActiveDrop: boolean;
     children: React.ReactNode;
   }) {
@@ -712,6 +799,59 @@ export default function ProjectTaskDrawer({
                 );
               })}
             </div>
+
+            <div className="mt-3 border-t border-white/[0.06] pt-3">
+              <div className="mb-2 flex items-center gap-1.5">
+                <UsersRound className="h-3.5 w-3.5 text-[#5ac8fa]" />
+                <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.48]">
+                  Responsables
+                </span>
+              </div>
+
+              {groupAssigneeOptions.length === 0 ? (
+                <p className="rounded-[10px] bg-white/[0.035] px-2.5 py-2 text-[10px] font-normal text-white/[0.42]">
+                  Esta tarea todavía no tiene responsables asignados.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {groupAssigneeOptions.map((assignee) => {
+                    const selected =
+                      editingTodoGroupAssigneeIds.includes(assignee.id);
+                    const label =
+                      assignee.full_name ?? assignee.email ?? 'Sin nombre';
+
+                    return (
+                      <button
+                        key={assignee.id}
+                        type="button"
+                        onClick={() =>
+                          toggleAssigneeId(
+                            assignee.id,
+                            setEditingTodoGroupAssigneeIds,
+                          )
+                        }
+                        className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-normal transition ${
+                          selected
+                            ? 'border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#8bc7ff]'
+                            : 'border-white/[0.07] bg-white/[0.025] text-white/[0.50] hover:bg-white/[0.055] hover:text-white/[0.76]'
+                        }`}
+                      >
+                        <span
+                          className={`grid h-3.5 w-3.5 place-items-center rounded-full border ${
+                            selected
+                              ? 'border-[#0a84ff] bg-[#0a84ff] text-white'
+                              : 'border-white/[0.18] text-transparent'
+                          }`}
+                        >
+                          <Check className="h-2.5 w-2.5" />
+                        </span>
+                        <span className="truncate">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="flex items-center gap-1 px-3 py-2">
@@ -742,6 +882,18 @@ export default function ProjectTaskDrawer({
                 <div className="text-[11px] font-normal text-white/[0.65]">
                   {count}
                 </div>
+                {assigneeIds.length > 0 ? (
+                  <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[9px] font-normal text-white/[0.44]">
+                    <UsersRound className="h-3 w-3 shrink-0 text-[#5ac8fa]/80" />
+                    <span className="truncate">
+                      {(() => {
+                        const names = getGroupAssigneeNames(assigneeIds);
+                        if (names.length <= 2) return names.join(', ');
+                        return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+                      })()}
+                    </span>
+                  </div>
+                ) : null}
               </div>
             </button>
 
@@ -2052,6 +2204,61 @@ export default function ProjectTaskDrawer({
                           })}
                         </div>
 
+                        <div className="mt-3 border-t border-white/[0.06] pt-3">
+                          <div className="mb-2 flex items-center gap-1.5">
+                            <UsersRound className="h-3.5 w-3.5 text-[#5ac8fa]" />
+                            <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.48]">
+                              Responsables
+                            </span>
+                          </div>
+
+                          {groupAssigneeOptions.length === 0 ? (
+                            <p className="rounded-[10px] bg-white/[0.035] px-2.5 py-2 text-[10px] font-normal text-white/[0.42]">
+                              Primero asigná responsables a la tarea.
+                            </p>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {groupAssigneeOptions.map((assignee) => {
+                                const selected =
+                                  newTodoGroupAssigneeIds.includes(assignee.id);
+                                const label =
+                                  assignee.full_name ??
+                                  assignee.email ??
+                                  'Sin nombre';
+
+                                return (
+                                  <button
+                                    key={assignee.id}
+                                    type="button"
+                                    onClick={() =>
+                                      toggleAssigneeId(
+                                        assignee.id,
+                                        setNewTodoGroupAssigneeIds,
+                                      )
+                                    }
+                                    className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-normal transition ${
+                                      selected
+                                        ? 'border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#8bc7ff]'
+                                        : 'border-white/[0.07] bg-white/[0.025] text-white/[0.50] hover:bg-white/[0.055] hover:text-white/[0.76]'
+                                    }`}
+                                  >
+                                    <span
+                                      className={`grid h-3.5 w-3.5 place-items-center rounded-full border ${
+                                        selected
+                                          ? 'border-[#0a84ff] bg-[#0a84ff] text-white'
+                                          : 'border-white/[0.18] text-transparent'
+                                      }`}
+                                    >
+                                      <Check className="h-2.5 w-2.5" />
+                                    </span>
+                                    <span className="truncate">{label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
                         <button
                           type="button"
                           onClick={createTodoGroupFromDraft}
@@ -2223,6 +2430,9 @@ export default function ProjectTaskDrawer({
                       title={groupName ?? 'Sin grupo'}
                       count={`${done}/${total}`}
                       priority={getTodoGroup(groupName)?.priority ?? null}
+                      assigneeIds={
+                        getTodoGroup(groupName)?.assignee_ids ?? []
+                      }
                       isActiveDrop={isActiveDrop}
                     >
                       {arr.map((t) => (
