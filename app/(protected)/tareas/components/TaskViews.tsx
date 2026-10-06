@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import type { Task } from '@/lib/tasks';
 import { RedcomSelect } from '@/components/ui/redcom-select';
+import { WorkTable, WorkTableRow } from '@/components/ui/work-table';
 import { toYMD } from '../date';
 
 export type TaskViewMode = 'week' | 'list' | 'kanban' | 'calendar';
@@ -162,6 +163,124 @@ export function TaskListView({
         })}
       </div>
     </section>
+  );
+}
+
+export function TaskTableView({
+  tasks,
+  onSelectTask,
+  onStatusChange,
+  changingStatusId,
+}: {
+  tasks: Task[];
+  onSelectTask: (task: Task) => void;
+  onStatusChange: (task: Task, status: Task['status']) => Promise<Task>;
+  changingStatusId: number | null;
+}) {
+  const columns = 'minmax(320px,2.2fr) 170px 150px 145px 140px';
+
+  return (
+    <WorkTable
+      title="Trabajo activo"
+      subtitle="Vista tabular para revisar rápidamente tareas, fechas, estado y recurrencia."
+      resultCount={tasks.length}
+      minWidth="1050px"
+      columns={columns}
+      headers={['Tarea', 'Estado', 'Fecha', 'Hora', 'Repetición']}
+      empty={tasks.length === 0}
+      emptyContent={
+        <div className="grid min-h-[220px] place-items-center px-6 text-center">
+          <div>
+            <ListChecks className="mx-auto h-6 w-6 text-white/[0.28]" />
+            <div className="mt-3 text-sm font-medium text-white/[0.82]">
+              No hay tareas para mostrar
+            </div>
+            <p className="mt-1 text-xs text-white/[0.44]">
+              Ajustá los filtros o el rango de fechas.
+            </p>
+          </div>
+        </div>
+      }
+    >
+      {tasks
+        .slice()
+        .sort(
+          (a, b) =>
+            new Date(a.scheduled_at).getTime() -
+            new Date(b.scheduled_at).getTime(),
+        )
+        .map((task) => {
+          const date = new Date(task.scheduled_at);
+          const repeat = recurrenceLabel(task);
+
+          return (
+            <WorkTableRow
+              key={task.id}
+              columns={columns}
+              onClick={() => onSelectTask(task)}
+            >
+              <div className="min-w-0 pr-5">
+                <div className="truncate text-sm font-medium text-white/[0.92]">
+                  {task.title}
+                </div>
+                {task.description ? (
+                  <div className="mt-1 truncate text-[11px] text-white/[0.42]">
+                    {task.description}
+                  </div>
+                ) : null}
+              </div>
+
+              <div
+                className="pr-3"
+                onClick={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <RedcomSelect
+                  value={task.status}
+                  options={[
+                    { value: 'pending', label: STATUS_LABELS.pending },
+                    { value: 'in_progress', label: STATUS_LABELS.in_progress },
+                    { value: 'done', label: STATUS_LABELS.done },
+                    { value: 'cancelled', label: STATUS_LABELS.cancelled },
+                  ]}
+                  onValueChange={(value) =>
+                    void onStatusChange(task, value as Task['status'])
+                  }
+                  disabled={changingStatusId === task.id}
+                  surface="dark"
+                  triggerTone={STATUS_TONES[task.status]}
+                  className="h-9 rounded-[12px] text-[11px]"
+                  aria-label={`Estado de ${task.title}`}
+                />
+              </div>
+
+              <div className="text-[11px] text-white/[0.64]">
+                {date.toLocaleDateString('es-AR', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 text-[11px] text-white/[0.54]">
+                <Clock3 className="h-3.5 w-3.5" />
+                {timeLabel(task)}
+              </div>
+
+              <div>
+                {repeat ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#0a84ff]/10 px-2 py-1 text-[9px] text-[#5ac8fa]">
+                    <Repeat2 className="h-3 w-3" />
+                    {repeat}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-white/[0.25]">No repetir</span>
+                )}
+              </div>
+            </WorkTableRow>
+          );
+        })}
+    </WorkTable>
   );
 }
 
