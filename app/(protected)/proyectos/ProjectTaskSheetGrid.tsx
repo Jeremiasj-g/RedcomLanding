@@ -843,6 +843,7 @@ export default function ProjectTaskSheetGrid({
     currentUserId,
     canEdit,
     loading,
+    scope,
     snapshot,
   ]);
 
