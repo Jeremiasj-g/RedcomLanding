@@ -134,6 +134,8 @@ export default function NewTaskForm() {
           recurrence === 'every_n_days' ? recurrenceIntervalDays : null,
       });
       setNewTask((p) => ({ ...p, title: '', description: '' }));
+      setRecurrence('none');
+      setRecurrenceIntervalDays(15);
       notify.success(
         created.length === 1
           ? 'Tarea creada correctamente.'
