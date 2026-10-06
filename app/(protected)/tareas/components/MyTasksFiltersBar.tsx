@@ -20,20 +20,20 @@ export default function MyTasksFiltersBar({
   onSearchChange,
 }: Props) {
   return (
-    <section className="rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-md shadow-slate-950/40">
-      <div className="mb-3 flex items-center gap-2 text-xs font-medium text-slate-300">
-        <Filter className="h-4 w-4 text-sky-400" />
+    <section className="rounded-[22px] border border-white/[0.08] bg-[#151517] p-4 shadow-[0_16px_45px_rgba(0,0,0,.14)]">
+      <div className="mb-3 flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.54]">
+        <Filter className="h-4 w-4 text-[#5ac8fa]" />
         Filtros
       </div>
 
       <div className="grid gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]">
         {/* Estado */}
-        <div className="flex flex-col gap-1 text-xs text-slate-300">
+        <div className="flex flex-col gap-1 text-[10px] font-normal text-white/[0.46]">
           <span>Estado</span>
           <select
             value={statusFilter}
             onChange={(e) => onStatusFilterChange(e.target.value as StatusFilter)}
-            className="rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="h-10 rounded-[12px] border border-white/[0.08] bg-[#1c1c1e] px-3 text-[11px] font-normal text-white/[0.82] outline-none transition focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
           >
             <option value="all">Todos</option>
             <option value="pending">Pendiente</option>
@@ -44,15 +44,15 @@ export default function MyTasksFiltersBar({
         </div>
 
         {/* Buscar */}
-        <div className="flex flex-col gap-1 text-xs text-slate-300">
+        <div className="flex flex-col gap-1 text-[10px] font-normal text-white/[0.46]">
           <span>Buscar</span>
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/[0.30]" />
             <input
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Buscar por título o descripción…"
-              className="w-full rounded-xl border border-slate-700/80 bg-slate-950/80 py-2 pl-9 pr-3 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              className="h-10 w-full rounded-[12px] border border-white/[0.08] bg-[#1c1c1e] py-2 pl-9 pr-3 text-[11px] font-normal text-white/[0.82] outline-none transition placeholder:text-white/[0.28] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
             />
           </div>
         </div>
