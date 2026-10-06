@@ -103,11 +103,31 @@ export function getRangeLabel(state: DateRangeState): string {
 type Props = {
   state: DateRangeState;
   onChange: (next: DateRangeState) => void;
+  surface?: 'light' | 'dark';
 };
 
-export function DateRangeSelector({ state, onChange }: Props) {
+export function DateRangeSelector({
+  state,
+  onChange,
+  surface = 'light',
+}: Props) {
   const { range, mode, weeksSpan } = state;
   const label = getRangeLabel(state);
+
+  const isDark = surface === 'dark';
+  const shellClass = isDark
+    ? 'border-white/[0.08] bg-white/[0.035]'
+    : 'border-slate-300/70 bg-[#E7E9ED] shadow-[0_4px_14px_rgba(15,23,42,.08)]';
+  const activeClass = isDark
+    ? 'bg-white text-[#0b1020] shadow-sm'
+    : 'bg-white text-[#0b1020] shadow-[0_2px_8px_rgba(15,23,42,.10)]';
+  const inactiveClass = isDark
+    ? 'text-white/[0.42] hover:bg-white/[0.05] hover:text-white/[0.72]'
+    : 'text-slate-600 hover:bg-white/65 hover:text-slate-900';
+  const navTextClass = isDark ? 'text-white/[0.68]' : 'text-slate-700';
+  const navButtonClass = isDark
+    ? 'text-white/[0.40] hover:bg-white/[0.05] hover:text-white'
+    : 'text-slate-500 hover:bg-white/70 hover:text-slate-900';
 
   const update = (partial: Partial<DateRangeState>) => {
     onChange({ ...state, ...partial });
@@ -130,7 +150,7 @@ export function DateRangeSelector({ state, onChange }: Props) {
 
   return (
     <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-      <div className="inline-flex h-10 items-center rounded-[12px] border border-white/[0.08] bg-white/[0.035] p-1">
+      <div className={`inline-flex h-10 items-center rounded-[12px] border p-1 ${shellClass}`}>
         {[
           { value: 'week' as const, label: 'Semana' },
           { value: 'month' as const, label: 'Mes' },
@@ -142,9 +162,7 @@ export function DateRangeSelector({ state, onChange }: Props) {
             onClick={() => setMode(option.value)}
             className={[
               'h-8 rounded-[9px] px-3 text-[10px] font-medium transition',
-              mode === option.value
-                ? 'bg-white text-[#0b1020] shadow-sm'
-                : 'text-white/[0.42] hover:bg-white/[0.05] hover:text-white/[0.72]',
+              mode === option.value ? activeClass : inactiveClass,
             ].join(' ')}
           >
             {option.label}
@@ -153,7 +171,7 @@ export function DateRangeSelector({ state, onChange }: Props) {
       </div>
 
       {mode === 'multi-week' ? (
-        <div className="inline-flex h-10 items-center rounded-[12px] border border-white/[0.08] bg-white/[0.035] p-1">
+        <div className={`inline-flex h-10 items-center rounded-[12px] border p-1 ${shellClass}`}>
           {[1, 2, 3, 4].map((span) => (
             <button
               key={span}
@@ -162,8 +180,10 @@ export function DateRangeSelector({ state, onChange }: Props) {
               className={[
                 'h-8 rounded-[9px] px-2.5 text-[10px] font-medium transition',
                 weeksSpan === span
-                  ? 'bg-[#0a84ff]/15 text-[#8bc7ff]'
-                  : 'text-white/[0.38] hover:bg-white/[0.05] hover:text-white/[0.70]',
+                  ? isDark
+                    ? 'bg-[#0a84ff]/15 text-[#8bc7ff]'
+                    : 'bg-[#0b1020] text-white shadow-[0_2px_8px_rgba(15,23,42,.16)]'
+                  : inactiveClass,
               ].join(' ')}
             >
               {span} sem
@@ -172,22 +192,22 @@ export function DateRangeSelector({ state, onChange }: Props) {
         </div>
       ) : null}
 
-      <div className="inline-flex h-10 items-center rounded-[12px] border border-white/[0.08] bg-white/[0.035] p-1">
+      <div className={`inline-flex h-10 items-center rounded-[12px] border p-1 ${shellClass}`}>
         <button
           type="button"
           onClick={() => go(-1)}
-          className="grid h-8 w-8 place-items-center rounded-[9px] text-white/[0.40] transition hover:bg-white/[0.05] hover:text-white"
+          className={`grid h-8 w-8 place-items-center rounded-[9px] transition ${navButtonClass}`}
           aria-label="Rango anterior"
         >
           ‹
         </button>
-        <span className="min-w-[130px] px-2 text-center text-[10px] font-medium text-white/[0.68]">
+        <span className={`min-w-[130px] px-2 text-center text-[10px] font-medium ${navTextClass}`}>
           {label}
         </span>
         <button
           type="button"
           onClick={() => go(1)}
-          className="grid h-8 w-8 place-items-center rounded-[9px] text-white/[0.40] transition hover:bg-white/[0.05] hover:text-white"
+          className={`grid h-8 w-8 place-items-center rounded-[9px] transition ${navButtonClass}`}
           aria-label="Rango siguiente"
         >
           ›
