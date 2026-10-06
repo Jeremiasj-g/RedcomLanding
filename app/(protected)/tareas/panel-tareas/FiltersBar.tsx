@@ -1,6 +1,7 @@
 'use client';
 
 import { Search, SlidersHorizontal } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { TaskStatus } from '@/lib/tasks';
 import { RedcomSelect } from '@/components/ui/redcom-select';
 
@@ -158,7 +159,7 @@ function FilterField({
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <label className="min-w-0">
