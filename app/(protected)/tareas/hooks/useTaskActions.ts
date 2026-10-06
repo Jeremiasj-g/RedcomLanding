@@ -39,16 +39,17 @@ export function useTaskActions(range?: { from: Date; to: Date }) {
 
         setTasks((prev) => {
           const replaced = prev.map((t) => (t.id === task.id ? updated : t));
-          const nextTime = nextRecurring ? new Date(nextRecurring.scheduled_at).getTime() : 0;
+          const recurring = nextRecurring;
+          const nextTime = recurring ? new Date(recurring.scheduled_at).getTime() : 0;
           const inVisibleRange =
             !range ||
             (nextTime >= range.from.getTime() && nextTime < range.to.getTime());
           if (
-            !nextRecurring ||
+            !recurring ||
             !inVisibleRange ||
-            replaced.some((t) => t.id === nextRecurring.id)
+            replaced.some((t) => t.id === recurring.id)
           ) return replaced;
-          return [...replaced, nextRecurring].sort(
+          return [...replaced, recurring].sort(
             (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
           );
         });
@@ -142,16 +143,17 @@ export function useTaskActions(range?: { from: Date; to: Date }) {
 
         setTasks((prev) => {
           const replaced = prev.map((t) => (t.id === task.id ? updated : t));
-          const nextTime = nextRecurring ? new Date(nextRecurring.scheduled_at).getTime() : 0;
+          const recurring = nextRecurring;
+          const nextTime = recurring ? new Date(recurring.scheduled_at).getTime() : 0;
           const inVisibleRange =
             !range ||
             (nextTime >= range.from.getTime() && nextTime < range.to.getTime());
           if (
-            !nextRecurring ||
+            !recurring ||
             !inVisibleRange ||
-            replaced.some((t) => t.id === nextRecurring.id)
+            replaced.some((t) => t.id === recurring.id)
           ) return replaced;
-          return [...replaced, nextRecurring].sort(
+          return [...replaced, recurring].sort(
             (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
           );
         });
