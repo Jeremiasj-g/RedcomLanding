@@ -804,7 +804,7 @@ export default function ProyectosPage() {
   if (loadingMe && !me) {
     return (
       <RequireAuth roles={['admin', 'supervisor', 'jdv']}>
-        <div className="grid min-h-[80vh] place-items-center">
+        <div className="grid min-h-[80vh] place-items-center bg-[#F4F5F7]">
           <DualSpinner size={60} thickness={4} />
         </div>
       </RequireAuth>
@@ -815,7 +815,7 @@ export default function ProyectosPage() {
 
   return (
     <RequireAuth roles={['admin', 'supervisor', 'jdv']}>
-      <div className="min-h-[calc(100vh-72px)] text-slate-950">
+      <div className="min-h-[calc(100vh-72px)] bg-[#F4F5F7] text-slate-950">
         <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
           <header className="flex flex-col gap-6 pb-7 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
