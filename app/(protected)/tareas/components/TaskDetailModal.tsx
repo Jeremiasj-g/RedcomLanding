@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { CalendarDays, Check, Clock, Loader2, Pencil, Save } from 'lucide-react';
+import { CalendarDays, Check, Clock, Loader2, Pencil, Save, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Task } from '@/lib/tasks';
@@ -183,16 +183,16 @@ function TimePicker({
             }, 120);
           }}
           placeholder="Ej: 13 ó 13:30"
-          className="pr-9 bg-slate-950/40"
+          className="h-10 rounded-[12px] border-white/[0.08] bg-[#1c1c1e] pr-9 text-[11px] font-normal text-white/[0.82] placeholder:text-white/[0.26] focus-visible:border-[#0a84ff]/45 focus-visible:ring-2 focus-visible:ring-[#0a84ff]/10"
         />
-        <Clock className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Clock className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-white/[0.32]" />
       </div>
 
       {open && !disabled && (
-        <div className="absolute z-[90] mt-2 w-full overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl shadow-black/40 backdrop-blur">
+        <div className="absolute z-[90] mt-2 w-full overflow-hidden rounded-[14px] border border-white/[0.09] bg-[#242426] shadow-[0_24px_70px_rgba(0,0,0,.45)] backdrop-blur">
           <div className="max-h-56 overflow-auto p-1">
             {suggestions.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-slate-400">No hay coincidencias.</div>
+              <div className="px-3 py-2 text-[11px] text-white/[0.38]">No hay coincidencias.</div>
             ) : (
               suggestions.map((t, idx) => {
                 const active = idx === activeIdx;
@@ -210,11 +210,11 @@ function TimePicker({
                     }}
                     onMouseEnter={() => setActiveIdx(idx)}
                     className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
-                      active ? 'bg-slate-800 text-slate-100' : 'text-slate-200 hover:bg-slate-800/70'
+                      active ? 'bg-white/[0.08] text-white' : 'text-white/[0.62] hover:bg-white/[0.05]'
                     }`}
                   >
                     <span>{t}</span>
-                    {selected ? <Check className="h-4 w-4 text-slate-300" /> : <span className="h-4 w-4" />}
+                    {selected ? <Check className="h-4 w-4 text-[#5ac8fa]" /> : <span className="h-4 w-4" />}
                   </button>
                 );
               })
@@ -346,7 +346,7 @@ export default function TaskDetailModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-md"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/[0.58] p-4 backdrop-blur-md"
           onClick={onClose}
         >
           <motion.div
@@ -354,46 +354,51 @@ export default function TaskDetailModal({
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: 24, scale: 0.97, opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="relative h-[87dvh] w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-800 bg-gray-800 text-slate-100 shadow-2xl shadow-slate-950/70"
+            className="relative h-[88dvh] w-full max-w-[1120px] overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#17181b] text-white shadow-[0_28px_90px_rgba(0,0,0,.48)]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-start justify-between gap-3 border-b border-slate-800 px-5 py-4">
-              <div className="min-w-0 space-y-2">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                  <span className="inline-flex items-center rounded-full bg-slate-900 px-2 py-0.5">
-                    <CalendarDays className="mr-1 h-3 w-3" />
+            <div className="flex items-center justify-between gap-4 border-b border-white/[0.07] px-6 py-4">
+              <div className="min-w-0">
+                <div className="text-[9px] font-medium uppercase tracking-[0.12em] text-white/[0.34]">
+                  Tarea personal
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] font-normal text-white/[0.48]">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.035] px-2.5 py-1">
+                    <CalendarDays className="h-3 w-3 text-[#5ac8fa]" />
                     {dateLabel}
                   </span>
-                  <span className="text-[11px] text-slate-500">Estado: {briefStatusLabel(task.status)}</span>
+                  <span className="rounded-full border border-white/[0.07] bg-white/[0.035] px-2.5 py-1">
+                    {briefStatusLabel(task.status)}
+                  </span>
                 </div>
               </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
+                type="button"
                 onClick={onClose}
-                className="rounded-full bg-slate-900 px-3 text-xs text-slate-300 hover:bg-slate-800"
+                className="grid h-9 w-9 place-items-center rounded-[11px] border border-white/[0.07] bg-white/[0.035] text-white/[0.48] transition hover:bg-white/[0.07] hover:text-white"
+                aria-label="Cerrar"
               >
-                Cerrar
-              </Button>
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
             {/* Body: izquierda edición | derecha checklist */}
-            <div className="grid max-h-[calc(90vh-72px)] grid-cols-1 md:grid-cols-[1fr,1.15fr]">
+            <div className="grid h-[calc(88dvh-73px)] min-h-0 grid-cols-1 md:grid-cols-[0.92fr,1.08fr]">
               {/* Left */}
-              <div className="border-b border-slate-800 p-5 md:border-b-0 md:border-r">
-                <div className="space-y-4">
+              <div className="min-h-0 overflow-y-auto border-b border-white/[0.07] p-6 md:border-b-0 md:border-r">
+                <div className="space-y-5">
                   {/* Título */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <Label className="text-[16px] font-bold text-slate-400">Título</Label>
+                      <Label className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.42]">Título</Label>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={toggleEditTitle}
-                        className="h-8 w-8 rounded-full bg-slate-900 text-slate-300 hover:bg-slate-800"
+                        className="h-8 w-8 rounded-[9px] border border-white/[0.07] bg-white/[0.035] text-white/[0.42] transition hover:bg-white/[0.07] hover:text-white"
                         title={editTitle ? 'Bloquear edición' : 'Editar título'}
                       >
                         <Pencil className="h-4 w-4" />
@@ -404,10 +409,10 @@ export default function TaskDetailModal({
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       disabled={!editTitle}
-                      className="bg-slate-950/40"
+                      className="h-10 rounded-[12px] border-white/[0.08] bg-[#1c1c1e] text-[11px] font-normal text-white/[0.82] disabled:cursor-default disabled:opacity-100 focus-visible:border-[#0a84ff]/45 focus-visible:ring-2 focus-visible:ring-[#0a84ff]/10"
                     />
                     {!editTitle && (
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-[10px] font-normal text-white/[0.30]">
                         Tocá el lápiz para habilitar edición.
                       </p>
                     )}
@@ -416,13 +421,13 @@ export default function TaskDetailModal({
                   {/* Descripción */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <Label className="text-[16px] font-bold text-slate-400">Descripción</Label>
+                      <Label className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.42]">Descripción</Label>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={toggleEditDesc}
-                        className="h-8 w-8 rounded-full bg-slate-900 text-slate-300 hover:bg-slate-800"
+                        className="h-8 w-8 rounded-[9px] border border-white/[0.07] bg-white/[0.035] text-white/[0.42] transition hover:bg-white/[0.07] hover:text-white"
                         title={editDescription ? 'Bloquear edición' : 'Editar descripción'}
                       >
                         <Pencil className="h-4 w-4" />
@@ -433,20 +438,20 @@ export default function TaskDetailModal({
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       disabled={!editDescription}
-                      className="min-h-[110px] resize-none bg-slate-950/40 text-sm"
+                      className="min-h-[135px] resize-none rounded-[12px] border-white/[0.08] bg-[#1c1c1e] text-[11px] font-normal leading-5 text-white/[0.82] disabled:cursor-default disabled:opacity-100 focus-visible:border-[#0a84ff]/45 focus-visible:ring-2 focus-visible:ring-[#0a84ff]/10"
                     />
                   </div>
 
                   {/* Hora */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <Label className="text-[16px] font-bold text-slate-400">Hora</Label>
+                      <Label className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.42]">Hora</Label>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={toggleEditTime}
-                        className="h-8 w-8 rounded-full bg-slate-900 text-slate-300 hover:bg-slate-800"
+                        className="h-8 w-8 rounded-[9px] border border-white/[0.07] bg-white/[0.035] text-white/[0.42] transition hover:bg-white/[0.07] hover:text-white"
                         title={editTime ? 'Bloquear edición' : 'Editar hora'}
                       >
                         <Pencil className="h-4 w-4" />
@@ -454,9 +459,9 @@ export default function TaskDetailModal({
                     </div>
 
                     <TimePicker value={time} onChange={setTime} disabled={!editTime} />
-                    <p className="text-[11px] text-slate-500">
-                      Escribí “13” y te sugiere <span className="text-slate-300">13:00</span>,{' '}
-                      <span className="text-slate-300">13:30</span>, etc. (Enter autocompleta).
+                    <p className="text-[10px] font-normal text-white/[0.30]">
+                      Escribí “13” y te sugiere <span className="text-white/[0.64]">13:00</span>,{' '}
+                      <span className="text-white/[0.64]">13:30</span>, etc. (Enter autocompleta).
                     </p>
                   </div>
 
@@ -464,7 +469,7 @@ export default function TaskDetailModal({
                     <Button
                       onClick={saveEdits}
                       disabled={saving || !title.trim() || !hasChanges}
-                      className="rounded-full"
+                      className="h-10 rounded-[12px] bg-white px-4 text-[11px] font-medium text-[#0b1020] shadow-none transition hover:bg-white/[0.90] disabled:opacity-30"
                     >
                       {saving ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -478,7 +483,7 @@ export default function TaskDetailModal({
               </div>
 
               {/* Right */}
-              <div className="min-h-0">
+              <div className="min-h-0 overflow-hidden bg-[#151517]">
                 <TaskChecklistSection
                   taskId={task.id}
                   notes={task.notes ?? null}
