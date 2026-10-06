@@ -1,7 +1,8 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { CalendarDays, Check, Clock, Loader2, Pencil, Repeat2, Save, X } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { CalendarDays, Check, Clock, Columns3, Loader2, Pencil, Repeat2, Save, Table2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Task, TaskRecurrenceType } from '@/lib/tasks';
@@ -18,7 +19,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RedcomSelect } from '@/components/ui/redcom-select';
+import type { ProjectTaskSheetSaveState } from '../../proyectos/ProjectTaskSheetGrid';
 
+
+
+const ProjectTaskSheetGrid = dynamic(
+  () => import('../../proyectos/ProjectTaskSheetGrid'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid h-full min-h-[460px] place-items-center bg-[#17181b] text-[11px] text-white/[0.45]">
+        Preparando planilla...
+      </div>
+    ),
+  },
+);
 
 type Props = {
   task: Task | null;
@@ -249,6 +264,9 @@ export default function TaskDetailModal({
   const descRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [saving, setSaving] = useState(false);
+  const [detailView, setDetailView] = useState<'normal' | 'sheet'>('normal');
+  const [sheetSaveState, setSheetSaveState] =
+    useState<ProjectTaskSheetSaveState>('idle');
 
   useEffect(() => {
     if (!task) return;
@@ -261,6 +279,46 @@ export default function TaskDetailModal({
     setEditDescription(false);
     setEditTime(false);
   }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!task) return;
+    setSheetSaveState('idle');
+
+    if (typeof window === 'undefined') {
+      setDetailView('normal');
+      return;
+    }
+
+    const key = `personal-task-detail-view:${task.id}`;
+    const saved = window.localStorage.getItem(key);
+    setDetailView(saved === 'sheet' ? 'sheet' : 'normal');
+  }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const changeDetailView = (next: 'normal' | 'sheet') => {
+    setDetailView(next);
+    if (!task || typeof window === 'undefined') return;
+    window.localStorage.setItem(`personal-task-detail-view:${task.id}`, next);
+  };
+
+  const sheetSaveLabel =
+    sheetSaveState === 'saving'
+      ? 'Guardando...'
+      : sheetSaveState === 'dirty'
+        ? 'Cambios sin guardar'
+        : sheetSaveState === 'error'
+          ? 'Error al guardar'
+          : sheetSaveState === 'idle'
+            ? 'Cargando...'
+            : 'Guardado';
+
+  const sheetSaveClass =
+    sheetSaveState === 'error'
+      ? 'text-rose-300'
+      : sheetSaveState === 'dirty'
+        ? 'text-amber-300'
+        : sheetSaveState === 'saving' || sheetSaveState === 'idle'
+          ? 'text-[#5ac8fa]'
+          : 'text-emerald-300';
 
   const dateLabel = useMemo(() => {
     if (!task) return '';
@@ -396,18 +454,65 @@ export default function TaskDetailModal({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={onClose}
-                className="grid h-9 w-9 place-items-center rounded-[11px] border border-white/[0.07] bg-white/[0.035] text-white/[0.48] transition hover:bg-white/[0.07] hover:text-white"
-                aria-label="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                {detailView === 'sheet' ? (
+                  <div
+                    className={`hidden min-w-[92px] items-center justify-end gap-1.5 text-[10px] font-normal sm:inline-flex ${sheetSaveClass}`}
+                    aria-live="polite"
+                  >
+                    {sheetSaveState === 'saving' || sheetSaveState === 'idle' ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    <span>{sheetSaveLabel}</span>
+                  </div>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    changeDetailView(detailView === 'sheet' ? 'normal' : 'sheet')
+                  }
+                  className={`inline-flex h-9 items-center gap-2 rounded-[11px] border px-3 text-[10px] font-medium transition ${
+                    detailView === 'sheet'
+                      ? 'border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#5ac8fa]'
+                      : 'border-white/[0.08] bg-white/[0.035] text-white/[0.68] hover:bg-white/[0.06] hover:text-white/[0.90]'
+                  }`}
+                  aria-pressed={detailView === 'sheet'}
+                >
+                  {detailView === 'sheet' ? (
+                    <Columns3 className="h-3.5 w-3.5" />
+                  ) : (
+                    <Table2 className="h-3.5 w-3.5" />
+                  )}
+                  {detailView === 'sheet' ? 'Vista normal' : 'Modo tabla'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="grid h-9 w-9 place-items-center rounded-[11px] border border-white/[0.07] bg-white/[0.035] text-white/[0.48] transition hover:bg-white/[0.07] hover:text-white"
+                  aria-label="Cerrar"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Body: izquierda edición | derecha checklist */}
-            <div className="grid h-[calc(88dvh-73px)] min-h-0 grid-cols-1 md:grid-cols-[0.86fr,1.14fr]">
+            {detailView === 'sheet' ? (
+              <div className="h-[calc(88dvh-73px)] min-h-0 overflow-hidden bg-[#17181b]">
+                <ProjectTaskSheetGrid
+                  taskId={task.id}
+                  currentUserId={task.user_id}
+                  canEdit={true}
+                  scope="personal"
+                  onSaveStateChange={setSheetSaveState}
+                />
+              </div>
+            ) : (
+              {/* Body: izquierda edición | derecha checklist */}
+              <div className="grid h-[calc(88dvh-73px)] min-h-0 grid-cols-1 md:grid-cols-[0.86fr,1.14fr]">
               {/* Left */}
               <div className="min-h-0 overflow-y-auto border-b border-white/[0.07] p-5 md:border-b-0 md:border-r">
                 <div className="space-y-4">
@@ -574,6 +679,7 @@ export default function TaskDetailModal({
                 </div>
               </div>
             </div>
+            )}
           </motion.div>
         </motion.div>
       )}
