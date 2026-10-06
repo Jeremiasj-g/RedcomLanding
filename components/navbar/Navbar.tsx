@@ -17,8 +17,6 @@ import {
   ArrowUpRight,
   Inbox,
   Sparkles,
-  ChevronDown,
-  Command,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -367,55 +365,50 @@ export default function Navbar() {
   }, [logged, isActive, role, branches, pendingCount, unreadCount, canAccessModule, overrides]);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-black/[0.08] bg-[#F4F5F7]/[0.86] backdrop-blur-2xl">
-      <nav className="mx-auto grid h-[72px] max-w-[1500px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-4 sm:px-6 lg:px-8">
-        {/* Brand + launcher */}
-        <div className="flex min-w-0 items-center gap-2.5">
+    <header className="sticky top-0 z-40 w-full border-b border-white/[0.07] bg-[#1d1d1f]/[0.97] shadow-[0_1px_0_rgba(255,255,255,.02),0_8px_30px_rgba(0,0,0,.10)] backdrop-blur-2xl">
+      <nav className="mx-auto flex h-[68px] max-w-[1500px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] border border-black/[0.08] bg-white/75 text-[#111318] shadow-[0_2px_8px_rgba(15,23,42,.06)] transition hover:bg-white active:scale-[0.97]"
-            aria-label="Abrir navegación"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/[0.09] bg-white/[0.045] text-white/[0.68] transition duration-150 hover:bg-white/[0.075] hover:text-white active:scale-[0.97]"
+            aria-label="Abrir menú"
           >
             <Menu className="h-[18px] w-[18px]" />
           </button>
 
-          <Link
-            href="/"
-            className="group flex min-w-0 items-center gap-2.5 rounded-[12px] px-1.5 py-1 transition"
-          >
+          <Link href="/" className="flex min-w-0 items-center gap-2.5">
             <img
               src="/LogoRedcom.png"
               alt="Redcom"
               className="h-8 w-8 shrink-0 object-contain"
             />
-            <div className="hidden min-w-0 sm:block">
-              <div className="truncate text-[14px] font-semibold tracking-[0.01em] text-[#111318]">
+            <div className="hidden sm:block">
+              <div className="text-[15px] font-semibold tracking-[0.025em] text-white/[0.96]">
                 REDCOM
               </div>
-              <div className="-mt-0.5 truncate text-[8px] font-medium uppercase tracking-[0.16em] text-slate-400">
+              <div className="-mt-0.5 text-[8px] font-medium uppercase tracking-[0.16em] text-white/[0.24]">
                 Workspace
               </div>
             </div>
           </Link>
         </div>
 
-        {/* Contextual navigation */}
-        <div className="flex min-w-0 justify-center">
+        <div className="flex min-w-0 items-center gap-2">
           {showSkeleton ? (
             <NavSkeletonPills />
-          ) : logged && isActive ? (
-            <div className="hidden max-w-full items-center gap-1 rounded-[14px] border border-black/[0.07] bg-white/70 p-1 shadow-[0_5px_22px_rgba(15,23,42,.06)] md:flex">
-              {isAdmin ? (
-                <>
+          ) : (
+            <>
+              {logged && isActive && isAdmin ? (
+                <div className="hidden items-center gap-1.5 md:flex">
                   <Link
                     href="/admin/solicitudes"
-                    className="relative inline-flex h-9 items-center gap-2 rounded-[10px] px-3 text-[11px] font-medium text-slate-600 transition hover:bg-[#F1F2F4] hover:text-slate-950"
+                    className="relative inline-flex h-10 items-center gap-2 rounded-[12px] border border-white/[0.08] bg-white/[0.04] px-3 text-[11px] font-medium text-white/[0.78] transition hover:bg-white/[0.07] hover:text-white"
                   >
-                    <ClipboardList className="h-3.5 w-3.5 text-slate-400" />
+                    <ClipboardList className="h-3.5 w-3.5 text-white/[0.46]" />
                     Solicitudes
                     {pendingCount !== null && pendingCount > 0 ? (
-                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-[#2b2307]">
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-amber-400/90 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-[#231d0a]">
                         {pendingCount > 99 ? '99+' : pendingCount}
                       </span>
                     ) : null}
@@ -423,48 +416,33 @@ export default function Navbar() {
 
                   <Link
                     href="/gerencia"
-                    className="inline-flex h-9 items-center gap-2 rounded-[10px] px-3 text-[11px] font-medium text-slate-600 transition hover:bg-[#F1F2F4] hover:text-slate-950"
+                    className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-white/[0.08] bg-white/[0.04] px-3 text-[11px] font-medium text-white/[0.78] transition hover:bg-white/[0.07] hover:text-white"
                   >
-                    <Hammer className="h-3.5 w-3.5 text-slate-400" />
+                    <Hammer className="h-3.5 w-3.5 text-white/[0.46]" />
                     Gerencia
                   </Link>
-
-                  <span className="mx-1 h-5 w-px bg-black/[0.07]" />
-                </>
+                </div>
               ) : null}
 
-              <div className="flex min-w-0 items-center gap-2 rounded-[10px] bg-[#111318] px-3 py-2 text-white shadow-sm">
-                <div className="max-w-[190px] truncate text-[11px]">
-                  <span className="text-white/[0.46]">Hola, </span>
-                  <span className="font-medium text-white/[0.94]">{fullName}</span>
+              {logged ? (
+                <div className="hidden h-10 items-center gap-2 rounded-[13px] border border-white/[0.075] bg-black/[0.12] px-3 lg:flex">
+                  <div className="max-w-[210px] truncate text-[11px] text-white/[0.48]">
+                    Hola, <span className="font-medium text-white/[0.90]">{fullName}</span>
+                  </div>
+                  <span className="h-4 w-px bg-white/[0.08]" />
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-medium',
+                      roleChipClass(role),
+                    )}
+                    title={`Rol: ${roleDisplayName || roleLabel(role)}`}
+                  >
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    {roleDisplayName || roleLabel(role)}
+                  </span>
                 </div>
+              ) : null}
 
-                <span className="h-4 w-px bg-white/[0.10]" />
-
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-medium',
-                    roleChipClass(role),
-                  )}
-                  title={`Rol: ${roleDisplayName || roleLabel(role)}`}
-                >
-                  <BadgeCheck className="h-3 w-3" />
-                  {roleDisplayName || roleLabel(role)}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="hidden items-center gap-2 rounded-[12px] border border-black/[0.07] bg-white/70 px-3 py-2 text-[11px] text-slate-500 md:flex">
-              <Command className="h-3.5 w-3.5" />
-              Redcom
-            </div>
-          )}
-        </div>
-
-        {/* System actions */}
-        <div className="flex shrink-0 items-center justify-end gap-1.5">
-          {showSkeleton ? null : (
-            <>
               {canSeeNotifs ? (
                 <div className="relative" id="menu-notif" ref={notifRef}>
                   <button
@@ -474,10 +452,10 @@ export default function Navbar() {
                       setNotifOpen((value) => !value);
                     }}
                     className={cn(
-                      'relative grid h-9 w-9 place-items-center rounded-[11px] border text-white/[0.58] transition duration-150 active:scale-[0.97]',
+                      'relative grid h-10 w-10 place-items-center rounded-[13px] border text-white/[0.62] transition duration-150 active:scale-[0.97]',
                       notifOpen
-                        ? 'border-[#0a84ff]/25 bg-[#0a84ff]/10 text-[#8bc7ff]'
-                        : 'border-transparent bg-transparent hover:border-white/[0.06] hover:bg-white/[0.055] hover:text-white',
+                        ? 'border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#8bc7ff]'
+                        : 'border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.075] hover:text-white',
                     )}
                     aria-label="Notificaciones"
                   >
@@ -696,17 +674,14 @@ export default function Navbar() {
                 </div>
               ) : null}
 
-
               {logged ? (
                 <Link
                   href="/perfil"
-                  className="hidden h-9 items-center gap-2 rounded-[11px] border border-black/[0.07] bg-white/75 px-2.5 text-[11px] font-medium text-slate-600 shadow-[0_2px_8px_rgba(15,23,42,.04)] transition hover:bg-white hover:text-slate-950 lg:inline-flex"
+                  className="grid h-10 w-10 place-items-center rounded-[13px] border border-white/[0.08] bg-white/[0.04] text-white/[0.60] transition duration-150 hover:bg-white/[0.075] hover:text-white active:scale-[0.97]"
                   aria-label="Ir a perfil"
                   title="Perfil"
                 >
-                  <User className="h-4 w-4 text-slate-400" />
-                  <span className="max-w-[120px] truncate">{fullName.split(' ')[0]}</span>
-                  <ChevronDown className="h-3.5 w-3.5 text-slate-300" />
+                  <User className="h-[18px] w-[18px]" />
                 </Link>
               ) : null}
 
@@ -717,18 +692,18 @@ export default function Navbar() {
                     await supabase.auth.signOut();
                     window.location.replace('/login');
                   }}
-                  className="grid h-9 w-9 place-items-center rounded-[11px] border border-black/[0.07] bg-white/75 text-slate-500 shadow-[0_2px_8px_rgba(15,23,42,.04)] transition hover:bg-rose-50 hover:text-rose-500 active:scale-[0.97]"
+                  className="grid h-10 w-10 place-items-center rounded-[13px] border border-white/[0.08] bg-white/[0.04] text-white/[0.60] transition duration-150 hover:bg-rose-400/[0.08] hover:text-rose-200 active:scale-[0.97]"
                   aria-label="Cerrar sesión"
                   title="Salir"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-[18px] w-[18px]" />
                 </button>
               ) : null}
 
               {!logged ? (
                 <Link
                   href="/login"
-                  className="inline-flex h-9 items-center rounded-[11px] bg-[#111318] px-4 text-[11px] font-medium text-white transition hover:bg-black"
+                  className="inline-flex h-10 items-center rounded-[12px] border border-white/[0.08] bg-white/[0.05] px-4 text-[11px] font-medium text-white/[0.82] transition hover:bg-white/[0.08] hover:text-white"
                 >
                   Ingresar
                 </Link>
