@@ -209,6 +209,17 @@ export async function fetchSupervisors(): Promise<AssigneeOption[]> {
   return fetchEligibleAssignees('supervisor');
 }
 
+export async function lockOverdueProjectTasks(): Promise<number> {
+  const { data, error } = await supabase.rpc('lock_overdue_project_tasks');
+
+  if (error) {
+    console.error('Error locking overdue project tasks', error);
+    throw error;
+  }
+
+  return typeof data === 'number' ? data : Number(data ?? 0);
+}
+
 /* ─────────────────────────────────────────────
  * Fetch de tareas visibles para el usuario
  * ──────────────────────────────────────────── */
@@ -223,6 +234,14 @@ export async function fetchProjectTasksForUser(
   currentUserId: string,
   role: AppRole,
 ): Promise<ProjectTaskWithAssignees[]> {
+  try {
+    await lockOverdueProjectTasks();
+  } catch (error) {
+    // El fetch sigue funcionando aunque falle el sincronizador de respaldo.
+    // La base también ejecuta el cierre automático con pg_cron.
+    console.warn('Could not sync overdue project tasks before fetch', error);
+  }
+
   let taskRows: ProjectTaskRow[] = [];
 
   if (role === 'admin' || role === 'jdv') {
