@@ -128,7 +128,7 @@ export default function TaskCard({
                       : 'neutral'
               }
               aria-label={`Cambiar estado de ${task.title}`}
-              className={`h-7 rounded-full border-transparent px-2 text-[9px] font-medium ${statusPill}`}
+              className={`h-7 rounded-full !border-transparent px-2 text-[9px] font-medium hover:!border-transparent focus-visible:!border-transparent data-[state=open]:!border-transparent ${statusPill}`}
               contentClassName="text-[11px]"
             />
             {changingStatusId === task.id ? (
