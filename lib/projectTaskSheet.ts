@@ -22,6 +22,8 @@ export type ProjectTaskSheetColumnMetaMap = Record<
   ProjectTaskSheetColumnMeta
 >;
 
+export type TaskSheetScope = 'project' | 'personal';
+
 export type ProjectTaskSheet = {
   id: number | null;
   task_id: number;
@@ -244,9 +246,12 @@ export function computeSheetCell(
 
 export async function fetchProjectTaskSheet(
   taskId: number,
+  scope: TaskSheetScope = 'project',
 ): Promise<ProjectTaskSheet> {
+  const table = scope === 'personal' ? 'task_sheets' : 'project_task_sheets';
+
   const { data, error } = await supabase
-    .from('project_task_sheets')
+    .from(table)
     .select('*')
     .eq('task_id', taskId)
     .maybeSingle();
@@ -285,8 +290,19 @@ export async function upsertProjectTaskSheet(params: {
   cells: ProjectTaskSheetCells;
   columnMeta: ProjectTaskSheetColumnMetaMap;
   updatedBy: string | null;
+  scope?: TaskSheetScope;
 }): Promise<ProjectTaskSheet> {
-  const { taskId, rowsCount, columnsCount, cells, columnMeta, updatedBy } = params;
+  const {
+    taskId,
+    rowsCount,
+    columnsCount,
+    cells,
+    columnMeta,
+    updatedBy,
+    scope = 'project',
+  } = params;
+
+  const table = scope === 'personal' ? 'task_sheets' : 'project_task_sheets';
 
   if (rowsCount < 1 || rowsCount > MAX_SHEET_ROWS) {
     throw new Error('Cantidad de filas fuera de rango.');
@@ -297,7 +313,7 @@ export async function upsertProjectTaskSheet(params: {
   }
 
   const { data, error } = await supabase
-    .from('project_task_sheets')
+    .from(table)
     .upsert(
       {
         task_id: taskId,
