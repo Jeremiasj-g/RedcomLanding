@@ -11,7 +11,13 @@ import {
 } from '@/lib/tasks';
 import { errorMessage, notify } from '@/lib/notifications';
 
-export default function TaskCommentsTimeline({ taskId }: { taskId: number }) {
+export default function TaskCommentsTimeline({
+  taskId,
+  compact = false,
+}: {
+  taskId: number;
+  compact?: boolean;
+}) {
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -74,7 +80,7 @@ export default function TaskCommentsTimeline({ taskId }: { taskId: number }) {
   }
 
   return (
-    <section className="border-t border-white/[0.07] px-5 py-5">
+    <section className={compact ? 'border-t border-white/[0.07] px-4 py-4' : 'border-t border-white/[0.07] px-5 py-5'}>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-[11px] font-medium text-white/[0.86]">
@@ -125,7 +131,7 @@ export default function TaskCommentsTimeline({ taskId }: { taskId: number }) {
           Todavía no hay actualizaciones registradas.
         </div>
       ) : (
-        <div className="relative space-y-0 pl-3">
+        <div className={compact ? 'relative max-h-[15rem] space-y-0 overflow-y-auto pl-3 pr-1' : 'relative space-y-0 pl-3'}>
           <div className="absolute bottom-2 left-[17px] top-2 w-px bg-white/[0.07]" />
           {comments.map((comment) => {
             const date = new Date(comment.created_at);
