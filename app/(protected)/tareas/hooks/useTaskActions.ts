@@ -17,14 +17,6 @@ const BRIEF_STATUS: Record<Task['status'], string> = {
   cancelled: 'Cancelada',
 };
 
-function nextStatus(status: Task['status']): Task['status'] {
-  if (status === 'pending') return 'in_progress';
-  if (status === 'in_progress') return 'done';
-  if (status === 'done') return 'cancelled';
-  if (status === 'cancelled') return 'pending';
-  return 'pending';
-}
-
 export function useTaskActions() {
   const { setTasks } = useTasks();
 
@@ -33,9 +25,9 @@ export function useTaskActions() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deletingDayKey, setDeletingDayKey] = useState<string | null>(null);
 
-  const toggleStatus = useCallback(
-    async (task: Task) => {
-      const newStatus = nextStatus(task.status);
+  const setStatus = useCallback(
+    async (task: Task, newStatus: Task['status']) => {
+      if (newStatus === task.status) return task;
       try {
         setChangingStatusId(task.id);
         const updated = await updateTaskStatus(task.id, newStatus);
@@ -140,7 +132,7 @@ export function useTaskActions() {
     changingStatusId,
     deletingId,
     deletingDayKey,
-    toggleStatus,
+    setStatus,
     saveNotes,
     removeTask,
     removeDay,
