@@ -377,6 +377,7 @@ export default function PanelTasksPage() {
               <DateRangeSelector
                 state={rangeState}
                 onChange={setRangeState}
+                surface="dark"
               />
             </div>
           </header>
