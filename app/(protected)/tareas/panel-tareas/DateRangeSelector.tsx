@@ -103,11 +103,31 @@ export function getRangeLabel(state: DateRangeState): string {
 type Props = {
   state: DateRangeState;
   onChange: (next: DateRangeState) => void;
+  surface?: 'light' | 'dark';
 };
 
-export function DateRangeSelector({ state, onChange }: Props) {
+export function DateRangeSelector({
+  state,
+  onChange,
+  surface = 'light',
+}: Props) {
   const { range, mode, weeksSpan } = state;
   const label = getRangeLabel(state);
+
+  const isDark = surface === 'dark';
+  const shellClass = isDark
+    ? 'border-white/[0.08] bg-white/[0.035]'
+    : 'border-slate-300/70 bg-[#E7E9ED] shadow-[0_4px_14px_rgba(15,23,42,.08)]';
+  const activeClass = isDark
+    ? 'bg-white text-[#0b1020] shadow-sm'
+    : 'bg-white text-[#0b1020] shadow-[0_2px_8px_rgba(15,23,42,.10)]';
+  const inactiveClass = isDark
+    ? 'text-white/[0.42] hover:bg-white/[0.05] hover:text-white/[0.72]'
+    : 'text-slate-600 hover:bg-white/65 hover:text-slate-900';
+  const navTextClass = isDark ? 'text-white/[0.68]' : 'text-slate-700';
+  const navButtonClass = isDark
+    ? 'text-white/[0.40] hover:bg-white/[0.05] hover:text-white'
+    : 'text-slate-500 hover:bg-white/70 hover:text-slate-900';
 
   const update = (partial: Partial<DateRangeState>) => {
     onChange({ ...state, ...partial });
@@ -129,66 +149,66 @@ export function DateRangeSelector({ state, onChange }: Props) {
   };
 
   return (
-    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
-      {/* Modos: Semana / Mes / Multi-semana */}
-      <div className="inline-flex items-center rounded-full bg-slate-900/80 p-1 text-[11px] text-slate-300 ring-1 ring-slate-700/70">
-        <button
-          onClick={() => setMode('week')}
-          className={`rounded-full px-3 py-1 ${
-            mode === 'week'
-              ? 'bg-slate-100 text-slate-900'
-              : 'text-slate-300 hover:bg-slate-800'
-          }`}
-        >
-          Semana
-        </button>
-        <button
-          onClick={() => setMode('month')}
-          className={`rounded-full px-3 py-1 ${
-            mode === 'month'
-              ? 'bg-slate-100 text-slate-900'
-              : 'text-slate-300 hover:bg-slate-800'
-          }`}
-        >
-          Mes
-        </button>
-        <button
-          onClick={() => setMode('multi-week')}
-          className={`rounded-full px-3 py-1 ${
-            mode === 'multi-week'
-              ? 'bg-slate-100 text-slate-900'
-              : 'text-slate-300 hover:bg-slate-800'
-          }`}
-        >
-          Multi-semana
-        </button>
+    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+      <div className={`inline-flex h-10 items-center rounded-[12px] border p-1 ${shellClass}`}>
+        {[
+          { value: 'week' as const, label: 'Semana' },
+          { value: 'month' as const, label: 'Mes' },
+          { value: 'multi-week' as const, label: 'Multi-semana' },
+        ].map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setMode(option.value)}
+            className={[
+              'h-8 rounded-[9px] px-3 text-[10px] font-medium transition',
+              mode === option.value ? activeClass : inactiveClass,
+            ].join(' ')}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
 
-      {/* Cantidad de semanas cuando estamos en multi-semana */}
-      {mode === 'multi-week' && (
-        <select
-          className="rounded-full border border-slate-700/80 bg-slate-900/80 px-3 py-1 text-[11px] text-slate-100 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-          value={weeksSpan}
-          onChange={(e) => setWeeksSpan(Number(e.target.value) || 1)}
-        >
-          <option value={1}>1 semana</option>
-          <option value={2}>2 semanas</option>
-          <option value={3}>3 semanas</option>
-        </select>
-      )}
+      {mode === 'multi-week' ? (
+        <div className={`inline-flex h-10 items-center rounded-[12px] border p-1 ${shellClass}`}>
+          {[1, 2, 3, 4].map((span) => (
+            <button
+              key={span}
+              type="button"
+              onClick={() => setWeeksSpan(span)}
+              className={[
+                'h-8 rounded-[9px] px-2.5 text-[10px] font-medium transition',
+                weeksSpan === span
+                  ? isDark
+                    ? 'bg-[#0a84ff]/15 text-[#8bc7ff]'
+                    : 'bg-[#0b1020] text-white shadow-[0_2px_8px_rgba(15,23,42,.16)]'
+                  : inactiveClass,
+              ].join(' ')}
+            >
+              {span} sem
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-      {/* Navegación anterior / siguiente */}
-      <div className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 px-3 py-1 text-xs text-slate-300 ring-1 ring-slate-700/70">
+      <div className={`inline-flex h-10 items-center rounded-[12px] border p-1 ${shellClass}`}>
         <button
+          type="button"
           onClick={() => go(-1)}
-          className="mr-1 rounded-full px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+          className={`grid h-8 w-8 place-items-center rounded-[9px] transition ${navButtonClass}`}
+          aria-label="Rango anterior"
         >
           ‹
         </button>
-        <span className="font-medium">{label}</span>
+        <span className={`min-w-[130px] px-2 text-center text-[10px] font-medium ${navTextClass}`}>
+          {label}
+        </span>
         <button
+          type="button"
           onClick={() => go(1)}
-          className="ml-1 rounded-full px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+          className={`grid h-8 w-8 place-items-center rounded-[9px] transition ${navButtonClass}`}
+          aria-label="Rango siguiente"
         >
           ›
         </button>

@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import {
   deleteTask,
   type Task,
+  ensureNextRecurringTask,
   updateTaskNotes,
   updateTaskStatus,
 } from '@/lib/tasks';
@@ -17,15 +18,7 @@ const BRIEF_STATUS: Record<Task['status'], string> = {
   cancelled: 'Cancelada',
 };
 
-function nextStatus(status: Task['status']): Task['status'] {
-  if (status === 'pending') return 'in_progress';
-  if (status === 'in_progress') return 'done';
-  if (status === 'done') return 'cancelled';
-  if (status === 'cancelled') return 'pending';
-  return 'pending';
-}
-
-export function useTaskActions() {
+export function useTaskActions(range?: { from: Date; to: Date }) {
   const { setTasks } = useTasks();
 
   const [savingNotesId, setSavingNotesId] = useState<number | null>(null);
@@ -33,14 +26,38 @@ export function useTaskActions() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deletingDayKey, setDeletingDayKey] = useState<string | null>(null);
 
-  const toggleStatus = useCallback(
-    async (task: Task) => {
-      const newStatus = nextStatus(task.status);
+  const setStatus = useCallback(
+    async (task: Task, newStatus: Task['status']) => {
+      if (newStatus === task.status) return task;
       try {
         setChangingStatusId(task.id);
         const updated = await updateTaskStatus(task.id, newStatus);
-        setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
-        notify.success(`Estado actualizado: ${BRIEF_STATUS[newStatus]}.`);
+        let nextRecurring: Task | null = null;
+        if (newStatus === 'done') {
+          nextRecurring = await ensureNextRecurringTask(updated);
+        }
+
+        setTasks((prev) => {
+          const replaced = prev.map((t) => (t.id === task.id ? updated : t));
+          const nextTime = nextRecurring ? new Date(nextRecurring.scheduled_at).getTime() : 0;
+          const inVisibleRange =
+            !range ||
+            (nextTime >= range.from.getTime() && nextTime < range.to.getTime());
+          if (
+            !nextRecurring ||
+            !inVisibleRange ||
+            replaced.some((t) => t.id === nextRecurring.id)
+          ) return replaced;
+          return [...replaced, nextRecurring].sort(
+            (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
+          );
+        });
+
+        notify.success(
+          nextRecurring
+            ? `Estado actualizado: ${BRIEF_STATUS[newStatus]}. Próxima tarea recurrente creada.`
+            : `Estado actualizado: ${BRIEF_STATUS[newStatus]}.`,
+        );
         return updated;
       } catch (error) {
         notify.error(errorMessage(error, 'No se pudo actualizar el estado.'));
@@ -49,7 +66,7 @@ export function useTaskActions() {
         setChangingStatusId(null);
       }
     },
-    [setTasks],
+    [range, setTasks],
   );
 
   const saveNotes = useCallback(
@@ -121,8 +138,29 @@ export function useTaskActions() {
       try {
         setChangingStatusId(task.id);
         const updated = await updateTaskStatus(task.id, 'done');
-        setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
-        notify.success('Tarea completada.');
+        const nextRecurring = await ensureNextRecurringTask(updated);
+
+        setTasks((prev) => {
+          const replaced = prev.map((t) => (t.id === task.id ? updated : t));
+          const nextTime = nextRecurring ? new Date(nextRecurring.scheduled_at).getTime() : 0;
+          const inVisibleRange =
+            !range ||
+            (nextTime >= range.from.getTime() && nextTime < range.to.getTime());
+          if (
+            !nextRecurring ||
+            !inVisibleRange ||
+            replaced.some((t) => t.id === nextRecurring.id)
+          ) return replaced;
+          return [...replaced, nextRecurring].sort(
+            (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
+          );
+        });
+
+        notify.success(
+          nextRecurring
+            ? 'Tarea completada. Próxima tarea recurrente creada.'
+            : 'Tarea completada.',
+        );
         return updated;
       } catch (error) {
         notify.error(errorMessage(error, 'No se pudo completar la tarea.'));
@@ -131,7 +169,7 @@ export function useTaskActions() {
         setChangingStatusId(null);
       }
     },
-    [setTasks],
+    [range, setTasks],
   );
 
   return {
@@ -140,7 +178,7 @@ export function useTaskActions() {
     changingStatusId,
     deletingId,
     deletingDayKey,
-    toggleStatus,
+    setStatus,
     saveNotes,
     removeTask,
     removeDay,

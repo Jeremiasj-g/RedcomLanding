@@ -10,39 +10,62 @@ export type SummaryMetrics = {
 
 export function SummaryCards({ metrics }: { metrics: SummaryMetrics }) {
   return (
-    <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div className="rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-md shadow-slate-950/40">
-        <p className="text-xs text-slate-400">Tareas en el período</p>
-        <p className="mt-1 text-2xl font-semibold text-slate-100">
-          {metrics.total}
-        </p>
-      </div>
-      <div className="rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-md shadow-slate-950/40">
-        <p className="text-xs text-slate-400">Completadas</p>
-        <p className="mt-1 text-2xl font-semibold text-emerald-400">
-          {metrics.done}
-        </p>
-      </div>
-      <div className="rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-md shadow-slate-950/40">
-        <p className="text-xs text-slate-400">Pendientes</p>
-        <p className="mt-1 text-2xl font-semibold text-amber-300">
-          {metrics.pending}
-        </p>
-      </div>
-      <div className="rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-md shadow-slate-950/40">
-        <p className="text-xs text-slate-400">Nivel de cumplimiento</p>
-        <div className="mt-2 flex items-center gap-2">
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-600">
+    <section className="overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#151517] shadow-[0_16px_45px_rgba(0,0,0,.14)]">
+      <div className="grid grid-cols-2 lg:grid-cols-5">
+        <Metric label="Visibles" value={metrics.total} />
+        <Metric label="Completadas" value={metrics.done} tone="success" />
+        <Metric label="En progreso" value={metrics.inProgress} tone="info" />
+        <Metric label="Pendientes" value={metrics.pending} tone="warning" />
+        <div className="border-l border-white/[0.07] px-5 py-4">
+          <div className="text-[9px] font-medium uppercase tracking-[0.10em] text-white/[0.34]">
+            Cumplimiento
+          </div>
+          <div className="mt-1 flex items-end justify-between gap-3">
+            <span className="text-[26px] font-medium tracking-[-0.03em] text-white/[0.94]">
+              {metrics.completion}%
+            </span>
+            <span className="pb-1 text-[9px] font-normal text-white/[0.34]">
+              {metrics.done} de {metrics.total}
+            </span>
+          </div>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.07]">
             <div
-              className="h-full rounded-full bg-emerald-500"
+              className="h-full rounded-full bg-[#5ac8fa] transition-all duration-300"
               style={{ width: `${metrics.completion}%` }}
             />
           </div>
-          <span className="text-xs text-slate-200">
-            {metrics.completion}%
-          </span>
         </div>
       </div>
     </section>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: number;
+  tone?: 'default' | 'success' | 'warning' | 'info';
+}) {
+  const valueClass =
+    tone === 'success'
+      ? 'text-emerald-300'
+      : tone === 'warning'
+        ? 'text-amber-300'
+        : tone === 'info'
+          ? 'text-sky-300'
+          : 'text-white/[0.94]';
+
+  return (
+    <div className="border-l border-white/[0.07] px-5 py-4 first:border-l-0">
+      <div className="text-[9px] font-medium uppercase tracking-[0.10em] text-white/[0.34]">
+        {label}
+      </div>
+      <div className={`mt-1 text-[26px] font-medium tracking-[-0.03em] ${valueClass}`}>
+        {value}
+      </div>
+    </div>
   );
 }

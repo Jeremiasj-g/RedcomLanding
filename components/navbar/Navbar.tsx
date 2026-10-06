@@ -13,6 +13,10 @@ import {
   User,
   Check,
   BadgeCheck,
+  Clock3,
+  ArrowUpRight,
+  Inbox,
+  Sparkles,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -361,218 +365,353 @@ export default function Navbar() {
   }, [logged, isActive, role, branches, pendingCount, unreadCount, canAccessModule, overrides]);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-[#1d1d1f] backdrop-blur">
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-        {/* Left: burger + logo */}
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-40 w-full border-b border-white/[0.07] bg-[#1d1d1f]/[0.97] shadow-[0_1px_0_rgba(255,255,255,.02),0_8px_30px_rgba(0,0,0,.10)] backdrop-blur-2xl">
+      <nav className="mx-auto flex h-[68px] max-w-[1500px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/[0.09] bg-white/[0.045] text-white/[0.68] transition duration-150 hover:bg-white/[0.075] hover:text-white active:scale-[0.97]"
             aria-label="Abrir menú"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-[18px] w-[18px]" />
           </button>
 
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/LogoRedcom.png" alt="Redcom" className="h-9 w-9 object-contain" />
-            <span className="text-lg font-bold tracking-wide text-white">REDCOM</span>
+          <Link href="/" className="flex min-w-0 items-center gap-2.5">
+            <img
+              src="/LogoRedcom.png"
+              alt="Redcom"
+              className="h-8 w-8 shrink-0 object-contain"
+            />
+            <div className="hidden sm:block">
+              <div className="text-[15px] font-semibold tracking-[0.025em] text-white/[0.96]">
+                REDCOM
+              </div>
+              <div className="-mt-0.5 text-[8px] font-medium uppercase tracking-[0.16em] text-white/[0.24]">
+                Workspace
+              </div>
+            </div>
           </Link>
         </div>
 
-        {/* Right */}
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {showSkeleton ? (
             <NavSkeletonPills />
           ) : (
             <>
-              {/* Admin quick links */}
-              {logged && isActive && isAdmin && (
-                <>
+              {logged && isActive && isAdmin ? (
+                <div className="hidden items-center gap-1.5 md:flex">
                   <Link
                     href="/admin/solicitudes"
-                    className={cn(
-                      'relative hidden items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800 md:inline-flex',
-                    )}
+                    className="relative inline-flex h-10 items-center gap-2 rounded-[12px] border border-white/[0.08] bg-white/[0.04] px-3 text-[11px] font-medium text-white/[0.78] transition hover:bg-white/[0.07] hover:text-white"
                   >
-                    <ClipboardList className="h-4 w-4" />
+                    <ClipboardList className="h-3.5 w-3.5 text-white/[0.46]" />
                     Solicitudes
-                    {pendingCount !== null && pendingCount > 0 && (
-                      <span className="ml-1 inline-flex min-w-[1.6rem] items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold leading-none text-slate-900">
+                    {pendingCount !== null && pendingCount > 0 ? (
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-amber-400/90 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-[#231d0a]">
                         {pendingCount > 99 ? '99+' : pendingCount}
                       </span>
-                    )}
+                    ) : null}
                   </Link>
 
                   <Link
                     href="/gerencia"
-                    className="hidden items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800 md:inline-flex"
+                    className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-white/[0.08] bg-white/[0.04] px-3 text-[11px] font-medium text-white/[0.78] transition hover:bg-white/[0.07] hover:text-white"
                   >
-                    <Hammer className="h-4 w-4" />
+                    <Hammer className="h-3.5 w-3.5 text-white/[0.46]" />
                     Gerencia
                   </Link>
-                </>
-              )}
+                </div>
+              ) : null}
 
-              {/* Saludo + rol */}
-              {logged && (
-                <div className="hidden items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm text-slate-200 lg:flex">
-                  <span>
-                    Hola, <b className="ml-1 text-slate-50">{fullName}</b>
-                  </span>
-
-                  <span className="mx-1 h-4 w-px bg-white/10" />
-
+              {logged ? (
+                <div className="hidden h-10 items-center gap-2 rounded-[13px] border border-white/[0.075] bg-black/[0.12] px-3 lg:flex">
+                  <div className="max-w-[210px] truncate text-[11px] text-white/[0.48]">
+                    Hola, <span className="font-medium text-white/[0.90]">{fullName}</span>
+                  </div>
+                  <span className="h-4 w-px bg-white/[0.08]" />
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-extrabold',
+                      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-medium',
                       roleChipClass(role),
                     )}
                     title={`Rol: ${roleDisplayName || roleLabel(role)}`}
                   >
-                    <BadgeCheck className="h-4 w-4" />
+                    <BadgeCheck className="h-3.5 w-3.5" />
                     {roleDisplayName || roleLabel(role)}
                   </span>
                 </div>
-              )}
+              ) : null}
 
-              {/* Campanita */}
-              {canSeeNotifs && (
+              {canSeeNotifs ? (
                 <div className="relative" id="menu-notif" ref={notifRef}>
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setNotifOpen((v) => !v);
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setNotifOpen((value) => !value);
                     }}
-                    className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800"
+                    className={cn(
+                      'relative grid h-10 w-10 place-items-center rounded-[13px] border text-white/[0.62] transition duration-150 active:scale-[0.97]',
+                      notifOpen
+                        ? 'border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#8bc7ff]'
+                        : 'border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.075] hover:text-white',
+                    )}
                     aria-label="Notificaciones"
                   >
-                    <Bell className="h-5 w-5" />
-                    {bellCount > 0 && (
-                      <span className="absolute -right-1 -top-1 inline-flex min-h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-slate-50">
+                    <Bell className="h-[18px] w-[18px]" />
+                    {bellCount > 0 ? (
+                      <span className="absolute -right-1 -top-1 inline-flex min-h-[17px] min-w-[17px] items-center justify-center rounded-full border-2 border-[#1d1d1f] bg-rose-500 px-1 text-[8px] font-bold leading-none text-white">
                         {bellCount > 99 ? '99+' : bellCount}
                       </span>
-                    )}
+                    ) : null}
                   </button>
 
                   <AnimatePresence>
-                    {notifOpen && (
+                    {notifOpen ? (
                       <motion.div
-                        initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                        initial={{ opacity: 0, y: -8, scale: 0.975 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                        transition={{ duration: 0.16 }}
-                        className="absolute right-0 mt-2 w-[360px] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/95 backdrop-blur p-2 text-xs text-slate-100 shadow-2xl"
-                        onClick={(e) => e.stopPropagation()}
+                        exit={{ opacity: 0, y: -8, scale: 0.975 }}
+                        transition={{ duration: 0.16, ease: 'easeOut' }}
+                        className="absolute right-0 mt-2.5 w-[min(460px,calc(100vw-24px))] overflow-hidden rounded-[22px] border border-white/[0.09] bg-[#17181b]/[0.985] text-white shadow-[0_28px_80px_rgba(0,0,0,.50)] backdrop-blur-2xl"
+                        onClick={(event) => event.stopPropagation()}
                       >
-                        <div className="flex items-center justify-between gap-4 px-2 pb-2">
-                          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notificaciones</span>
-                          {notifications.length > 0 && unreadCount > 0 && (
-                            <button type="button" onClick={handleMarkAllRead} className="text-[10px] text-slate-300 hover:text-white">Marcar proyectos</button>
+                        <div className="flex items-start justify-between gap-4 border-b border-white/[0.065] px-5 py-5">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] border border-[#0a84ff]/15 bg-[#0a84ff]/10 text-[#5ac8fa]">
+                              <Bell className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <div className="text-[15px] font-semibold text-white/[0.94]">
+                                Notificaciones
+                              </div>
+                              <p className="mt-0.5 text-[11px] leading-5 text-white/[0.34]">
+                                Actividad pendiente y asignaciones recientes.
+                              </p>
+                            </div>
+                          </div>
+
+                          {notifications.length > 0 && unreadCount > 0 ? (
+                            <button
+                              type="button"
+                              onClick={handleMarkAllRead}
+                              className="shrink-0 rounded-[9px] px-2.5 py-1.5 text-[11px] font-medium text-[#8bc7ff] transition hover:bg-[#0a84ff]/10"
+                            >
+                              Marcar leídas
+                            </button>
+                          ) : null}
+                        </div>
+
+                        <div className="max-h-[min(72vh,620px)] overflow-y-auto p-4">
+                          {isAdmin ? (
+                            <Link
+                              href="/admin/vendo"
+                              onClick={() => setNotifOpen(false)}
+                              className={cn(
+                                'group mb-3 block rounded-[16px] border p-4 transition',
+                                vendoPending.total > 0
+                                  ? 'border-amber-300/12 bg-amber-400/[0.055] hover:bg-amber-400/[0.08]'
+                                  : 'border-white/[0.06] bg-white/[0.025] hover:bg-white/[0.045]',
+                              )}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex min-w-0 items-center gap-2.5">
+                                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-white/[0.045] text-white/[0.52]">
+                                    <ClipboardList className="h-3.5 w-3.5" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="text-[12px] font-semibold text-white/[0.84]">
+                                      Solicitudes VENDO
+                                    </div>
+                                    <div className="mt-0.5 text-[11px] text-white/[0.34]">
+                                      {vendoPending.total > 0
+                                        ? `${vendoPending.total} pendiente${vendoPending.total === 1 ? '' : 's'} de revisión`
+                                        : 'Sin solicitudes pendientes'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex shrink-0 items-center gap-2">
+                                  {vendoPending.total > 0 ? (
+                                    <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-amber-400/15 px-2 py-1 text-[10px] font-semibold text-amber-200">
+                                      {vendoPending.total}
+                                    </span>
+                                  ) : null}
+                                  <ArrowUpRight className="h-3.5 w-3.5 text-white/[0.20] transition group-hover:text-white/[0.52]" />
+                                </div>
+                              </div>
+
+                              {vendoPending.total > 0 ? (
+                                <div className="mt-3 flex gap-1.5 pl-[42px]">
+                                  <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[10px] font-medium text-emerald-300">
+                                    Altas {vendoPending.altas}
+                                  </span>
+                                  <span className="rounded-full bg-rose-400/10 px-2 py-1 text-[10px] font-medium text-rose-300">
+                                    Bajas {vendoPending.bajas}
+                                  </span>
+                                </div>
+                              ) : null}
+                            </Link>
+                          ) : null}
+
+                          <div className="mb-2 flex items-center justify-between px-1">
+                            <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-white/[0.32]">
+                              <Sparkles className="h-3 w-3" />
+                              Proyectos asignados
+                            </div>
+                            <Link
+                              href="/proyectos"
+                              className="text-[11px] font-medium text-[#8bc7ff] transition hover:text-[#b9ddff]"
+                              onClick={() => setNotifOpen(false)}
+                            >
+                              Ver proyectos
+                            </Link>
+                          </div>
+
+                          {notifications.length === 0 ? (
+                            <div className="grid min-h-[150px] place-items-center rounded-[15px] border border-dashed border-white/[0.065] bg-white/[0.015] px-5 text-center">
+                              <div>
+                                <div className="mx-auto grid h-9 w-9 place-items-center rounded-full bg-white/[0.035] text-white/[0.20]">
+                                  <Inbox className="h-4 w-4" />
+                                </div>
+                                <div className="mt-2.5 text-[12px] font-semibold text-white/[0.56]">
+                                  Todo al día
+                                </div>
+                                <p className="mt-1 text-[11px] leading-5 text-white/[0.28]">
+                                  No tenés nuevas asignaciones de proyectos.
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {notifications.map((notification) => {
+                                const date = notification.due_date
+                                  ? new Date(notification.due_date)
+                                  : notification.created_at
+                                    ? new Date(notification.created_at)
+                                    : null;
+
+                                return (
+                                  <div
+                                    key={notification.id}
+                                    className={cn(
+                                      'group relative rounded-[15px] border px-4 py-3.5 transition',
+                                      notification.read
+                                        ? 'border-white/[0.045] bg-white/[0.018]'
+                                        : 'border-[#0a84ff]/12 bg-[#0a84ff]/[0.045]',
+                                    )}
+                                  >
+                                    <div className="flex items-start gap-3">
+                                      <span
+                                        className={cn(
+                                          'mt-1.5 h-2 w-2 shrink-0 rounded-full',
+                                          notification.read
+                                            ? 'bg-white/[0.15]'
+                                            : 'bg-[#5ac8fa]',
+                                        )}
+                                      />
+
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-start justify-between gap-3">
+                                          <div className="min-w-0">
+                                            <div className="truncate text-[12px] font-semibold text-white/[0.84]">
+                                              {notification.title}
+                                            </div>
+                                            {notification.project ? (
+                                              <div className="mt-0.5 truncate text-[10px] uppercase tracking-[0.06em] text-white/[0.28]">
+                                                {notification.project}
+                                              </div>
+                                            ) : null}
+                                          </div>
+
+                                          {!notification.read ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleMarkOneRead(notification.id)}
+                                              className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] text-[#74d6a7] transition hover:bg-emerald-400/10"
+                                              aria-label="Marcar como leída"
+                                              title="Marcar como leída"
+                                            >
+                                              <Check className="h-3.5 w-3.5" />
+                                            </button>
+                                          ) : null}
+                                        </div>
+
+                                        <p className="mt-1.5 line-clamp-2 text-[11px] leading-5 text-white/[0.38]">
+                                          {notification.summary || 'Sin descripción registrada.'}
+                                        </p>
+
+                                        {date && !Number.isNaN(date.getTime()) ? (
+                                          <div className="mt-2 inline-flex items-center gap-1 text-[10px] text-white/[0.26]">
+                                            <Clock3 className="h-3 w-3" />
+                                            {date.toLocaleDateString('es-AR', {
+                                              day: '2-digit',
+                                              month: 'short',
+                                            })}
+                                            {' · '}
+                                            {date.toLocaleTimeString('es-AR', {
+                                              hour: '2-digit',
+                                              minute: '2-digit',
+                                            })}
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           )}
                         </div>
 
-                        {isAdmin && (
-                          <Link
-                            href="/admin/vendo"
-                            onClick={() => setNotifOpen(false)}
-                            className={cn(
-                              'mb-2 block rounded-xl border px-3 py-3 transition',
-                              vendoPending.total > 0
-                                ? 'border-red-400/30 bg-red-500/10 hover:bg-red-500/15'
-                                : 'border-slate-800 bg-slate-900/50 hover:bg-slate-900/80',
-                            )}
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-[11px] font-bold text-slate-100">Solicitudes VENDO</p>
-                                <p className="mt-0.5 text-[10px] text-slate-400">
-                                  {vendoPending.total > 0
-                                    ? `${vendoPending.total} pendiente${vendoPending.total === 1 ? '' : 's'} de revisión`
-                                    : 'No hay solicitudes pendientes'}
-                                </p>
-                              </div>
-                              {vendoPending.total > 0 && (
-                                <span className="grid h-7 min-w-7 place-items-center rounded-full bg-red-500 px-2 text-[11px] font-extrabold text-white">{vendoPending.total}</span>
-                              )}
-                            </div>
-                            <div className="mt-2 flex gap-2">
-                              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">Altas {vendoPending.altas}</span>
-                              <span className="rounded-full border border-rose-400/20 bg-rose-400/10 px-2 py-0.5 text-[10px] font-semibold text-rose-300">Bajas {vendoPending.bajas}</span>
-                            </div>
-                          </Link>
-                        )}
-
-                        <div className="mb-1 flex items-center justify-between gap-4 border-t border-slate-800 px-2 pt-2">
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Proyectos asignados</span>
-                          <Link href="/proyectos" className="text-[10px] text-emerald-300 hover:text-emerald-200" onClick={() => setNotifOpen(false)}>Ver todo</Link>
+                        <div className="border-t border-white/[0.055] bg-black/[0.08] px-4 py-2.5 text-center text-[10px] text-white/[0.22]">
+                          Las nuevas asignaciones aparecen en tiempo real.
                         </div>
-
-                        {notifications.length === 0 ? (
-                          <div className="px-2 py-3 text-[11px] text-slate-500">No tenés proyectos asignados por ahora.</div>
-                        ) : (
-                          <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
-                            {notifications.map((n) => (
-                              <div key={n.id} className={cn('relative rounded-xl border px-3 py-2 transition', n.read ? 'border-slate-900 bg-slate-900/40' : 'border-slate-700 bg-slate-900/80')}>
-                                {!n.read && (
-                                  <button type="button" onClick={() => handleMarkOneRead(n.id)} className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-500/60 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/30" aria-label="Marcar como leída">
-                                    <Check className="h-3 w-3" />
-                                  </button>
-                                )}
-                                <div className="pr-6 text-[11px] font-semibold text-slate-100">{n.title}</div>
-                                <div className="line-clamp-2 text-[10px] text-slate-400">{n.summary || 'Sin descripción.'}</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
                       </motion.div>
-                    )}
+                    ) : null}
                   </AnimatePresence>
                 </div>
-              )}
+              ) : null}
 
-              {/* Perfil */}
-              {logged && (
+              {logged ? (
                 <Link
                   href="/perfil"
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800"
+                  className="grid h-10 w-10 place-items-center rounded-[13px] border border-white/[0.08] bg-white/[0.04] text-white/[0.60] transition duration-150 hover:bg-white/[0.075] hover:text-white active:scale-[0.97]"
                   aria-label="Ir a perfil"
                   title="Perfil"
                 >
-                  <User className="h-5 w-5" />
+                  <User className="h-[18px] w-[18px]" />
                 </Link>
-              )}
+              ) : null}
 
-              {/* Logout */}
-              {logged && (
+              {logged ? (
                 <button
                   type="button"
                   onClick={async () => {
                     await supabase.auth.signOut();
                     window.location.replace('/login');
                   }}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800"
+                  className="grid h-10 w-10 place-items-center rounded-[13px] border border-white/[0.08] bg-white/[0.04] text-white/[0.60] transition duration-150 hover:bg-rose-400/[0.08] hover:text-rose-200 active:scale-[0.97]"
                   aria-label="Cerrar sesión"
                   title="Salir"
                 >
-                  <LogOut className="h-5 w-5" />
+                  <LogOut className="h-[18px] w-[18px]" />
                 </button>
-              )}
+              ) : null}
 
-              {!logged && (
+              {!logged ? (
                 <Link
                   href="/login"
-                  className="rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800"
+                  className="inline-flex h-10 items-center rounded-[12px] border border-white/[0.08] bg-white/[0.05] px-4 text-[11px] font-medium text-white/[0.82] transition hover:bg-white/[0.08] hover:text-white"
                 >
                   Ingresar
                 </Link>
-              )}
+              ) : null}
             </>
           )}
         </div>
 
-        {/* Drawer */}
         <SidebarDrawer
           open={drawerOpen}
           onOpenChange={setDrawerOpen}

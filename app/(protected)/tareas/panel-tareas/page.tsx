@@ -1,51 +1,60 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Users2, Loader2 } from 'lucide-react';
 import {
-  TaskStatus,
-  TaskWithOwner,
+  CalendarDays,
+  Columns3,
+  ListChecks,
+  Loader2,
+  ShieldCheck,
+  Users2,
+} from 'lucide-react';
+
+import {
+  type Task,
+  type TaskStatus,
+  type TaskWithOwner,
   fetchSupervisorTasksByRange,
 } from '@/lib/tasks';
 import { RequireAuth } from '@/components/RouteGuards';
 import { addDays } from 'date-fns';
 import { useMe } from '@/hooks/useMe';
 import DualSpinner from '@/components/ui/DualSpinner';
-import TaskChecklistSection from '../TaskChecklistSection';
 import { supabase } from '@/lib/supabaseClient';
 
 import {
   DateRangeSelector,
-  DateRangeState,
+  type DateRangeState,
   getInitialDateRange,
   getRangeLabel,
 } from './DateRangeSelector';
 import { SummaryCards, type SummaryMetrics } from './SummaryCards';
 import FiltersBar from './FiltersBar';
-import TasksTable from './TasksTable';
 import TasksGrid from './TasksGrid';
 import TaskDetailsModal from './TaskDetailsModal';
+import {
+  TaskCalendarView,
+  TaskKanbanView,
+  TaskListView,
+  type TaskViewMode,
+} from '../components/TaskViews';
 
 type StatusFilter = 'all' | TaskStatus;
-type ViewMode = 'table' | 'grid';
-
 type RoleOption = { value: string; label: string };
 
-function prettyRoleLabel(v: string) {
-  const raw = (v ?? '').trim();
+function prettyRoleLabel(value: string) {
+  const raw = (value ?? '').trim();
   if (!raw) return '—';
   if (raw.toLowerCase() === 'rrhh') return 'RRHH';
+  if (raw.toLowerCase() === 'jdv') return 'JDV';
+
   return raw
     .replace(/[_-]+/g, ' ')
     .toLowerCase()
-    .replace(/\b\w/g, (m) => m.toUpperCase());
+    .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
 async function fetchTaskOwnerRoleOptions(): Promise<RoleOption[]> {
-  // ✅ Fuente oficial: public.user_types (code, name)
-  // Para esta vista solo nos interesan los roles que pueden “tener tareas”: supervisor, jdv, admin
-  const allow = new Set(['supervisor', 'jdv', 'admin']);
-
   try {
     const { data, error } = await supabase
       .from('user_types')
@@ -54,20 +63,22 @@ async function fetchTaskOwnerRoleOptions(): Promise<RoleOption[]> {
 
     if (error || !Array.isArray(data)) return [];
 
-    const opts = data
-      .map((r: any) => ({
-        value: String(r.code ?? '').trim().toLowerCase(),
-        label: String(r.name ?? '').trim(),
-      }))
-      .filter((x) => x.value && allow.has(x.value))
-      .map((x) => ({
-        value: x.value,
-        label: x.label || prettyRoleLabel(x.value),
-      }));
-
-    // de-dupe
     const seen = new Set<string>();
-    return opts.filter((o) => (seen.has(o.value) ? false : (seen.add(o.value), true)));
+
+    return data
+      .map((row: any) => ({
+        value: String(row.code ?? '').trim().toLowerCase(),
+        label: String(row.name ?? '').trim(),
+      }))
+      .filter((option) => {
+        if (!option.value || seen.has(option.value)) return false;
+        seen.add(option.value);
+        return true;
+      })
+      .map((option) => ({
+        value: option.value,
+        label: option.label || prettyRoleLabel(option.value),
+      }));
   } catch {
     return [];
   }
@@ -75,38 +86,40 @@ async function fetchTaskOwnerRoleOptions(): Promise<RoleOption[]> {
 
 export default function PanelTasksPage() {
   const { me, loading: loadingMe } = useMe();
-  const isJDV = (me?.role ?? '').toLowerCase() === 'jdv';
+  const normalizedRole = (me?.role ?? '').toLowerCase();
+  const isAdmin = normalizedRole === 'admin';
+  const isJDV = normalizedRole === 'jdv';
 
   const [rangeState, setRangeState] = useState<DateRangeState>(() =>
     getInitialDateRange(),
   );
-  const rangeLabel = getRangeLabel(rangeState);
   const { range } = rangeState;
+  const rangeLabel = getRangeLabel(rangeState);
 
   const [branchFilter, setBranchFilter] = useState<'all' | string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [supervisorFilter, setSupervisorFilter] =
     useState<'all' | string>('all');
   const [search, setSearch] = useState('');
-
-  // ✅ Nuevo (solo admin): filtrar por tipo de usuario que “posee” la tarea (supervisor/jdv/admin)
-  const isAdmin = me?.role === 'admin';
-  const [ownerRoleFilter, setOwnerRoleFilter] = useState<'all' | string>('supervisor');
+  const [ownerRoleFilter, setOwnerRoleFilter] =
+    useState<'all' | string>('all');
   const [ownerRoleOptions, setOwnerRoleOptions] = useState<RoleOption[]>([]);
+  const [viewMode, setViewMode] = useState<TaskViewMode>('week');
 
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [branchesFallback, setBranchesFallback] = useState<string[]>([]);
   const [didAutoPickBranch, setDidAutoPickBranch] = useState(false);
 
-  // ✅ Fallback de sucursales (para JDV / roles que a veces quedan sin opciones en el combo)
-  // Si por RLS o joins el fetch de tareas vuelve vacío, igual mostramos las sucursales del usuario
-  // consultando user_branches -> branches.
-  const [branchesFallback, setBranchesFallback] = useState<string[]>([]);
+  const [tasks, setTasks] = useState<TaskWithOwner[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTask, setSelectedTask] =
+    useState<TaskWithOwner | null>(null);
 
   useEffect(() => {
-    if (!open || !me?.id) return;
+    if (!me?.id) return;
 
-    // Solo lo usamos como fallback (especialmente útil para JDV)
-    (async () => {
+    let cancelled = false;
+
+    void (async () => {
       try {
         const { data, error } = await supabase
           .from('user_branches')
@@ -114,50 +127,33 @@ export default function PanelTasksPage() {
           .eq('user_id', me.id);
 
         if (error) throw error;
+        if (cancelled) return;
 
-        const list = (data || [])
-          .map((r: any) => r?.branches?.name)
-          .filter(Boolean);
+        const list = (data ?? [])
+          .map((row: any) => row?.branches?.name)
+          .filter(Boolean)
+          .map((name: string) => String(name).toLowerCase());
 
-        // únicos + orden estable
-        const uniq = Array.from(new Set(list));
-        setBranchesFallback(uniq);
-      } catch (e) {
-        console.warn('[TASKS] branches fallback error', e);
-        setBranchesFallback([]);
+        setBranchesFallback(Array.from(new Set(list)));
+      } catch (error) {
+        console.warn('[TASKS] branches fallback error', error);
+        if (!cancelled) setBranchesFallback([]);
       }
     })();
-  }, [open, me?.id]);
 
-  // ✅ Auto-selección de sucursal para JDV si el combo queda vacío y el usuario está en "all".
-  // Esto fuerza un fetch por sucursal (algunas vistas/RLS no devuelven nada cuando branch = null).
-  const [tasks, setTasks] = useState<TaskWithOwner[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedTask, setSelectedTask] = useState<TaskWithOwner | null>(null);
-  
+    return () => {
+      cancelled = true;
+    };
+  }, [me?.id]);
+
   useEffect(() => {
-    if (!isJDV) return;
-    if (didAutoPickBranch) return;
-    if (branchFilter !== 'all') return;
-    if (!branchesFallback.length) return;
-
-    // Importante: no pisamos cuando ya hay datos. Solo si está vacío.
-    if (tasks.length > 0) return;
-
-    setBranchFilter(branchesFallback[0]);
-    setDidAutoPickBranch(true);
-  }, [isJDV, didAutoPickBranch, branchFilter, branchesFallback, tasks.length]);
-
-
-  // Cargar opciones de roles (solo admin) desde user_types
-  useEffect(() => {
-    let cancelled = false;
     if (!isAdmin) return;
 
-    (async () => {
-      const opts = await fetchTaskOwnerRoleOptions();
-      if (cancelled) return;
-      setOwnerRoleOptions(opts);
+    let cancelled = false;
+
+    void (async () => {
+      const options = await fetchTaskOwnerRoleOptions();
+      if (!cancelled) setOwnerRoleOptions(options);
     })();
 
     return () => {
@@ -165,135 +161,132 @@ export default function PanelTasksPage() {
     };
   }, [isAdmin]);
 
-  // 1) Cargar tareas por rango / sucursal / estado / rol dueño
   useEffect(() => {
-    const load = async () => {
+    let cancelled = false;
+
+    void (async () => {
       try {
         setLoading(true);
-
-        // Esperar a tener el usuario (evita requests innecesarios)
         if (!me) return;
 
-        const fromISO = range.from.toISOString();
-        const toISO = range.to.toISOString();
+        const roleValues =
+          ownerRoleOptions.length > 0
+            ? ownerRoleOptions.map((option) => option.value)
+            : ['supervisor', 'jdv', 'admin', 'vendedor'];
 
-        // JDV: siempre ve tareas de supervisores (filtros iguales a hoy)
-        // Admin: puede ver supervisor / jdv / admin (con dropdown)
-        const adminAllRoles = ownerRoleOptions.length
-          ? ownerRoleOptions.map((o) => o.value)
-          : ['supervisor', 'jdv', 'admin'];
-
-        const ownerRoles = me.role === 'admin'
-          ? (ownerRoleFilter === 'all' ? adminAllRoles : [String(ownerRoleFilter)])
+        const ownerRoles = isAdmin
+          ? ownerRoleFilter === 'all'
+            ? roleValues
+            : [ownerRoleFilter]
           : ['supervisor'];
 
         const data = await fetchSupervisorTasksByRange({
-          from: fromISO,
-          to: toISO,
+          from: range.from.toISOString(),
+          to: range.to.toISOString(),
           ownerRoles,
           branch: branchFilter === 'all' ? undefined : branchFilter,
           status: statusFilter === 'all' ? undefined : statusFilter,
         });
 
-        setTasks(data);
-      } catch (err) {
-        console.error('Error fetching supervisor tasks', err);
+        if (!cancelled) setTasks(data);
+      } catch (error) {
+        console.error('Error fetching supervised tasks', error);
+        if (!cancelled) setTasks([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
+    })();
+
+    return () => {
+      cancelled = true;
     };
+  }, [
+    me,
+    isAdmin,
+    range.from,
+    range.to,
+    branchFilter,
+    statusFilter,
+    ownerRoleFilter,
+    ownerRoleOptions,
+  ]);
 
-    load();
-  }, [range.from, range.to, branchFilter, statusFilter, ownerRoleFilter, ownerRoleOptions]);
+  useEffect(() => {
+    if (!isJDV) return;
+    if (didAutoPickBranch || branchFilter !== 'all') return;
+    if (!branchesFallback.length || tasks.length > 0) return;
 
-  // 2) Filtrado por sucursales permitidas (admin)
-  const tasksFilteredByRole = useMemo(() => {
-    if (!me || me.role !== 'admin') {
-      return tasks;
-    }
+    setBranchFilter(branchesFallback[0]);
+    setDidAutoPickBranch(true);
+  }, [
+    isJDV,
+    didAutoPickBranch,
+    branchFilter,
+    branchesFallback,
+    tasks.length,
+  ]);
 
-    const allowed = new Set(
-      (me.branches ?? []).map((b: string) => b.toLowerCase()),
-    );
-
-    return tasks.filter((t) => {
-      const branches = t.owner_branches ?? [];
-      if (branches.length === 0) return false;
-      return branches.some((b) => allowed.has(b.toLowerCase()));
-    });
-  }, [tasks, me]);
-
-  // 3) Opciones sucursal
   const branchesFromData = useMemo(() => {
-    const set = new Set<string>();
+    const values = new Set<string>();
 
-    if (me?.role === 'admin') {
-      (me.branches ?? []).forEach((b: string) =>
-        set.add(String(b).toLowerCase()),
-      );
-    } else {
-      tasksFilteredByRole.forEach((t) => {
-        t.owner_branches?.forEach((b) => {
-          if (b) set.add(b.toLowerCase());
-        });
+    tasks.forEach((task) => {
+      task.owner_branches?.forEach((branch) => {
+        if (branch) values.add(String(branch).toLowerCase());
       });
-    }
-
-    // ✅ Si el fetch de tareas vino vacío pero pudimos cargar sucursales del usuario,
-    // mostramos igual esas opciones (evita que el combo quede solo en "Todas las sucursales").
-    if (set.size === 0 && Array.isArray(branchesFallback) && branchesFallback.length > 0) {
-      for (const b of branchesFallback) {
-        if (b) set.add(String(b).toLowerCase());
-      }
-    }
-
-    return Array.from(set).sort();
-  }, [tasksFilteredByRole, me, branchesFallback]);
-
-  // 4) Opciones supervisor
-  const supervisorsFromData = useMemo(() => {
-    const set = new Set<string>();
-    tasksFilteredByRole.forEach((t) => {
-      if (t.owner_full_name) set.add(t.owner_full_name);
     });
-    return Array.from(set).sort();
-  }, [tasksFilteredByRole]);
 
-  // 5) Filtros frontend (supervisor + búsqueda)
+    branchesFallback.forEach((branch) => {
+      if (branch) values.add(String(branch).toLowerCase());
+    });
+
+    return Array.from(values).sort();
+  }, [tasks, branchesFallback]);
+
+  const supervisorsFromData = useMemo(() => {
+    const values = new Set<string>();
+    tasks.forEach((task) => {
+      if (task.owner_full_name) values.add(task.owner_full_name);
+    });
+    return Array.from(values).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [tasks]);
+
   const filteredTasks = useMemo(() => {
-    let base = tasksFilteredByRole;
+    let result = tasks;
 
     if (supervisorFilter !== 'all') {
-      const target = supervisorFilter.toLowerCase();
-      base = base.filter(
-        (t) => (t.owner_full_name ?? '').toLowerCase() === target,
+      const expected = supervisorFilter.toLowerCase();
+      result = result.filter(
+        (task) => (task.owner_full_name ?? '').toLowerCase() === expected,
       );
     }
 
-    if (!search.trim()) return base;
+    const query = search.trim().toLowerCase();
+    if (!query) return result;
 
-    const q = search.toLowerCase();
-    return base.filter((t) => {
-      const branchText = (t.owner_branches ?? []).join(' ');
-      const parts = [
-        t.title,
-        t.description ?? '',
-        t.owner_full_name ?? '',
-        branchText,
+    return result.filter((task) => {
+      const haystack = [
+        task.title,
+        task.description ?? '',
+        task.notes ?? '',
+        task.owner_full_name ?? '',
+        task.owner_role ?? '',
+        ...(task.owner_branches ?? []),
       ]
         .join(' ')
         .toLowerCase();
-      return parts.includes(q);
-    });
-  }, [tasksFilteredByRole, search, supervisorFilter]);
 
-  // 6) Métricas resumen
+      return haystack.includes(query);
+    });
+  }, [tasks, supervisorFilter, search]);
+
   const metrics: SummaryMetrics = useMemo(() => {
     const total = filteredTasks.length;
-    const done = filteredTasks.filter((t) => t.status === 'done').length;
-    const pending = filteredTasks.filter((t) => t.status === 'pending').length;
+    const done = filteredTasks.filter((task) => task.status === 'done').length;
+    const pending = filteredTasks.filter(
+      (task) => task.status === 'pending',
+    ).length;
     const inProgress = filteredTasks.filter(
-      (t) => t.status === 'in_progress',
+      (task) => task.status === 'in_progress',
     ).length;
 
     return {
@@ -305,37 +298,52 @@ export default function PanelTasksPage() {
     };
   }, [filteredTasks]);
 
-  // 7) Días en el rango + tareas por día (para GRID)
   const daysInRange = useMemo(() => {
     const days: Date[] = [];
     let current = range.from;
+
     while (current <= range.to) {
       days.push(current);
       current = addDays(current, 1);
     }
+
     return days;
-  }, [range]);
+  }, [range.from, range.to]);
 
   const tasksByDay = useMemo(() => {
     const map: Record<string, TaskWithOwner[]> = {};
-    daysInRange.forEach((d) => {
-      const key = d.toISOString().slice(0, 10);
-      map[key] = [];
+
+    daysInRange.forEach((day) => {
+      map[day.toISOString().slice(0, 10)] = [];
     });
 
-    filteredTasks.forEach((t) => {
-      const key = t.scheduled_at.slice(0, 10);
-      if (!map[key]) map[key] = [];
-      map[key].push(t);
+    filteredTasks.forEach((task) => {
+      const key = task.scheduled_at.slice(0, 10);
+      (map[key] ||= []).push(task);
     });
 
     return map;
   }, [daysInRange, filteredTasks]);
 
+  const supervisionMeta = (task: Task) => {
+    const supervised = task as TaskWithOwner;
+    const branch =
+      supervised.owner_branches?.[0]
+        ? supervised.owner_branches[0].charAt(0).toUpperCase() +
+          supervised.owner_branches[0].slice(1)
+        : null;
+
+    return [supervised.owner_full_name, branch].filter(Boolean).join(' · ');
+  };
+
+  const openTask = (task: Task) => {
+    setSelectedTask(task as TaskWithOwner);
+  };
+
   if (loadingMe && !me) {
     return (
       <RequireAuth roles={['admin', 'jdv']}>
-        <div className="grid min-h-[80vh] place-items-center">
+        <div className="grid min-h-[80vh] place-items-center bg-[#F4F5F7]">
           <DualSpinner size={60} thickness={4} />
         </div>
       </RequireAuth>
@@ -344,83 +352,154 @@ export default function PanelTasksPage() {
 
   return (
     <RequireAuth roles={['admin', 'jdv']}>
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-12">
-        {/* Header */}
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-black">
-              <Users2 className="h-5 w-5 font-bold text-black" />
-              Tareas de supervisores
-            </h1>
-            <p className="text-sm text-slate-500">
-              Vista de seguimiento de tareas por supervisor (solo lectura).
-            </p>
-          </div>
+      <div className="min-h-screen bg-[#F4F5F7] text-white">
+        <div className="mx-auto flex max-w-[1500px] flex-col gap-5 px-4 py-7 sm:px-6 lg:px-8">
+          <header className="rounded-[24px] border border-white/[0.08] bg-[#151517] px-5 py-5 shadow-[0_18px_55px_rgba(0,0,0,.16)] sm:px-6">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-[#0a84ff]/15 bg-[#0a84ff]/10 text-[#5ac8fa]">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[9px] font-medium uppercase tracking-[0.12em] text-white/[0.32]">
+                    Supervisión operativa
+                  </div>
+                  <h1 className="mt-1 text-xl font-medium tracking-[-0.02em] text-white/[0.94]">
+                    Seguimiento de tareas
+                  </h1>
+                  <p className="mt-1 max-w-2xl text-[11px] leading-5 text-white/[0.38]">
+                    Revisá actividad, checklist, comentarios y planillas de los usuarios
+                    desde un único espacio de supervisión.
+                  </p>
+                </div>
+              </div>
 
-          <DateRangeSelector state={rangeState} onChange={setRangeState} />
-        </header>
+              <DateRangeSelector
+                state={rangeState}
+                onChange={setRangeState}
+                surface="dark"
+              />
+            </div>
+          </header>
 
-        {/* Resumen */}
-        <SummaryCards metrics={metrics} />
+          <SummaryCards metrics={metrics} />
 
-        {/* Filtros */}
-        <FiltersBar
-          branchFilter={branchFilter}
-          onBranchFilterChange={setBranchFilter}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          supervisorFilter={supervisorFilter}
-          onSupervisorFilterChange={setSupervisorFilter}
-          search={search}
-          onSearchChange={setSearch}
-          branchesFromData={branchesFromData}
-          supervisorsFromData={supervisorsFromData}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          isAdmin={isAdmin}
-          ownerRoleFilter={ownerRoleFilter}
-          onOwnerRoleFilterChange={setOwnerRoleFilter}
-          ownerRoleOptions={ownerRoleOptions}
-        />
+          <FiltersBar
+            branchFilter={branchFilter}
+            onBranchFilterChange={setBranchFilter}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            supervisorFilter={supervisorFilter}
+            onSupervisorFilterChange={setSupervisorFilter}
+            search={search}
+            onSearchChange={setSearch}
+            branchesFromData={branchesFromData}
+            supervisorsFromData={supervisorsFromData}
+            isAdmin={isAdmin}
+            ownerRoleFilter={ownerRoleFilter}
+            onOwnerRoleFilterChange={setOwnerRoleFilter}
+            ownerRoleOptions={ownerRoleOptions}
+          />
 
-        {/* Vista de tareas */}
-        <section className="rounded-2xl border shadow-slate-950/50">
-          <div className="mb-2 flex items-center justify-between text-xl font-bold text-black">
-            <span>
-              {filteredTasks.length} tarea
-              {filteredTasks.length !== 1 && 's'} encontradas
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 px-2 py-1 text-[10px] text-slate-300">
-              <CalendarDays className="h-3 w-3" />
-              Rango: {rangeLabel}
-            </span>
-          </div>
+          <section className="flex flex-col gap-3 rounded-[18px] border border-white/[0.07] bg-[#151517] p-2.5 shadow-[0_10px_28px_rgba(0,0,0,.08)] sm:flex-row sm:items-center sm:justify-between">
+            <div className="px-2">
+              <div className="flex items-center gap-2">
+                <Users2 className="h-3.5 w-3.5 text-[#5ac8fa]" />
+                <span className="text-[10px] font-medium uppercase tracking-[0.09em] text-white/[0.38]">
+                  {filteredTasks.length} tarea
+                  {filteredTasks.length === 1 ? '' : 's'} visible
+                  {filteredTasks.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              <div className="mt-1 inline-flex items-center gap-1.5 text-[9px] text-white/[0.24]">
+                <CalendarDays className="h-3 w-3" />
+                {rangeLabel}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-1 rounded-[14px] bg-white/[0.035] p-1">
+              {[
+                { value: 'week' as const, label: 'Semana', icon: Columns3 },
+                { value: 'list' as const, label: 'Lista', icon: ListChecks },
+                { value: 'kanban' as const, label: 'Kanban', icon: Columns3 },
+                { value: 'calendar' as const, label: 'Calendario', icon: CalendarDays },
+              ].map((option) => {
+                const Icon = option.icon;
+                const active = viewMode === option.value;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setViewMode(option.value)}
+                    className={[
+                      'inline-flex h-9 items-center justify-center gap-1.5 rounded-[10px] px-3 text-[10px] font-medium transition',
+                      active
+                        ? 'bg-white text-[#0b1020] shadow-sm'
+                        : 'text-white/[0.42] hover:bg-white/[0.05] hover:text-white/[0.72]',
+                    ].join(' ')}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="hidden md:inline">{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
           {loading ? (
-            <div className="flex h-32 items-center justify-center text-xs text-slate-400">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Cargando tareas...
+            <div className="grid min-h-[320px] place-items-center rounded-[22px] border border-white/[0.07] bg-[#151517]">
+              <div className="flex items-center gap-2 text-[11px] text-white/[0.38]">
+                <Loader2 className="h-4 w-4 animate-spin text-[#5ac8fa]" />
+                Cargando tareas...
+              </div>
             </div>
           ) : filteredTasks.length === 0 ? (
-            <div className="flex h-24 items-center justify-center text-xs text-slate-500">
-              No se encontraron tareas con los filtros actuales.
+            <div className="grid min-h-[240px] place-items-center rounded-[22px] border border-dashed border-white/[0.07] bg-[#151517] px-6 text-center">
+              <div>
+                <Users2 className="mx-auto h-6 w-6 text-white/[0.20]" />
+                <div className="mt-3 text-sm font-medium text-white/[0.70]">
+                  No hay tareas para mostrar
+                </div>
+                <p className="mt-1 text-[11px] text-white/[0.30]">
+                  Probá modificando el rango o alguno de los filtros.
+                </p>
+              </div>
             </div>
-          ) : viewMode === 'table' ? (
-            <TasksTable
-              tasks={filteredTasks}
-              onSelectTask={setSelectedTask}
-            />
-          ) : (
+          ) : viewMode === 'week' ? (
             <TasksGrid
               daysInRange={daysInRange}
               tasksByDay={tasksByDay}
               onSelectTask={setSelectedTask}
             />
+          ) : viewMode === 'list' ? (
+            <TaskListView
+              tasks={filteredTasks}
+              onSelectTask={openTask}
+              getMeta={supervisionMeta}
+            />
+          ) : viewMode === 'kanban' ? (
+            <TaskKanbanView
+              tasks={filteredTasks}
+              onSelectTask={openTask}
+              getMeta={supervisionMeta}
+            />
+          ) : (
+            <TaskCalendarView
+              tasks={filteredTasks}
+              range={range}
+              onSelectTask={openTask}
+              getMeta={supervisionMeta}
+            />
           )}
-        </section>
-      </div>
+        </div>
 
-      <TaskDetailsModal task={selectedTask} onClose={() => setSelectedTask(null)} />
+        <TaskDetailsModal
+          task={selectedTask}
+          currentUserId={me?.id ?? null}
+          onClose={() => setSelectedTask(null)}
+        />
+      </div>
     </RequireAuth>
   );
 }

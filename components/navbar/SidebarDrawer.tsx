@@ -42,15 +42,14 @@ function NavRow({
 }) {
   const active = item.href ? isActive(item.href, pathname) : false;
 
-  // Respeta colores/acento definidos en nav.config.tsx
   const accent = item.enabled ? (item.className ?? 'text-slate-200') : 'text-slate-200';
 
   const row = (
     <div
       className={cn(
         'flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm transition',
-        active && item.enabled ? 'bg-slate-800/70 text-slate-50' : accent,
-        item.enabled ? 'hover:bg-slate-800/60' : 'opacity-40 cursor-not-allowed',
+        active && item.enabled ? 'bg-[#25262a] text-slate-50' : accent,
+        item.enabled ? 'hover:bg-[#25262a]' : 'opacity-40 cursor-not-allowed',
       )}
     >
       <div className="flex items-center gap-2">
@@ -59,28 +58,26 @@ function NavRow({
       </div>
 
       {item.badge ? (
-        <span className="ml-auto rounded-full bg-slate-700 px-2 py-0.5 text-xs text-slate-100">
+        <span className="ml-auto rounded-full bg-[#2f3035] px-2 py-0.5 text-xs text-slate-100">
           {item.badge}
         </span>
       ) : null}
     </div>
   );
 
-  // 🚫 Si no está habilitado: no hay Link
   if (!item.enabled) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
           <div aria-disabled="true">{row}</div>
         </TooltipTrigger>
-        <TooltipContent className="border-slate-800 bg-slate-900 text-slate-100">
+        <TooltipContent className="border-white/[0.08] bg-[#1d1d1f] text-slate-100">
           {item.reason ?? 'Sin acceso'}
         </TooltipContent>
       </Tooltip>
     );
   }
 
-  // ✅ Si está habilitado pero no tiene href (caso raro): no Link, solo row
   if (!item.href) return row;
 
   return (
@@ -98,16 +95,20 @@ export default function SidebarDrawer({
 }: Props) {
   const pathname = usePathname();
 
-  // Todos abiertos por defecto
   const defaultOpen = Array.isArray(sections) ? sections.map((s) => s.key) : [];
-
   const onNavigate = () => onOpenChange(false);
 
   return (
     <TooltipProvider delayDuration={150}>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className={cn('w-[340px] border-slate-800 bg-gray-800 text-slate-100', 'p-0')}>
-          <SheetHeader className="border-b border-slate-800 px-4 py-3">
+        <SheetContent
+          side="left"
+          className={cn(
+            'w-[340px] border-r border-white/[0.08] bg-[#1d1d1f] text-slate-100',
+            'p-0',
+          )}
+        >
+          <SheetHeader className="border-b border-white/[0.08] px-4 py-3">
             <SheetTitle className="text-sm font-semibold tracking-wide text-slate-200">
               {title}
             </SheetTitle>
@@ -120,7 +121,7 @@ export default function SidebarDrawer({
                   <AccordionItem
                     key={section.key}
                     value={section.key}
-                    className="rounded-2xl border border-slate-800 bg-slate-900/40 px-2"
+                    className="rounded-2xl border border-white/[0.06] bg-[#202126] px-2"
                   >
                     <AccordionTrigger className="px-2 py-2 text-sm font-semibold text-red-100 hover:no-underline">
                       <div className="flex items-center gap-2">

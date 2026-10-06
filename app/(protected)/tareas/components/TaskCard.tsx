@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CheckCircle2, Loader2, StickyNote, Trash2, Pencil } from 'lucide-react';
+import { Loader2, StickyNote, Trash2, Pencil } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 
 import type { Task } from '@/lib/tasks';
 import TaskChecklistIndicator from '../TaskChecklistIndicator';
+import { RedcomSelect } from '@/components/ui/redcom-select';
 
 type Props = {
   dndId: string;
@@ -16,7 +17,7 @@ type Props = {
   savingNotesId: number | null;
   deletingId: number | null;
 
-  onToggleStatus: (task: Task) => Promise<Task>;
+  onStatusChange: (task: Task, status: Task['status']) => Promise<Task>;
   onSaveNotes: (task: Task, notes: string) => Promise<Task>;
   onDelete: (task: Task) => Promise<boolean>;
 
@@ -33,7 +34,7 @@ export default function TaskCard({
   changingStatusId,
   savingNotesId,
   deletingId,
-  onToggleStatus,
+  onStatusChange,
   onSaveNotes,
   onDelete,
   onOpenDetail,
@@ -60,12 +61,12 @@ export default function TaskCard({
 
   const statusPill =
     task.status === 'done'
-      ? 'bg-emerald-500/15 text-emerald-300'
+      ? 'border border-emerald-400/15 bg-emerald-400/10 text-emerald-300'
       : task.status === 'in_progress'
-      ? 'bg-sky-500/15 text-sky-300'
+      ? 'border border-[#0a84ff]/15 bg-[#0a84ff]/10 text-[#5ac8fa]'
       : task.status === 'cancelled'
-      ? 'bg-rose-500/15 text-rose-300'
-      : 'bg-slate-700/60 text-slate-200';
+      ? 'border border-rose-400/15 bg-rose-400/10 text-rose-300'
+      : 'border border-white/[0.08] bg-white/[0.045] text-white/[0.64]';
 
   return (
     <div
@@ -75,10 +76,10 @@ export default function TaskCard({
       {...attributes}
       {...listeners}
       className={[
-        'group select-none rounded-xl border border-slate-800 bg-gray-700/70 p-2 text-xs text-slate-100',
-        'shadow-sm shadow-slate-950/60 hover:border-sky-500/70 hover:bg-gray-700',
+        'group select-none rounded-[14px] border border-white/[0.075] bg-[#1c1c1e] p-2.5 text-xs text-white/[0.86]',
+        'shadow-[0_7px_18px_rgba(0,0,0,.12)] hover:border-[#0a84ff]/25 hover:bg-[#202023]',
         'cursor-grab active:cursor-grabbing',
-        'transition-colors',
+        'transition',
       ].join(' ')}
       onClick={(e) => {
         // ✅ si estás arrastrando, no abras detalle
@@ -98,28 +99,47 @@ export default function TaskCard({
       {/* Header */}
       <div className="mb-1 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <button
+          <div
             data-no-dnd
-            onClick={async (e) => {
-              e.stopPropagation();
-              await onToggleStatus(task);
-            }}
-            disabled={changingStatusId === task.id}
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusPill}`}
-            title="Cambiar estado"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="min-w-[126px]"
           >
+            <RedcomSelect
+              value={task.status}
+              options={[
+                { value: 'pending', label: BRIEF_STATUS.pending },
+                { value: 'in_progress', label: BRIEF_STATUS.in_progress },
+                { value: 'done', label: BRIEF_STATUS.done },
+                { value: 'cancelled', label: BRIEF_STATUS.cancelled },
+              ]}
+              onValueChange={(value) => {
+                void onStatusChange(task, value as Task['status']);
+              }}
+              disabled={changingStatusId === task.id}
+              surface="dark"
+              triggerTone={
+                task.status === 'done'
+                  ? 'green'
+                  : task.status === 'in_progress'
+                    ? 'blue'
+                    : task.status === 'cancelled'
+                      ? 'red'
+                      : 'neutral'
+              }
+              aria-label={`Cambiar estado de ${task.title}`}
+              className={`h-7 rounded-full !border-transparent px-2 text-[9px] font-medium hover:!border-transparent focus-visible:!border-transparent data-[state=open]:!border-transparent ${statusPill}`}
+              contentClassName="text-[11px]"
+            />
             {changingStatusId === task.id ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-3 w-3" />
-            )}
-            {BRIEF_STATUS?.[task.status] ?? task.status}
-          </button>
+              <span className="sr-only">Actualizando estado...</span>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex items-center gap-1">
           <TaskChecklistIndicator taskId={task.id} size={6} />
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[9px] text-white/[0.36]">
             {new Date(task.scheduled_at).toLocaleTimeString('es-AR', {
               hour: '2-digit',
               minute: '2-digit',
@@ -129,10 +149,10 @@ export default function TaskCard({
       </div>
 
       {/* Title */}
-      <div className="text-[11px] font-medium leading-tight">{task.title}</div>
+      <div className="text-[11px] font-medium leading-[1.35] text-white/[0.90]">{task.title}</div>
 
       {task.description && (
-        <div className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">{task.description}</div>
+        <div className="mt-1 line-clamp-2 text-[10px] font-normal leading-4 text-white/[0.42]">{task.description}</div>
       )}
 
       {/* Notes */}
@@ -141,9 +161,9 @@ export default function TaskCard({
         onClick={(e) => e.stopPropagation()}
         data-no-dnd
       >
-        <StickyNote className="h-3 w-3 text-slate-500" />
+        <StickyNote className="h-3 w-3 text-white/[0.28]" />
         <input
-          className="w-full rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          className="w-full rounded-[8px] border border-white/[0.07] bg-white/[0.035] px-2 py-1 text-[10px] font-normal text-white/[0.78] outline-none placeholder:text-white/[0.25] focus:border-[#0a84ff]/35 focus:ring-2 focus:ring-[#0a84ff]/10"
           placeholder="Notas / observaciones..."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -154,7 +174,7 @@ export default function TaskCard({
           data-no-dnd
           onClick={() => onSaveNotes(task, notes)}
           disabled={savingNotesId === task.id}
-          className="rounded-lg bg-slate-800 px-2 py-1 text-[10px] text-slate-200 hover:bg-slate-700 disabled:bg-slate-900"
+          className="rounded-[8px] bg-white/[0.065] px-2 py-1 text-[9px] font-medium text-white/[0.64] transition hover:bg-white/[0.10] hover:text-white disabled:opacity-35"
         >
           {savingNotesId === task.id ? 'Guardando...' : 'OK'}
         </button>
@@ -166,7 +186,7 @@ export default function TaskCard({
             e.stopPropagation();
             onOpenDetail();
           }}
-          className="rounded-lg bg-slate-900/80 p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+          className="rounded-[8px] bg-white/[0.035] p-1 text-white/[0.36] transition hover:bg-white/[0.075] hover:text-white/[0.82]"
           title="Editar"
         >
           <Pencil className="h-3 w-3" />
@@ -179,7 +199,7 @@ export default function TaskCard({
             onDelete(task);
           }}
           disabled={deletingId === task.id}
-          className="rounded-lg bg-slate-900/80 p-1 text-slate-500 hover:bg-rose-500/10 hover:text-rose-300"
+          className="rounded-[8px] bg-white/[0.035] p-1 text-white/[0.28] transition hover:bg-rose-500/10 hover:text-rose-300"
           title="Eliminar"
         >
           <Trash2 className="h-3 w-3" />

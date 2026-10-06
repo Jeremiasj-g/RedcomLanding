@@ -38,7 +38,7 @@ type Props = {
   savingNotesId: number | null;
   deletingId: number | null;
 
-  onToggleStatus: (task: Task) => Promise<Task>;
+  onStatusChange: (task: Task, status: Task['status']) => Promise<Task>;
   onSaveNotes: (task: Task, notes: string) => Promise<Task>;
   onDelete: (task: Task) => Promise<boolean>;
 
@@ -74,7 +74,7 @@ export default function TasksGrid({
   changingStatusId,
   savingNotesId,
   deletingId,
-  onToggleStatus,
+  onStatusChange,
   onSaveNotes,
   onDelete,
   onDeleteDay,
@@ -398,7 +398,7 @@ useEffect(() => {
         ) : null}
       </DragOverlay>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {daysInRange.map((day) => {
           const dayKey = toYMD(day);
           const list = tasksByDay[dayKey] || [];
@@ -440,7 +440,7 @@ useEffect(() => {
                     changingStatusId={changingStatusId}
                     savingNotesId={savingNotesId}
                     deletingId={deletingId}
-                    onToggleStatus={onToggleStatus}
+                    onStatusChange={onStatusChange}
                     onSaveNotes={onSaveNotes}
                     onDelete={onDelete}
                     onOpenDetail={() => {
@@ -490,16 +490,16 @@ function DayColumn({
       onMouseDown={() => onActivate?.()}
       onFocus={() => onActivate?.()}
       className={[
-        'group flex min-h-[180px] flex-col rounded-2xl border border-slate-800/80 bg-gray-900/95 p-3 shadow-lg shadow-slate-950/40',
-        isToday ? 'ring-1 ring-sky-500/60' : '',
-        isActive ? 'ring-2 ring-sky-400/50' : '',
-        isOver ? 'ring-1 ring-emerald-500/40' : '',
+        'group flex min-h-[205px] flex-col rounded-[20px] border border-white/[0.08] bg-[#151517] p-3.5 shadow-[0_14px_35px_rgba(0,0,0,.12)] transition',
+        isToday ? 'border-[#0a84ff]/35 ring-1 ring-[#0a84ff]/18' : '',
+        isActive ? 'ring-2 ring-[#5ac8fa]/25' : '',
+        isOver ? 'ring-2 ring-emerald-400/20' : '',
       ].join(' ')}
     >
-      <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-300">
-        <span className="uppercase tracking-wide">{String(label).replace('.', '')}</span>
+      <div className="mb-3 flex items-center justify-between text-[10px] font-medium text-white/[0.62]">
+        <span className="uppercase tracking-[0.09em]">{String(label).replace('.', '')}</span>
         {isToday && (
-          <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-300">
+          <span className="rounded-full border border-[#0a84ff]/15 bg-[#0a84ff]/10 px-2 py-0.5 text-[9px] font-medium text-[#5ac8fa]">
             Hoy
           </span>
         )}
@@ -507,11 +507,11 @@ function DayColumn({
 
       <div className="relative flex-1 space-y-2">
         {loading && list.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-xs text-slate-500">
+          <div className="flex h-full items-center justify-center text-[10px] text-white/[0.32]">
             <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Cargando...
           </div>
         ) : list.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-[11px] text-gray-400">
+          <div className="flex h-full items-center justify-center text-[10px] font-normal text-white/[0.28]">
             Sin tareas
           </div>
         ) : (
@@ -535,7 +535,7 @@ function DayColumn({
           <button
             onClick={() => onDeleteDay(dayKey, list)}
             disabled={deletingDayKey === dayKey}
-            className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 px-2 py-1 text-[10px] text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-rose-500/10 hover:text-rose-300 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1 rounded-[9px] bg-white/[0.035] px-2 py-1 text-[9px] text-white/[0.34] opacity-0 transition group-hover:opacity-100 hover:bg-rose-500/10 hover:text-rose-300 disabled:cursor-not-allowed"
           >
             {deletingDayKey === dayKey ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -559,12 +559,12 @@ function TaskDragOverlayCard({
 }) {
   const statusPill =
     task.status === 'done'
-      ? 'bg-emerald-500/15 text-emerald-300'
+      ? 'border border-emerald-400/15 bg-emerald-400/10 text-emerald-300'
       : task.status === 'in_progress'
-        ? 'bg-sky-500/15 text-sky-300'
+        ? 'border border-[#0a84ff]/15 bg-[#0a84ff]/10 text-[#5ac8fa]'
         : task.status === 'cancelled'
-          ? 'bg-rose-500/15 text-rose-300'
-          : 'bg-slate-700/60 text-slate-200';
+          ? 'border border-rose-400/15 bg-rose-400/10 text-rose-300'
+          : 'border border-white/[0.08] bg-white/[0.05] text-white/[0.64]';
 
   const statusLabel =
     task.status === 'done'
@@ -578,7 +578,7 @@ function TaskDragOverlayCard({
   return (
     <div
       style={{ width: width ?? 260 }}
-      className="pointer-events-none select-none rounded-xl border border-slate-800 bg-gray-700/70 p-2 text-xs text-slate-100 opacity-75 shadow-sm shadow-slate-950/60"
+      className="pointer-events-none select-none rounded-[14px] border border-white/[0.10] bg-[#242426] p-2.5 text-xs text-white/[0.88] opacity-90 shadow-[0_18px_45px_rgba(0,0,0,.36)]"
     >
       <div className="mb-1 flex items-center justify-between gap-2">
         <span
@@ -587,30 +587,30 @@ function TaskDragOverlayCard({
           <CheckCircle2 className="h-3 w-3" />
           {statusLabel}
         </span>
-        <span className="text-[10px] text-slate-400">
+        <span className="text-[10px] text-white/[0.38]">
           {hhmmFromISO(task.scheduled_at)}
         </span>
       </div>
 
       <div className="text-[11px] font-medium leading-tight">{task.title}</div>
       {task.description ? (
-        <div className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">
+        <div className="mt-0.5 line-clamp-2 text-[11px] text-white/[0.46]">
           {task.description}
         </div>
       ) : null}
 
       <div className="mt-2 flex items-center gap-1">
         <StickyNote className="h-3 w-3 text-slate-500" />
-        <div className="min-w-0 flex-1 truncate rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-[11px] text-slate-400">
+        <div className="min-w-0 flex-1 truncate rounded-lg border border-slate-800 bg-slate-950/60 px-2 py-1 text-[11px] text-white/[0.46]">
           {task.notes?.trim() || 'Notas / observaciones...'}
         </div>
-        <span className="rounded-lg bg-slate-800 px-2 py-1 text-[10px] text-slate-200">
+        <span className="rounded-[8px] bg-white/[0.06] px-2 py-1 text-[10px] text-white/[0.64]">
           OK
         </span>
-        <span className="rounded-lg bg-slate-900/80 p-1 text-slate-400">
+        <span className="rounded-[8px] bg-white/[0.035] p-1 text-white/[0.42]">
           <Pencil className="h-3 w-3" />
         </span>
-        <span className="rounded-lg bg-slate-900/80 p-1 text-slate-500">
+        <span className="rounded-[8px] bg-white/[0.035] p-1 text-white/[0.30]">
           <Trash2 className="h-3 w-3" />
         </span>
       </div>
@@ -622,19 +622,19 @@ function GhostTaskCard({ task }: { task: Task }) {
   const statusLabel = task.status === 'done' ? 'Completada' : task.status === 'in_progress' ? 'En progreso' : 'Pendiente';
   const time = hhmmFromISO(task.scheduled_at);
   return (
-    <div className="pointer-events-none rounded-2xl border border-dashed border-slate-500/50 bg-slate-950/20 p-3 opacity-35 shadow-sm backdrop-blur">
-      <div className="mb-1 flex items-center justify-between text-[11px] text-slate-300">
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/60 px-2 py-0.5 text-[10px] text-slate-200">
+    <div className="pointer-events-none rounded-[14px] border border-dashed border-white/[0.16] bg-white/[0.025] p-3 opacity-45 backdrop-blur">
+      <div className="mb-1 flex items-center justify-between text-[11px] text-white/[0.54]">
+        <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] text-white/[0.58]">
           <span className="h-1.5 w-1.5 rounded-full bg-slate-300/70" />
           {statusLabel}
         </span>
-        <span className="text-[10px] text-slate-400">{time}</span>
+        <span className="text-[10px] text-white/[0.38]">{time}</span>
       </div>
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-100">
+      <div className="text-xs font-medium tracking-[-0.01em] text-white/[0.86]">
         {task.title}
       </div>
       {!!task.description && (
-        <div className="mt-1 line-clamp-2 text-[11px] text-slate-300/80">
+        <div className="mt-1 line-clamp-2 text-[11px] text-white/[0.42]">
           {task.description}
         </div>
       )}

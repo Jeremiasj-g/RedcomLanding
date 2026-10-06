@@ -3,11 +3,13 @@
 import 'react-day-picker/dist/style.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DayPicker, type DateRange } from 'react-day-picker';
-import { CalendarDays, Clock3, Loader2, Plus } from 'lucide-react';
+import { CalendarDays, Clock3, Loader2, Plus, Repeat2 } from 'lucide-react';
 import { es } from 'date-fns/locale';
 
 import { useTaskCreator } from '../hooks/useTaskCreator';
 import { errorMessage, notify } from '@/lib/notifications';
+import { RedcomSelect } from '@/components/ui/redcom-select';
+import type { TaskRecurrenceType } from '@/lib/tasks';
 
 function buildTimeOptions(stepMinutes = 30) {
   const out: string[] = [];
@@ -61,6 +63,8 @@ export default function NewTaskForm() {
   const { createByRange } = useTaskCreator();
   const [creating, setCreating] = useState(false);
   const [newTask, setNewTask] = useState({ title: '', description: '', time: '09:00' });
+  const [recurrence, setRecurrence] = useState<'none' | TaskRecurrenceType>('none');
+  const [recurrenceIntervalDays, setRecurrenceIntervalDays] = useState(15);
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
@@ -125,8 +129,13 @@ export default function NewTaskForm() {
         time: newTask.time,
         from,
         to,
+        recurrenceType: recurrence === 'none' ? null : recurrence,
+        recurrenceIntervalDays:
+          recurrence === 'every_n_days' ? recurrenceIntervalDays : null,
       });
       setNewTask((p) => ({ ...p, title: '', description: '' }));
+      setRecurrence('none');
+      setRecurrenceIntervalDays(15);
       notify.success(
         created.length === 1
           ? 'Tarea creada correctamente.'
@@ -150,21 +159,24 @@ export default function NewTaskForm() {
   };
 
   return (
-    <section className="relative rounded-2xl border border-slate-800/80 bg-gray-900/95 p-4 shadow-lg shadow-slate-950/40">
-      <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-200">
-        <Plus className="h-4 w-4 text-emerald-400" /> Nueva tarea
+    <section className="relative rounded-[22px] border border-white/[0.08] bg-[#151517] p-4 shadow-[0_16px_45px_rgba(0,0,0,.14)]">
+      <div className="mb-3 flex items-center gap-2 text-[11px] font-medium text-white/[0.82]">
+        <span className="grid h-7 w-7 place-items-center rounded-[9px] bg-[#0a84ff]/10 text-[#5ac8fa]">
+          <Plus className="h-3.5 w-3.5" />
+        </span>
+        Nueva tarea
       </div>
 
       <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_minmax(0,3.4fr)_auto]">
         <input
-          className="w-full rounded-xl border border-slate-700/70 bg-gray-700/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          className="h-10 w-full rounded-[12px] border border-white/[0.08] bg-[#1c1c1e] px-3 text-[11px] font-normal text-white/[0.84] outline-none transition placeholder:text-white/[0.28] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
           placeholder="Título (ej: Enviar reporte de ventas)"
           value={newTask.title}
           onChange={(e) => setNewTask((p) => ({ ...p, title: e.target.value }))}
         />
 
         <input
-          className="w-full rounded-xl border border-slate-700/70 bg-gray-700/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          className="h-10 w-full rounded-[12px] border border-white/[0.08] bg-[#1c1c1e] px-3 text-[11px] font-normal text-white/[0.84] outline-none transition placeholder:text-white/[0.28] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
           placeholder="Descripción / detalle"
           value={newTask.description}
           onChange={(e) => setNewTask((p) => ({ ...p, description: e.target.value }))}
@@ -180,14 +192,14 @@ export default function NewTaskForm() {
                 setCalendarOpen((o) => !o);
                 setTimePickerOpen(false);
               }}
-              className="flex w-full items-center justify-between rounded-xl border border-slate-700/70 bg-gray-700/70 px-3 py-2 text-left text-sm text-slate-100 hover:border-sky-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              className="flex h-10 w-full items-center justify-between rounded-[12px] border border-white/[0.08] bg-[#1c1c1e] px-3 text-left text-[11px] font-normal text-white/[0.80] outline-none transition hover:border-white/[0.14] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
             >
-              <span className="truncate text-xs text-slate-300">{rangeLabel}</span>
-              <CalendarDays className="ml-2 h-4 w-4 text-slate-400" />
+              <span className="truncate text-[11px] text-white/[0.64]">{rangeLabel}</span>
+              <CalendarDays className="ml-2 h-4 w-4 text-white/[0.32]" />
             </button>
 
             {calendarOpen && (
-              <div className="absolute z-50 mt-2 w-[320px] max-w-[90vw] rounded-2xl border border-slate-800 bg-slate-950/95 p-3 text-xs text-slate-100 shadow-xl shadow-slate-950/60">
+              <div className="absolute z-50 mt-2 w-[320px] max-w-[90vw] rounded-[18px] border border-white/[0.09] bg-[#242426] p-3 text-xs text-white/[0.82] shadow-[0_24px_70px_rgba(0,0,0,.48)]">
                 <DayPicker
                   mode="range"
                   selected={dateRange}
@@ -198,27 +210,27 @@ export default function NewTaskForm() {
                   showOutsideDays
                   pagedNavigation
                   modifiersClassNames={{
-                    selected: 'bg-sky-500 text-slate-950',
-                    range_start: 'bg-sky-500 text-slate-950 rounded-l-full',
-                    range_end: 'bg-sky-500 text-slate-950 rounded-r-full',
-                    range_middle: 'bg-sky-500/25 text-slate-50',
-                    today: 'border border-sky-400',
+                    selected: 'bg-[#0a84ff] text-white',
+                    range_start: 'bg-[#0a84ff] text-white rounded-l-full',
+                    range_end: 'bg-[#0a84ff] text-white rounded-r-full',
+                    range_middle: 'bg-[#0a84ff]/18 text-white',
+                    today: 'border border-[#5ac8fa]',
                   }}
                 />
 
                 <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="flex gap-1 text-[10px] text-slate-400">
+                  <div className="flex gap-1 text-[10px] text-white/[0.38]">
                     <button
                       type="button"
                       onClick={handleCalendarClear}
-                      className="rounded-full px-2 py-1 hover:bg-slate-900"
+                      className="rounded-[8px] px-2 py-1 transition hover:bg-white/[0.06] hover:text-white"
                     >
                       Limpiar
                     </button>
                     <button
                       type="button"
                       onClick={handleCalendarToday}
-                      className="rounded-full px-2 py-1 hover:bg-slate-900"
+                      className="rounded-[8px] px-2 py-1 transition hover:bg-white/[0.06] hover:text-white"
                     >
                       Hoy
                     </button>
@@ -227,7 +239,7 @@ export default function NewTaskForm() {
                   <button
                     type="button"
                     onClick={() => setCalendarOpen(false)}
-                    className="rounded-full bg-sky-500 px-3 py-1 text-[11px] font-medium text-slate-950 hover:bg-sky-400"
+                    className="rounded-[9px] bg-[#0a84ff] px-3 py-1.5 text-[10px] font-medium text-white transition hover:bg-[#409cff]"
                   >
                     Listo
                   </button>
@@ -246,16 +258,16 @@ export default function NewTaskForm() {
                 setTimeQuery('');
                 setActiveIdx(0);
               }}
-              className="flex w-full items-center justify-between rounded-xl border border-slate-700/70 bg-gray-700/70 px-3 py-2 text-left text-sm text-slate-100 hover:border-sky-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              className="flex h-10 w-full items-center justify-between rounded-[12px] border border-white/[0.08] bg-[#1c1c1e] px-3 text-left text-[11px] font-normal text-white/[0.80] outline-none transition hover:border-white/[0.14] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
             >
-              <span className="text-xs text-slate-300">{timeLabel}</span>
-              <Clock3 className="ml-2 h-4 w-4 text-slate-400" />
+              <span className="text-[11px] text-white/[0.64]">{timeLabel}</span>
+              <Clock3 className="ml-2 h-4 w-4 text-white/[0.32]" />
             </button>
 
             {timePickerOpen && (
-              <div className="absolute right-0 z-50 mt-2 w-[240px] max-w-[85vw] rounded-2xl border border-slate-800 bg-slate-950/95 p-2 text-xs text-slate-100 shadow-xl shadow-slate-950/60">
+              <div className="absolute right-0 z-50 mt-2 w-[240px] max-w-[85vw] rounded-[18px] border border-white/[0.09] bg-[#242426] p-2 text-xs text-white/[0.82] shadow-[0_24px_70px_rgba(0,0,0,.48)]">
                 <div className="px-1 pb-2">
-                  <div className="mb-1 flex items-center justify-between text-[10px] text-slate-400">
+                  <div className="mb-1 flex items-center justify-between text-[10px] text-white/[0.38]">
                     <span>Hora</span>
                     <span className="text-slate-500">Ej: 13 → 13:00 / 13:30</span>
                   </div>
@@ -310,7 +322,7 @@ export default function NewTaskForm() {
                       }, 120);
                     }}
                     placeholder="Ej: 13 o 13:30"
-                    className="w-full rounded-xl border border-slate-700/80 bg-slate-900/80 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    className="h-9 w-full rounded-[10px] border border-white/[0.08] bg-[#1c1c1e] px-3 text-[11px] text-white/[0.84] outline-none placeholder:text-white/[0.28] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
                   />
                 </div>
 
@@ -334,13 +346,13 @@ export default function NewTaskForm() {
                           onMouseEnter={() => setActiveIdx(idx)}
                           className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[11px] transition ${
                             active
-                              ? 'bg-slate-800 text-slate-100'
-                              : 'text-slate-200 hover:bg-slate-800/70'
+                              ? 'bg-white/[0.08] text-white'
+                              : 'text-white/[0.62] hover:bg-white/[0.05]'
                           }`}
                         >
                           <span>{t}</span>
                           {selected ? (
-                            <span className="text-[9px] font-semibold uppercase text-slate-300">OK</span>
+                            <span className="text-[9px] font-medium uppercase text-[#5ac8fa]">OK</span>
                           ) : (
                             <span className="h-4 w-4" />
                           )}
@@ -357,7 +369,7 @@ export default function NewTaskForm() {
         <button
           onClick={handleCreate}
           disabled={creating || !newTask.title.trim() || !dateRange?.from}
-          className="inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 py-2 text-sm font-medium text-emerald-950 shadow-md shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-emerald-700/60"
+          className="inline-flex h-10 items-center justify-center rounded-[12px] bg-white px-4 text-[11px] font-medium text-[#0b1020] shadow-sm transition hover:bg-white/[0.90] disabled:cursor-not-allowed disabled:opacity-35"
         >
           {creating ? (
             <>
@@ -371,7 +383,61 @@ export default function NewTaskForm() {
         </button>
       </div>
 
-      <p className="mt-2 text-[11px] text-gray-400">
+      <div className="mt-3 flex flex-col gap-2 rounded-[14px] border border-white/[0.06] bg-white/[0.025] p-3 sm:flex-row sm:items-center">
+        <div className="flex min-w-[150px] items-center gap-2 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.42]">
+          <Repeat2 className="h-3.5 w-3.5 text-[#5ac8fa]" />
+          Repetición
+        </div>
+
+        <div className="w-full sm:max-w-[290px]">
+          <RedcomSelect
+            value={recurrence}
+            onValueChange={(value) =>
+              setRecurrence(value as 'none' | TaskRecurrenceType)
+            }
+            surface="dark"
+            options={[
+              { value: 'none', label: 'No repetir' },
+              { value: 'daily', label: 'Todos los días' },
+              {
+                value: 'weekly',
+                label: dateRange?.from
+                  ? `Todos los ${dateRange.from.toLocaleDateString('es-AR', { weekday: 'long' })}`
+                  : 'Todas las semanas',
+              },
+              { value: 'first_business_day_month', label: 'Primer día hábil del mes' },
+              { value: 'every_n_days', label: 'Cada cierta cantidad de días' },
+            ]}
+            aria-label="Frecuencia de repetición"
+            className="h-10 rounded-[12px] text-[11px]"
+          />
+        </div>
+
+        {recurrence === 'every_n_days' ? (
+          <label className="flex items-center gap-2 text-[11px] text-white/[0.48]">
+            Cada
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={recurrenceIntervalDays}
+              onChange={(e) =>
+                setRecurrenceIntervalDays(
+                  Math.max(1, Number(e.target.value || 1)),
+                )
+              }
+              className="h-10 w-20 rounded-[12px] border border-white/[0.08] bg-[#1c1c1e] px-3 text-center text-[11px] text-white/[0.84] outline-none focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
+            />
+            días
+          </label>
+        ) : null}
+
+        <p className="text-[10px] leading-4 text-white/[0.30] sm:ml-auto sm:max-w-[360px] sm:text-right">
+          Al completar una tarea recurrente se crea automáticamente la próxima instancia.
+        </p>
+      </div>
+
+      <p className="mt-3 text-[10px] font-normal text-white/[0.34]">
         Tip: seleccioná un rango de días y una hora para crear la misma tarea en todos esos días.
       </p>
     </section>

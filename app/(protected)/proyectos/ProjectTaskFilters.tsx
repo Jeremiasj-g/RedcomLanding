@@ -1,19 +1,23 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Filter, Search, ChevronDown, X, Users2 } from 'lucide-react';
-import type { AssigneeOption } from '@/lib/projectTasks';
+import { useMemo, useState } from "react";
+import { Check, ChevronDown, Filter, Search, Users2, X } from "lucide-react";
+
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RedcomDatePicker } from "@/components/ui/redcom-date-picker";
+import { RedcomSearchableSelect, RedcomSelect } from "@/components/ui/redcom-select";
+import type { AssigneeOption } from "@/lib/projectTasks";
+import type { ProjectWithMembers } from "@/lib/projects";
 
 export type ProjectTaskFiltersState = {
   search: string;
-  status: 'all' | 'not_started' | 'in_progress' | 'done' | 'cancelled';
-  priority: 'all' | 'low' | 'medium' | 'high';
+  status: "all" | "not_started" | "in_progress" | "done" | "cancelled";
+  priority: "all" | "low" | "medium" | "high";
   project: string;
   responsibleIds: string[];
   dueFrom: string;
   dueTo: string;
-  viewMode: 'table' | 'grid';
+  viewMode: "table" | "kanban";
   showClosed: boolean;
 };
 
@@ -26,48 +30,64 @@ type Stats = {
 
 type Props = {
   supervisors?: AssigneeOption[];
+  projects?: ProjectWithMembers[];
   value?: ProjectTaskFiltersState;
-  stats?: Stats; // 👈 ahora opcional
+  stats?: Stats;
   onChange: (next: ProjectTaskFiltersState) => void;
 };
 
-const STATUS_LABELS: Record<ProjectTaskFiltersState['status'], string> = {
-  all: 'Todos',
-  not_started: 'Sin empezar',
-  in_progress: 'En curso',
-  done: 'Completadas',
-  cancelled: 'Canceladas',
+const STATUS_LABELS: Record<ProjectTaskFiltersState["status"], string> = {
+  all: "Todos",
+  not_started: "Sin empezar",
+  in_progress: "En curso",
+  done: "Completadas",
+  cancelled: "Canceladas",
 };
 
-const PRIORITY_LABELS: Record<ProjectTaskFiltersState['priority'], string> = {
-  all: 'Todas',
-  low: 'Baja',
-  medium: 'Media',
-  high: 'Alta',
+const PRIORITY_LABELS: Record<ProjectTaskFiltersState["priority"], string> = {
+  all: "Todas",
+  low: "Baja",
+  medium: "Media",
+  high: "Alta",
 };
+
+const DEFAULT_FILTERS: ProjectTaskFiltersState = {
+  search: "",
+  status: "all",
+  priority: "all",
+  project: "",
+  responsibleIds: [],
+  dueFrom: "",
+  dueTo: "",
+  viewMode: "table",
+  showClosed: true,
+};
+
+function statusTone(value: ProjectTaskFiltersState["status"]) {
+  if (value === "in_progress") return "blue" as const;
+  if (value === "done") return "green" as const;
+  if (value === "cancelled") return "red" as const;
+  return "neutral" as const;
+}
+
+function priorityTone(value: ProjectTaskFiltersState["priority"]) {
+  if (value === "low") return "green" as const;
+  if (value === "medium") return "amber" as const;
+  if (value === "high") return "red" as const;
+  return "neutral" as const;
+}
 
 export default function ProjectTaskFilters({
   supervisors,
+  projects,
   value,
   stats,
   onChange,
 }: Props) {
-  // 🔒 defaults
-  const defaultFilters: ProjectTaskFiltersState = {
-    search: '',
-    status: 'all',
-    priority: 'all',
-    project: '',
-    responsibleIds: [],
-    dueFrom: '',
-    dueTo: '',
-    viewMode: 'table',
-    showClosed: true,
-  };
-
-  const safeValue = value ?? defaultFilters;
+  const safeValue = value ?? DEFAULT_FILTERS;
   const safeSupervisors = supervisors ?? [];
-  const safeStats: Stats = stats ?? {
+  const safeProjects = projects ?? [];
+  const safeStats = stats ?? {
     total: 0,
     completed: 0,
     pending: 0,
@@ -82,451 +102,322 @@ export default function ProjectTaskFilters({
     responsibleIds,
     dueFrom,
     dueTo,
-    viewMode,
-    showClosed,
   } = safeValue;
 
-  // dropdown responsables
   const [responsibleOpen, setResponsibleOpen] = useState(false);
-  const [responsibleSearch, setResponsibleSearch] = useState('');
+  const [responsibleSearch, setResponsibleSearch] = useState("");
 
-  // cerrar con ESC
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setResponsibleOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
+  const selectedSupervisors = useMemo(
+    () => safeSupervisors.filter((person) => responsibleIds.includes(person.id)),
+    [safeSupervisors, responsibleIds],
+  );
 
   const filteredSupervisors = useMemo(() => {
     const term = responsibleSearch.trim().toLowerCase();
     if (!term) return safeSupervisors;
-    return safeSupervisors.filter((s) => {
-      const text = `${s.full_name ?? ''} ${s.email ?? ''}`.toLowerCase();
-      return text.includes(term);
-    });
-  }, [safeSupervisors, responsibleSearch]);
+    return safeSupervisors.filter((person) =>
+      `${person.full_name ?? ""} ${person.email ?? ""}`
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [responsibleSearch, safeSupervisors]);
 
-  const selectedSupervisors = useMemo(
-    () => safeSupervisors.filter((s) => responsibleIds.includes(s.id)),
-    [safeSupervisors, responsibleIds],
-  );
+  const activeCount = [
+    Boolean(search),
+    Boolean(project),
+    status !== "all",
+    priority !== "all",
+    responsibleIds.length > 0,
+    Boolean(dueFrom),
+    Boolean(dueTo),
+  ].filter(Boolean).length;
 
   const handleChange = (patch: Partial<ProjectTaskFiltersState>) => {
     onChange({ ...safeValue, ...patch });
   };
 
   const toggleResponsible = (id: string) => {
-    const has = responsibleIds.includes(id);
-    const next = has
-      ? responsibleIds.filter((x) => x !== id)
-      : [...responsibleIds, id];
-    handleChange({ responsibleIds: next });
+    handleChange({
+      responsibleIds: responsibleIds.includes(id)
+        ? responsibleIds.filter((current) => current !== id)
+        : [...responsibleIds, id],
+    });
   };
 
   const clearResponsibles = () => {
     handleChange({ responsibleIds: [] });
-    setResponsibleSearch('');
+    setResponsibleSearch("");
   };
 
+  const resetAll = () => {
+    onChange({
+      ...DEFAULT_FILTERS,
+      viewMode: safeValue.viewMode,
+      showClosed: safeValue.showClosed,
+    });
+    setResponsibleSearch("");
+  };
+
+  const responsibleLabel =
+    responsibleIds.length === 0
+      ? "Todos"
+      : responsibleIds.length === 1
+        ? selectedSupervisors[0]?.full_name ??
+          selectedSupervisors[0]?.email ??
+          "1 seleccionado"
+        : `${responsibleIds.length} seleccionados`;
+
   return (
-    <section className="flex flex-col gap-4 rounded-2xl">
-      {/* Resumen / métricas */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        <MetricCard
-          label="Tareas filtradas"
-          value={safeStats.total}
-          description="Total de tareas que cumplen los filtros."
-        />
-        <MetricCard
-          label="Completadas"
-          value={safeStats.completed}
-          description="Tareas marcadas como realizadas."
-          accent="emerald"
-        />
-        <MetricCard
-          label="Pendientes"
-          value={safeStats.pending}
-          description="Tareas en curso o sin empezar."
-          accent="amber"
-        />
-        <MetricCard
-          label="Avance"
-          value={`${safeStats.completionRate}%`}
-          description="Porcentaje completado del total."
-          accent="sky"
-        />
+    <section className="overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#17181b] shadow-[0_14px_40px_rgba(0,0,0,.18)]">
+      <div className="grid grid-cols-2 border-b border-white/[0.07] md:grid-cols-4">
+        <Metric label="Visibles" value={safeStats.total} />
+        <Metric label="Completadas" value={safeStats.completed} />
+        <Metric label="Pendientes" value={safeStats.pending} />
+        <Metric label="Avance" value={`${safeStats.completionRate}%`} last />
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/90 p-3 text-xs text-slate-100">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          <Filter className="h-3.5 w-3.5" />
-          Filtros de vista
-        </div>
-
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          {/* Search principal + proyecto */}
-          <div className="flex flex-1 flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
-                <input
-                  value={search}
-                  onChange={(e) => handleChange({ search: e.target.value })}
-                  placeholder="Buscar por título, resumen o proyecto..."
-                  className="w-full rounded-lg border border-slate-800 bg-slate-950 pl-7 pr-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <input
-                value={project}
-                onChange={(e) => handleChange({ project: e.target.value })}
-                placeholder="Filtrar por nombre de proyecto..."
-                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
+      <div className="px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/[0.58]" />
+            <input
+              value={search}
+              onChange={(event) => handleChange({ search: event.target.value })}
+              placeholder="Buscar tarea, resumen o proyecto"
+              className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.04] pl-10 pr-3 text-sm font-normal text-[#f5f5f7] outline-none transition placeholder:text-white/[0.58] hover:bg-white/[0.055] focus:border-[#0a84ff]/60 focus:bg-white/[0.06] focus:ring-4 focus:ring-[#0a84ff]/10"
+            />
           </div>
 
-          {/* Estado / Prioridad */}
-          <div className="flex flex-wrap gap-2 md:w-[280px] md:justify-end">
-            <select
+          <div className="grid gap-2 sm:grid-cols-2 xl:w-[390px]">
+            <RedcomSelect
               value={status}
-              onChange={(e) =>
-                handleChange({
-                  status: e.target.value as ProjectTaskFiltersState['status'],
-                })
+              surface="dark"
+              accent="indigo"
+              triggerTone={statusTone(status)}
+              className="h-11 rounded-[14px]"
+              onValueChange={(next) =>
+                handleChange({ status: next as ProjectTaskFiltersState["status"] })
               }
-              className="min-w-[130px] rounded-full border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-[11px] text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-            >
-              <option value="all">Estado: Todos</option>
-              <option value="not_started">Estado: Sin empezar</option>
-              <option value="in_progress">Estado: En curso</option>
-              <option value="done">Estado: Completadas</option>
-              <option value="cancelled">Estado: Canceladas</option>
-            </select>
-
-            <select
+              options={[
+                { value: "all", label: "Estado · Todos" },
+                { value: "not_started", label: "Estado · Sin empezar" },
+                { value: "in_progress", label: "Estado · En curso" },
+                { value: "done", label: "Estado · Completadas" },
+                { value: "cancelled", label: "Estado · Canceladas" },
+              ]}
+              aria-label="Filtrar por estado"
+            />
+            <RedcomSelect
               value={priority}
-              onChange={(e) =>
-                handleChange({
-                  priority: e.target
-                    .value as ProjectTaskFiltersState['priority'],
-                })
+              surface="dark"
+              accent="teal"
+              triggerTone={priorityTone(priority)}
+              className="h-11 rounded-[14px]"
+              onValueChange={(next) =>
+                handleChange({ priority: next as ProjectTaskFiltersState["priority"] })
               }
-              className="min-w-[130px] rounded-full border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-[11px] text-slate-100 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-            >
-              <option value="all">Prioridad: Todas</option>
-              <option value="low">Prioridad: Baja</option>
-              <option value="medium">Prioridad: Media</option>
-              <option value="high">Prioridad: Alta</option>
-            </select>
+              options={[
+                { value: "all", label: "Prioridad · Todas" },
+                { value: "low", label: "Prioridad · Baja" },
+                { value: "medium", label: "Prioridad · Media" },
+                { value: "high", label: "Prioridad · Alta" },
+              ]}
+              aria-label="Filtrar por prioridad"
+            />
           </div>
         </div>
 
-        {/* Responsables + fechas */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          {/* Dropdown responsables */}
-          <div className="relative md:w-[380px]">
-            <button
-              type="button"
-              onClick={() => setResponsibleOpen((o) => !o)}
-              className="flex w-full items-center justify-between rounded-full border border-slate-800 bg-slate-950 px-3 py-1.5 text-[11px] text-slate-100 hover:bg-slate-800"
-            >
-              <span className="flex items-center gap-2">
-                <Users2 className="h-3.5 w-3.5 text-slate-400" />
-                {responsibleIds.length === 0 ? (
-                  <span className="text-slate-400">
-                    Responsables: Todos
-                  </span>
-                ) : responsibleIds.length === 1 ? (
-                  <span>
-                    Responsable:{' '}
-                    <strong>
-                      {selectedSupervisors[0]?.full_name ??
-                        selectedSupervisors[0]?.email ??
-                        'Sin nombre'}
-                    </strong>
-                  </span>
-                ) : (
-                  <span>
-                    Responsables seleccionados:{' '}
-                    <strong>{responsibleIds.length}</strong>
-                  </span>
-                )}
-              </span>
-              <div className="flex items-center gap-1">
-                {responsibleIds.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearResponsibles();
-                    }}
-                    className="rounded-full p-0.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-                <ChevronDown className="h-3 w-3 text-slate-400" />
-              </div>
-            </button>
+        <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_190px_190px]">
+          <RedcomSearchableSelect
+            value={project}
+            surface="dark"
+            accent="indigo"
+            className="h-11 rounded-[14px]"
+            onValueChange={(next) => handleChange({ project: next })}
+            placeholder="Todos los proyectos"
+            searchPlaceholder="Buscar proyecto..."
+            emptyMessage="No se encontraron proyectos."
+            options={[
+              { value: "", label: "Todos los proyectos" },
+              ...safeProjects
+                .filter((item) => item.status !== "archived")
+                .map((item) => ({
+                  value: item.name,
+                  label: item.name,
+                  keywords: [item.description ?? "", item.status],
+                })),
+            ]}
+            aria-label="Filtrar por proyecto"
+          />
 
-            <AnimatePresence>
-              {responsibleOpen && (
-                <>
-                  {/* overlay para cerrar con click fuera */}
-                  <motion.div
-                    className="fixed inset-0 z-20"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 0 }}
-                    exit={{ opacity: 0 }}
-                    onClick={() => setResponsibleOpen(false)}
-                  />
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.16 }}
-                    className="absolute z-30 mt-2 w-full rounded-xl border border-slate-800 bg-slate-950/95 p-2 text-[11px] text-slate-100 shadow-xl shadow-slate-950/70"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="mb-2 flex items-center gap-1">
-                      <Search className="h-3.5 w-3.5 text-slate-500" />
-                      <input
-                        value={responsibleSearch}
-                        onChange={(e) =>
-                          setResponsibleSearch(e.target.value)
-                        }
-                        placeholder="Buscar supervisor..."
-                        className="w-full rounded-md border border-slate-800 bg-slate-900 px-2 py-1 text-[10px] text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                      />
-                    </div>
-
-                    {filteredSupervisors.length === 0 ? (
-                      <p className="px-1 py-1 text-[10px] text-slate-500">
-                        No se encontraron supervisores.
-                      </p>
-                    ) : (
-                      <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
-                        {filteredSupervisors.map((sup) => {
-                          const isSelected = responsibleIds.includes(sup.id);
-                          return (
-                            <button
-                              key={sup.id}
-                              type="button"
-                              onClick={() => toggleResponsible(sup.id)}
-                              className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-left hover:bg-slate-800 ${
-                                isSelected
-                                  ? 'text-sky-200'
-                                  : 'text-slate-100'
-                              }`}
-                            >
-                              <span className="flex flex-col">
-                                <span className="text-[11px]">
-                                  {sup.full_name ?? sup.email ?? 'Sin nombre'}
-                                </span>
-                                {sup.email && (
-                                  <span className="text-[10px] text-slate-500">
-                                    {sup.email}
-                                  </span>
-                                )}
-                              </span>
-                              <span
-                                className={`h-3 w-3 rounded-sm border border-slate-500 ${
-                                  isSelected
-                                    ? 'bg-sky-500/80 border-sky-400'
-                                    : 'bg-transparent'
-                                }`}
-                              />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <div className="mt-2 flex items-center justify-between border-t border-slate-800 pt-2">
-                      <button
-                        type="button"
-                        onClick={clearResponsibles}
-                        className="text-[10px] text-slate-400 hover:text-slate-200"
-                      >
-                        Limpiar selección
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setResponsibleOpen(false)}
-                        className="rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-medium text-sky-50 hover:bg-sky-500"
-                      >
-                        Aplicar
-                      </button>
-                    </div>
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Rango de fechas */}
-          <div className="flex flex-wrap gap-2 md:justify-end">
-            <div className="flex items-center gap-1">
-              <span className="text-[11px] text-slate-400">Desde</span>
-              <input
-                type="date"
-                value={dueFrom}
-                onChange={(e) => handleChange({ dueFrom: e.target.value })}
-                className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[11px] text-slate-400">Hasta</span>
-              <input
-                type="date"
-                value={dueTo}
-                onChange={(e) => handleChange({ dueTo: e.target.value })}
-                className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Chips resumen filtros activos */}
-        <div className="flex flex-wrap gap-1.5 text-[10px] text-slate-300">
-          {search ||
-          project ||
-          status !== 'all' ||
-          priority !== 'all' ||
-          responsibleIds.length > 0 ||
-          dueFrom ||
-          dueTo ? (
-            <>
-              <span className="mr-1 text-slate-500">Filtros activos:</span>
-
-              {search && (
-                <FilterChip
-                  label={`Texto: "${search}"`}
-                  onClear={() => handleChange({ search: '' })}
-                />
-              )}
-
-              {project && (
-                <FilterChip
-                  label={`Proyecto: "${project}"`}
-                  onClear={() => handleChange({ project: '' })}
-                />
-              )}
-
-              {status !== 'all' && (
-                <FilterChip
-                  label={`Estado: ${STATUS_LABELS[status]}`}
-                  onClear={() => handleChange({ status: 'all' })}
-                />
-              )}
-
-              {priority !== 'all' && (
-                <FilterChip
-                  label={`Prioridad: ${PRIORITY_LABELS[priority]}`}
-                  onClear={() => handleChange({ priority: 'all' })}
-                />
-              )}
-
-              {responsibleIds.length > 0 && (
-                <FilterChip
-                  label={`Responsables: ${responsibleIds.length}`}
-                  onClear={clearResponsibles}
-                />
-              )}
-
-              {dueFrom && (
-                <FilterChip
-                  label={`Desde: ${dueFrom}`}
-                  onClear={() => handleChange({ dueFrom: '' })}
-                />
-              )}
-
-              {dueTo && (
-                <FilterChip
-                  label={`Hasta: ${dueTo}`}
-                  onClear={() => handleChange({ dueTo: '' })}
-                />
-              )}
-
+          <Popover open={responsibleOpen} onOpenChange={setResponsibleOpen}>
+            <PopoverTrigger asChild>
               <button
                 type="button"
-                onClick={() =>
-                  onChange({
-                    ...defaultFilters,
-                    viewMode, // respetamos el modo de vista actual
-                  })
-                }
-                className="ml-2 rounded-full border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800"
+                className="flex h-11 w-full items-center justify-between gap-3 rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3 text-left text-sm font-normal text-[#f5f5f7] outline-none transition hover:bg-white/[0.055] focus-visible:border-[#0a84ff]/60 focus-visible:ring-4 focus-visible:ring-[#0a84ff]/10 data-[state=open]:border-[#0a84ff]/60 data-[state=open]:bg-white/[0.06]"
               >
-                Limpiar todo
+                <span className="flex min-w-0 items-center gap-2">
+                  <Users2 className="h-4 w-4 shrink-0 text-white/[0.65]" />
+                  <span className="truncate">Responsables · {responsibleLabel}</span>
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-white/[0.58]" />
               </button>
-            </>
-          ) : (
-            <span className="text-slate-500">
-              Sin filtros activos. Mostrando todas las tareas permitidas.
-            </span>
-          )}
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              sideOffset={8}
+              className="z-[240] w-[var(--radix-popover-trigger-width)] min-w-[320px] rounded-[18px] border border-white/[0.09] bg-[#1c1c1e] p-2 text-[#f5f5f7] shadow-[0_24px_70px_rgba(0,0,0,.38)]"
+            >
+              <div className="relative border-b border-white/[0.07] p-1 pb-2">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-[calc(50%+2px)] text-white/[0.50]" />
+                <input
+                  value={responsibleSearch}
+                  onChange={(event) => setResponsibleSearch(event.target.value)}
+                  placeholder="Buscar responsable"
+                  className="h-10 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] pl-9 pr-3 text-sm font-normal text-white outline-none placeholder:text-white/[0.46] focus:border-[#0a84ff]/[0.55] focus:ring-4 focus:ring-[#0a84ff]/10"
+                />
+              </div>
+              <div className="max-h-64 overflow-y-auto py-1">
+                {filteredSupervisors.length === 0 ? (
+                  <div className="px-3 py-8 text-center text-sm font-normal text-white/[0.65]">
+                    No se encontraron responsables.
+                  </div>
+                ) : (
+                  filteredSupervisors.map((person) => {
+                    const selected = responsibleIds.includes(person.id);
+                    return (
+                      <button
+                        key={person.id}
+                        type="button"
+                        onClick={() => toggleResponsible(person.id)}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.055]"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-white/[0.94]">
+                            {person.full_name ?? person.email ?? "Sin nombre"}
+                          </span>
+                          {person.email ? (
+                            <span className="mt-0.5 block truncate text-xs font-normal text-white/[0.65]">
+                              {person.email}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span
+                          className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg border transition ${
+                            selected
+                              ? "border-[#0a84ff] bg-[#0a84ff] text-white"
+                              : "border-white/[0.15] bg-transparent text-transparent"
+                          }`}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              <div className="flex items-center justify-between border-t border-white/[0.07] p-1 pt-2">
+                <button
+                  type="button"
+                  onClick={clearResponsibles}
+                  disabled={responsibleIds.length === 0}
+                  className="rounded-xl px-3 py-2 text-xs font-medium text-white/[0.72] transition hover:bg-white/[0.05] hover:text-white/[0.88] disabled:opacity-30"
+                >
+                  Limpiar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResponsibleOpen(false)}
+                  className="rounded-xl bg-[#0a84ff] px-4 py-2 text-xs font-medium text-white transition hover:bg-[#409cff]"
+                >
+                  Aplicar
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <RedcomDatePicker
+            value={dueFrom}
+            onChange={(next) => handleChange({ dueFrom: next })}
+            placeholder="Desde"
+            surface="dark"
+            accent="indigo"
+            className="h-11 rounded-[14px]"
+            aria-label="Vencimiento desde"
+          />
+          <RedcomDatePicker
+            value={dueTo}
+            onChange={(next) => handleChange({ dueTo: next })}
+            placeholder="Hasta"
+            surface="dark"
+            accent="indigo"
+            className="h-11 rounded-[14px]"
+            aria-label="Vencimiento hasta"
+          />
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/[0.07] pt-3">
+          <div className="mr-auto flex items-center gap-2 text-xs font-normal text-white/[0.68]">
+            <Filter className="h-3.5 w-3.5" />
+            {activeCount === 0
+              ? "Sin filtros activos"
+              : `${activeCount} filtro${activeCount === 1 ? "" : "s"} activo${activeCount === 1 ? "" : "s"}`}
+          </div>
+
+          {project ? (
+            <Chip label={project} onClear={() => handleChange({ project: "" })} />
+          ) : null}
+          {status !== "all" ? (
+            <Chip label={STATUS_LABELS[status]} onClear={() => handleChange({ status: "all" })} />
+          ) : null}
+          {priority !== "all" ? (
+            <Chip label={PRIORITY_LABELS[priority]} onClear={() => handleChange({ priority: "all" })} />
+          ) : null}
+          {responsibleIds.length > 0 ? (
+            <Chip label={`${responsibleIds.length} responsables`} onClear={clearResponsibles} />
+          ) : null}
+
+          {activeCount > 0 ? (
+            <button
+              type="button"
+              onClick={resetAll}
+              className="ml-1 rounded-lg px-2 py-1 text-xs font-normal text-[#0a84ff] transition hover:bg-[#0a84ff]/10"
+            >
+              Restablecer
+            </button>
+          ) : null}
         </div>
       </div>
     </section>
   );
 }
 
-function MetricCard({
+function Metric({
   label,
   value,
-  description,
-  accent = 'slate',
+  last = false,
 }: {
   label: string;
   value: number | string;
-  description: string;
-  accent?: 'slate' | 'emerald' | 'amber' | 'sky';
+  last?: boolean;
 }) {
-  const accentClasses: Record<string, string> = {
-    slate: 'border-slate-700/70 bg-slate-900 text-slate-100',
-    emerald: 'border-emerald-700/60 bg-emerald-900 text-emerald-50',
-    amber: 'border-amber-700/60 bg-yellow-600 text-amber-50',
-    sky: 'border-sky-700/60 bg-sky-950 text-sky-50',
-  };
-
   return (
-    <div
-      className={`flex flex-col rounded-xl border px-3 py-2 text-xs shadow-sm ${accentClasses[accent]}`}
-    >
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-white/90">
-        {label}
-      </span>
-      <span className="mt-1 text-lg font-semibold">{value}</span>
-      <span className="mt-1 text-[10px] text-white/90">
-        {description}
-      </span>
+    <div className={`px-4 py-4 sm:px-5 ${last ? "" : "border-r border-white/[0.07]"}`}>
+      <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.65]">{label}</div>
+      <div className="mt-1 text-2xl font-medium tracking-[-0.035em] text-white">{value}</div>
     </div>
   );
 }
 
-function FilterChip({
-  label,
-  onClear,
-}: {
-  label: string;
-  onClear: () => void;
-}) {
+function Chip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5">
-      <span>{label}</span>
+    <span className="inline-flex items-center gap-1 rounded-lg bg-white/[0.055] px-2 py-1 text-[11px] font-normal text-white/[0.78]">
+      {label}
       <button
         type="button"
         onClick={onClear}
-        className="rounded-full p-0.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+        className="rounded-md p-0.5 text-white/[0.58] transition hover:bg-white/[0.07] hover:text-white/[0.82]"
+        aria-label={`Quitar filtro ${label}`}
       >
         <X className="h-3 w-3" />
       </button>

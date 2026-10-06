@@ -96,6 +96,8 @@ type Props = {
   variant: Variant;
   /** callback para avisar cuando el checklist queda 100% completo (o deja de estarlo) */
   onAllDoneChange?: (allDone: boolean, stats: { done: number; total: number }) => void;
+  /** reduce alturas y elimina scrolls anidados para usar dentro de modales */
+  compact?: boolean;
 };
 
 function DraggableItem({
@@ -144,7 +146,7 @@ function GroupDropZone({
   return (
     <div
       ref={setNodeRef}
-      className={`${className} ${isOver ? 'ring-1 ring-sky-500/60' : ''}`}
+      className={`${className} ${isOver ? 'ring-1 ring-[#5ac8fa]/35' : ''}`}
     >
       {children}
     </div>
@@ -157,6 +159,7 @@ export default function TaskChecklistSection({
   editable,
   variant,
   onAllDoneChange,
+  compact = false,
 }: Props) {
   const [items, setItems] = useState<TaskItem[]>([]);
   const [newItem, setNewItem] = useState('');
@@ -395,11 +398,11 @@ export default function TaskChecklistSection({
   };
 
   return (
-    <div className="max-h-[70vh] space-y-5 px-5 py-4">
+    <div className={compact ? 'space-y-3 px-4 py-4' : 'h-full max-h-none space-y-5 overflow-y-auto px-5 py-5'}>
       {/* notas breves si existen */}
       {notes && notes.trim().length > 0 && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-3 text-xs text-slate-200">
-          <div className="mb-1 flex items-center gap-2 text-[11px] font-medium text-slate-400">
+        <div className="rounded-[14px] border border-white/[0.07] bg-white/[0.035] p-3 text-xs text-white/[0.72]">
+          <div className="mb-1 flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.38]">
             <StickyNote className="h-3 w-3" />
             {variant === 'owner' ? 'Nota breve guardada' : 'Nota breve'}
           </div>
@@ -410,11 +413,11 @@ export default function TaskChecklistSection({
       )}
 
       {/* checklist / items */}
-      <section className="rounded-xl border border-slate-800">
+      <section className={compact ? 'rounded-[16px] border border-white/[0.07] bg-[#17181b] p-3' : 'rounded-[18px] border border-white/[0.07] bg-[#17181b] p-3'}>
         <div className="mb-2 flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-medium text-slate-100">{title}</h3>
-            <p className="text-[11px] text-slate-400">{subtitle}</p>
+            <h3 className="text-[11px] font-medium text-white/[0.88]">{title}</h3>
+            <p className="text-[10px] font-normal text-white/[0.40]">{subtitle}</p>
           </div>
         </div>
 
@@ -426,18 +429,18 @@ export default function TaskChecklistSection({
               <button
                 type="button"
                 onClick={() => setGroupMenuOpen((v) => !v)}
-                className="flex w-full items-center justify-between rounded-lg border border-slate-700/70 bg-slate-950/50 px-3 py-2 text-left text-[11px] text-slate-200 hover:border-slate-600"
+                className="flex h-9 w-full items-center justify-between rounded-[10px] border border-white/[0.08] bg-[#1c1c1e] px-3 text-left text-[10px] text-white/[0.70] transition hover:border-white/[0.14]"
               >
                 <span className="truncate">
                   {selectedGroup ? (
                     <>
-                      Grupo: <span className="font-medium text-slate-100">{selectedGroup}</span>
+                      Grupo: <span className="font-medium text-white/[0.88]">{selectedGroup}</span>
                     </>
                   ) : (
-                    <span className="text-slate-300">Sin grupo</span>
+                    <span className="text-white/[0.62]">Sin grupo</span>
                   )}
                 </span>
-                <span className="ml-3 text-slate-400">▾</span>
+                <span className="ml-3 text-white/[0.30]">▾</span>
               </button>
 
               <AnimatePresence initial={false}>
@@ -447,7 +450,7 @@ export default function TaskChecklistSection({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.985 }}
                     transition={{ duration: 0.16 }}
-                    className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-slate-700 bg-slate-950/95 shadow-xl shadow-black/40"
+                    className="absolute z-20 mt-2 w-full overflow-hidden rounded-[14px] border border-white/[0.09] bg-[#242426] shadow-[0_24px_70px_rgba(0,0,0,.45)]"
                   >
                   <button
                     type="button"
@@ -457,16 +460,16 @@ export default function TaskChecklistSection({
                       setCreatingGroup(false);
                       setNewGroupDraft('');
                     }}
-                    className={`flex w-full items-center justify-between px-3 py-2 text-[11px] hover:bg-slate-900 ${
-                      !selectedGroup ? 'text-sky-200' : 'text-slate-200'
+                    className={`flex w-full items-center justify-between px-3 py-2 text-[11px] hover:bg-white/[0.05] ${
+                      !selectedGroup ? 'text-[#8bc7ff]' : 'text-white/[0.68]'
                     }`}
                   >
                     <span>Sin grupo</span>
-                    {!selectedGroup && <span className="text-slate-500">✓</span>}
+                    {!selectedGroup && <span className="text-white/[0.30]">✓</span>}
                   </button>
 
                   {groups.length > 0 && (
-                    <div className="max-h-44 overflow-auto border-t border-slate-800 py-1">
+                    <div className="max-h-44 overflow-auto border-t border-white/[0.07] py-1">
                       {groups.map((g) => (
                         <button
                           key={g}
@@ -477,30 +480,30 @@ export default function TaskChecklistSection({
                             setCreatingGroup(false);
                             setNewGroupDraft('');
                           }}
-                          className={`flex w-full items-center justify-between px-3 py-2 text-[11px] hover:bg-slate-900 ${
-                            selectedGroup === g ? 'text-sky-200' : 'text-slate-200'
+                          className={`flex w-full items-center justify-between px-3 py-2 text-[11px] hover:bg-white/[0.05] ${
+                            selectedGroup === g ? 'text-[#8bc7ff]' : 'text-white/[0.68]'
                           }`}
                         >
                           <span className="truncate">{g}</span>
-                          {selectedGroup === g && <span className="text-slate-500">✓</span>}
+                          {selectedGroup === g && <span className="text-white/[0.30]">✓</span>}
                         </button>
                       ))}
                     </div>
                   )}
 
-                  <div className="border-t border-slate-800 p-2">
+                  <div className="border-t border-white/[0.07] p-2">
                     {!creatingGroup ? (
                       <button
                         type="button"
                         onClick={() => setCreatingGroup(true)}
-                        className="w-full rounded-lg bg-slate-900/70 px-3 py-2 text-[11px] text-slate-200 hover:bg-slate-900"
+                        className="w-full rounded-lg bg-white/[0.035] px-3 py-2 text-[11px] text-white/[0.68] hover:bg-white/[0.05]"
                       >
                         + Crear nuevo grupo
                       </button>
                     ) : (
                       <div className="flex gap-2">
                         <input
-                          className="flex-1 rounded-lg border border-slate-700/70 bg-slate-950/60 px-3 py-2 text-[11px] text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                          className="flex-1 rounded-[10px] border border-white/[0.08] bg-[#1c1c1e] px-3 py-2 text-[11px] text-white/[0.82] outline-none placeholder:text-white/[0.28] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
                           placeholder="Ej: Categorías"
                           value={newGroupDraft}
                           onChange={(e) => setNewGroupDraft(e.target.value)}
@@ -525,7 +528,7 @@ export default function TaskChecklistSection({
                             setCreatingGroup(false);
                             setNewGroupDraft('');
                           }}
-                          className="rounded-lg bg-sky-500 px-3 py-2 text-[11px] font-medium text-sky-950 hover:bg-sky-400"
+                          className="rounded-[9px] bg-[#0a84ff] px-3 py-2 text-[10px] font-medium text-white transition hover:bg-[#409cff]"
                         >
                           OK
                         </button>
@@ -541,7 +544,7 @@ export default function TaskChecklistSection({
             <div className="flex gap-2">
               <input
                 ref={inputRef}
-                className="flex-1 rounded-lg border border-slate-700/70 bg-slate-950/70 px-3 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="flex-1 rounded-[10px] border border-white/[0.08] bg-[#1c1c1e] px-3 py-1.5 text-xs text-white/[0.82] outline-none placeholder:text-white/[0.28] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
                 placeholder={
                   selectedGroup
                     ? `Ej: (${selectedGroup}) Revisé línea de obj. fiambres 214 y FRS...`
@@ -558,7 +561,7 @@ export default function TaskChecklistSection({
               <button
                 onClick={handleAddItem}
                 disabled={savingItem || !newItem.trim()}
-                className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-emerald-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-emerald-700/60"
+                className="rounded-[10px] bg-white px-3 py-2 text-[10px] font-medium text-[#0b1020] transition hover:bg-white/[0.90] disabled:cursor-not-allowed disabled:opacity-35"
               >
                 {savingItem ? 'Guardando...' : 'Agregar'}
               </button>
@@ -568,12 +571,12 @@ export default function TaskChecklistSection({
 
         {/* lista items */}
         {loadingItems ? (
-          <div className="flex items-center gap-2 text-[11px] text-slate-400">
+          <div className="flex items-center gap-2 text-[10px] font-normal text-white/[0.40]">
             <Loader2 className="h-3 w-3 animate-spin" />
             Cargando items...
           </div>
         ) : items.length === 0 ? (
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-white/[0.30]">
             {editable
               ? 'Todavía no registraste ninguna acción para esta tarea.'
               : 'No hay ítems registrados para esta tarea.'}
@@ -587,14 +590,14 @@ export default function TaskChecklistSection({
             }}
             onDragEnd={onDragEnd}
           >
-            <div className="space-y-3 h-[22rem] overflow-y-auto">
+            <div className={compact ? 'max-h-[13rem] space-y-2 overflow-y-auto pr-1' : 'h-[22rem] space-y-3 overflow-y-auto'}>
             {/* Ungrouped primero */}
             {grouped.has('__ungrouped__') && (
               <GroupDropZone groupKey="__ungrouped__" disabled={!editable}>
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <div className="text-[11px] font-medium text-slate-200">Sin grupo</div>
-                  <div className="text-[10px] text-slate-500">
+                  <div className="text-[11px] font-medium text-white/[0.68]">Sin grupo</div>
+                  <div className="text-[10px] text-white/[0.30]">
                     {grouped.get('__ungrouped__')!.filter((i) => i.is_done).length}/
                     {grouped.get('__ungrouped__')!.length}
                   </div>
@@ -612,7 +615,7 @@ export default function TaskChecklistSection({
                             key={item.id}
                             ref={setNodeRef}
                             style={transformStyle}
-                            className={`flex items-center gap-2 rounded-lg border border-slate-800/70 bg-slate-950/70 px-2 py-1.5 z-10 ${
+                            className={`flex items-center gap-2 rounded-[10px] border border-white/[0.065] bg-white/[0.028] px-2 py-1.5 z-10 ${
                               isDragging ? 'opacity-60' : ''
                             }`}
                           >
@@ -621,7 +624,7 @@ export default function TaskChecklistSection({
                                 type="button"
                                 {...attributes}
                                 {...listeners}
-                                className="mt-[2px] rounded p-1 text-slate-500 hover:bg-slate-900/80 hover:text-slate-200"
+                                className="mt-[2px] rounded p-1 text-white/[0.30] hover:bg-white/[0.05]/80 hover:text-white/[0.68]"
                                 title="Arrastrar"
                               >
                                 <GripVertical className="h-4 w-4" />
@@ -636,20 +639,20 @@ export default function TaskChecklistSection({
                               className={`mt-[2px] flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border text-[10px] ${
                                 item.is_done
                                   ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                                  : 'border-slate-600 bg-slate-900 text-slate-400'
+                                  : 'border-white/[0.20] bg-white/[0.035] text-white/[0.36]'
                               } ${!editable ? 'cursor-default opacity-80' : ''}`}
                             >
                               {item.is_done && <CheckCircle2 className="h-3 w-3" />}
                             </button>
 
-                            <div className="flex-1 text-[11px] leading-snug text-slate-200">
+                            <div className="flex-1 text-[11px] leading-snug text-white/[0.68]">
                               {!isEditing ? (
-                                <p className={item.is_done ? 'font-bold text-slate-500' : ''}>{parsed.text}</p>
+                                <p className={item.is_done ? 'font-bold text-white/[0.30]' : ''}>{parsed.text}</p>
                               ) : (
                                 <div className="flex items-center gap-2">
                                   <input
                                     ref={editInputRef}
-                                    className="w-full rounded-lg border border-slate-700/70 bg-slate-950/70 px-2 py-1 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                    className="w-full rounded-[9px] border border-white/[0.08] bg-[#1c1c1e] px-2 py-1 text-xs text-white/[0.82] outline-none placeholder:text-white/[0.28] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
                                     value={editingValue}
                                     onChange={(e) => setEditingValue(e.target.value)}
                                     onKeyDown={(e) => {
@@ -666,7 +669,7 @@ export default function TaskChecklistSection({
                                   <button
                                     type="button"
                                     onClick={() => saveEditItem(item)}
-                                    className="rounded bg-emerald-500/15 p-1 text-emerald-300 hover:bg-emerald-500/25"
+                                    className="rounded-[7px] bg-emerald-400/10 p-1 text-emerald-300 transition hover:bg-emerald-400/18"
                                     title="Guardar"
                                   >
                                     <Check className="h-4 w-4" />
@@ -674,7 +677,7 @@ export default function TaskChecklistSection({
                                   <button
                                     type="button"
                                     onClick={cancelEditItem}
-                                    className="rounded bg-slate-900/70 p-1 text-slate-300 hover:bg-slate-900"
+                                    className="rounded bg-white/[0.035] p-1 text-white/[0.62] hover:bg-white/[0.05]"
                                     title="Cancelar"
                                   >
                                     <X className="h-4 w-4" />
@@ -682,7 +685,7 @@ export default function TaskChecklistSection({
                                 </div>
                               )}
 
-                              <span className="mt-0.5 block text-[10px] text-slate-500">
+                              <span className="mt-0.5 block text-[10px] text-white/[0.30]">
                                 {new Date(item.created_at).toLocaleString('es-AR', {
                                   day: '2-digit',
                                   month: 'short',
@@ -696,14 +699,14 @@ export default function TaskChecklistSection({
                               <div className="mt-[2px] flex items-center gap-1">
                                 <button
                                   onClick={() => startEditItem(item)}
-                                  className="rounded bg-slate-900/80 p-1 text-slate-500 hover:bg-slate-900 hover:text-slate-200"
+                                  className="rounded bg-white/[0.035] p-1 text-white/[0.30] hover:bg-white/[0.05] hover:text-white/[0.68]"
                                   title="Editar"
                                 >
                                   <Pencil className="h-3 w-3" />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteItem(item)}
-                                  className="rounded bg-slate-900/80 p-1 text-slate-500 hover:bg-rose-500/10 hover:text-rose-300"
+                                  className="rounded bg-white/[0.035] p-1 text-white/[0.30] hover:bg-rose-500/10 hover:text-rose-300"
                                   title="Eliminar"
                                 >
                                   <Trash2 className="h-3 w-3" />
@@ -730,7 +733,7 @@ export default function TaskChecklistSection({
 
               return (
                 <GroupDropZone groupKey={g} disabled={!editable}>
-                <div key={g} className="rounded-xl border border-slate-800/70 bg-slate-950/40">
+                <div key={g} className="rounded-[14px] border border-white/[0.065] bg-white/[0.025] p-2.5">
                   <button
                     type="button"
                     onClick={() =>
@@ -739,14 +742,14 @@ export default function TaskChecklistSection({
                     className="flex w-full items-center justify-between gap-3 px-3 py-2"
                   >
                     <div className="min-w-0 text-left">
-                      <div className="truncate text-[12px] font-medium text-slate-100">{g}</div>
-                      <div className="text-[10px] text-slate-500">Agrupación</div>
+                      <div className="truncate text-[12px] font-medium text-white/[0.88]">{g}</div>
+                      <div className="text-[10px] text-white/[0.30]">Agrupación</div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="text-[10px] text-slate-500">
+                      <div className="text-[10px] text-white/[0.30]">
                         {done}/{total}
                       </div>
-                      <div className="text-slate-400">{isCollapsed ? '▸' : '▾'}</div>
+                      <div className="text-white/[0.34]">{isCollapsed ? '▸' : '▾'}</div>
                     </div>
                   </button>
 
@@ -770,7 +773,7 @@ export default function TaskChecklistSection({
                                 key={item.id}
                                 ref={setNodeRef}
                                 style={transformStyle}
-                                className={`flex items-center gap-2 rounded-lg border border-slate-800/70 bg-slate-950/70 px-2 py-1.5 z-10 ${
+                                className={`flex items-center gap-2 rounded-[10px] border border-white/[0.065] bg-white/[0.028] px-2 py-1.5 z-10 ${
                                   isDragging ? 'opacity-60' : ''
                                 }`}
                               >
@@ -779,7 +782,7 @@ export default function TaskChecklistSection({
                                     type="button"
                                     {...attributes}
                                     {...listeners}
-                                    className="mt-[2px] rounded p-1 text-slate-500 hover:bg-slate-900/80 hover:text-slate-200"
+                                    className="mt-[2px] rounded p-1 text-white/[0.30] hover:bg-white/[0.05]/80 hover:text-white/[0.68]"
                                     title="Arrastrar"
                                   >
                                     <GripVertical className="h-4 w-4" />
@@ -794,20 +797,20 @@ export default function TaskChecklistSection({
                                   className={`mt-[2px] flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border text-[10px] ${
                                     item.is_done
                                       ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                                      : 'border-slate-600 bg-slate-900 text-slate-400'
+                                      : 'border-white/[0.20] bg-white/[0.035] text-white/[0.36]'
                                   } ${!editable ? 'cursor-default opacity-80' : ''}`}
                                 >
                                   {item.is_done && <CheckCircle2 className="h-3 w-3" />}
                                 </button>
 
-                                <div className="flex-1 text-[11px] leading-snug text-slate-200">
+                                <div className="flex-1 text-[11px] leading-snug text-white/[0.68]">
                                   {!isEditing ? (
-                                    <p className={item.is_done ? 'font-bold text-slate-500' : ''}>{parsed.text}</p>
+                                    <p className={item.is_done ? 'font-bold text-white/[0.30]' : ''}>{parsed.text}</p>
                                   ) : (
                                     <div className="flex items-center gap-2">
                                       <input
                                         ref={editInputRef}
-                                        className="w-full rounded-lg border border-slate-700/70 bg-slate-950/70 px-2 py-1 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                        className="w-full rounded-[9px] border border-white/[0.08] bg-[#1c1c1e] px-2 py-1 text-xs text-white/[0.82] outline-none placeholder:text-white/[0.28] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
                                         value={editingValue}
                                         onChange={(e) => setEditingValue(e.target.value)}
                                         onKeyDown={(e) => {
@@ -824,7 +827,7 @@ export default function TaskChecklistSection({
                                       <button
                                         type="button"
                                         onClick={() => saveEditItem(item)}
-                                        className="rounded bg-emerald-500/15 p-1 text-emerald-300 hover:bg-emerald-500/25"
+                                        className="rounded-[7px] bg-emerald-400/10 p-1 text-emerald-300 transition hover:bg-emerald-400/18"
                                         title="Guardar"
                                       >
                                         <Check className="h-4 w-4" />
@@ -832,7 +835,7 @@ export default function TaskChecklistSection({
                                       <button
                                         type="button"
                                         onClick={cancelEditItem}
-                                        className="rounded bg-slate-900/70 p-1 text-slate-300 hover:bg-slate-900"
+                                        className="rounded bg-white/[0.035] p-1 text-white/[0.62] hover:bg-white/[0.05]"
                                         title="Cancelar"
                                       >
                                         <X className="h-4 w-4" />
@@ -840,7 +843,7 @@ export default function TaskChecklistSection({
                                     </div>
                                   )}
 
-                                  <span className="mt-0.5 block text-[10px] text-slate-500">
+                                  <span className="mt-0.5 block text-[10px] text-white/[0.30]">
                                     {new Date(item.created_at).toLocaleString('es-AR', {
                                       day: '2-digit',
                                       month: 'short',
@@ -854,14 +857,14 @@ export default function TaskChecklistSection({
                                   <div className="mt-[2px] flex items-center gap-1">
                                     <button
                                       onClick={() => startEditItem(item)}
-                                      className="rounded bg-slate-900/80 p-1 text-slate-500 hover:bg-slate-900 hover:text-slate-200"
+                                      className="rounded bg-white/[0.035] p-1 text-white/[0.30] hover:bg-white/[0.05] hover:text-white/[0.68]"
                                       title="Editar"
                                     >
                                       <Pencil className="h-3 w-3" />
                                     </button>
                                     <button
                                       onClick={() => handleDeleteItem(item)}
-                                      className="rounded bg-slate-900/80 p-1 text-slate-500 hover:bg-rose-500/10 hover:text-rose-300"
+                                      className="rounded bg-white/[0.035] p-1 text-white/[0.30] hover:bg-rose-500/10 hover:text-rose-300"
                                       title="Eliminar"
                                     >
                                       <Trash2 className="h-3 w-3" />
@@ -885,7 +888,7 @@ export default function TaskChecklistSection({
         )}
       </section>
 
-      <div className="text-[11px] text-slate-500">{tip}</div>
+      {!compact ? <div className="text-[11px] text-white/[0.30]">{tip}</div> : null}
     </div>
   );
 }

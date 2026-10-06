@@ -1,14 +1,16 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { CalendarDays, Check, Clock, Loader2, Pencil, Save } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { CalendarDays, Check, Clock, Columns3, Loader2, Pencil, Repeat2, Save, Table2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Task } from '@/lib/tasks';
+import type { Task, TaskRecurrenceType } from '@/lib/tasks';
 import { supabase } from '@/lib/supabaseClient';
 import { errorMessage, notify } from '@/lib/notifications';
 
 import TaskChecklistSection from '../TaskChecklistSection';
+import TaskCommentsTimeline from './TaskCommentsTimeline';
 import { buildISOFromLocal, toYMD } from '../date';
 
 // shadcn/ui
@@ -16,7 +18,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { RedcomSelect } from '@/components/ui/redcom-select';
+import type { ProjectTaskSheetSaveState } from '../../proyectos/ProjectTaskSheetGrid';
 
+
+
+const ProjectTaskSheetGrid = dynamic(
+  () => import('../../proyectos/ProjectTaskSheetGrid'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid h-full min-h-[460px] place-items-center bg-[#17181b] text-[11px] text-white/[0.45]">
+        Preparando planilla...
+      </div>
+    ),
+  },
+);
 
 type Props = {
   task: Task | null;
@@ -183,16 +200,16 @@ function TimePicker({
             }, 120);
           }}
           placeholder="Ej: 13 ó 13:30"
-          className="pr-9 bg-slate-950/40"
+          className="h-10 rounded-[12px] border-white/[0.08] bg-[#1c1c1e] pr-9 text-[11px] font-normal text-white/[0.82] placeholder:text-white/[0.26] focus-visible:border-[#0a84ff]/45 focus-visible:ring-2 focus-visible:ring-[#0a84ff]/10"
         />
-        <Clock className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Clock className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-white/[0.32]" />
       </div>
 
       {open && !disabled && (
-        <div className="absolute z-[90] mt-2 w-full overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl shadow-black/40 backdrop-blur">
+        <div className="absolute z-[90] mt-2 w-full overflow-hidden rounded-[14px] border border-white/[0.09] bg-[#242426] shadow-[0_24px_70px_rgba(0,0,0,.45)] backdrop-blur">
           <div className="max-h-56 overflow-auto p-1">
             {suggestions.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-slate-400">No hay coincidencias.</div>
+              <div className="px-3 py-2 text-[11px] text-white/[0.38]">No hay coincidencias.</div>
             ) : (
               suggestions.map((t, idx) => {
                 const active = idx === activeIdx;
@@ -210,11 +227,11 @@ function TimePicker({
                     }}
                     onMouseEnter={() => setActiveIdx(idx)}
                     className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
-                      active ? 'bg-slate-800 text-slate-100' : 'text-slate-200 hover:bg-slate-800/70'
+                      active ? 'bg-white/[0.08] text-white' : 'text-white/[0.62] hover:bg-white/[0.05]'
                     }`}
                   >
                     <span>{t}</span>
-                    {selected ? <Check className="h-4 w-4 text-slate-300" /> : <span className="h-4 w-4" />}
+                    {selected ? <Check className="h-4 w-4 text-[#5ac8fa]" /> : <span className="h-4 w-4" />}
                   </button>
                 );
               })
@@ -236,6 +253,8 @@ export default function TaskDetailModal({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [time, setTime] = useState('09:00');
+  const [recurrence, setRecurrence] = useState<'none' | TaskRecurrenceType>('none');
+  const [recurrenceIntervalDays, setRecurrenceIntervalDays] = useState(15);
 
   const [editTitle, setEditTitle] = useState(false);
   const [editDescription, setEditDescription] = useState(false);
@@ -245,16 +264,61 @@ export default function TaskDetailModal({
   const descRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [saving, setSaving] = useState(false);
+  const [detailView, setDetailView] = useState<'normal' | 'sheet'>('normal');
+  const [sheetSaveState, setSheetSaveState] =
+    useState<ProjectTaskSheetSaveState>('idle');
 
   useEffect(() => {
     if (!task) return;
     setTitle(task.title ?? '');
     setDescription(task.description ?? '');
     setTime(hhmmLocal(task.scheduled_at));
+    setRecurrence(task.recurrence_type ?? 'none');
+    setRecurrenceIntervalDays(task.recurrence_interval_days ?? 15);
     setEditTitle(false);
     setEditDescription(false);
     setEditTime(false);
   }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!task) return;
+    setSheetSaveState('idle');
+
+    if (typeof window === 'undefined') {
+      setDetailView('normal');
+      return;
+    }
+
+    const key = `personal-task-detail-view:${task.id}`;
+    const saved = window.localStorage.getItem(key);
+    setDetailView(saved === 'sheet' ? 'sheet' : 'normal');
+  }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const changeDetailView = (next: 'normal' | 'sheet') => {
+    setDetailView(next);
+    if (!task || typeof window === 'undefined') return;
+    window.localStorage.setItem(`personal-task-detail-view:${task.id}`, next);
+  };
+
+  const sheetSaveLabel =
+    sheetSaveState === 'saving'
+      ? 'Guardando...'
+      : sheetSaveState === 'dirty'
+        ? 'Cambios sin guardar'
+        : sheetSaveState === 'error'
+          ? 'Error al guardar'
+          : sheetSaveState === 'idle'
+            ? 'Cargando...'
+            : 'Guardado';
+
+  const sheetSaveClass =
+    sheetSaveState === 'error'
+      ? 'text-rose-300'
+      : sheetSaveState === 'dirty'
+        ? 'text-amber-300'
+        : sheetSaveState === 'saving' || sheetSaveState === 'idle'
+          ? 'text-[#5ac8fa]'
+          : 'text-emerald-300';
 
   const dateLabel = useMemo(() => {
     if (!task) return '';
@@ -275,9 +339,12 @@ export default function TaskDetailModal({
     return (
       title.trim() !== originalTitle.trim() ||
       (description ?? '').trim() !== originalDesc.trim() ||
-      normalizeTimeInput(time) !== normalizeTimeInput(originalTime)
+      normalizeTimeInput(time) !== normalizeTimeInput(originalTime) ||
+      recurrence !== (task.recurrence_type ?? 'none') ||
+      (recurrence === 'every_n_days' &&
+        recurrenceIntervalDays !== (task.recurrence_interval_days ?? 15))
     );
-  }, [task, title, description, time]);
+  }, [task, title, description, time, recurrence, recurrenceIntervalDays]);
 
   async function saveEdits() {
     if (!task) return;
@@ -300,6 +367,13 @@ export default function TaskDetailModal({
         title: nextTitle,
         description: description?.trim() ? description.trim() : null,
         scheduled_at: nextScheduledAt,
+        recurrence_type: recurrence === 'none' ? null : recurrence,
+        recurrence_interval_days:
+          recurrence === 'every_n_days' ? recurrenceIntervalDays : null,
+        recurrence_series_id:
+          recurrence === 'none'
+            ? null
+            : (task.recurrence_series_id ?? crypto.randomUUID()),
       };
 
       const { data, error } = await supabase
@@ -346,7 +420,7 @@ export default function TaskDetailModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-md"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/[0.58] p-4 backdrop-blur-md"
           onClick={onClose}
         >
           <motion.div
@@ -354,46 +428,105 @@ export default function TaskDetailModal({
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: 24, scale: 0.97, opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="relative h-[87dvh] w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-800 bg-gray-800 text-slate-100 shadow-2xl shadow-slate-950/70"
+            className="relative h-[88dvh] w-full max-w-[1120px] overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#17181b] text-white shadow-[0_28px_90px_rgba(0,0,0,.48)]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-start justify-between gap-3 border-b border-slate-800 px-5 py-4">
-              <div className="min-w-0 space-y-2">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                  <span className="inline-flex items-center rounded-full bg-slate-900 px-2 py-0.5">
-                    <CalendarDays className="mr-1 h-3 w-3" />
+            <div className="flex items-center justify-between gap-4 border-b border-white/[0.07] px-6 py-4">
+              <div className="min-w-0">
+                <div className="text-[9px] font-medium uppercase tracking-[0.12em] text-white/[0.34]">
+                  Tarea personal
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] font-normal text-white/[0.48]">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.035] px-2.5 py-1">
+                    <CalendarDays className="h-3 w-3 text-[#5ac8fa]" />
                     {dateLabel}
                   </span>
-                  <span className="text-[11px] text-slate-500">Estado: {briefStatusLabel(task.status)}</span>
+                  <span className="rounded-full border border-white/[0.07] bg-white/[0.035] px-2.5 py-1">
+                    {briefStatusLabel(task.status)}
+                  </span>
+                  {task.recurrence_type ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#0a84ff]/15 bg-[#0a84ff]/10 px-2.5 py-1 text-[#5ac8fa]">
+                      <Repeat2 className="h-3 w-3" />
+                      Recurrente
+                    </span>
+                  ) : null}
                 </div>
               </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClose}
-                className="rounded-full bg-slate-900 px-3 text-xs text-slate-300 hover:bg-slate-800"
-              >
-                Cerrar
-              </Button>
+              <div className="flex items-center gap-2">
+                {detailView === 'sheet' ? (
+                  <div
+                    className={`hidden min-w-[92px] items-center justify-end gap-1.5 text-[10px] font-normal sm:inline-flex ${sheetSaveClass}`}
+                    aria-live="polite"
+                  >
+                    {sheetSaveState === 'saving' || sheetSaveState === 'idle' ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    <span>{sheetSaveLabel}</span>
+                  </div>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    changeDetailView(detailView === 'sheet' ? 'normal' : 'sheet')
+                  }
+                  className={`inline-flex h-9 items-center gap-2 rounded-[11px] border px-3 text-[10px] font-medium transition ${
+                    detailView === 'sheet'
+                      ? 'border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#5ac8fa]'
+                      : 'border-white/[0.08] bg-white/[0.035] text-white/[0.68] hover:bg-white/[0.06] hover:text-white/[0.90]'
+                  }`}
+                  aria-pressed={detailView === 'sheet'}
+                >
+                  {detailView === 'sheet' ? (
+                    <Columns3 className="h-3.5 w-3.5" />
+                  ) : (
+                    <Table2 className="h-3.5 w-3.5" />
+                  )}
+                  {detailView === 'sheet' ? 'Vista normal' : 'Modo tabla'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="grid h-9 w-9 place-items-center rounded-[11px] border border-white/[0.07] bg-white/[0.035] text-white/[0.48] transition hover:bg-white/[0.07] hover:text-white"
+                  aria-label="Cerrar"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Body: izquierda edición | derecha checklist */}
-            <div className="grid max-h-[calc(90vh-72px)] grid-cols-1 md:grid-cols-[1fr,1.15fr]">
+            {detailView === 'sheet' ? (
+              <div className="h-[calc(88dvh-73px)] min-h-0 overflow-hidden bg-[#17181b]">
+                <ProjectTaskSheetGrid
+                  taskId={task.id}
+                  currentUserId={task.user_id}
+                  canEdit={true}
+                  scope="personal"
+                  onSaveStateChange={setSheetSaveState}
+                />
+              </div>
+            ) : (
+              <>
+                {/* Body: izquierda edición | derecha checklist */}
+                <div className="grid h-[calc(88dvh-73px)] min-h-0 grid-cols-1 md:grid-cols-[0.86fr,1.14fr]">
               {/* Left */}
-              <div className="border-b border-slate-800 p-5 md:border-b-0 md:border-r">
+              <div className="min-h-0 overflow-y-auto border-b border-white/[0.07] p-5 md:border-b-0 md:border-r">
                 <div className="space-y-4">
                   {/* Título */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <Label className="text-[16px] font-bold text-slate-400">Título</Label>
+                      <Label className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.42]">Título</Label>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={toggleEditTitle}
-                        className="h-8 w-8 rounded-full bg-slate-900 text-slate-300 hover:bg-slate-800"
+                        className="h-8 w-8 rounded-[9px] border border-white/[0.07] bg-white/[0.035] text-white/[0.42] transition hover:bg-white/[0.07] hover:text-white"
                         title={editTitle ? 'Bloquear edición' : 'Editar título'}
                       >
                         <Pencil className="h-4 w-4" />
@@ -404,10 +537,10 @@ export default function TaskDetailModal({
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       disabled={!editTitle}
-                      className="bg-slate-950/40"
+                      className="h-10 rounded-[12px] border-white/[0.08] bg-[#1c1c1e] text-[11px] font-normal text-white/[0.82] disabled:cursor-default disabled:opacity-100 focus-visible:border-[#0a84ff]/45 focus-visible:ring-2 focus-visible:ring-[#0a84ff]/10"
                     />
                     {!editTitle && (
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-[10px] font-normal text-white/[0.30]">
                         Tocá el lápiz para habilitar edición.
                       </p>
                     )}
@@ -416,13 +549,13 @@ export default function TaskDetailModal({
                   {/* Descripción */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <Label className="text-[16px] font-bold text-slate-400">Descripción</Label>
+                      <Label className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.42]">Descripción</Label>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={toggleEditDesc}
-                        className="h-8 w-8 rounded-full bg-slate-900 text-slate-300 hover:bg-slate-800"
+                        className="h-8 w-8 rounded-[9px] border border-white/[0.07] bg-white/[0.035] text-white/[0.42] transition hover:bg-white/[0.07] hover:text-white"
                         title={editDescription ? 'Bloquear edición' : 'Editar descripción'}
                       >
                         <Pencil className="h-4 w-4" />
@@ -433,20 +566,20 @@ export default function TaskDetailModal({
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       disabled={!editDescription}
-                      className="min-h-[110px] resize-none bg-slate-950/40 text-sm"
+                      className="min-h-[108px] resize-none rounded-[12px] border-white/[0.08] bg-[#1c1c1e] text-[11px] font-normal leading-5 text-white/[0.82] disabled:cursor-default disabled:opacity-100 focus-visible:border-[#0a84ff]/45 focus-visible:ring-2 focus-visible:ring-[#0a84ff]/10"
                     />
                   </div>
 
                   {/* Hora */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <Label className="text-[16px] font-bold text-slate-400">Hora</Label>
+                      <Label className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.42]">Hora</Label>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={toggleEditTime}
-                        className="h-8 w-8 rounded-full bg-slate-900 text-slate-300 hover:bg-slate-800"
+                        className="h-8 w-8 rounded-[9px] border border-white/[0.07] bg-white/[0.035] text-white/[0.42] transition hover:bg-white/[0.07] hover:text-white"
                         title={editTime ? 'Bloquear edición' : 'Editar hora'}
                       >
                         <Pencil className="h-4 w-4" />
@@ -454,17 +587,66 @@ export default function TaskDetailModal({
                     </div>
 
                     <TimePicker value={time} onChange={setTime} disabled={!editTime} />
-                    <p className="text-[11px] text-slate-500">
-                      Escribí “13” y te sugiere <span className="text-slate-300">13:00</span>,{' '}
-                      <span className="text-slate-300">13:30</span>, etc. (Enter autocompleta).
+                    <p className="text-[10px] font-normal text-white/[0.30]">
+                      Escribí “13” y te sugiere <span className="text-white/[0.64]">13:00</span>,{' '}
+                      <span className="text-white/[0.64]">13:30</span>, etc. (Enter autocompleta).
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-2">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.42]">
+                        <Repeat2 className="h-3.5 w-3.5 text-[#5ac8fa]" />
+                        Repetición
+                      </Label>
+                    </div>
+
+                    <RedcomSelect
+                      value={recurrence}
+                      onValueChange={(value) =>
+                        setRecurrence(value as 'none' | TaskRecurrenceType)
+                      }
+                      surface="dark"
+                      options={[
+                        { value: 'none', label: 'No repetir' },
+                        { value: 'daily', label: 'Todos los días' },
+                        { value: 'weekly', label: 'Semanal · mismo día' },
+                        { value: 'first_business_day_month', label: 'Primer día hábil del mes' },
+                        { value: 'every_n_days', label: 'Cada cierta cantidad de días' },
+                      ]}
+                      aria-label="Frecuencia de repetición"
+                      className="h-10 rounded-[12px] text-[11px]"
+                    />
+
+                    {recurrence === 'every_n_days' ? (
+                      <label className="flex items-center gap-2 text-[10px] text-white/[0.40]">
+                        Repetir cada
+                        <input
+                          type="number"
+                          min={1}
+                          max={365}
+                          value={recurrenceIntervalDays}
+                          onChange={(e) =>
+                            setRecurrenceIntervalDays(
+                              Math.max(1, Number(e.target.value || 1)),
+                            )
+                          }
+                          className="h-9 w-20 rounded-[10px] border border-white/[0.08] bg-[#1c1c1e] px-2 text-center text-[11px] text-white/[0.82] outline-none focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
+                        />
+                        días
+                      </label>
+                    ) : null}
+
+                    <p className="text-[10px] leading-4 text-white/[0.30]">
+                      La próxima instancia se crea únicamente cuando esta tarea se marca como completada.
+                    </p>
+                  </div>
+
+                  <div className="sticky bottom-0 -mx-1 flex items-center justify-end gap-2 border-t border-white/[0.05] bg-[#17181b]/95 px-1 pt-3 backdrop-blur">
                     <Button
                       onClick={saveEdits}
                       disabled={saving || !title.trim() || !hasChanges}
-                      className="rounded-full"
+                      className="h-10 min-w-[148px] rounded-[12px] bg-white px-4 text-[11px] font-medium text-[#0b1020] shadow-none transition hover:bg-white/[0.90] disabled:opacity-30"
                     >
                       {saving ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -478,20 +660,28 @@ export default function TaskDetailModal({
               </div>
 
               {/* Right */}
-              <div className="min-h-0">
-                <TaskChecklistSection
+              <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-[#151517]">
+                <div className="min-h-0">
+                  <TaskChecklistSection
                   taskId={task.id}
                   notes={task.notes ?? null}
                   editable={true}
                   variant="owner"
+                  compact
                   onAllDoneChange={async (allDone) => {
                     if (!allDone) return;
                     const updated = await onAllDone(task);
                     onTaskUpdate(updated);
                   }}
-                />
+                  />
+                </div>
+                <div className="min-h-0 overflow-hidden border-t border-white/[0.02]">
+                  <TaskCommentsTimeline taskId={task.id} compact />
+                </div>
               </div>
-            </div>
+                </div>
+              </>
+            )}
           </motion.div>
         </motion.div>
       )}

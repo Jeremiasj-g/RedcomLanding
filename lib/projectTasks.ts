@@ -1,5 +1,6 @@
 // lib/projectTasks.ts
 import { supabase } from '@/lib/supabaseClient';
+import { addProjectMembers } from '@/lib/projects';
 
 /* ---------------------------------------------- */
 // 👇 TIPOS PARA EL WORKSPACE
@@ -8,6 +9,14 @@ export type ProjectTaskWorkspaceTodo = {
   id: string;
   text: string;
   done: boolean;
+};
+
+export type ProjectTaskWorkspaceGroupPriority = 'low' | 'medium' | 'high';
+
+export type ProjectTaskWorkspaceTodoGroup = {
+  name: string;
+  priority: ProjectTaskWorkspaceGroupPriority;
+  assignee_ids?: string[];
 };
 
 export type ProjectTaskWorkspaceLink = {
@@ -20,6 +29,7 @@ export type ProjectTaskWorkspace = {
   id: number;
   task_id: number;
   todos: ProjectTaskWorkspaceTodo[];
+  todo_groups: ProjectTaskWorkspaceTodoGroup[];
   quick_notes: string | null;
   resource_links: ProjectTaskWorkspaceLink[];
   updated_by: string | null;
@@ -50,11 +60,11 @@ export async function fetchTaskWorkspace(
 export async function upsertTaskWorkspace(params: {
   taskId: number;
   todos: ProjectTaskWorkspaceTodo[];
-  quickNotes: string;
+  todoGroups: ProjectTaskWorkspaceTodoGroup[];
   resourceLinks: ProjectTaskWorkspaceLink[];
   updatedBy?: string | null;
 }): Promise<ProjectTaskWorkspace> {
-  const { taskId, todos, quickNotes, resourceLinks, updatedBy } = params;
+  const { taskId, todos, todoGroups, resourceLinks, updatedBy } = params;
 
   const { data, error } = await supabase
     .from('project_task_workspace')
@@ -62,7 +72,7 @@ export async function upsertTaskWorkspace(params: {
       {
         task_id: taskId,
         todos,
-        quick_notes: quickNotes,
+        todo_groups: todoGroups,
         resource_links: resourceLinks,
         updated_by: updatedBy ?? null,
       },
@@ -99,9 +109,11 @@ export type ProjectTaskRow = {
   priority: ProjectTaskPriority;
   due_date: string | null; // ISO date (yyyy-mm-dd)
   project: string;
+  project_id: number | null;
   workspace_id: number | null; // preparado para futuros workspaces
   created_by: string;
   created_at: string;
+  kanban_order: number | null;
   is_locked: boolean; // <- NUEVO: indica si la tarea está bloqueada (solo lectura)
 };
 
@@ -197,6 +209,17 @@ export async function fetchSupervisors(): Promise<AssigneeOption[]> {
   return fetchEligibleAssignees('supervisor');
 }
 
+export async function lockOverdueProjectTasks(): Promise<number> {
+  const { data, error } = await supabase.rpc('lock_overdue_project_tasks');
+
+  if (error) {
+    console.error('Error locking overdue project tasks', error);
+    throw error;
+  }
+
+  return typeof data === 'number' ? data : Number(data ?? 0);
+}
+
 /* ─────────────────────────────────────────────
  * Fetch de tareas visibles para el usuario
  * ──────────────────────────────────────────── */
@@ -211,6 +234,14 @@ export async function fetchProjectTasksForUser(
   currentUserId: string,
   role: AppRole,
 ): Promise<ProjectTaskWithAssignees[]> {
+  try {
+    await lockOverdueProjectTasks();
+  } catch (error) {
+    // El fetch sigue funcionando aunque falle el sincronizador de respaldo.
+    // La base también ejecuta el cierre automático con pg_cron.
+    console.warn('Could not sync overdue project tasks before fetch', error);
+  }
+
   let taskRows: ProjectTaskRow[] = [];
 
   if (role === 'admin' || role === 'jdv') {
@@ -300,6 +331,7 @@ export async function fetchProjectTasksForUser(
 export type CreateProjectTaskInput = {
   title: string;
   project: string;
+  project_id?: number | null;
   description?: string | null;
   summary?: string | null;
   status?: ProjectTaskStatus;
@@ -319,6 +351,7 @@ export async function createProjectTask(
     .insert({
       title: input.title.trim(),
       project: input.project.trim(),
+      project_id: input.project_id ?? null,
       description: input.description ?? null,
       summary: input.summary ?? null,
       status: input.status ?? 'not_started',
@@ -326,6 +359,7 @@ export async function createProjectTask(
       due_date: input.due_date ?? null,
       workspace_id: input.workspace_id ?? null,
       created_by: currentUserId,
+      kanban_order: Date.now(),
       is_locked: false, // NUEVO: siempre empieza desbloqueada
     })
     .select('*')
@@ -351,6 +385,13 @@ export async function createProjectTask(
 
     if (assigneesError) throw assigneesError;
     assigneeRows = (inserted ?? []) as { task_id: number; user_id: string }[];
+
+    if (taskRow.project_id) {
+      await addProjectMembers(
+        taskRow.project_id,
+        assigneeRows.map((row) => row.user_id),
+      );
+    }
   }
 
   if (assigneeRows.length === 0) {
@@ -384,12 +425,14 @@ export async function createProjectTask(
 export type UpdateProjectTaskInput = Partial<{
   title: string;
   project: string;
+  project_id: number | null;
   description: string | null;
   summary: string | null;
   status: ProjectTaskStatus;
   priority: ProjectTaskPriority;
   due_date: string | null;
   workspace_id: number | null;
+  kanban_order: number | null;
   is_locked: boolean; // <- NUEVO: permitir bloquear/desbloquear
 }>;
 
@@ -425,27 +468,61 @@ export async function setTaskAssignees(
   taskId: number,
   assigneeIds: string[],
 ): Promise<void> {
-  // 1) borrar todos los actuales
-  const { error: deleteError } = await supabase
+  const desiredIds = Array.from(new Set(assigneeIds));
+
+  const { data: currentRows, error: currentError } = await supabase
     .from('project_task_assignees')
-    .delete()
+    .select('user_id')
     .eq('task_id', taskId);
 
-  if (deleteError) throw deleteError;
+  if (currentError) throw currentError;
 
-  if (assigneeIds.length === 0) return;
+  const currentIds = new Set(
+    (currentRows ?? []).map((row: any) => row.user_id as string),
+  );
+  const desiredSet = new Set(desiredIds);
 
-  // 2) insertar los nuevos
-  const rows = assigneeIds.map((userId) => ({
-    task_id: taskId,
-    user_id: userId,
-  }));
+  const toRemove = Array.from(currentIds).filter(
+    (userId) => !desiredSet.has(userId),
+  );
+  const toAdd = desiredIds.filter((userId) => !currentIds.has(userId));
 
-  const { error: insertError } = await supabase
-    .from('project_task_assignees')
-    .insert(rows);
+  if (toRemove.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('project_task_assignees')
+      .delete()
+      .eq('task_id', taskId)
+      .in('user_id', toRemove);
 
-  if (insertError) throw insertError;
+    if (deleteError) throw deleteError;
+  }
+
+  if (toAdd.length > 0) {
+    const { error: insertError } = await supabase
+      .from('project_task_assignees')
+      .insert(
+        toAdd.map((userId) => ({
+          task_id: taskId,
+          user_id: userId,
+        })),
+      );
+
+    if (insertError) throw insertError;
+  }
+
+  if (desiredIds.length === 0) return;
+
+  const { data: taskProject, error: taskProjectError } = await supabase
+    .from('project_tasks')
+    .select('project_id')
+    .eq('id', taskId)
+    .maybeSingle();
+
+  if (taskProjectError) throw taskProjectError;
+
+  if (taskProject?.project_id) {
+    await addProjectMembers(Number(taskProject.project_id), desiredIds);
+  }
 }
 
 /* ─────────────────────────────────────────────
