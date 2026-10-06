@@ -96,6 +96,8 @@ type Props = {
   variant: Variant;
   /** callback para avisar cuando el checklist queda 100% completo (o deja de estarlo) */
   onAllDoneChange?: (allDone: boolean, stats: { done: number; total: number }) => void;
+  /** reduce alturas y elimina scrolls anidados para usar dentro de modales */
+  compact?: boolean;
 };
 
 function DraggableItem({
@@ -157,6 +159,7 @@ export default function TaskChecklistSection({
   editable,
   variant,
   onAllDoneChange,
+  compact = false,
 }: Props) {
   const [items, setItems] = useState<TaskItem[]>([]);
   const [newItem, setNewItem] = useState('');
@@ -395,7 +398,7 @@ export default function TaskChecklistSection({
   };
 
   return (
-    <div className="h-full max-h-none space-y-5 overflow-y-auto px-5 py-5">
+    <div className={compact ? 'space-y-3 px-4 py-4' : 'h-full max-h-none space-y-5 overflow-y-auto px-5 py-5'}>
       {/* notas breves si existen */}
       {notes && notes.trim().length > 0 && (
         <div className="rounded-[14px] border border-white/[0.07] bg-white/[0.035] p-3 text-xs text-white/[0.72]">
@@ -410,7 +413,7 @@ export default function TaskChecklistSection({
       )}
 
       {/* checklist / items */}
-      <section className="rounded-[18px] border border-white/[0.07] bg-[#17181b] p-3">
+      <section className={compact ? 'rounded-[16px] border border-white/[0.07] bg-[#17181b] p-3' : 'rounded-[18px] border border-white/[0.07] bg-[#17181b] p-3'}>
         <div className="mb-2 flex items-center justify-between">
           <div>
             <h3 className="text-[11px] font-medium text-white/[0.88]">{title}</h3>
@@ -493,14 +496,14 @@ export default function TaskChecklistSection({
                       <button
                         type="button"
                         onClick={() => setCreatingGroup(true)}
-                        className="w-full rounded-lg bg-slate-900/70 px-3 py-2 text-[11px] text-white/[0.68] hover:bg-white/[0.05]"
+                        className="w-full rounded-lg bg-white/[0.035] px-3 py-2 text-[11px] text-white/[0.68] hover:bg-white/[0.05]"
                       >
                         + Crear nuevo grupo
                       </button>
                     ) : (
                       <div className="flex gap-2">
                         <input
-                          className="flex-1 rounded-lg border border-slate-700/70 bg-slate-950/60 px-3 py-2 text-[11px] text-slate-100 placeholder:text-white/[0.30] focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                          className="flex-1 rounded-[10px] border border-white/[0.08] bg-[#1c1c1e] px-3 py-2 text-[11px] text-white/[0.82] outline-none placeholder:text-white/[0.28] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
                           placeholder="Ej: Categorías"
                           value={newGroupDraft}
                           onChange={(e) => setNewGroupDraft(e.target.value)}
@@ -541,7 +544,7 @@ export default function TaskChecklistSection({
             <div className="flex gap-2">
               <input
                 ref={inputRef}
-                className="flex-1 rounded-lg border border-slate-700/70 bg-slate-950/70 px-3 py-1.5 text-xs text-slate-100 placeholder:text-white/[0.30] focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="flex-1 rounded-[10px] border border-white/[0.08] bg-[#1c1c1e] px-3 py-1.5 text-xs text-white/[0.82] outline-none placeholder:text-white/[0.28] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
                 placeholder={
                   selectedGroup
                     ? `Ej: (${selectedGroup}) Revisé línea de obj. fiambres 214 y FRS...`
@@ -587,7 +590,7 @@ export default function TaskChecklistSection({
             }}
             onDragEnd={onDragEnd}
           >
-            <div className="space-y-3 h-[22rem] overflow-y-auto">
+            <div className={compact ? 'max-h-[13rem] space-y-2 overflow-y-auto pr-1' : 'h-[22rem] space-y-3 overflow-y-auto'}>
             {/* Ungrouped primero */}
             {grouped.has('__ungrouped__') && (
               <GroupDropZone groupKey="__ungrouped__" disabled={!editable}>
@@ -649,7 +652,7 @@ export default function TaskChecklistSection({
                                 <div className="flex items-center gap-2">
                                   <input
                                     ref={editInputRef}
-                                    className="w-full rounded-lg border border-slate-700/70 bg-slate-950/70 px-2 py-1 text-xs text-slate-100 placeholder:text-white/[0.30] focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                    className="w-full rounded-[9px] border border-white/[0.08] bg-[#1c1c1e] px-2 py-1 text-xs text-white/[0.82] outline-none placeholder:text-white/[0.28] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
                                     value={editingValue}
                                     onChange={(e) => setEditingValue(e.target.value)}
                                     onKeyDown={(e) => {
@@ -674,7 +677,7 @@ export default function TaskChecklistSection({
                                   <button
                                     type="button"
                                     onClick={cancelEditItem}
-                                    className="rounded bg-slate-900/70 p-1 text-white/[0.62] hover:bg-white/[0.05]"
+                                    className="rounded bg-white/[0.035] p-1 text-white/[0.62] hover:bg-white/[0.05]"
                                     title="Cancelar"
                                   >
                                     <X className="h-4 w-4" />
@@ -696,14 +699,14 @@ export default function TaskChecklistSection({
                               <div className="mt-[2px] flex items-center gap-1">
                                 <button
                                   onClick={() => startEditItem(item)}
-                                  className="rounded bg-slate-900/80 p-1 text-white/[0.30] hover:bg-white/[0.05] hover:text-white/[0.68]"
+                                  className="rounded bg-white/[0.035] p-1 text-white/[0.30] hover:bg-white/[0.05] hover:text-white/[0.68]"
                                   title="Editar"
                                 >
                                   <Pencil className="h-3 w-3" />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteItem(item)}
-                                  className="rounded bg-slate-900/80 p-1 text-white/[0.30] hover:bg-rose-500/10 hover:text-rose-300"
+                                  className="rounded bg-white/[0.035] p-1 text-white/[0.30] hover:bg-rose-500/10 hover:text-rose-300"
                                   title="Eliminar"
                                 >
                                   <Trash2 className="h-3 w-3" />
@@ -730,7 +733,7 @@ export default function TaskChecklistSection({
 
               return (
                 <GroupDropZone groupKey={g} disabled={!editable}>
-                <div key={g} className="rounded-[18px] border border-white/[0.07] bg-[#17181b] p-3/70 bg-slate-950/40">
+                <div key={g} className="rounded-[14px] border border-white/[0.065] bg-white/[0.025] p-2.5">
                   <button
                     type="button"
                     onClick={() =>
@@ -807,7 +810,7 @@ export default function TaskChecklistSection({
                                     <div className="flex items-center gap-2">
                                       <input
                                         ref={editInputRef}
-                                        className="w-full rounded-lg border border-slate-700/70 bg-slate-950/70 px-2 py-1 text-xs text-slate-100 placeholder:text-white/[0.30] focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                        className="w-full rounded-[9px] border border-white/[0.08] bg-[#1c1c1e] px-2 py-1 text-xs text-white/[0.82] outline-none placeholder:text-white/[0.28] focus:border-[#0a84ff]/45 focus:ring-2 focus:ring-[#0a84ff]/10"
                                         value={editingValue}
                                         onChange={(e) => setEditingValue(e.target.value)}
                                         onKeyDown={(e) => {
@@ -832,7 +835,7 @@ export default function TaskChecklistSection({
                                       <button
                                         type="button"
                                         onClick={cancelEditItem}
-                                        className="rounded bg-slate-900/70 p-1 text-white/[0.62] hover:bg-white/[0.05]"
+                                        className="rounded bg-white/[0.035] p-1 text-white/[0.62] hover:bg-white/[0.05]"
                                         title="Cancelar"
                                       >
                                         <X className="h-4 w-4" />
@@ -854,14 +857,14 @@ export default function TaskChecklistSection({
                                   <div className="mt-[2px] flex items-center gap-1">
                                     <button
                                       onClick={() => startEditItem(item)}
-                                      className="rounded bg-slate-900/80 p-1 text-white/[0.30] hover:bg-white/[0.05] hover:text-white/[0.68]"
+                                      className="rounded bg-white/[0.035] p-1 text-white/[0.30] hover:bg-white/[0.05] hover:text-white/[0.68]"
                                       title="Editar"
                                     >
                                       <Pencil className="h-3 w-3" />
                                     </button>
                                     <button
                                       onClick={() => handleDeleteItem(item)}
-                                      className="rounded bg-slate-900/80 p-1 text-white/[0.30] hover:bg-rose-500/10 hover:text-rose-300"
+                                      className="rounded bg-white/[0.035] p-1 text-white/[0.30] hover:bg-rose-500/10 hover:text-rose-300"
                                       title="Eliminar"
                                     >
                                       <Trash2 className="h-3 w-3" />
@@ -885,7 +888,7 @@ export default function TaskChecklistSection({
         )}
       </section>
 
-      <div className="text-[11px] text-white/[0.30]">{tip}</div>
+      {!compact ? <div className="text-[11px] text-white/[0.30]">{tip}</div> : null}
     </div>
   );
 }
