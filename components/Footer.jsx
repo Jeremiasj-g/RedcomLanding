@@ -54,37 +54,52 @@ const branches = ['Corrientes', 'Chaco', 'Misiones', 'Oberá'];
 
 const Footer = () => {
   return (
-    <footer className="relative overflow-hidden bg-[#080B12] text-white md:mt-24">
+    <footer className="relative mt-20 overflow-hidden bg-[#17181b] text-white">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-red-600/15 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-sky-500/10 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        <div className="absolute left-[8%] top-[-120px] h-72 w-72 rounded-full bg-sky-400/[0.055] blur-[100px]" />
+        <div className="absolute right-[10%] top-[-80px] h-64 w-64 rounded-full bg-violet-400/[0.045] blur-[100px]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-white/[0.08]" />
       </div>
 
       <Container>
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: 18 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: 'easeOut' }}
+          transition={{ duration: 0.55, ease: 'easeOut' }}
           viewport={{ once: true }}
-          className="relative py-14 md:py-16"
+          className="relative py-10 md:py-12"
         >
-          <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.3fr_0.8fr_0.8fr_1fr]">
-            <div className="max-w-md">
-              <div className="mb-5 inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-red-300">
-                Redcom S.A.
+          <div className="grid gap-8 lg:grid-cols-[1.4fr_0.75fr_0.75fr_0.95fr] lg:gap-10">
+            <div className="max-w-lg">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-[13px] border border-white/[0.08] bg-white/[0.045]">
+                  <img
+                    src="/LogoRedcom.png"
+                    alt="Redcom"
+                    className="h-7 w-7 object-contain"
+                  />
+                </div>
+
+                <div>
+                  <div className="text-[14px] font-semibold tracking-[0.02em] text-white/[0.94]">
+                    REDCOM
+                  </div>
+                  <div className="-mt-0.5 text-[8px] font-medium uppercase tracking-[0.16em] text-white/[0.24]">
+                    Distribución regional
+                  </div>
+                </div>
               </div>
 
-              <h3 className="text-3xl font-black tracking-tight md:text-4xl">
+              <h3 className="mt-6 max-w-md text-[28px] font-medium leading-[1.12] tracking-[-0.035em] text-white/[0.94] md:text-[34px]">
                 Distribución comercial con alcance regional.
               </h3>
 
-              <p className="mt-4 text-sm leading-7 text-slate-400 md:text-base">
+              <p className="mt-4 max-w-md text-[12px] leading-6 text-white/[0.38] md:text-[13px]">
                 Más de 13 años conectando productores, comercios y equipos de venta
                 con soluciones de distribución, logística y abastecimiento.
               </p>
 
-              <div className="mt-7 flex items-center gap-3">
+              <div className="mt-6 flex items-center gap-2">
                 {socialLinks.map((social) => (
                   <motion.a
                     key={social.name}
@@ -92,11 +107,11 @@ const Footer = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={social.name}
-                    whileHover={{ y: -3, scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
-                    className="group flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-slate-300 shadow-lg shadow-black/20 transition-all duration-300 hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-300"
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="group grid h-10 w-10 place-items-center rounded-[12px] border border-white/[0.075] bg-white/[0.035] text-white/[0.42] transition hover:border-white/[0.12] hover:bg-white/[0.065] hover:text-white/[0.82]"
                   >
-                    <span className="h-7 w-7 transition-transform duration-300 group-hover:scale-110">
+                    <span className="h-[18px] w-[18px]">
                       {social.icon}
                     </span>
                   </motion.a>
@@ -104,83 +119,96 @@ const Footer = () => {
               </div>
             </div>
 
-            <div>
-              <h4 className="mb-5 text-xs font-black uppercase tracking-[0.24em] text-slate-500">
-                Servicios
-              </h4>
-
-              <ul className="space-y-3">
-                {services.map((service) => (
-                  <li key={service} className="text-sm font-semibold text-slate-300">
+            <FooterColumn title="Servicios">
+              {services.map((service) => (
+                <li key={service}>
+                  <span className="text-[11px] leading-5 text-white/[0.42]">
                     {service}
-                  </li>
-                ))}
-              </ul>
-            </div>
+                  </span>
+                </li>
+              ))}
+            </FooterColumn>
 
-            <div>
-              <h4 className="mb-5 text-xs font-black uppercase tracking-[0.24em] text-slate-500">
-                Sucursales
-              </h4>
-
-              <ul className="space-y-3">
-                {branches.map((branch) => (
-                  <li key={branch} className="text-sm font-semibold text-slate-300">
+            <FooterColumn title="Sucursales">
+              {branches.map((branch) => (
+                <li key={branch}>
+                  <span className="text-[11px] leading-5 text-white/[0.42]">
                     {branch}
-                  </li>
-                ))}
-              </ul>
-            </div>
+                  </span>
+                </li>
+              ))}
+            </FooterColumn>
 
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20 backdrop-blur">
-              <h4 className="text-xs font-black uppercase tracking-[0.24em] text-red-300">
+            <div className="rounded-[20px] border border-white/[0.07] bg-white/[0.025] p-4">
+              <div className="text-[9px] font-medium uppercase tracking-[0.11em] text-white/[0.28]">
                 Contacto
-              </h4>
-
-              <div className="mt-5 space-y-4 text-sm text-slate-300">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
-                    Teléfono
-                  </p>
-                  <p className="mt-1 font-semibold">+54 379 4524304</p>
-                </div>
-
-                {/* <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
-                    Email
-                  </p>
-                  <p className="mt-1 font-semibold">info@redcom.com.ar</p>
-                </div> */}
-
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
-                    Atención
-                  </p>
-                  <p className="mt-1 font-semibold">Lunes a sábados</p>
-                </div>
               </div>
+
+              <div className="mt-4 space-y-4">
+                <InfoRow
+                  label="Teléfono"
+                  value="+54 379 4524304"
+                />
+                <InfoRow
+                  label="Atención"
+                  value="Lunes a sábados"
+                />
+              </div>
+
+              <a
+                href="https://wa.me/543794524304"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-5 inline-flex h-9 w-full items-center justify-center rounded-[11px] border border-white/[0.08] bg-white/[0.05] px-3 text-[10px] font-medium text-white/[0.66] transition hover:bg-white/[0.085] hover:text-white"
+              >
+                Contactar por WhatsApp
+              </a>
             </div>
           </div>
 
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
             viewport={{ once: true }}
-            className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-7 text-sm text-slate-500 md:flex-row md:items-center md:justify-between"
+            className="mt-10 flex flex-col gap-3 border-t border-white/[0.065] pt-5 text-[10px] text-white/[0.25] sm:flex-row sm:items-center sm:justify-between"
           >
-            <p>
-              © 2026 Redcom. Todos los derechos reservados.
-            </p>
+            <p>© 2026 Redcom. Todos los derechos reservados.</p>
 
-            <p className="font-semibold text-slate-400">
-              13+ años distribuyendo calidad.
-            </p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span>13+ años distribuyendo calidad.</span>
+              <span className="hidden h-3 w-px bg-white/[0.08] sm:block" />
+              <span className="text-white/[0.18]">Corrientes · Chaco · Misiones · Oberá</span>
+            </div>
           </motion.div>
         </motion.div>
       </Container>
     </footer>
   );
 };
+
+function FooterColumn({ title, children }) {
+  return (
+    <div className="pt-1">
+      <h4 className="mb-4 text-[9px] font-medium uppercase tracking-[0.11em] text-white/[0.28]">
+        {title}
+      </h4>
+      <ul className="space-y-2.5">{children}</ul>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <div>
+      <div className="text-[8px] font-medium uppercase tracking-[0.10em] text-white/[0.22]">
+        {label}
+      </div>
+      <div className="mt-1 text-[11px] font-medium text-white/[0.68]">
+        {value}
+      </div>
+    </div>
+  );
+}
 
 export default Footer;
