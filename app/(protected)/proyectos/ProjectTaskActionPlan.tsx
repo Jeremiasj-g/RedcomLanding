@@ -303,9 +303,17 @@ export default function ProjectTaskActionPlan({
 
   async function applyRange(nextFrom: string, nextTo: string) {
     if (!selected) return;
-    setFrom(nextFrom);
-    setTo(nextTo);
-    await fetchHistory(selected.branchKey, selected.id, nextFrom, nextTo);
+
+    let safeFrom = nextFrom;
+    let safeTo = nextTo;
+
+    if (safeFrom && safeTo && safeFrom > safeTo) {
+      [safeFrom, safeTo] = [safeTo, safeFrom];
+    }
+
+    setFrom(safeFrom);
+    setTo(safeTo);
+    await fetchHistory(selected.branchKey, selected.id, safeFrom, safeTo);
   }
 
   if (loadingCatalog) {
@@ -649,6 +657,8 @@ export default function ProjectTaskActionPlan({
                 </div>
 
                 <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  <DataTile label="Categoría del período" value={latest.categoriaLabel} />
+                  <DataTile label="Categoría proyectada" value={latest.proyeccionLabel} />
                   <DataTile label="Facturación" value={formatMoney(latest.facturacion)} />
                   <DataTile label="Facturación promedio" value={formatMoney(latest.facturacionPromedio)} />
                   <DataTile label="Ticket promedio" value={formatMoney(latest.promedioBoletas)} />
@@ -672,6 +682,16 @@ export default function ProjectTaskActionPlan({
                       latest.cumpleHorario === null
                         ? '—'
                         : latest.cumpleHorario
+                          ? 'Sí'
+                          : 'No'
+                    }
+                  />
+                  <DataTile
+                    label="Cumple efectividad"
+                    value={
+                      latest.cumpleEfectividad === null
+                        ? '—'
+                        : latest.cumpleEfectividad
                           ? 'Sí'
                           : 'No'
                     }
