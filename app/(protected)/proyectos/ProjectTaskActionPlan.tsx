@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import {
   ArrowLeft,
   BadgeCheck,
-  BarChart3,
   Building2,
   CalendarRange,
   CheckCircle2,
@@ -31,6 +30,7 @@ import {
   upsertProjectTaskActionPlan,
 } from '@/lib/projectTaskActionPlan';
 import { errorMessage, notify } from '@/lib/notifications';
+import { RedcomSelect } from '@/components/ui/redcom-select';
 
 const BRANCHES = [
   { key: 'corrientes_masivos', label: 'Corrientes · Masivos' },
@@ -64,6 +64,17 @@ type HistoryResponse = {
 function branchLabel(branchKey: string) {
   return BRANCHES.find((branch) => branch.key === branchKey)?.label ?? branchKey;
 }
+
+function periodLabel(period: PeriodOption) {
+  const date = new Date(period.year, Math.max(0, period.month - 1), 1);
+  return new Intl.DateTimeFormat('es-AR', {
+    month: 'short',
+    year: 'numeric',
+  })
+    .format(date)
+    .replace('.', '');
+}
+
 
 function categoryTone(category: CategoriaHistorySummary['currentCategoria']) {
   if (!category) return 'border-white/[0.08] bg-white/[0.04] text-white/[0.58]';
@@ -257,8 +268,6 @@ export default function ProjectTaskActionPlan({
     });
   }, [branchFilter, catalog, query]);
 
-  const latest = history.length ? history[history.length - 1] : null;
-
   const rangeAverages = useMemo(
     () => ({
       cobertura: average(history.map((point) => point.cobertura)),
@@ -431,16 +440,16 @@ export default function ProjectTaskActionPlan({
                 <div className="mt-3 text-[14px] font-medium text-white/[0.92]">
                   ID {seller.id}
                 </div>
-                <div className="mt-0.5 truncate text-[10px] text-white/[0.42]">
+                <div className="mt-0.5 truncate text-[11px] text-white/[0.46]">
                   {seller.name}
                 </div>
 
                 <div className="mt-3 border-t border-white/[0.055] pt-2.5">
-                  <div className="inline-flex items-center gap-1.5 text-[9px] text-white/[0.30]">
+                  <div className="inline-flex items-center gap-1.5 text-[10px] text-white/[0.34]">
                     <Building2 className="h-3 w-3" />
                     {branchLabel(seller.branchKey)}
                   </div>
-                  <div className="mt-1 text-[9px] text-white/[0.24]">
+                  <div className="mt-1 text-[10px] text-white/[0.28]">
                     {seller.months} período{seller.months === 1 ? '' : 's'} en histórico
                   </div>
                 </div>
@@ -474,7 +483,7 @@ export default function ProjectTaskActionPlan({
 
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[15px] font-medium text-white/[0.94]">
+                <span className="text-[17px] font-medium text-white/[0.94]">
                   ID {selected.id}
                 </span>
                 {summary?.currentCategoria ? (
@@ -488,38 +497,58 @@ export default function ProjectTaskActionPlan({
                   {branchLabel(selected.branchKey)}
                 </span>
               </div>
-              <div className="mt-1 truncate text-[10px] text-white/[0.34]">
+              <div className="mt-1 truncate text-[12px] text-white/[0.42]">
                 {summary?.sellerName || selected.name}
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center gap-2 rounded-[12px] border border-white/[0.07] bg-[#1c1c1e] px-3 py-2">
-              <CalendarRange className="h-3.5 w-3.5 text-[#5ac8fa]" />
-              <select
-                value={from}
-                onChange={(event) => void applyRange(event.target.value, to)}
-                className="bg-transparent text-[10px] text-white/[0.68] outline-none"
-              >
-                {periods.map((period) => (
-                  <option key={`from-${period.value}`} value={period.value}>
-                    Desde {period.value}
-                  </option>
-                ))}
-              </select>
-              <span className="text-white/[0.18]">→</span>
-              <select
-                value={to}
-                onChange={(event) => void applyRange(from, event.target.value)}
-                className="bg-transparent text-[10px] text-white/[0.68] outline-none"
-              >
-                {periods.map((period) => (
-                  <option key={`to-${period.value}`} value={period.value}>
-                    Hasta {period.value}
-                  </option>
-                ))}
-              </select>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="rounded-[14px] border border-white/[0.07] bg-[#1c1c1e] p-2.5">
+              <div className="mb-2 flex items-center gap-2 px-1">
+                <CalendarRange className="h-4 w-4 text-[#5ac8fa]" />
+                <span className="text-[11px] font-medium text-white/[0.58]">
+                  Rango de análisis
+                </span>
+              </div>
+              <div className="grid min-w-[390px] grid-cols-2 gap-2">
+                <div>
+                  <span className="mb-1 block px-1 text-[10px] font-medium uppercase tracking-[0.07em] text-white/[0.30]">
+                    Desde
+                  </span>
+                  <RedcomSelect
+                    value={from}
+                    surface="dark"
+                    accent="indigo"
+                    className="h-10 rounded-[11px] text-[12px]"
+                    onValueChange={(value) => void applyRange(value, to)}
+                    options={periods.map((period) => ({
+                      value: period.value,
+                      label: periodLabel(period),
+                    }))}
+                    placeholder="Período inicial"
+                    aria-label="Período inicial"
+                  />
+                </div>
+                <div>
+                  <span className="mb-1 block px-1 text-[10px] font-medium uppercase tracking-[0.07em] text-white/[0.30]">
+                    Hasta
+                  </span>
+                  <RedcomSelect
+                    value={to}
+                    surface="dark"
+                    accent="indigo"
+                    className="h-10 rounded-[11px] text-[12px]"
+                    onValueChange={(value) => void applyRange(from, value)}
+                    options={periods.map((period) => ({
+                      value: period.value,
+                      label: periodLabel(period),
+                    }))}
+                    placeholder="Período final"
+                    aria-label="Período final"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -535,7 +564,7 @@ export default function ProjectTaskActionPlan({
           <div className="mt-5 rounded-[16px] border border-rose-300/15 bg-rose-300/[0.055] p-4 text-[11px] text-rose-200">
             {historyError}
           </div>
-        ) : !summary || !latest ? (
+        ) : !summary ? (
           <div className="mt-5 rounded-[18px] border border-dashed border-white/[0.07] py-12 text-center text-[11px] text-white/[0.28]">
             No hay información del vendedor para el rango seleccionado.
           </div>
@@ -574,10 +603,10 @@ export default function ProjectTaskActionPlan({
 
             <section className="mt-3 rounded-[18px] border border-white/[0.07] bg-[#1c1c1e] p-4">
               <div>
-                <div className="text-[11px] font-medium text-white/[0.82]">
+                <div className="text-[13px] font-medium text-white/[0.86]">
                   Promedios del rango
                 </div>
-                <div className="mt-0.5 text-[9px] text-white/[0.28]">
+                <div className="mt-0.5 text-[11px] text-white/[0.34]">
                   Todos estos valores se recalculan al cambiar Desde / Hasta.
                 </div>
               </div>
@@ -606,155 +635,19 @@ export default function ProjectTaskActionPlan({
               </div>
             </section>
 
-            <section className="mt-3 rounded-[18px] border border-white/[0.07] bg-[#1c1c1e] p-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <div className="text-[9px] font-medium uppercase tracking-[0.10em] text-white/[0.30]">
-                    Trayectoria de categoría
-                  </div>
-                  <div className="mt-1 text-[11px] text-white/[0.48]">
-                    Evolución mensual del vendedor dentro del rango seleccionado.
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {history.map((point) => (
-                    <div
-                      key={point.period}
-                      className="min-w-[74px] rounded-[10px] border border-white/[0.06] bg-white/[0.025] px-2 py-1.5"
-                      title={`${point.periodLabel}: ${point.categoriaLabel}`}
-                    >
-                      <div className="text-[8px] text-white/[0.24]">
-                        {point.periodLabel}
-                      </div>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: CATEGORY_COLORS[point.categoria] }}
-                        />
-                        <span className="truncate text-[9px] font-medium text-white/[0.62]">
-                          {point.categoriaLabel}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <div className="mt-3 grid gap-3 xl:grid-cols-[1.2fr_0.8fr]">
-              <section className="rounded-[18px] border border-white/[0.07] bg-[#1c1c1e] p-4">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-[#5ac8fa]" />
-                  <div>
-                    <div className="text-[11px] font-medium text-white/[0.82]">
-                      Último período disponible
-                    </div>
-                    <div className="text-[9px] text-white/[0.28]">
-                      {latest.periodLabel} · {latest.supervisor}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  <DataTile label="Categoría del período" value={latest.categoriaLabel} />
-                  <DataTile label="Categoría proyectada" value={latest.proyeccionLabel} />
-                  <DataTile label="Facturación" value={formatMoney(latest.facturacion)} />
-                  <DataTile label="Facturación promedio" value={formatMoney(latest.facturacionPromedio)} />
-                  <DataTile label="Ticket promedio" value={formatMoney(latest.promedioBoletas)} />
-                  <DataTile label="Cobertura" value={formatNumber(latest.cobertura)} />
-                  <DataTile label="Volumen" value={formatNumber(latest.volumen)} />
-                  <DataTile label="Boletas diarias" value={formatNumber(latest.promedioBoletasDiarias, 1)} />
-                  <DataTile label="Visitados" value={formatNumber(latest.visitados)} />
-                  <DataTile label="Visitas planeadas" value={formatNumber(latest.visitasPlaneadas)} />
-                  <DataTile label="Ventas totales" value={formatNumber(latest.totalVentas)} />
-                  <DataTile label="Venta PDV" value={formatNumber(latest.ventaPdv)} />
-                  <DataTile label="Venta distancia" value={formatNumber(latest.ventaDistancia)} />
-                  <DataTile label="Horas de ruta" value={secondsToHoursLabel(latest.horasRutaSeconds)} />
-                  <DataTile label="% PDV" value={formatPercent(latest.porcentajePdv)} />
-                  <DataTile label="% distancia" value={formatPercent(latest.porcentajeDistancia)} />
-                  <DataTile label="POP" value={formatPercent(latest.pop)} />
-                  <DataTile label="Exhibición" value={formatPercent(latest.exhibicion)} />
-                  <DataTile label="MIX" value={formatPercent(latest.mix)} />
-                  <DataTile
-                    label="Cumple horario"
-                    value={
-                      latest.cumpleHorario === null
-                        ? '—'
-                        : latest.cumpleHorario
-                          ? 'Sí'
-                          : 'No'
-                    }
-                  />
-                  <DataTile
-                    label="Cumple efectividad"
-                    value={
-                      latest.cumpleEfectividad === null
-                        ? '—'
-                        : latest.cumpleEfectividad
-                          ? 'Sí'
-                          : 'No'
-                    }
-                  />
-                </div>
-              </section>
-
-              <section className="rounded-[18px] border border-white/[0.07] bg-[#1c1c1e] p-4">
-                <div className="text-[11px] font-medium text-white/[0.82]">
-                  Lectura del rango
-                </div>
-                <div className="mt-4 space-y-3">
-                  <InsightRow
-                    label="Categoría inicial"
-                    value={summary.initialCategoriaLabel ?? '—'}
-                  />
-                  <InsightRow
-                    label="Categoría al cierre del rango"
-                    value={summary.currentCategoriaLabel ?? '—'}
-                  />
-                  <InsightRow
-                    label="Mejor categoría"
-                    value={summary.bestCategoriaLabel ?? '—'}
-                  />
-                  <InsightRow
-                    label="Variación"
-                    value={
-                      summary.categoryDelta === null
-                        ? '—'
-                        : summary.categoryDelta > 0
-                          ? `+${summary.categoryDelta} nivel${summary.categoryDelta === 1 ? '' : 'es'}`
-                          : summary.categoryDelta < 0
-                            ? `${summary.categoryDelta} nivel${summary.categoryDelta === -1 ? '' : 'es'}`
-                            : 'Sin cambios'
-                    }
-                  />
-                  <InsightRow
-                    label="Mejor facturación"
-                    value={formatMoney(summary.bestFacturacion)}
-                  />
-                </div>
-
-                <div className="mt-4 rounded-[13px] border border-[#0a84ff]/12 bg-[#0a84ff]/[0.045] px-3 py-3 text-[10px] leading-4 text-[#8bc7ff]/70">
-                  Este vendedor queda vinculado a la tarea como foco del plan de
-                  acción. Podés cambiar el rango para analizar distintos momentos
-                  sin alterar esa vinculación.
-                </div>
-              </section>
-            </div>
-
             <section className="mt-3 overflow-hidden rounded-[18px] border border-white/[0.07] bg-[#1c1c1e]">
               <div className="border-b border-white/[0.06] px-4 py-3">
-                <div className="text-[11px] font-medium text-white/[0.82]">
+                <div className="text-[13px] font-medium text-white/[0.86]">
                   Histórico del vendedor
                 </div>
-                <div className="mt-0.5 text-[9px] text-white/[0.28]">
+                <div className="mt-0.5 text-[11px] text-white/[0.34]">
                   Los cálculos superiores se actualizan con este mismo rango.
                 </div>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[920px] text-left">
-                  <thead className="bg-white/[0.025] text-[9px] uppercase tracking-[0.08em] text-white/[0.28]">
+                  <thead className="bg-white/[0.025] text-[10px] uppercase tracking-[0.08em] text-white/[0.34]">
                     <tr>
                       <th className="px-4 py-3 font-medium">Período</th>
                       <th className="px-4 py-3 font-medium">Categoría</th>
@@ -770,7 +663,7 @@ export default function ProjectTaskActionPlan({
                     {history.map((point) => (
                       <tr
                         key={point.period}
-                        className="border-t border-white/[0.05] text-[10px] text-white/[0.56]"
+                        className="border-t border-white/[0.05] text-[12px] text-white/[0.62]"
                       >
                         <td className="px-4 py-3 font-medium text-white/[0.76]">
                           {point.periodLabel}
@@ -822,11 +715,11 @@ function MetricCard({
     <div className="rounded-[16px] border border-white/[0.07] bg-[#1c1c1e] p-3.5">
       <div className="flex items-center gap-2 text-white/[0.30]">
         {icon}
-        <span className="text-[9px] font-medium uppercase tracking-[0.08em]">
+        <span className="text-[10px] font-medium uppercase tracking-[0.08em]">
           {label}
         </span>
       </div>
-      <div className="mt-2 text-[17px] font-medium tracking-[-0.02em] text-white/[0.90]">
+      <div className="mt-2 text-[19px] font-medium tracking-[-0.02em] text-white/[0.90]">
         {value}
       </div>
       {typeof progress === 'number' ? (
@@ -838,7 +731,7 @@ function MetricCard({
         </div>
       ) : null}
       {detail ? (
-        <div className="mt-1.5 text-[9px] text-white/[0.26]">{detail}</div>
+        <div className="mt-1.5 text-[11px] text-white/[0.32]">{detail}</div>
       ) : null}
     </div>
   );
@@ -847,10 +740,10 @@ function MetricCard({
 function DataTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[12px] border border-white/[0.055] bg-white/[0.025] px-3 py-2.5">
-      <div className="text-[8px] font-medium uppercase tracking-[0.08em] text-white/[0.24]">
+      <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.30]">
         {label}
       </div>
-      <div className="mt-1 text-[11px] font-medium text-white/[0.68]">{value}</div>
+      <div className="mt-1 text-[13px] font-medium text-white/[0.76]">{value}</div>
     </div>
   );
 }
@@ -858,7 +751,7 @@ function DataTile({ label, value }: { label: string; value: string }) {
 function InsightRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-white/[0.055] pb-2.5 last:border-b-0">
-      <span className="text-[10px] text-white/[0.34]">{label}</span>
+      <span className="text-[12px] text-white/[0.42]">{label}</span>
       <span className="text-[10px] font-medium text-white/[0.72]">{value}</span>
     </div>
   );
