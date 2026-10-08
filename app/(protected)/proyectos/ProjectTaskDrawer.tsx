@@ -1682,49 +1682,49 @@ export default function ProjectTaskDrawer({
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={() =>
-                changeWorkspaceViewMode(
-                  workspaceViewMode === 'sheet' ? 'workspace' : 'sheet',
-                )
-              }
-              className={`inline-flex h-9 items-center gap-2 rounded-[11px] border px-3 text-[10px] font-medium transition ${
-                workspaceViewMode === 'sheet'
-                  ? 'border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#5ac8fa]'
-                  : 'border-white/[0.08] bg-white/[0.035] text-white/[0.68] hover:bg-white/[0.06] hover:text-white/[0.90]'
-              }`}
-              aria-pressed={workspaceViewMode === 'sheet'}
-            >
-              {workspaceViewMode === 'sheet' ? (
+            <div className="inline-flex items-center gap-1 rounded-[13px] border border-white/[0.07] bg-white/[0.025] p-1">
+              <button
+                type="button"
+                onClick={() => changeWorkspaceViewMode('workspace')}
+                className={`inline-flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-[10px] font-medium transition ${
+                  workspaceViewMode === 'workspace'
+                    ? 'bg-white text-[#0b1020] shadow-sm'
+                    : 'text-white/[0.48] hover:bg-white/[0.05] hover:text-white/[0.80]'
+                }`}
+                aria-pressed={workspaceViewMode === 'workspace'}
+              >
                 <Columns3 className="h-3.5 w-3.5" />
-              ) : (
-                <Table2 className="h-3.5 w-3.5" />
-              )}
-              {workspaceViewMode === 'sheet' ? 'Vista normal' : 'Modo tabla'}
-            </button>
+                Vista normal
+              </button>
 
-            <button
-              type="button"
-              onClick={() =>
-                changeWorkspaceViewMode(
+              <button
+                type="button"
+                onClick={() => changeWorkspaceViewMode('sheet')}
+                className={`inline-flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-[10px] font-medium transition ${
+                  workspaceViewMode === 'sheet'
+                    ? 'bg-[#0a84ff]/15 text-[#8bc7ff] shadow-sm'
+                    : 'text-white/[0.48] hover:bg-white/[0.05] hover:text-white/[0.80]'
+                }`}
+                aria-pressed={workspaceViewMode === 'sheet'}
+              >
+                <Table2 className="h-3.5 w-3.5" />
+                Planilla
+              </button>
+
+              <button
+                type="button"
+                onClick={() => changeWorkspaceViewMode('action-plan')}
+                className={`inline-flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-[10px] font-medium transition ${
                   workspaceViewMode === 'action-plan'
-                    ? 'workspace'
-                    : 'action-plan',
-                )
-              }
-              className={`inline-flex h-9 items-center gap-2 rounded-[11px] border px-3 text-[10px] font-medium transition ${
-                workspaceViewMode === 'action-plan'
-                  ? 'border-emerald-300/25 bg-emerald-300/10 text-emerald-200'
-                  : 'border-white/[0.08] bg-white/[0.035] text-white/[0.68] hover:bg-white/[0.06] hover:text-white/[0.90]'
-              }`}
-              aria-pressed={workspaceViewMode === 'action-plan'}
-            >
-              <Target className="h-3.5 w-3.5" />
-              {workspaceViewMode === 'action-plan'
-                ? 'Vista normal'
-                : 'Iniciar plan de acción'}
-            </button>
+                    ? 'bg-emerald-300/12 text-emerald-200 shadow-sm'
+                    : 'text-white/[0.48] hover:bg-white/[0.05] hover:text-white/[0.80]'
+                }`}
+                aria-pressed={workspaceViewMode === 'action-plan'}
+              >
+                <Target className="h-3.5 w-3.5" />
+                Plan de acción
+              </button>
+            </div>
 
             <button
               onClick={onClose}
