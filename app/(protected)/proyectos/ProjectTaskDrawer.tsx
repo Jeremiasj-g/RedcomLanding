@@ -31,6 +31,7 @@ import {
   Loader2,
   Save,
   UsersRound,
+  Target,
 } from 'lucide-react';
 import {
   updateProjectTask,
@@ -61,6 +62,18 @@ const ProjectTaskSheetGrid = dynamic(
     loading: () => (
       <div className="grid h-full min-h-[460px] place-items-center bg-[#17181b] text-[11px] text-white/[0.45]">
         Preparando planilla...
+      </div>
+    ),
+  },
+);
+
+const ProjectTaskActionPlan = dynamic(
+  () => import('./ProjectTaskActionPlan'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid h-full min-h-[460px] place-items-center bg-[#17181b] text-[11px] text-white/[0.45]">
+        Preparando plan de acción...
       </div>
     ),
   },
@@ -268,7 +281,7 @@ export default function ProjectTaskDrawer({
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [rightPanel, setRightPanel] = useState<'notes' | 'activity'>('notes');
   const [workspaceViewMode, setWorkspaceViewMode] =
-    useState<'workspace' | 'sheet'>('workspace');
+    useState<'workspace' | 'sheet' | 'action-plan'>('workspace');
   const [sheetSaveState, setSheetSaveState] =
     useState<ProjectTaskSheetSaveState>('idle');
 
@@ -1313,14 +1326,20 @@ export default function ProjectTaskDrawer({
     const storageKey = `project-task-drawer-view:${currentUserId ?? 'anon'}:${task.id}`;
     const saved = window.localStorage.getItem(storageKey);
 
-    if (saved === 'sheet' || saved === 'workspace') {
+    if (
+      saved === 'sheet' ||
+      saved === 'workspace' ||
+      saved === 'action-plan'
+    ) {
       setWorkspaceViewMode(saved);
     } else {
       setWorkspaceViewMode('workspace');
     }
   }, [currentUserId, task.id]);
 
-  const changeWorkspaceViewMode = (next: 'workspace' | 'sheet') => {
+  const changeWorkspaceViewMode = (
+    next: 'workspace' | 'sheet' | 'action-plan',
+  ) => {
     setWorkspaceViewMode(next);
 
     if (typeof window !== 'undefined') {
@@ -1681,6 +1700,28 @@ export default function ProjectTaskDrawer({
                 <Table2 className="h-3.5 w-3.5" />
               )}
               {workspaceViewMode === 'sheet' ? 'Vista normal' : 'Modo tabla'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                changeWorkspaceViewMode(
+                  workspaceViewMode === 'action-plan'
+                    ? 'workspace'
+                    : 'action-plan',
+                )
+              }
+              className={`inline-flex h-9 items-center gap-2 rounded-[11px] border px-3 text-[10px] font-medium transition ${
+                workspaceViewMode === 'action-plan'
+                  ? 'border-emerald-300/25 bg-emerald-300/10 text-emerald-200'
+                  : 'border-white/[0.08] bg-white/[0.035] text-white/[0.68] hover:bg-white/[0.06] hover:text-white/[0.90]'
+              }`}
+              aria-pressed={workspaceViewMode === 'action-plan'}
+            >
+              <Target className="h-3.5 w-3.5" />
+              {workspaceViewMode === 'action-plan'
+                ? 'Vista normal'
+                : 'Iniciar plan de acción'}
             </button>
 
             <button
@@ -2659,13 +2700,21 @@ export default function ProjectTaskDrawer({
             )}
           </div>
             </>
-          ) : (
+          ) : workspaceViewMode === 'sheet' ? (
             <div className="relative flex h-full min-h-0 flex-col overflow-hidden border-b border-white/[0.07] bg-[#17181b] lg:col-span-2 lg:border-b-0">
               <ProjectTaskSheetGrid
                 taskId={task.id}
                 currentUserId={currentUserId}
                 canEdit={canEditWorkspace && !isLocked}
                 onSaveStateChange={setSheetSaveState}
+              />
+            </div>
+          ) : (
+            <div className="relative flex h-full min-h-0 flex-col overflow-hidden border-b border-white/[0.07] bg-[#17181b] lg:col-span-2 lg:border-b-0">
+              <ProjectTaskActionPlan
+                taskId={task.id}
+                currentUserId={currentUserId}
+                canEdit={canEditWorkspace && !isLocked}
               />
             </div>
           )}
