@@ -61,6 +61,52 @@ type HistoryResponse = {
   error?: string;
 };
 
+const ACTION_PLAN_CACHE_VERSION = 'v1';
+const SELLER_CATALOG_CACHE_KEY =
+  `project-action-plan:${ACTION_PLAN_CACHE_VERSION}:seller-catalog`;
+
+function sessionGet<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function sessionSet(key: string, value: unknown) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Si sessionStorage no está disponible, simplemente seguimos sin caché.
+  }
+}
+
+function taskSelectionCacheKey(taskId: number) {
+  return `project-action-plan:${ACTION_PLAN_CACHE_VERSION}:task:${taskId}:selection`;
+}
+
+function historyCacheKey(
+  branchKey: string,
+  sellerId: string,
+  from?: string,
+  to?: string,
+) {
+  return [
+    'project-action-plan',
+    ACTION_PLAN_CACHE_VERSION,
+    'history',
+    branchKey,
+    sellerId,
+    from || 'all',
+    to || 'all',
+  ].join(':');
+}
+
 function branchLabel(branchKey: string) {
   return BRANCHES.find((branch) => branch.key === branchKey)?.label ?? branchKey;
 }
@@ -134,6 +180,28 @@ export default function ProjectTaskActionPlan({
       setLoadingHistory(true);
       setHistoryError(null);
 
+      const cacheKey = historyCacheKey(
+        branchKey,
+        sellerId,
+        nextFrom,
+        nextTo,
+      );
+      const cached = sessionGet<HistoryResponse>(cacheKey);
+
+      if (cached) {
+        setHistory(cached.history ?? []);
+        setSummary(cached.summary ?? null);
+        setPeriods(cached.periods ?? []);
+
+        if (!nextFrom && !nextTo && cached.periods?.length) {
+          setFrom(cached.periods[0].value);
+          setTo(cached.periods[cached.periods.length - 1].value);
+        }
+
+        setLoadingHistory(false);
+        return;
+      }
+
       try {
         const params = new URLSearchParams({
           branch_key: branchKey,
@@ -151,6 +219,8 @@ export default function ProjectTaskActionPlan({
         if (!response.ok) {
           throw new Error(json.error || 'No se pudo cargar el histórico.');
         }
+
+        sessionSet(cacheKey, json);
 
         setHistory(json.history ?? []);
         setSummary(json.summary ?? null);
@@ -179,46 +249,77 @@ export default function ProjectTaskActionPlan({
         setLoadingCatalog(true);
         setCatalogError(null);
 
-        const responses = await Promise.all(
-          BRANCHES.map(async (branch) => {
-            const response = await fetch(
-              `/api/categorias/history?branch_key=${branch.key}`,
-              { cache: 'no-store' },
+        let sellers = sessionGet<SellerEntry[]>(SELLER_CATALOG_CACHE_KEY);
+
+        if (!sellers) {
+          const responses = await Promise.all(
+            BRANCHES.map(async (branch) => {
+              const response = await fetch(
+                `/api/categorias/history?branch_key=${branch.key}`,
+                { cache: 'no-store' },
+              );
+              const json = (await response.json()) as HistoryResponse;
+              if (!response.ok) {
+                throw new Error(
+                  json.error || `No se pudo cargar ${branch.label}.`,
+                );
+              }
+              return json;
+            }),
+          );
+
+          sellers = responses.flatMap((response) =>
+            (response.sellers ?? []).map((seller) => ({
+              ...seller,
+              identityKey: `${seller.branchKey}:${seller.id}`,
+            })),
+          );
+
+          sellers.sort((a, b) => {
+            const branchCompare = branchLabel(a.branchKey).localeCompare(
+              branchLabel(b.branchKey),
+              'es',
             );
-            const json = (await response.json()) as HistoryResponse;
-            if (!response.ok) {
-              throw new Error(json.error || `No se pudo cargar ${branch.label}.`);
-            }
-            return json;
-          }),
-        );
+            if (branchCompare !== 0) return branchCompare;
+
+            const aId = Number(a.id);
+            const bId = Number(b.id);
+            if (Number.isFinite(aId) && Number.isFinite(bId)) return aId - bId;
+            return a.id.localeCompare(b.id);
+          });
+
+          sessionSet(SELLER_CATALOG_CACHE_KEY, sellers);
+        }
 
         if (cancelled) return;
-
-        const sellers = responses.flatMap((response) =>
-          (response.sellers ?? []).map((seller) => ({
-            ...seller,
-            identityKey: `${seller.branchKey}:${seller.id}`,
-          })),
-        );
-
-        sellers.sort((a, b) => {
-          const branchCompare = branchLabel(a.branchKey).localeCompare(
-            branchLabel(b.branchKey),
-            'es',
-          );
-          if (branchCompare !== 0) return branchCompare;
-
-          const aId = Number(a.id);
-          const bId = Number(b.id);
-          if (Number.isFinite(aId) && Number.isFinite(bId)) return aId - bId;
-          return a.id.localeCompare(b.id);
-        });
-
         setCatalog(sellers);
+
+        const cachedSelection = sessionGet<{
+          branchKey: string;
+          sellerId: string;
+        }>(taskSelectionCacheKey(taskId));
+
+        if (cachedSelection) {
+          const matched = sellers.find(
+            (seller) =>
+              seller.branchKey === cachedSelection.branchKey &&
+              seller.id === cachedSelection.sellerId,
+          );
+
+          if (matched) {
+            setSelected(matched);
+            await fetchHistory(matched.branchKey, matched.id);
+            return;
+          }
+        }
 
         const saved = await fetchProjectTaskActionPlan(taskId);
         if (cancelled || !saved) return;
+
+        sessionSet(taskSelectionCacheKey(taskId), {
+          branchKey: saved.branch_key,
+          sellerId: saved.seller_id,
+        });
 
         const matched = sellers.find(
           (seller) =>
@@ -296,6 +397,11 @@ export default function ProjectTaskActionPlan({
           branchKey: seller.branchKey,
           sellerId: seller.id,
           userId: currentUserId,
+        });
+
+        sessionSet(taskSelectionCacheKey(taskId), {
+          branchKey: seller.branchKey,
+          sellerId: seller.id,
         });
       }
 
