@@ -813,54 +813,71 @@ export default function ProjectTaskActionPlan({
               </div>
             </section>
 
-            <section className="mt-3 overflow-hidden rounded-[18px] border border-white/[0.07] bg-[#1c1c1e]">
-              <div className="border-b border-white/[0.06] px-4 py-3">
-                <div className="text-[13px] font-medium text-white/[0.86]">
-                  Histórico del vendedor
+            <section className="mt-6">
+              <div className="flex items-end justify-between gap-4 border-b border-white/[0.06] pb-3">
+                <div>
+                  <div className="text-[10px] font-medium uppercase tracking-[0.09em] text-white/[0.30]">
+                    Histórico del vendedor
+                  </div>
+                  <div className="mt-1 text-[11px] text-white/[0.30]">
+                    Los cálculos superiores se actualizan con este mismo rango.
+                  </div>
                 </div>
-                <div className="mt-0.5 text-[11px] text-white/[0.34]">
-                  Los cálculos superiores se actualizan con este mismo rango.
+                <div className="text-[10px] text-white/[0.22]">
+                  {history.length} período{history.length === 1 ? '' : 's'}
                 </div>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[920px] text-left">
-                  <thead className="bg-white/[0.025] text-[10px] uppercase tracking-[0.08em] text-white/[0.34]">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">Período</th>
-                      <th className="px-4 py-3 font-medium">Categoría</th>
-                      <th className="px-4 py-3 font-medium">Eficiencia</th>
-                      <th className="px-4 py-3 font-medium">Efectividad</th>
-                      <th className="px-4 py-3 font-medium">Facturación</th>
-                      <th className="px-4 py-3 font-medium">Cobertura</th>
-                      <th className="px-4 py-3 font-medium">Volumen</th>
-                      <th className="px-4 py-3 font-medium">Ruta</th>
+                <table className="w-full min-w-[920px] table-fixed text-left">
+                  <thead className="text-[9px] uppercase tracking-[0.09em] text-white/[0.26]">
+                    <tr className="border-b border-white/[0.05]">
+                      <th className="w-[15%] px-3 py-3.5 font-medium">Período</th>
+                      <th className="w-[18%] px-3 py-3.5 font-medium">Categoría</th>
+                      <th className="w-[12%] px-3 py-3.5 font-medium">Eficiencia</th>
+                      <th className="w-[12%] px-3 py-3.5 font-medium">Efectividad</th>
+                      <th className="w-[17%] px-3 py-3.5 font-medium">Facturación</th>
+                      <th className="w-[9%] px-3 py-3.5 font-medium">Cobertura</th>
+                      <th className="w-[8%] px-3 py-3.5 font-medium">Volumen</th>
+                      <th className="w-[9%] px-3 py-3.5 font-medium">Ruta</th>
                     </tr>
                   </thead>
                   <tbody>
                     {history.map((point) => (
                       <tr
                         key={point.period}
-                        className="border-t border-white/[0.05] text-[12px] text-white/[0.62]"
+                        className="group border-b border-white/[0.045] transition hover:bg-white/[0.018] last:border-b-0"
                       >
-                        <td className="px-4 py-3 font-medium text-white/[0.76]">
-                          {point.periodLabel}
+                        <td className="px-3 py-4">
+                          <div className="text-[15px] font-medium tracking-[-0.015em] text-white/[0.84]">
+                            {point.periodLabel}
+                          </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1.5">
+                        <td className="px-3 py-4">
+                          <span className="inline-flex items-center gap-2 text-[12px] font-medium text-white/[0.68]">
                             <span
-                              className="h-2 w-2 rounded-full"
+                              className="h-2.5 w-2.5 rounded-full"
                               style={{ backgroundColor: CATEGORY_COLORS[point.categoria] }}
                             />
                             {point.categoriaLabel}
                           </span>
                         </td>
-                        <td className="px-4 py-3">{formatPercent(point.eficiencia)}</td>
-                        <td className="px-4 py-3">{formatPercent(point.efectividad)}</td>
-                        <td className="px-4 py-3">{formatMoney(point.facturacion)}</td>
-                        <td className="px-4 py-3">{formatNumber(point.cobertura)}</td>
-                        <td className="px-4 py-3">{formatNumber(point.volumen)}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-4 text-[14px] font-medium text-white/[0.80]">
+                          {formatPercent(point.eficiencia)}
+                        </td>
+                        <td className="px-3 py-4 text-[14px] font-medium text-white/[0.80]">
+                          {formatPercent(point.efectividad)}
+                        </td>
+                        <td className="px-3 py-4 text-[14px] font-medium text-white/[0.84]">
+                          {formatMoney(point.facturacion)}
+                        </td>
+                        <td className="px-3 py-4 text-[13px] text-white/[0.58]">
+                          {formatNumber(point.cobertura)}
+                        </td>
+                        <td className="px-3 py-4 text-[13px] text-white/[0.58]">
+                          {formatNumber(point.volumen)}
+                        </td>
+                        <td className="px-3 py-4 text-[13px] text-white/[0.58]">
                           {secondsToHoursLabel(point.horasRutaSeconds)}
                         </td>
                       </tr>
