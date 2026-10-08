@@ -1664,7 +1664,9 @@ export default function ProjectTaskDrawer({
               </span>
             )}
 
-            {canEditWorkspace && !isLocked && (
+            {canEditWorkspace &&
+              !isLocked &&
+              workspaceViewMode !== 'action-plan' && (
               <div
                 className={`inline-flex min-w-[104px] items-center justify-end gap-1.5 text-[10px] font-normal ${drawerSaveClass}`}
                 aria-live="polite"
