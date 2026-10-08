@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ArrowLeft,
   BadgeCheck,
@@ -9,18 +9,15 @@ import {
   CalendarRange,
   CheckCircle2,
   CircleDollarSign,
-  Clock3,
   Loader2,
   Search,
   Target,
   TrendingUp,
   UserRound,
-  UsersRound,
 } from 'lucide-react';
 
 import {
   CATEGORY_COLORS,
-  CATEGORY_LABEL,
   formatMoney,
   formatNumber,
   formatPercent,
@@ -80,6 +77,16 @@ function safePercentBar(value: number | null) {
   if (value === null || !Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(100, value));
 }
+
+function average(values: Array<number | null | undefined>) {
+  const valid = values.filter(
+    (value): value is number =>
+      typeof value === 'number' && Number.isFinite(value),
+  );
+  if (!valid.length) return null;
+  return valid.reduce((total, value) => total + value, 0) / valid.length;
+}
+
 
 export default function ProjectTaskActionPlan({
   taskId,
@@ -251,6 +258,25 @@ export default function ProjectTaskActionPlan({
   }, [branchFilter, catalog, query]);
 
   const latest = history.length ? history[history.length - 1] : null;
+
+  const rangeAverages = useMemo(
+    () => ({
+      cobertura: average(history.map((point) => point.cobertura)),
+      volumen: average(history.map((point) => point.volumen)),
+      visitados: average(history.map((point) => point.visitados)),
+      visitasPlaneadas: average(history.map((point) => point.visitasPlaneadas)),
+      ventas: average(history.map((point) => point.totalVentas)),
+      boletasDiarias: average(history.map((point) => point.promedioBoletasDiarias)),
+      ticket: average(history.map((point) => point.promedioBoletas)),
+      horasRutaSeconds: average(history.map((point) => point.horasRutaSeconds)),
+      pdv: average(history.map((point) => point.porcentajePdv)),
+      distancia: average(history.map((point) => point.porcentajeDistancia)),
+      pop: average(history.map((point) => point.pop)),
+      exhibicion: average(history.map((point) => point.exhibicion)),
+      mix: average(history.map((point) => point.mix)),
+    }),
+    [history],
+  );
 
   async function chooseSeller(seller: SellerEntry) {
     try {
@@ -511,8 +537,8 @@ export default function ProjectTaskActionPlan({
               <MetricCard
                 icon={<BadgeCheck className="h-4 w-4" />}
                 label="Categoría actual"
-                value={summary.currentCategoriaLabel ?? '—'}
-                detail={`${summary.months} período${summary.months === 1 ? '' : 's'} analizado${summary.months === 1 ? '' : 's'}`}
+                value={selected.lastCategoriaLabel ?? '—'}
+                detail={`Último cierre: ${selected.lastPeriod}`}
               />
               <MetricCard
                 icon={<TrendingUp className="h-4 w-4" />}
@@ -537,6 +563,40 @@ export default function ProjectTaskActionPlan({
                 }
               />
             </div>
+
+            <section className="mt-3 rounded-[18px] border border-white/[0.07] bg-[#1c1c1e] p-4">
+              <div>
+                <div className="text-[11px] font-medium text-white/[0.82]">
+                  Promedios del rango
+                </div>
+                <div className="mt-0.5 text-[9px] text-white/[0.28]">
+                  Todos estos valores se recalculan al cambiar Desde / Hasta.
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+                <DataTile label="Cobertura" value={formatNumber(rangeAverages.cobertura, 1)} />
+                <DataTile label="Volumen" value={formatNumber(rangeAverages.volumen, 1)} />
+                <DataTile label="Visitados" value={formatNumber(rangeAverages.visitados, 1)} />
+                <DataTile label="Visitas planeadas" value={formatNumber(rangeAverages.visitasPlaneadas, 1)} />
+                <DataTile label="Ventas" value={formatNumber(rangeAverages.ventas, 1)} />
+                <DataTile label="Boletas diarias" value={formatNumber(rangeAverages.boletasDiarias, 1)} />
+                <DataTile label="Ticket promedio" value={formatMoney(rangeAverages.ticket)} />
+                <DataTile
+                  label="Horas de ruta"
+                  value={secondsToHoursLabel(
+                    rangeAverages.horasRutaSeconds === null
+                      ? null
+                      : Math.round(rangeAverages.horasRutaSeconds),
+                  )}
+                />
+                <DataTile label="% PDV" value={formatPercent(rangeAverages.pdv)} />
+                <DataTile label="% distancia" value={formatPercent(rangeAverages.distancia)} />
+                <DataTile label="POP" value={formatPercent(rangeAverages.pop)} />
+                <DataTile label="Exhibición" value={formatPercent(rangeAverages.exhibicion)} />
+                <DataTile label="MIX" value={formatPercent(rangeAverages.mix)} />
+              </div>
+            </section>
 
             <section className="mt-3 rounded-[18px] border border-white/[0.07] bg-[#1c1c1e] p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -629,7 +689,7 @@ export default function ProjectTaskActionPlan({
                     value={summary.initialCategoriaLabel ?? '—'}
                   />
                   <InsightRow
-                    label="Categoría actual"
+                    label="Categoría al cierre del rango"
                     value={summary.currentCategoriaLabel ?? '—'}
                   />
                   <InsightRow
@@ -732,7 +792,7 @@ function MetricCard({
   detail,
   progress,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   detail?: string;
