@@ -107,6 +107,22 @@ function historyCacheKey(
   ].join(':');
 }
 
+function rangeCacheKey(
+  taskId: number,
+  branchKey: string,
+  sellerId: string,
+) {
+  return [
+    'project-action-plan',
+    ACTION_PLAN_CACHE_VERSION,
+    'task',
+    taskId,
+    'range',
+    branchKey,
+    sellerId,
+  ].join(':');
+}
+
 function branchLabel(branchKey: string) {
   return BRANCHES.find((branch) => branch.key === branchKey)?.label ?? branchKey;
 }
@@ -308,7 +324,23 @@ export default function ProjectTaskActionPlan({
 
           if (matched) {
             setSelected(matched);
-            await fetchHistory(matched.branchKey, matched.id);
+
+            const cachedRange = sessionGet<{ from: string; to: string }>(
+              rangeCacheKey(taskId, matched.branchKey, matched.id),
+            );
+
+            if (cachedRange?.from && cachedRange?.to) {
+              setFrom(cachedRange.from);
+              setTo(cachedRange.to);
+              await fetchHistory(
+                matched.branchKey,
+                matched.id,
+                cachedRange.from,
+                cachedRange.to,
+              );
+            } else {
+              await fetchHistory(matched.branchKey, matched.id);
+            }
             return;
           }
         }
@@ -329,7 +361,23 @@ export default function ProjectTaskActionPlan({
 
         if (matched) {
           setSelected(matched);
-          await fetchHistory(matched.branchKey, matched.id);
+
+          const cachedRange = sessionGet<{ from: string; to: string }>(
+            rangeCacheKey(taskId, matched.branchKey, matched.id),
+          );
+
+          if (cachedRange?.from && cachedRange?.to) {
+            setFrom(cachedRange.from);
+            setTo(cachedRange.to);
+            await fetchHistory(
+              matched.branchKey,
+              matched.id,
+              cachedRange.from,
+              cachedRange.to,
+            );
+          } else {
+            await fetchHistory(matched.branchKey, matched.id);
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -406,9 +454,25 @@ export default function ProjectTaskActionPlan({
       }
 
       setSelected(seller);
-      setFrom('');
-      setTo('');
-      await fetchHistory(seller.branchKey, seller.id);
+
+      const cachedRange = sessionGet<{ from: string; to: string }>(
+        rangeCacheKey(taskId, seller.branchKey, seller.id),
+      );
+
+      if (cachedRange?.from && cachedRange?.to) {
+        setFrom(cachedRange.from);
+        setTo(cachedRange.to);
+        await fetchHistory(
+          seller.branchKey,
+          seller.id,
+          cachedRange.from,
+          cachedRange.to,
+        );
+      } else {
+        setFrom('');
+        setTo('');
+        await fetchHistory(seller.branchKey, seller.id);
+      }
     } catch (error) {
       notify.error(errorMessage(error, 'No se pudo iniciar el plan de acción.'));
     } finally {
@@ -428,6 +492,12 @@ export default function ProjectTaskActionPlan({
 
     setFrom(safeFrom);
     setTo(safeTo);
+
+    sessionSet(
+      rangeCacheKey(taskId, selected.branchKey, selected.id),
+      { from: safeFrom, to: safeTo },
+    );
+
     await fetchHistory(selected.branchKey, selected.id, safeFrom, safeTo);
   }
 
@@ -609,51 +679,49 @@ export default function ProjectTaskActionPlan({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="rounded-[14px] border border-white/[0.07] bg-[#1c1c1e] p-2.5">
-              <div className="mb-2 flex items-center gap-2 px-1">
-                <CalendarRange className="h-4 w-4 text-[#5ac8fa]" />
-                <span className="text-[11px] font-medium text-white/[0.58]">
-                  Rango de análisis
+          <div className="min-w-[390px]">
+            <div className="mb-2 flex items-center justify-end gap-2">
+              <CalendarRange className="h-4 w-4 text-[#5ac8fa]" />
+              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.34]">
+                Rango de análisis
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="mb-1 block px-1 text-[9px] font-medium uppercase tracking-[0.08em] text-white/[0.26]">
+                  Desde
                 </span>
+                <RedcomSelect
+                  value={from}
+                  surface="dark"
+                  accent="indigo"
+                  className="h-10 rounded-[11px] text-[12px]"
+                  onValueChange={(value) => void applyRange(value, to)}
+                  options={periods.map((period) => ({
+                    value: period.value,
+                    label: periodLabel(period),
+                  }))}
+                  placeholder="Período inicial"
+                  aria-label="Período inicial"
+                />
               </div>
-              <div className="grid min-w-[390px] grid-cols-2 gap-2">
-                <div>
-                  <span className="mb-1 block px-1 text-[10px] font-medium uppercase tracking-[0.07em] text-white/[0.30]">
-                    Desde
-                  </span>
-                  <RedcomSelect
-                    value={from}
-                    surface="dark"
-                    accent="indigo"
-                    className="h-10 rounded-[11px] text-[12px]"
-                    onValueChange={(value) => void applyRange(value, to)}
-                    options={periods.map((period) => ({
-                      value: period.value,
-                      label: periodLabel(period),
-                    }))}
-                    placeholder="Período inicial"
-                    aria-label="Período inicial"
-                  />
-                </div>
-                <div>
-                  <span className="mb-1 block px-1 text-[10px] font-medium uppercase tracking-[0.07em] text-white/[0.30]">
-                    Hasta
-                  </span>
-                  <RedcomSelect
-                    value={to}
-                    surface="dark"
-                    accent="indigo"
-                    className="h-10 rounded-[11px] text-[12px]"
-                    onValueChange={(value) => void applyRange(from, value)}
-                    options={periods.map((period) => ({
-                      value: period.value,
-                      label: periodLabel(period),
-                    }))}
-                    placeholder="Período final"
-                    aria-label="Período final"
-                  />
-                </div>
+              <div>
+                <span className="mb-1 block px-1 text-[9px] font-medium uppercase tracking-[0.08em] text-white/[0.26]">
+                  Hasta
+                </span>
+                <RedcomSelect
+                  value={to}
+                  surface="dark"
+                  accent="indigo"
+                  className="h-10 rounded-[11px] text-[12px]"
+                  onValueChange={(value) => void applyRange(from, value)}
+                  options={periods.map((period) => ({
+                    value: period.value,
+                    label: periodLabel(period),
+                  }))}
+                  placeholder="Período final"
+                  aria-label="Período final"
+                />
               </div>
             </div>
           </div>
@@ -676,7 +744,8 @@ export default function ProjectTaskActionPlan({
           </div>
         ) : (
           <>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <section className="mt-5 border-y border-white/[0.065] py-5">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-white/[0.06]">
               <MetricCard
                 icon={<BadgeCheck className="h-4 w-4" />}
                 label="Categoría actual"
@@ -705,19 +774,22 @@ export default function ProjectTaskActionPlan({
                     : undefined
                 }
               />
-            </div>
+              </div>
+            </section>
 
-            <section className="mt-3 rounded-[18px] border border-white/[0.07] bg-[#1c1c1e] p-4">
-              <div>
-                <div className="text-[13px] font-medium text-white/[0.86]">
-                  Promedios del rango
-                </div>
-                <div className="mt-0.5 text-[11px] text-white/[0.34]">
-                  Todos estos valores se recalculan al cambiar Desde / Hasta.
+            <section className="mt-5">
+              <div className="flex items-end justify-between gap-4 border-b border-white/[0.06] pb-3">
+                <div>
+                  <div className="text-[10px] font-medium uppercase tracking-[0.09em] text-white/[0.30]">
+                    Promedios del rango
+                  </div>
+                  <div className="mt-1 text-[11px] text-white/[0.30]">
+                    Se recalculan automáticamente al cambiar las fechas.
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+              <div className="mt-2 grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
                 <DataTile label="Cobertura" value={formatNumber(rangeAverages.cobertura, 1)} />
                 <DataTile label="Volumen" value={formatNumber(rangeAverages.volumen, 1)} />
                 <DataTile label="Visitados" value={formatNumber(rangeAverages.visitados, 1)} />
@@ -818,14 +890,14 @@ function MetricCard({
   progress?: number | null;
 }) {
   return (
-    <div className="rounded-[16px] border border-white/[0.07] bg-[#1c1c1e] p-3.5">
-      <div className="flex items-center gap-2 text-white/[0.30]">
+    <div className="min-w-0 px-1 py-3 lg:px-5">
+      <div className="flex items-center gap-1.5 text-white/[0.26]">
         {icon}
-        <span className="text-[10px] font-medium uppercase tracking-[0.08em]">
+        <span className="text-[9px] font-medium uppercase tracking-[0.09em]">
           {label}
         </span>
       </div>
-      <div className="mt-2 text-[19px] font-medium tracking-[-0.02em] text-white/[0.90]">
+      <div className="mt-2.5 truncate text-[26px] font-medium tracking-[-0.035em] text-white/[0.94]">
         {value}
       </div>
       {typeof progress === 'number' ? (
@@ -837,7 +909,7 @@ function MetricCard({
         </div>
       ) : null}
       {detail ? (
-        <div className="mt-1.5 text-[11px] text-white/[0.32]">{detail}</div>
+        <div className="mt-1.5 text-[10px] text-white/[0.28]">{detail}</div>
       ) : null}
     </div>
   );
@@ -845,11 +917,13 @@ function MetricCard({
 
 function DataTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[12px] border border-white/[0.055] bg-white/[0.025] px-3 py-2.5">
-      <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/[0.30]">
+    <div className="min-w-0 border-b border-white/[0.045] px-3 py-4 xl:[&:nth-last-child(-n+5)]:border-b-0">
+      <div className="text-[9px] font-medium uppercase tracking-[0.09em] text-white/[0.26]">
         {label}
       </div>
-      <div className="mt-1 text-[13px] font-medium text-white/[0.76]">{value}</div>
+      <div className="mt-1.5 truncate text-[20px] font-medium tracking-[-0.02em] text-white/[0.86]">
+        {value}
+      </div>
     </div>
   );
 }
