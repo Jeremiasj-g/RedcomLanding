@@ -31,6 +31,7 @@ import {
   Loader2,
   Save,
   UsersRound,
+  Target,
 } from 'lucide-react';
 import {
   updateProjectTask,
@@ -61,6 +62,18 @@ const ProjectTaskSheetGrid = dynamic(
     loading: () => (
       <div className="grid h-full min-h-[460px] place-items-center bg-[#17181b] text-[11px] text-white/[0.45]">
         Preparando planilla...
+      </div>
+    ),
+  },
+);
+
+const ProjectTaskActionPlan = dynamic(
+  () => import('./ProjectTaskActionPlan'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid h-full min-h-[460px] place-items-center bg-[#17181b] text-[11px] text-white/[0.45]">
+        Preparando plan de acción...
       </div>
     ),
   },
@@ -268,7 +281,7 @@ export default function ProjectTaskDrawer({
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [rightPanel, setRightPanel] = useState<'notes' | 'activity'>('notes');
   const [workspaceViewMode, setWorkspaceViewMode] =
-    useState<'workspace' | 'sheet'>('workspace');
+    useState<'workspace' | 'sheet' | 'action-plan'>('workspace');
   const [sheetSaveState, setSheetSaveState] =
     useState<ProjectTaskSheetSaveState>('idle');
 
@@ -1313,14 +1326,20 @@ export default function ProjectTaskDrawer({
     const storageKey = `project-task-drawer-view:${currentUserId ?? 'anon'}:${task.id}`;
     const saved = window.localStorage.getItem(storageKey);
 
-    if (saved === 'sheet' || saved === 'workspace') {
+    if (
+      saved === 'sheet' ||
+      saved === 'workspace' ||
+      saved === 'action-plan'
+    ) {
       setWorkspaceViewMode(saved);
     } else {
       setWorkspaceViewMode('workspace');
     }
   }, [currentUserId, task.id]);
 
-  const changeWorkspaceViewMode = (next: 'workspace' | 'sheet') => {
+  const changeWorkspaceViewMode = (
+    next: 'workspace' | 'sheet' | 'action-plan',
+  ) => {
     setWorkspaceViewMode(next);
 
     if (typeof window !== 'undefined') {
@@ -1645,7 +1664,9 @@ export default function ProjectTaskDrawer({
               </span>
             )}
 
-            {canEditWorkspace && !isLocked && (
+            {canEditWorkspace &&
+              !isLocked &&
+              workspaceViewMode !== 'action-plan' && (
               <div
                 className={`inline-flex min-w-[104px] items-center justify-end gap-1.5 text-[10px] font-normal ${drawerSaveClass}`}
                 aria-live="polite"
@@ -1661,27 +1682,49 @@ export default function ProjectTaskDrawer({
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={() =>
-                changeWorkspaceViewMode(
-                  workspaceViewMode === 'sheet' ? 'workspace' : 'sheet',
-                )
-              }
-              className={`inline-flex h-9 items-center gap-2 rounded-[11px] border px-3 text-[10px] font-medium transition ${
-                workspaceViewMode === 'sheet'
-                  ? 'border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#5ac8fa]'
-                  : 'border-white/[0.08] bg-white/[0.035] text-white/[0.68] hover:bg-white/[0.06] hover:text-white/[0.90]'
-              }`}
-              aria-pressed={workspaceViewMode === 'sheet'}
-            >
-              {workspaceViewMode === 'sheet' ? (
+            <div className="inline-flex items-center gap-1 rounded-[13px] border border-white/[0.07] bg-white/[0.025] p-1">
+              <button
+                type="button"
+                onClick={() => changeWorkspaceViewMode('workspace')}
+                className={`inline-flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-[10px] font-medium transition ${
+                  workspaceViewMode === 'workspace'
+                    ? 'bg-white text-[#0b1020] shadow-sm'
+                    : 'text-white/[0.48] hover:bg-white/[0.05] hover:text-white/[0.80]'
+                }`}
+                aria-pressed={workspaceViewMode === 'workspace'}
+              >
                 <Columns3 className="h-3.5 w-3.5" />
-              ) : (
+                Vista normal
+              </button>
+
+              <button
+                type="button"
+                onClick={() => changeWorkspaceViewMode('sheet')}
+                className={`inline-flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-[10px] font-medium transition ${
+                  workspaceViewMode === 'sheet'
+                    ? 'bg-[#0a84ff]/15 text-[#8bc7ff] shadow-sm'
+                    : 'text-white/[0.48] hover:bg-white/[0.05] hover:text-white/[0.80]'
+                }`}
+                aria-pressed={workspaceViewMode === 'sheet'}
+              >
                 <Table2 className="h-3.5 w-3.5" />
-              )}
-              {workspaceViewMode === 'sheet' ? 'Vista normal' : 'Modo tabla'}
-            </button>
+                Planilla
+              </button>
+
+              <button
+                type="button"
+                onClick={() => changeWorkspaceViewMode('action-plan')}
+                className={`inline-flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-[10px] font-medium transition ${
+                  workspaceViewMode === 'action-plan'
+                    ? 'bg-emerald-300/12 text-emerald-200 shadow-sm'
+                    : 'text-white/[0.48] hover:bg-white/[0.05] hover:text-white/[0.80]'
+                }`}
+                aria-pressed={workspaceViewMode === 'action-plan'}
+              >
+                <Target className="h-3.5 w-3.5" />
+                Plan de acción
+              </button>
+            </div>
 
             <button
               onClick={onClose}
@@ -2659,13 +2702,21 @@ export default function ProjectTaskDrawer({
             )}
           </div>
             </>
-          ) : (
+          ) : workspaceViewMode === 'sheet' ? (
             <div className="relative flex h-full min-h-0 flex-col overflow-hidden border-b border-white/[0.07] bg-[#17181b] lg:col-span-2 lg:border-b-0">
               <ProjectTaskSheetGrid
                 taskId={task.id}
                 currentUserId={currentUserId}
                 canEdit={canEditWorkspace && !isLocked}
                 onSaveStateChange={setSheetSaveState}
+              />
+            </div>
+          ) : (
+            <div className="relative flex h-full min-h-0 flex-col overflow-hidden border-b border-white/[0.07] bg-[#17181b] lg:col-span-2 lg:border-b-0">
+              <ProjectTaskActionPlan
+                taskId={task.id}
+                currentUserId={currentUserId}
+                canEdit={canEditWorkspace && !isLocked}
               />
             </div>
           )}
