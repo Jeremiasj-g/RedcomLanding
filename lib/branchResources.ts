@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabaseClient';
+import type { ModulePermissionKey } from '@/lib/module-permissions';
 
 export type BranchResourceIcon =
   | 'pie-chart'
@@ -31,7 +32,7 @@ export type BranchResource = {
   icon: BranchResourceIcon;
   accent: BranchResourceAccent;
   action_label: string;
-  permission_key: string | null;
+  permission_key: ModulePermissionKey | null;
   sort_order: number;
   is_active: boolean;
   created_by: string | null;
@@ -49,7 +50,7 @@ export type BranchResourceInput = {
   icon: BranchResourceIcon;
   accent: BranchResourceAccent;
   action_label?: string;
-  permission_key?: string | null;
+  permission_key?: ModulePermissionKey | null;
 };
 
 export async function fetchBranchResources(
