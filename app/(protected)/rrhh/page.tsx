@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { RequireAuth } from '@/components/RouteGuards';
 import { AnnouncementEditor } from '@/components/rrhh/announcements/AnnouncementEditor';
 import RRHHAnnouncementsPublicaciones from '@/components/rrhh/RRHHAnnouncementsPublicaciones';
+import RRHHActionPlansPanel from '@/components/rrhh/RRHHActionPlansPanel';
 
 import {
   rrhhFetchAnnouncementsMetrics,
@@ -24,6 +25,7 @@ import {
   Heart,
   CalendarDays,
   Newspaper,
+  Target,
 } from 'lucide-react';
 
 // shadcn/ui
@@ -31,7 +33,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
-type ViewTab = 'publicar' | 'publicaciones';
+type ViewTab = 'publicar' | 'publicaciones' | 'planes';
 
 // Plantillas rápidas (texto sugerido)
 const QUICK_TEMPLATES = [
@@ -200,35 +202,44 @@ export default function RRHHPage() {
                   </div>
 
                   <h1 className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-                    Publicaciones internas
+                    Centro de Recursos Humanos
                   </h1>
                   <p className="mt-1 text-sm text-slate-600">
-                    Publicá novedades y gestioná publicaciones con control de lectura (Seen/ACK).
+                    Comunicaciones internas y seguimiento de planes de acción en un mismo espacio.
                   </p>
 
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Badge variant="secondary" className="rounded-xl">
-                      {items.length} total
-                    </Badge>
-                    <Badge variant="secondary" className="rounded-xl">
-                      {countActivos} activos
-                    </Badge>
-                    <Badge variant="secondary" className="rounded-xl">
-                      {countArchivados} archivados
-                    </Badge>
-                  </div>
+                  {viewTab !== 'planes' ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Badge variant="secondary" className="rounded-xl">
+                        {items.length} total
+                      </Badge>
+                      <Badge variant="secondary" className="rounded-xl">
+                        {countActivos} activos
+                      </Badge>
+                      <Badge variant="secondary" className="rounded-xl">
+                        {countArchivados} archivados
+                      </Badge>
+                    </div>
+                  ) : (
+                    <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700">
+                      <Target className="h-3.5 w-3.5" />
+                      Supervisión de solo lectura
+                    </div>
+                  )}
                 </div>
 
-                <Button onClick={load} variant="outline" className="rounded-2xl bg-white">
-                  <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
-                  Actualizar
-                </Button>
+                {viewTab !== 'planes' ? (
+                  <Button onClick={load} variant="outline" className="rounded-2xl bg-white">
+                    <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
+                    Actualizar
+                  </Button>
+                ) : null}
               </div>
 
               <Separator className="my-5" />
 
               {/* Tabs principales */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <PrimaryTab
                   active={viewTab === 'publicar'}
                   onClick={() => setViewTab('publicar')}
@@ -243,6 +254,13 @@ export default function RRHHPage() {
                   title="Publicaciones"
                   subtitle="Ver y gestionar"
                   badge={items.length}
+                />
+                <PrimaryTab
+                  active={viewTab === 'planes'}
+                  onClick={() => setViewTab('planes')}
+                  icon={<Target className="h-4 w-4" />}
+                  title="Planes de acción"
+                  subtitle="Supervisar casos activos"
                 />
               </div>
             </div>
@@ -371,7 +389,7 @@ export default function RRHHPage() {
                     </div>
                   </div>
                 </motion.section>
-              ) : (
+              ) : viewTab === 'publicaciones' ? (
                 <motion.section
                   key="tab-publicaciones"
                   initial={{ opacity: 0, y: 10 }}
@@ -386,6 +404,16 @@ export default function RRHHPage() {
                     countArchivados={countArchivados}
                     onReload={load}
                   />
+                </motion.section>
+              ) : (
+                <motion.section
+                  key="tab-planes"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <RRHHActionPlansPanel />
                 </motion.section>
               )}
             </AnimatePresence>
