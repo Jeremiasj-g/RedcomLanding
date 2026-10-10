@@ -205,14 +205,11 @@ export default function LoginModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <motion.button
+          <button
             type="button"
             aria-label="Cerrar acceso"
             onClick={() => onOpenChange(false)}
             className="absolute inset-0 bg-[#0b0b0d]/55 backdrop-blur-xl"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
           />
 
           <motion.div
