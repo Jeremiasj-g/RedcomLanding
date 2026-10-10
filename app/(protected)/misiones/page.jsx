@@ -10,19 +10,10 @@ import LookerEmbed from '@/components/LookerEmbed';
 import LookerTabs from '@/components/LookerTabs';
 import { RequireAuth } from '@/components/RouteGuards';
 import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
-import { misionesProducts } from '@/lib/data';
 import PageHeader from '@/components/PageHeader';
 
 export default function Misiones() {
   const { canAccessModule } = useModulePermissions();
-
-  const visibleProducts = useMemo(
-    () =>
-      misionesProducts.filter(
-        (product) => !product.permissionKey || canAccessModule(product.permissionKey),
-      ),
-    [canAccessModule],
-  );
 
   const canSeeCategories = canAccessModule('branch_categories');
   const canSeeAnalytics = canAccessModule('branch_analytics');
@@ -55,7 +46,7 @@ export default function Misiones() {
       />
 
       <div className="min-h-screen bg-white">
-        <BranchResourcesSection branchName="Misiones" products={visibleProducts} />
+        <BranchResourcesSection branchName="Misiones" branchKey="misiones" />
 
         {(canSeeCategories || canSeeAnalytics) && (
           <section className="bg-white py-12 sm:py-14">
