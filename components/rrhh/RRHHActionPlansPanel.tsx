@@ -26,7 +26,6 @@ import {
   fetchRRHHActionPlans,
   type RRHHActionPlanRow,
 } from '@/lib/rrhhActionPlans';
-import { exportRRHHActionPlanPdf } from '@/lib/exportRRHHActionPlanPdf';
 import { RedcomSelect } from '@/components/ui/redcom-select';
 import {
   formatMoney,
@@ -602,10 +601,13 @@ function ActionPlanDossier({
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
-              disabled={exportingPdf}
-              onClick={() => {
+              disabled={exportingPdf || loadingHistory}
+              onClick={async () => {
                 try {
                   setExportingPdf(true);
+                  const { exportRRHHActionPlanPdf } = await import(
+                    '@/lib/exportRRHHActionPlanPdf'
+                  );
                   exportRRHHActionPlanPdf({ item, history, summary });
                 } finally {
                   setExportingPdf(false);
@@ -613,12 +615,12 @@ function ActionPlanDossier({
               }}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
             >
-              {exportingPdf ? (
+              {exportingPdf || loadingHistory ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Download className="h-4 w-4" />
               )}
-              Exportar PDF
+              {loadingHistory ? 'Preparando PDF' : 'Exportar PDF'}
             </button>
 
             <button
