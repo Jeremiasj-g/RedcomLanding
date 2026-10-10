@@ -199,12 +199,7 @@ export default function LoginModal({
   return (
     <AnimatePresence>
       {open ? (
-        <motion.div
-          className="fixed inset-0 z-[100] grid place-items-center p-3 sm:p-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
+        <div className="fixed inset-0 z-[100] grid place-items-center p-3 sm:p-6">
           <button
             type="button"
             aria-label="Cerrar acceso"
@@ -514,7 +509,7 @@ export default function LoginModal({
               </motion.div>
             ) : null}
           </AnimatePresence>
-        </motion.div>
+        </div>
       ) : null}
     </AnimatePresence>
   );
