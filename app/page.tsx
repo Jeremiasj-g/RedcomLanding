@@ -1,6 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Carousel from '@/components/Carousel';
 import Card from '@/components/Card';
 import Container from '@/components/Container';
@@ -12,9 +14,12 @@ import { useImportantAlert } from '@/hooks/useImportantAlert';
 
 import { ImportantAlertModal } from '@/components/rrhh/ImportantAlertModal';
 import { useImportantAlertsQueue } from '@/hooks/rrhh/useImportantAlertsQueue';
+import LoginModal from '@/components/auth/LoginModal';
 
 export default function Home() {
   const { me } = useMe();
+  const searchParams = useSearchParams();
+  const [loginOpen, setLoginOpen] = useState(false);
   const {
     current: alert,
     acknowledge,
@@ -22,6 +27,18 @@ export default function Home() {
     dismissForever,
   } = useImportantAlertsQueue();
 
+
+  useEffect(() => {
+    if (searchParams.get('login') === '1') {
+      setLoginOpen(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const openLogin = () => setLoginOpen(true);
+    window.addEventListener('redcom:open-login', openLogin);
+    return () => window.removeEventListener('redcom:open-login', openLogin);
+  }, []);
 
   const handleScrollToCategories = () => {
     document.getElementById('categories')?.scrollIntoView({
@@ -64,6 +81,8 @@ export default function Home() {
 
   return (
     <>
+      <LoginModal open={loginOpen} onOpenChange={setLoginOpen} />
+
       <ImportantAlertModal
         open={!!alert}
         title={alert?.title ?? ''}
