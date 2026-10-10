@@ -10,6 +10,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  Download,
   Filter,
   Gauge,
   Loader2,
@@ -25,6 +26,7 @@ import {
   fetchRRHHActionPlans,
   type RRHHActionPlanRow,
 } from '@/lib/rrhhActionPlans';
+import { exportRRHHActionPlanPdf } from '@/lib/exportRRHHActionPlanPdf';
 import { RedcomSelect } from '@/components/ui/redcom-select';
 import {
   formatMoney,
@@ -523,6 +525,7 @@ function ActionPlanDossier({
   const [history, setHistory] = useState<CategoriaHistoryPoint[]>([]);
   const [summary, setSummary] = useState<CategoriaHistorySummary | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -596,13 +599,36 @@ function ActionPlanDossier({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              disabled={exportingPdf}
+              onClick={() => {
+                try {
+                  setExportingPdf(true);
+                  exportRRHHActionPlanPdf({ item, history, summary });
+                } finally {
+                  setExportingPdf(false);
+                }
+              }}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
+            >
+              {exportingPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Exportar PDF
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
