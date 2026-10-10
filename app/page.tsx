@@ -2,7 +2,6 @@
 
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import Carousel from '@/components/Carousel';
 import Card from '@/components/Card';
 import Container from '@/components/Container';
@@ -18,7 +17,6 @@ import LoginModal from '@/components/auth/LoginModal';
 
 export default function Home() {
   const { me } = useMe();
-  const searchParams = useSearchParams();
   const [loginOpen, setLoginOpen] = useState(false);
   const {
     current: alert,
@@ -29,16 +27,29 @@ export default function Home() {
 
 
   useEffect(() => {
-    if (searchParams.get('login') === '1') {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('login') === '1') {
       setLoginOpen(true);
     }
-  }, [searchParams]);
+  }, []);
 
   useEffect(() => {
     const openLogin = () => setLoginOpen(true);
     window.addEventListener('redcom:open-login', openLogin);
     return () => window.removeEventListener('redcom:open-login', openLogin);
   }, []);
+
+  const handleLoginOpenChange = (open: boolean) => {
+    setLoginOpen(open);
+
+    if (!open) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('login')) {
+        url.searchParams.delete('login');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+      }
+    }
+  };
 
   const handleScrollToCategories = () => {
     document.getElementById('categories')?.scrollIntoView({
@@ -81,7 +92,7 @@ export default function Home() {
 
   return (
     <>
-      <LoginModal open={loginOpen} onOpenChange={setLoginOpen} />
+      <LoginModal open={loginOpen} onOpenChange={handleLoginOpenChange} />
 
       <ImportantAlertModal
         open={!!alert}
