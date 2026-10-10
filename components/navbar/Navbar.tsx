@@ -707,12 +707,19 @@ export default function Navbar() {
               ) : null}
 
               {!logged ? (
-                <Link
-                  href="/login"
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.location.pathname === '/') {
+                      window.dispatchEvent(new Event('redcom:open-login'));
+                    } else {
+                      window.location.assign('/?login=1');
+                    }
+                  }}
                   className="inline-flex h-10 items-center rounded-[12px] border border-white/[0.08] bg-white/[0.05] px-4 text-[11px] font-medium text-white/[0.82] transition hover:bg-white/[0.08] hover:text-white"
                 >
                   Ingresar
-                </Link>
+                </button>
               ) : null}
             </>
           )}
