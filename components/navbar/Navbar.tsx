@@ -118,7 +118,9 @@ export default function Navbar() {
   const isActive = !!me?.is_active;
   const isVendor = role === 'vendedor';
   const isAdmin = role === 'admin';
-  const bellCount = unreadCount + (isAdmin ? vendoPending.total : 0);
+  const canSeeProjects = canAccessModule('projects');
+  const bellCount =
+    (canSeeProjects ? unreadCount : 0) + (isAdmin ? vendoPending.total : 0);
 
   // Campanita solo usuarios internos activos (no vendedor)
   const canSeeNotifs = logged && isActive && !isVendor;
@@ -269,7 +271,7 @@ export default function Navbar() {
   // Notificaciones realtime (solo si puede ver campanita)
   // ─────────────────────────────────────────
   useEffect(() => {
-    if (!canSeeNotifs || !me?.id) {
+    if (!canSeeNotifs || !canSeeProjects || !me?.id) {
       setNotifications([]);
       return;
     }
@@ -330,7 +332,7 @@ export default function Navbar() {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [canSeeNotifs, me?.id]);
+  }, [canSeeNotifs, canSeeProjects, me?.id]);
 
   const handleMarkAllRead = () => {
     if (!me?.id) return;
@@ -555,37 +557,39 @@ export default function Navbar() {
                             </Link>
                           ) : null}
 
-                          <div className="mb-2 flex items-center justify-between px-1">
-                            <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-white/[0.32]">
-                              <Sparkles className="h-3 w-3" />
-                              Proyectos asignados
-                            </div>
-                            <Link
-                              href="/proyectos"
-                              className="text-[11px] font-medium text-[#8bc7ff] transition hover:text-[#b9ddff]"
-                              onClick={() => setNotifOpen(false)}
-                            >
-                              Ver proyectos
-                            </Link>
-                          </div>
-
-                          {notifications.length === 0 ? (
-                            <div className="grid min-h-[150px] place-items-center rounded-[15px] border border-dashed border-white/[0.065] bg-white/[0.015] px-5 text-center">
-                              <div>
-                                <div className="mx-auto grid h-9 w-9 place-items-center rounded-full bg-white/[0.035] text-white/[0.20]">
-                                  <Inbox className="h-4 w-4" />
+                          {canSeeProjects ? (
+                            <>
+                              <div className="mb-2 flex items-center justify-between px-1">
+                                <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-white/[0.32]">
+                                  <Sparkles className="h-3 w-3" />
+                                  Proyectos asignados
                                 </div>
-                                <div className="mt-2.5 text-[12px] font-semibold text-white/[0.56]">
-                                  Todo al día
-                                </div>
-                                <p className="mt-1 text-[11px] leading-5 text-white/[0.28]">
-                                  No tenés nuevas asignaciones de proyectos.
-                                </p>
+                                <Link
+                                  href="/proyectos"
+                                  className="text-[11px] font-medium text-[#8bc7ff] transition hover:text-[#b9ddff]"
+                                  onClick={() => setNotifOpen(false)}
+                                >
+                                  Ver proyectos
+                                </Link>
                               </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-1.5">
-                              {notifications.map((notification) => {
+
+                              {notifications.length === 0 ? (
+                                <div className="grid min-h-[150px] place-items-center rounded-[15px] border border-dashed border-white/[0.065] bg-white/[0.015] px-5 text-center">
+                                  <div>
+                                    <div className="mx-auto grid h-9 w-9 place-items-center rounded-full bg-white/[0.035] text-white/[0.20]">
+                                      <Inbox className="h-4 w-4" />
+                                    </div>
+                                    <div className="mt-2.5 text-[12px] font-semibold text-white/[0.56]">
+                                      Todo al día
+                                    </div>
+                                    <p className="mt-1 text-[11px] leading-5 text-white/[0.28]">
+                                      No tenés nuevas asignaciones de proyectos.
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  {notifications.map((notification) => {
                                 const date = notification.due_date
                                   ? new Date(notification.due_date)
                                   : notification.created_at
@@ -660,9 +664,11 @@ export default function Navbar() {
                                     </div>
                                   </div>
                                 );
-                              })}
-                            </div>
-                          )}
+                                  })}
+                                </div>
+                              )}
+                            </>
+                          ) : null}
                         </div>
 
                         <div className="border-t border-white/[0.055] bg-black/[0.08] px-4 py-2.5 text-center text-[10px] text-white/[0.22]">
