@@ -10,29 +10,9 @@ import LookerTabs from '@/components/LookerTabs';
 import PageHeader from '@/components/PageHeader';
 import { RequireAuth } from '@/components/RouteGuards';
 import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
-import {
-  corrientesRefrigerados,
-  corrientesRefrigeradosKilosBultos,
-} from '@/lib/data';
 
 export default function CorrientesRefrigerados() {
   const { canAccessModule } = useModulePermissions();
-
-  const visibleProducts = useMemo(
-    () =>
-      corrientesRefrigerados.filter(
-        (product) => !product.permissionKey || canAccessModule(product.permissionKey),
-      ),
-    [canAccessModule],
-  );
-
-  const visibleProductsKB = useMemo(
-    () =>
-      corrientesRefrigeradosKilosBultos.filter(
-        (product) => !product.permissionKey || canAccessModule(product.permissionKey),
-      ),
-    [canAccessModule],
-  );
 
   const canSeeAnalytics = canAccessModule('branch_analytics');
 
@@ -66,7 +46,7 @@ export default function CorrientesRefrigerados() {
       <div className="min-h-screen bg-white">
         <BranchResourcesSection
           branchName="Corrientes Refrigerados"
-          products={visibleProducts}
+          branchKey="corrientes_refrigerados"
         />
 
         {canSeeAnalytics && (
@@ -77,16 +57,15 @@ export default function CorrientesRefrigerados() {
           </section>
         )}
 
-        {visibleProductsKB.length > 0 && (
-          <BranchResourcesSection
-            branchName="Refrigerados"
-            products={visibleProductsKB}
-            eyebrow="Análisis comercial"
-            title="Kilos y bultos"
-            description="Accedé a las planillas de análisis, objetivos y sensibilización de kilos y bultos."
-            searchPlaceholder="Buscar una herramienta de kilos o bultos..."
-          />
-        )}
+        <BranchResourcesSection
+          branchName="Refrigerados"
+          branchKey="corrientes_refrigerados"
+          sectionKey="kilos_bultos"
+          eyebrow="Análisis comercial"
+          title="Kilos y bultos"
+          description="Accedé a las planillas de análisis, objetivos y sensibilización de kilos y bultos."
+          searchPlaceholder="Buscar una herramienta de kilos o bultos..."
+        />
 
         {canSeeAnalytics && (
           <LookerTabs
