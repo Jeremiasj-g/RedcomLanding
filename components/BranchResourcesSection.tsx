@@ -40,7 +40,10 @@ import {
   type BranchResourceIcon,
   type BranchResourceInput,
 } from "@/lib/branchResources";
-import { MODULE_PERMISSION_DEFINITIONS } from "@/lib/module-permissions";
+import {
+  MODULE_PERMISSION_DEFINITIONS,
+  type ModulePermissionKey,
+} from "@/lib/module-permissions";
 import { errorMessage, notify } from "@/lib/notifications";
 
 type BranchResourcesSectionProps = {
@@ -673,7 +676,10 @@ export default function BranchResourcesSection({
                       onValueChange={(value) =>
                         setForm((current) => ({
                           ...current,
-                          permission_key: value === "none" ? null : value,
+                          permission_key:
+                            value === "none"
+                              ? null
+                              : (value as ModulePermissionKey),
                         }))
                       }
                       options={permissionOptions}
