@@ -10,19 +10,10 @@ import LookerEmbed from '@/components/LookerEmbed';
 import LookerTabs from '@/components/LookerTabs';
 import { RequireAuth } from '@/components/RouteGuards';
 import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
-import { chacoProducts } from '@/lib/data';
 import PageHeader from '@/components/PageHeader';
 
 export default function Chaco() {
   const { canAccessModule } = useModulePermissions();
-
-  const visibleProducts = useMemo(
-    () =>
-      chacoProducts.filter(
-        (product) => !product.permissionKey || canAccessModule(product.permissionKey),
-      ),
-    [canAccessModule],
-  );
 
   const canSeeCategories = canAccessModule('branch_categories');
   const canSeeAnalytics = canAccessModule('branch_analytics');
@@ -55,7 +46,7 @@ export default function Chaco() {
       />
 
       <div className="min-h-screen bg-white">
-        <BranchResourcesSection branchName="Chaco" products={visibleProducts} />
+        <BranchResourcesSection branchName="Chaco" branchKey="chaco" />
 
         {(canSeeCategories || canSeeAnalytics) && (
           <section className="bg-white py-12 sm:py-14">
