@@ -11,18 +11,9 @@ import LookerTabs from '@/components/LookerTabs';
 import PageHeader from '@/components/PageHeader';
 import { RequireAuth } from '@/components/RouteGuards';
 import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
-import { corrientesMasivos } from '@/lib/data';
 
 export default function CorrientesMasivos() {
   const { canAccessModule } = useModulePermissions();
-
-  const visibleProducts = useMemo(
-    () =>
-      corrientesMasivos.filter(
-        (product) => !product.permissionKey || canAccessModule(product.permissionKey),
-      ),
-    [canAccessModule],
-  );
 
   const canSeeCategories = canAccessModule('branch_categories');
   const canSeeAnalytics = canAccessModule('branch_analytics');
@@ -57,7 +48,7 @@ export default function CorrientesMasivos() {
       <div className="min-h-screen bg-white">
         <BranchResourcesSection
           branchName="Corrientes Masivos"
-          products={visibleProducts}
+          branchKey="corrientes_masivos"
         />
 
         {(canSeeCategories || canSeeAnalytics) && (
