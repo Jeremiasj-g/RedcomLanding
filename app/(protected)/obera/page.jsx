@@ -9,19 +9,10 @@ import LookerEmbed from '@/components/LookerEmbed';
 import LookerTabs from '@/components/LookerTabs';
 import { RequireAuth } from '@/components/RouteGuards';
 import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
-import { oberaProducts } from '@/lib/data';
 import PageHeader from '@/components/PageHeader';
 
 export default function Obera() {
   const { canAccessModule } = useModulePermissions();
-
-  const visibleProducts = useMemo(
-    () =>
-      oberaProducts.filter(
-        (product) => !product.permissionKey || canAccessModule(product.permissionKey),
-      ),
-    [canAccessModule],
-  );
 
   const canSeeAnalytics = canAccessModule('branch_analytics');
 
@@ -53,7 +44,7 @@ export default function Obera() {
       />
 
       <div className="min-h-screen bg-white">
-        <BranchResourcesSection branchName="Oberá" products={visibleProducts} />
+        <BranchResourcesSection branchName="Oberá" branchKey="obera" />
 
         {canSeeAnalytics && (
           <>
