@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  AlertTriangle,
   BarChart3,
   BriefcaseBusiness,
   Building2,
@@ -221,6 +222,7 @@ export default function AdminModulePermissionsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [roleSaving, setRoleSaving] = useState(false);
+  const [aligningRoleUsers, setAligningRoleUsers] = useState(false);
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
@@ -446,6 +448,31 @@ export default function AdminModulePermissionsPage() {
     roleDraft && !permissionMapsEqual(roleDraft, savedRoleDefaults),
   );
 
+  const selectedRoleUsers = useMemo(
+    () => users.filter((user) => user.role === selectedRole),
+    [selectedRole, users],
+  );
+
+  const selectedRoleUserIds = useMemo(
+    () => new Set(selectedRoleUsers.map((user) => user.id)),
+    [selectedRoleUsers],
+  );
+
+  const selectedRoleExceptions = useMemo(
+    () =>
+      permissions.filter(
+        (permission) =>
+          selectedRoleUserIds.has(permission.user_id) &&
+          permission.can_access !== savedRoleDefaults[permission.module_key],
+      ),
+    [permissions, savedRoleDefaults, selectedRoleUserIds],
+  );
+
+  const selectedRoleUsersWithExceptions = useMemo(
+    () => new Set(selectedRoleExceptions.map((permission) => permission.user_id)).size,
+    [selectedRoleExceptions],
+  );
+
   const setAll = (value: boolean) => {
     if (!selectedUser || selectedUser.role === 'admin') return;
     setDraft(
@@ -565,6 +592,43 @@ export default function AdminModulePermissionsPage() {
   const restoreRecommendedRoleDefaults = () => {
     if (selectedRole === 'admin') return;
     setRoleDraft({ ...recommendedRoleDefaults });
+  };
+
+  const alignUsersToSelectedRole = async () => {
+    if (selectedRole === 'admin' || aligningRoleUsers) return;
+
+    setAligningRoleUsers(true);
+    try {
+      const { data, error } = await supabase.rpc(
+        'admin_clear_role_user_module_permissions',
+        { p_role_key: selectedRole },
+      );
+      if (error) throw error;
+
+      const roleUserIds = new Set(
+        users.filter((user) => user.role === selectedRole).map((user) => user.id),
+      );
+
+      setPermissions((current) =>
+        current.filter((permission) => !roleUserIds.has(permission.user_id)),
+      );
+
+      window.dispatchEvent(new Event('redcom:module-permissions-changed'));
+      notify.success(
+        `Usuarios de ${roleLabel(
+          selectedRole,
+          roleCatalog,
+        )} alineados al rol. Se eliminaron ${Number(data ?? 0)} excepciones individuales.`,
+      );
+    } catch (error) {
+      notify.error(
+        error instanceof Error
+          ? error.message
+          : 'No se pudieron alinear los usuarios con el rol.',
+      );
+    } finally {
+      setAligningRoleUsers(false);
+    }
   };
 
   const persistRolePermissions = async () => {
@@ -1061,6 +1125,28 @@ export default function AdminModulePermissionsPage() {
             </CardContent>
           </Card>
 
+          {selectedRoleUsersWithExceptions > 0 && (
+            <Card className="rounded-2xl border-amber-200 bg-amber-50/80 shadow-sm">
+              <CardContent className="flex items-start gap-3 p-4 text-sm text-amber-950">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <div className="min-w-0">
+                  <p className="font-bold">
+                    {selectedRoleUsersWithExceptions} usuario
+                    {selectedRoleUsersWithExceptions === 1 ? '' : 's'} de{' '}
+                    {roleLabel(selectedRole, roleCatalog)} conserva
+                    {selectedRoleUsersWithExceptions === 1 ? '' : 'n'} excepciones individuales.
+                  </p>
+                  <p className="mt-1 leading-6 text-amber-800">
+                    Esas excepciones tienen prioridad sobre el rol. Por eso un módulo
+                    deshabilitado aquí puede seguir disponible para una persona concreta.
+                    Usá “Alinear usuarios al rol” si querés que todos hereden exactamente
+                    esta configuración.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <section className="grid min-h-[640px] gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
             <Card className="overflow-hidden rounded-2xl border-slate-200 shadow-sm">
               <CardHeader className="border-b border-slate-100 bg-slate-50/70 p-5">
@@ -1214,6 +1300,47 @@ export default function AdminModulePermissionsPage() {
                               disabled={
                                 selectedRole === 'admin' ||
                                 roleSaving ||
+                                aligningRoleUsers ||
+                                selectedRoleUsersWithExceptions === 0
+                              }
+                              className="gap-2 rounded-xl border-amber-200 text-amber-800 hover:bg-amber-50"
+                            >
+                              <Users className="h-3.5 w-3.5" />
+                              Alinear usuarios al rol
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Alinear usuarios con {roleLabel(selectedRole, roleCatalog)}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Se eliminarán todas las excepciones individuales de los
+                                usuarios con este rol. A partir de ese momento heredarán
+                                exactamente los permisos predeterminados del rol. Esta acción
+                                no cambia el rol ni las sucursales de ningún usuario.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={alignUsersToSelectedRole}
+                                disabled={aligningRoleUsers}
+                              >
+                                Alinear usuarios
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                selectedRole === 'admin' ||
+                                roleSaving ||
                                 Boolean(roleLoadError)
                               }
                               className="gap-2 rounded-xl"
@@ -1242,7 +1369,7 @@ export default function AdminModulePermissionsPage() {
                       </div>
                     </div>
 
-                    <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       <SummaryChip
                         label="Módulos habilitados"
                         value={`${roleEnabledModulesCount}/${MODULE_PERMISSION_DEFINITIONS.length}`}
@@ -1253,7 +1380,11 @@ export default function AdminModulePermissionsPage() {
                       />
                       <SummaryChip
                         label="Usuarios con este rol"
-                        value={String(users.filter((user) => user.role === selectedRole).length)}
+                        value={String(selectedRoleUsers.length)}
+                      />
+                      <SummaryChip
+                        label="Usuarios con excepciones"
+                        value={String(selectedRoleUsersWithExceptions)}
                       />
                     </div>
                   </CardHeader>
