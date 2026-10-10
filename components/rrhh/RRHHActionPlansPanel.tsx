@@ -757,7 +757,7 @@ function ActionPlanDossier({
 
               <div className="mt-7 border-t border-slate-200 pt-5">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                  Evolución histórica
+                  Efectividad mensual
                 </div>
 
                 {loadingHistory ? (
