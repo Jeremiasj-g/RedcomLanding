@@ -11,6 +11,7 @@ import {
   Gauge,
   Loader2,
   Pencil,
+  Plus,
   RefreshCw,
   Save,
   Search,
