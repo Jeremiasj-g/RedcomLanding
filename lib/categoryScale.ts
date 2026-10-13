@@ -5,14 +5,17 @@ export type CategoryScaleSettings = {
   validYear: number;
 };
 
+export type CategoryScaleValueType = 'number' | 'percent' | 'currency' | 'count';
+
 export type CategoryScaleMetric = {
   id: number;
   sectionName: string;
   metricName: string;
-  seniorRequirement: string;
-  semiSeniorRequirement: string;
-  juniorRequirement: string;
-  improvementRequirement: string;
+  valueType: CategoryScaleValueType;
+  seniorValue: number | null;
+  semiSeniorValue: number | null;
+  juniorValue: number | null;
+  improvementValue: number | null;
   weightPercent: number;
   sortOrder: number;
 };
@@ -45,7 +48,7 @@ export async function fetchCategoryScaleConfig(): Promise<{
     supabase
       .from('category_scale_metrics')
       .select(
-        'id,section_name,metric_name,senior_requirement,semi_senior_requirement,junior_requirement,improvement_requirement,weight_percent,sort_order',
+        'id,section_name,metric_name,value_type,senior_value,semi_senior_value,junior_value,improvement_value,weight_percent,sort_order',
       )
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
@@ -71,10 +74,13 @@ export async function fetchCategoryScaleConfig(): Promise<{
       id: Number(row.id),
       sectionName: String(row.section_name),
       metricName: String(row.metric_name),
-      seniorRequirement: String(row.senior_requirement),
-      semiSeniorRequirement: String(row.semi_senior_requirement),
-      juniorRequirement: String(row.junior_requirement),
-      improvementRequirement: String(row.improvement_requirement),
+      valueType: String(row.value_type ?? 'number') as CategoryScaleValueType,
+      seniorValue: row.senior_value === null ? null : Number(row.senior_value),
+      semiSeniorValue:
+        row.semi_senior_value === null ? null : Number(row.semi_senior_value),
+      juniorValue: row.junior_value === null ? null : Number(row.junior_value),
+      improvementValue:
+        row.improvement_value === null ? null : Number(row.improvement_value),
       weightPercent: Number(row.weight_percent ?? 0),
       sortOrder: Number(row.sort_order ?? 0),
     })),
@@ -109,10 +115,11 @@ export async function createCategoryScaleMetric(
     .insert({
       section_name: input.sectionName.trim(),
       metric_name: input.metricName.trim(),
-      senior_requirement: input.seniorRequirement.trim(),
-      semi_senior_requirement: input.semiSeniorRequirement.trim(),
-      junior_requirement: input.juniorRequirement.trim(),
-      improvement_requirement: input.improvementRequirement.trim(),
+      value_type: input.valueType,
+      senior_value: input.seniorValue,
+      semi_senior_value: input.semiSeniorValue,
+      junior_value: input.juniorValue,
+      improvement_value: input.improvementValue,
       weight_percent: input.weightPercent,
       sort_order: input.sortOrder,
     })
@@ -125,10 +132,13 @@ export async function createCategoryScaleMetric(
     id: Number(data.id),
     sectionName: String(data.section_name),
     metricName: String(data.metric_name),
-    seniorRequirement: String(data.senior_requirement),
-    semiSeniorRequirement: String(data.semi_senior_requirement),
-    juniorRequirement: String(data.junior_requirement),
-    improvementRequirement: String(data.improvement_requirement),
+    valueType: String(data.value_type ?? 'number') as CategoryScaleValueType,
+    seniorValue: data.senior_value === null ? null : Number(data.senior_value),
+    semiSeniorValue:
+      data.semi_senior_value === null ? null : Number(data.semi_senior_value),
+    juniorValue: data.junior_value === null ? null : Number(data.junior_value),
+    improvementValue:
+      data.improvement_value === null ? null : Number(data.improvement_value),
     weightPercent: Number(data.weight_percent ?? 0),
     sortOrder: Number(data.sort_order ?? 0),
   };
@@ -143,10 +153,11 @@ export async function updateCategoryScaleMetric(
     .update({
       section_name: input.sectionName.trim(),
       metric_name: input.metricName.trim(),
-      senior_requirement: input.seniorRequirement.trim(),
-      semi_senior_requirement: input.semiSeniorRequirement.trim(),
-      junior_requirement: input.juniorRequirement.trim(),
-      improvement_requirement: input.improvementRequirement.trim(),
+      value_type: input.valueType,
+      senior_value: input.seniorValue,
+      semi_senior_value: input.semiSeniorValue,
+      junior_value: input.juniorValue,
+      improvement_value: input.improvementValue,
       weight_percent: input.weightPercent,
       sort_order: input.sortOrder,
     })
@@ -160,10 +171,13 @@ export async function updateCategoryScaleMetric(
     id: Number(data.id),
     sectionName: String(data.section_name),
     metricName: String(data.metric_name),
-    seniorRequirement: String(data.senior_requirement),
-    semiSeniorRequirement: String(data.semi_senior_requirement),
-    juniorRequirement: String(data.junior_requirement),
-    improvementRequirement: String(data.improvement_requirement),
+    valueType: String(data.value_type ?? 'number') as CategoryScaleValueType,
+    seniorValue: data.senior_value === null ? null : Number(data.senior_value),
+    semiSeniorValue:
+      data.semi_senior_value === null ? null : Number(data.semi_senior_value),
+    juniorValue: data.junior_value === null ? null : Number(data.junior_value),
+    improvementValue:
+      data.improvement_value === null ? null : Number(data.improvement_value),
     weightPercent: Number(data.weight_percent ?? 0),
     sortOrder: Number(data.sort_order ?? 0),
   };
