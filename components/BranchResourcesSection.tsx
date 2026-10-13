@@ -186,6 +186,26 @@ export default function BranchResourcesSection({
     return ["Todas", ...groups];
   }, [permittedResources]);
 
+  const groupOptions = useMemo(() => {
+    const values = Array.from(
+      new Set(
+        resources
+          .map((resource) => resource.group_name?.trim())
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ).sort((a, b) => a.localeCompare(b, "es"));
+
+    const currentGroup = form.group_name?.trim();
+    if (currentGroup && !values.includes(currentGroup)) {
+      values.push(currentGroup);
+    }
+
+    return values.map((value) => ({
+      value,
+      label: value,
+    }));
+  }, [form.group_name, resources]);
+
   useEffect(() => {
     if (!visibleFilters.includes(activeFilter)) {
       setActiveFilter("Todas");
@@ -600,16 +620,17 @@ export default function BranchResourcesSection({
                   </Field>
 
                   <Field label="Grupo">
-                    <input
-                      value={form.group_name ?? ""}
-                      onChange={(event) =>
+                    <RedcomSelect
+                      value={form.group_name || ""}
+                      onValueChange={(value) =>
                         setForm((current) => ({
                           ...current,
-                          group_name: event.target.value,
+                          group_name: value,
                         }))
                       }
-                      placeholder="Ventas, Reportes..."
-                      className="resource-input"
+                      options={groupOptions}
+                      placeholder="Seleccionar grupo"
+                      className="h-11"
                     />
                   </Field>
 
