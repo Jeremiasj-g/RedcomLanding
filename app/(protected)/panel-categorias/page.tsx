@@ -5,8 +5,10 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  Clock3,
   Database,
   FileSpreadsheet,
+  Gauge,
   Loader2,
   Pencil,
   RefreshCw,
@@ -35,6 +37,20 @@ import {
   type CategoryPanelRow,
 } from '@/lib/categoryPanelExcel';
 import { errorMessage, notify } from '@/lib/notifications';
+import {
+  createCategoryScaleGate,
+  createCategoryScaleMetric,
+  deleteCategoryScaleGate,
+  deleteCategoryScaleMetric,
+  fetchCategoryScaleConfig,
+  updateCategoryScaleGate,
+  updateCategoryScaleMetric,
+  updateCategoryScaleSettings,
+  type CategoryScaleGate,
+  type CategoryScaleMetric,
+  type CategoryScaleMetricInput,
+  type CategoryScaleSettings,
+} from '@/lib/categoryScale';
 
 const currencyFormatter = new Intl.NumberFormat('es-AR', {
   style: 'currency',
@@ -109,6 +125,7 @@ export default function CategoryPanelPage() {
 
   const [search, setSearch] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState<'kpis' | 'sigo' | 'scales'>('kpis');
 
   useEffect(() => {
     if (meLoading) return;
@@ -399,6 +416,29 @@ export default function CategoryPanelPage() {
             </div>
           </section>
 
+          <div className="mt-6 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+            <PanelTab
+              active={activeTab === 'kpis'}
+              onClick={() => setActiveTab('kpis')}
+              icon={<Database className="h-4 w-4" />}
+              label="KPIs"
+            />
+            <PanelTab
+              active={activeTab === 'sigo'}
+              onClick={() => setActiveTab('sigo')}
+              icon={<Clock3 className="h-4 w-4" />}
+              label="Horarios SIGO"
+            />
+            <PanelTab
+              active={activeTab === 'scales'}
+              onClick={() => setActiveTab('scales')}
+              icon={<Gauge className="h-4 w-4" />}
+              label="Cuadro de escalas"
+            />
+          </div>
+
+          {activeTab === 'kpis' ? (
+            <>
           <section className="mt-6 grid gap-4 lg:grid-cols-2">
             <UploadCard
               key={`pivot-${inputVersion}`}
@@ -598,6 +638,23 @@ export default function CategoryPanelPage() {
               </div>
             ) : null}
           </section>
+            </>
+          ) : activeTab === 'sigo' ? (
+            <section className="mt-6 rounded-[26px] border border-slate-200/80 bg-white px-6 py-12 text-center shadow-[0_16px_45px_rgba(15,23,42,.035)]">
+              <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-500">
+                <Clock3 className="h-5 w-5" />
+              </span>
+              <h2 className="mt-4 text-xl font-semibold tracking-[-0.025em] text-slate-950">
+                Horarios SIGO
+              </h2>
+              <p className="mx-auto mt-2 max-w-lg text-[12px] leading-6 text-slate-500">
+                Esta vista queda preparada como el próximo bloque del Panel de categorías.
+                Acá vamos a incorporar el seguimiento de horarios y sus parámetros.
+              </p>
+            </section>
+          ) : (
+            <CategoryScaleTab />
+          )}
         </div>
       </main>
 
@@ -1320,3 +1377,664 @@ function EditorNumberInput({
   );
 }
 
+
+
+function PanelTab({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        active
+          ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-[11px] font-semibold text-white shadow-sm'
+          : 'inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900'
+      }
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function CategoryScaleTab() {
+  const [settings, setSettings] = useState<CategoryScaleSettings>({
+    title: 'Escalas categorización preventa',
+    validYear: 2026,
+  });
+  const [metrics, setMetrics] = useState<CategoryScaleMetric[]>([]);
+  const [gates, setGates] = useState<CategoryScaleGate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [editingMetricId, setEditingMetricId] = useState<number | 'new' | null>(null);
+  const [metricDraft, setMetricDraft] = useState<CategoryScaleMetricInput | null>(null);
+  const [editingGateId, setEditingGateId] = useState<number | 'new' | null>(null);
+  const [gateDraft, setGateDraft] = useState({ label: '', valueText: '', sortOrder: 100 });
+  const [savingRow, setSavingRow] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        setLoading(true);
+        const config = await fetchCategoryScaleConfig();
+        if (cancelled) return;
+        setSettings(config.settings);
+        setMetrics(config.metrics);
+        setGates(config.gates);
+      } catch (error) {
+        if (!cancelled) {
+          notify.error(errorMessage(error, 'No se pudo cargar el cuadro de escalas.'));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const totalWeight = metrics.reduce(
+    (sum, metric) => sum + metric.weightPercent,
+    0,
+  );
+
+  const beginMetricEdit = (metric: CategoryScaleMetric) => {
+    setEditingMetricId(metric.id);
+    setMetricDraft({
+      sectionName: metric.sectionName,
+      metricName: metric.metricName,
+      seniorRequirement: metric.seniorRequirement,
+      semiSeniorRequirement: metric.semiSeniorRequirement,
+      juniorRequirement: metric.juniorRequirement,
+      improvementRequirement: metric.improvementRequirement,
+      weightPercent: metric.weightPercent,
+      sortOrder: metric.sortOrder,
+    });
+  };
+
+  const beginNewMetric = () => {
+    setEditingMetricId('new');
+    setMetricDraft({
+      sectionName: 'Nueva sección',
+      metricName: '',
+      seniorRequirement: '',
+      semiSeniorRequirement: '',
+      juniorRequirement: '',
+      improvementRequirement: '',
+      weightPercent: 0,
+      sortOrder:
+        metrics.reduce((max, metric) => Math.max(max, metric.sortOrder), 0) + 10,
+    });
+  };
+
+  const saveMetricDraft = async () => {
+    if (!metricDraft) return;
+    if (
+      !metricDraft.sectionName.trim() ||
+      !metricDraft.metricName.trim() ||
+      !metricDraft.seniorRequirement.trim() ||
+      !metricDraft.semiSeniorRequirement.trim() ||
+      !metricDraft.juniorRequirement.trim() ||
+      !metricDraft.improvementRequirement.trim()
+    ) {
+      notify.error('Completá todos los campos de la métrica.');
+      return;
+    }
+    try {
+      setSavingRow(true);
+      if (editingMetricId === 'new') {
+        const created = await createCategoryScaleMetric(metricDraft);
+        setMetrics((current) =>
+          [...current, created].sort(
+            (a, b) => a.sortOrder - b.sortOrder || a.id - b.id,
+          ),
+        );
+      } else if (typeof editingMetricId === 'number') {
+        const updated = await updateCategoryScaleMetric(
+          editingMetricId,
+          metricDraft,
+        );
+        setMetrics((current) =>
+          current
+            .map((metric) => (metric.id === updated.id ? updated : metric))
+            .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
+        );
+      }
+      setEditingMetricId(null);
+      setMetricDraft(null);
+      notify.success('Cuadro de escalas actualizado.');
+    } catch (error) {
+      notify.error(errorMessage(error, 'No se pudo guardar la métrica.'));
+    } finally {
+      setSavingRow(false);
+    }
+  };
+
+  const beginGateEdit = (gate: CategoryScaleGate) => {
+    setEditingGateId(gate.id);
+    setGateDraft({
+      label: gate.label,
+      valueText: gate.valueText,
+      sortOrder: gate.sortOrder,
+    });
+  };
+
+  const beginNewGate = () => {
+    setEditingGateId('new');
+    setGateDraft({
+      label: '',
+      valueText: '',
+      sortOrder: gates.reduce((max, gate) => Math.max(max, gate.sortOrder), 0) + 10,
+    });
+  };
+
+  const saveGateDraft = async () => {
+    if (!gateDraft.label.trim() || !gateDraft.valueText.trim()) {
+      notify.error('Completá el parámetro y su valor.');
+      return;
+    }
+    try {
+      setSavingRow(true);
+      if (editingGateId === 'new') {
+        const created = await createCategoryScaleGate(gateDraft);
+        setGates((current) =>
+          [...current, created].sort(
+            (a, b) => a.sortOrder - b.sortOrder || a.id - b.id,
+          ),
+        );
+      } else if (typeof editingGateId === 'number') {
+        const updated = await updateCategoryScaleGate(editingGateId, gateDraft);
+        setGates((current) =>
+          current
+            .map((gate) => (gate.id === updated.id ? updated : gate))
+            .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
+        );
+      }
+      setEditingGateId(null);
+      notify.success('Requisito actualizado.');
+    } catch (error) {
+      notify.error(errorMessage(error, 'No se pudo guardar el requisito.'));
+    } finally {
+      setSavingRow(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="grid min-h-[420px] place-items-center">
+        <div className="flex items-center gap-2 text-sm text-slate-400">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+          Cargando cuadro de escalas...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 space-y-5">
+      <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,.04)]">
+        <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600">
+                Configuración de categorización
+              </div>
+              <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
+                {settings.title}
+              </h2>
+              <p className="mt-1 text-[12px] leading-5 text-slate-500">
+                Adaptado del cuadro preventa. Todo puede modificarse sin tocar código.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-end gap-2">
+              <label>
+                <span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Año
+                </span>
+                <input
+                  type="number"
+                  value={settings.validYear}
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      validYear: Number(event.target.value),
+                    }))
+                  }
+                  className="h-10 w-24 rounded-xl border border-slate-200 bg-[#fafbfc] px-3 text-[12px] outline-none"
+                />
+              </label>
+              <label className="w-[250px]">
+                <span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Título
+                </span>
+                <input
+                  value={settings.title}
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] px-3 text-[12px] outline-none"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={savingSettings}
+                onClick={() =>
+                  void (async () => {
+                    try {
+                      setSavingSettings(true);
+                      await updateCategoryScaleSettings(settings);
+                      notify.success('Configuración actualizada.');
+                    } catch (error) {
+                      notify.error(
+                        errorMessage(error, 'No se pudo guardar la configuración.'),
+                      );
+                    } finally {
+                      setSavingSettings(false);
+                    }
+                  })()
+                }
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-[11px] font-semibold text-white"
+              >
+                {savingSettings ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Guardar
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-0 border-y border-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-slate-200">
+            <ScaleSummary label="Métricas" value={String(metrics.length)} />
+            <ScaleSummary
+              label="Peso total"
+              value={String(totalWeight).replace('.', ',') + '%'}
+              warning={Math.abs(totalWeight - 100) > 0.001}
+            />
+            <ScaleSummary label="Puertas de apertura" value={String(gates.length)} />
+          </div>
+        </div>
+
+        <div className="px-5 py-5 sm:px-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.09em] text-slate-400">
+                Cuadro preventa
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500">
+                Senior · Semi Senior · Junior · Plan de Mejora
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={beginNewMetric}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-[11px] font-semibold text-slate-700 shadow-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Agregar métrica
+            </button>
+          </div>
+
+          <div className="overflow-x-auto rounded-[18px] border border-slate-200">
+            <table className="w-full min-w-[1250px] text-left">
+              <thead className="bg-[#f7f8fa] text-[9px] uppercase tracking-[0.08em] text-slate-400">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Sección</th>
+                  <th className="px-4 py-3 font-semibold">Métrica / KPI</th>
+                  <th className="px-4 py-3 font-semibold text-amber-700">Senior</th>
+                  <th className="px-4 py-3 font-semibold text-orange-700">Semi Senior</th>
+                  <th className="px-4 py-3 font-semibold text-orange-600">Junior</th>
+                  <th className="px-4 py-3 font-semibold text-rose-600">Plan Mejora</th>
+                  <th className="px-4 py-3 text-right font-semibold">Peso</th>
+                  <th className="px-4 py-3 text-center font-semibold">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {editingMetricId === 'new' && metricDraft ? (
+                  <ScaleEditRow
+                    draft={metricDraft}
+                    setDraft={setMetricDraft}
+                    saving={savingRow}
+                    onSave={saveMetricDraft}
+                    onCancel={() => {
+                      setEditingMetricId(null);
+                      setMetricDraft(null);
+                    }}
+                  />
+                ) : null}
+
+                {metrics.map((metric) =>
+                  editingMetricId === metric.id && metricDraft ? (
+                    <ScaleEditRow
+                      key={metric.id}
+                      draft={metricDraft}
+                      setDraft={setMetricDraft}
+                      saving={savingRow}
+                      onSave={saveMetricDraft}
+                      onCancel={() => {
+                        setEditingMetricId(null);
+                        setMetricDraft(null);
+                      }}
+                    />
+                  ) : (
+                    <tr
+                      key={metric.id}
+                      className="border-t border-slate-100 text-[11px] text-slate-600"
+                    >
+                      <td className="px-4 py-3.5 text-[10px] font-semibold uppercase tracking-[0.05em] text-slate-400">
+                        {metric.sectionName}
+                      </td>
+                      <td className="px-4 py-3.5 font-semibold text-slate-800">
+                        {metric.metricName}
+                      </td>
+                      <td className="bg-amber-50 px-4 py-3.5">{metric.seniorRequirement}</td>
+                      <td className="bg-orange-50 px-4 py-3.5">{metric.semiSeniorRequirement}</td>
+                      <td className="bg-orange-50/60 px-4 py-3.5">{metric.juniorRequirement}</td>
+                      <td className="bg-rose-50 px-4 py-3.5">{metric.improvementRequirement}</td>
+                      <td className="px-4 py-3.5 text-right font-semibold text-slate-800">
+                        {metric.weightPercent}%
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => beginMetricEdit(metric)}
+                            className="grid h-8 w-8 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-800"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void (async () => {
+                                if (!window.confirm('¿Eliminar esta métrica?')) return;
+                                try {
+                                  await deleteCategoryScaleMetric(metric.id);
+                                  setMetrics((current) =>
+                                    current.filter((item) => item.id !== metric.id),
+                                  );
+                                } catch (error) {
+                                  notify.error(
+                                    errorMessage(error, 'No se pudo eliminar la métrica.'),
+                                  );
+                                }
+                              })()
+                            }
+                            className="grid h-8 w-8 place-items-center rounded-xl text-slate-300 hover:bg-rose-50 hover:text-rose-600"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ),
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[24px] border border-slate-200/80 bg-white px-5 py-5 shadow-[0_14px_40px_rgba(15,23,42,.035)] sm:px-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-violet-600">
+              Puertas de apertura
+            </div>
+            <h3 className="mt-1 text-lg font-semibold tracking-[-0.025em] text-slate-950">
+              Parámetros necesarios para categorizar
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={beginNewGate}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-[11px] font-semibold text-slate-700"
+          >
+            <Plus className="h-4 w-4" />
+            Agregar requisito
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {editingGateId === 'new' ? (
+            <GateEditCard
+              draft={gateDraft}
+              setDraft={setGateDraft}
+              saving={savingRow}
+              onSave={saveGateDraft}
+              onCancel={() => setEditingGateId(null)}
+            />
+          ) : null}
+
+          {gates.map((gate) =>
+            editingGateId === gate.id ? (
+              <GateEditCard
+                key={gate.id}
+                draft={gateDraft}
+                setDraft={setGateDraft}
+                saving={savingRow}
+                onSave={saveGateDraft}
+                onCancel={() => setEditingGateId(null)}
+              />
+            ) : (
+              <div
+                key={gate.id}
+                className="flex items-center justify-between gap-4 rounded-[18px] border border-slate-200 bg-[#fafbfc] px-4 py-4"
+              >
+                <div>
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    {gate.label}
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
+                    {gate.valueText}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => beginGateEdit(gate)}
+                    className="grid h-8 w-8 place-items-center rounded-xl text-slate-400 hover:bg-white hover:text-slate-800"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void (async () => {
+                        if (!window.confirm('¿Eliminar este requisito?')) return;
+                        try {
+                          await deleteCategoryScaleGate(gate.id);
+                          setGates((current) =>
+                            current.filter((item) => item.id !== gate.id),
+                          );
+                        } catch (error) {
+                          notify.error(
+                            errorMessage(error, 'No se pudo eliminar el requisito.'),
+                          );
+                        }
+                      })()
+                    }
+                    className="grid h-8 w-8 place-items-center rounded-xl text-slate-300 hover:bg-rose-50 hover:text-rose-600"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ),
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ScaleSummary({
+  label,
+  value,
+  warning = false,
+}: {
+  label: string;
+  value: string;
+  warning?: boolean;
+}) {
+  return (
+    <div className="px-2 py-3.5 sm:px-5">
+      <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+        {label}
+      </div>
+      <div
+        className={
+          warning
+            ? 'mt-1 text-2xl font-semibold text-amber-600'
+            : 'mt-1 text-2xl font-semibold text-slate-950'
+        }
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ScaleEditRow({
+  draft,
+  setDraft,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  draft: CategoryScaleMetricInput;
+  setDraft: React.Dispatch<React.SetStateAction<CategoryScaleMetricInput | null>>;
+  saving: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const field = (key: keyof CategoryScaleMetricInput, numeric = false) => (
+    <input
+      type={numeric ? 'number' : 'text'}
+      value={String(draft[key])}
+      onChange={(event) =>
+        setDraft((current) =>
+          current
+            ? {
+                ...current,
+                [key]: numeric ? Number(event.target.value) : event.target.value,
+              }
+            : current,
+        )
+      }
+      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] text-slate-700 outline-none focus:border-slate-400"
+    />
+  );
+
+  return (
+    <tr className="border-t border-blue-100 bg-blue-50/40">
+      <td className="px-2 py-2">{field('sectionName')}</td>
+      <td className="px-2 py-2">{field('metricName')}</td>
+      <td className="px-2 py-2">{field('seniorRequirement')}</td>
+      <td className="px-2 py-2">{field('semiSeniorRequirement')}</td>
+      <td className="px-2 py-2">{field('juniorRequirement')}</td>
+      <td className="px-2 py-2">{field('improvementRequirement')}</td>
+      <td className="px-2 py-2">{field('weightPercent', true)}</td>
+      <td className="px-2 py-2">
+        <div className="flex justify-center gap-1">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={onSave}
+            className="grid h-8 w-8 place-items-center rounded-lg bg-slate-950 text-white"
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={onCancel}
+            className="grid h-8 w-8 place-items-center rounded-lg bg-white text-slate-400"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function GateEditCard({
+  draft,
+  setDraft,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  draft: { label: string; valueText: string; sortOrder: number };
+  setDraft: React.Dispatch<
+    React.SetStateAction<{ label: string; valueText: string; sortOrder: number }>
+  >;
+  saving: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="rounded-[18px] border border-blue-200 bg-blue-50/40 p-4">
+      <input
+        value={draft.label}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, label: event.target.value }))
+        }
+        placeholder="Parámetro"
+        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] outline-none"
+      />
+      <input
+        value={draft.valueText}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, valueText: event.target.value }))
+        }
+        placeholder="Valor requerido"
+        className="mt-2 h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] outline-none"
+      />
+      <div className="mt-3 flex justify-end gap-1">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={onCancel}
+          className="h-8 rounded-lg px-3 text-[10px] font-semibold text-slate-500"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={onSave}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-slate-950 px-3 text-[10px] font-semibold text-white"
+        >
+          {saving ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Save className="h-3.5 w-3.5" />
+          )}
+          Guardar
+        </button>
+      </div>
+    </div>
+  );
+}
