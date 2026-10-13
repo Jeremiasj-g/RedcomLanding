@@ -125,7 +125,8 @@ begin
       using errcode = '22023';
   end if;
 
-  delete from public.category_panel_current;
+  delete from public.category_panel_current
+  where branch_key is not null;
 
   insert into public.category_panel_current (
     branch_key,
