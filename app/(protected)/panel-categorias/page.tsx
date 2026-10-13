@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   Trash2,
   Upload,
-  UsersRound,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -269,28 +268,25 @@ export default function CategoryPanelPage() {
     <>
       <main className="min-h-screen bg-[#f4f5f7] pb-16">
         <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
-          <section className="relative overflow-hidden rounded-[30px] bg-[#17181b] px-5 py-6 text-white shadow-[0_26px_80px_rgba(15,23,42,.14)] sm:px-7 sm:py-7">
-            <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-500/15 blur-3xl" />
-            <div className="pointer-events-none absolute bottom-[-140px] left-[18%] h-72 w-72 rounded-full bg-violet-500/10 blur-3xl" />
-
-            <div className="relative flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
+          <section className="px-1 pb-2 pt-4 sm:px-2 sm:pt-6">
+            <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
               <div className="max-w-3xl">
-                <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7dc8ff]">
+                <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-600">
                   <Database className="h-4 w-4" />
                   Datos operativos
                 </div>
 
-                <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">
+                <h1 className="mt-2 text-4xl font-semibold tracking-[-0.05em] text-[#111214] sm:text-[46px]">
                   Panel de categorías
                 </h1>
 
-                <p className="mt-2 max-w-2xl text-[13px] leading-6 text-white/[0.48]">
+                <p className="mt-3 max-w-2xl text-[14px] leading-6 text-slate-500">
                   Unificá el reporte de visitas con el reporte de facturación,
                   revisá el resultado y reemplazá el estado actual guardado.
                 </p>
               </div>
 
-              <div className="grid min-w-0 gap-4 sm:grid-cols-3 xl:min-w-[570px]">
+              <div className="grid min-w-0 gap-0 border-y border-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-slate-200 xl:min-w-[600px]">
                 <HeroStat
                   label="Datos guardados"
                   value={loadingSaved ? '—' : integerFormatter.format(savedState.rowCount)}
@@ -326,7 +322,7 @@ export default function CategoryPanelPage() {
             </div>
           </section>
 
-          <section className="mt-5 grid gap-4 lg:grid-cols-2">
+          <section className="mt-6 grid gap-4 lg:grid-cols-2">
             <UploadCard
               key={`pivot-${inputVersion}`}
               number="01"
@@ -613,14 +609,14 @@ function HeroStat({
   detail: string;
 }) {
   return (
-    <div className="border-l border-white/[0.08] pl-4">
-      <div className="text-[9px] font-medium uppercase tracking-[0.1em] text-white/[0.28]">
+    <div className="px-2 py-4 sm:px-5">
+      <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-400">
         {label}
       </div>
-      <div className="mt-1 text-xl font-semibold tracking-[-0.025em] text-white/[0.92]">
+      <div className="mt-1 text-[22px] font-semibold tracking-[-0.035em] text-slate-950">
         {value}
       </div>
-      <div className="mt-0.5 text-[10px] text-white/[0.28]">{detail}</div>
+      <div className="mt-0.5 text-[10px] text-slate-400">{detail}</div>
     </div>
   );
 }
