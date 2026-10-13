@@ -10,7 +10,6 @@ import { useAnalyticsConfig } from '@/components/analytics/AnalyticsConfigProvid
 import LookerTabs from '@/components/LookerTabs';
 import PageHeader from '@/components/PageHeader';
 import { RequireAuth } from '@/components/RouteGuards';
-import { gerenciaProducts } from '@/lib/data';
 
 const LOOKER_BRANCHES = [
   {
@@ -116,7 +115,7 @@ export default function Gerencia() {
       <div className="min-h-screen bg-white">
         <BranchResourcesSection
           branchName="Gerencia"
-          products={gerenciaProducts}
+          branchKey="gerencia"
           description="Accedé rápidamente a las planillas y recursos de seguimiento utilizados por Gerencia."
         />
 
