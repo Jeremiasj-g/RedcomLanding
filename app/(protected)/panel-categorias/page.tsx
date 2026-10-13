@@ -51,6 +51,7 @@ import {
   type CategoryScaleMetric,
   type CategoryScaleMetricInput,
   type CategoryScaleSettings,
+  type CategoryScaleValueType,
 } from '@/lib/categoryScale';
 
 const currencyFormatter = new Intl.NumberFormat('es-AR', {
@@ -1455,10 +1456,11 @@ function CategoryScaleTab() {
     setMetricDraft({
       sectionName: metric.sectionName,
       metricName: metric.metricName,
-      seniorRequirement: metric.seniorRequirement,
-      semiSeniorRequirement: metric.semiSeniorRequirement,
-      juniorRequirement: metric.juniorRequirement,
-      improvementRequirement: metric.improvementRequirement,
+      valueType: metric.valueType,
+      seniorValue: metric.seniorValue,
+      semiSeniorValue: metric.semiSeniorValue,
+      juniorValue: metric.juniorValue,
+      improvementValue: metric.improvementValue,
       weightPercent: metric.weightPercent,
       sortOrder: metric.sortOrder,
     });
@@ -1469,10 +1471,11 @@ function CategoryScaleTab() {
     setMetricDraft({
       sectionName: 'Nueva sección',
       metricName: '',
-      seniorRequirement: '',
-      semiSeniorRequirement: '',
-      juniorRequirement: '',
-      improvementRequirement: '',
+      valueType: 'number',
+      seniorValue: null,
+      semiSeniorValue: null,
+      juniorValue: null,
+      improvementValue: 0,
       weightPercent: 0,
       sortOrder:
         metrics.reduce((max, metric) => Math.max(max, metric.sortOrder), 0) + 10,
@@ -1481,15 +1484,18 @@ function CategoryScaleTab() {
 
   const saveMetricDraft = async () => {
     if (!metricDraft) return;
+    if (!metricDraft.sectionName.trim() || !metricDraft.metricName.trim()) {
+      notify.error('Completá la sección y el nombre de la métrica.');
+      return;
+    }
+
     if (
-      !metricDraft.sectionName.trim() ||
-      !metricDraft.metricName.trim() ||
-      !metricDraft.seniorRequirement.trim() ||
-      !metricDraft.semiSeniorRequirement.trim() ||
-      !metricDraft.juniorRequirement.trim() ||
-      !metricDraft.improvementRequirement.trim()
+      metricDraft.valueType !== 'currency' &&
+      (metricDraft.seniorValue === null ||
+        metricDraft.semiSeniorValue === null ||
+        metricDraft.juniorValue === null)
     ) {
-      notify.error('Completá todos los campos de la métrica.');
+      notify.error('Completá los valores de Senior, Semi Senior y Junior.');
       return;
     }
     try {
@@ -1698,10 +1704,10 @@ function CategoryScaleTab() {
                 <tr>
                   <th className="px-4 py-3 font-semibold">Sección</th>
                   <th className="px-4 py-3 font-semibold">Métrica / KPI</th>
-                  <th className="px-4 py-3 font-semibold text-amber-700">Senior</th>
-                  <th className="px-4 py-3 font-semibold text-orange-700">Semi Senior</th>
-                  <th className="px-4 py-3 font-semibold text-orange-600">Junior</th>
-                  <th className="px-4 py-3 font-semibold text-rose-600">Plan Mejora</th>
+                  <th className="bg-emerald-900 px-4 py-3 font-semibold text-white">Senior</th>
+                  <th className="bg-emerald-200 px-4 py-3 font-semibold text-emerald-950">Semi Senior</th>
+                  <th className="bg-amber-200 px-4 py-3 font-semibold text-amber-950">Junior</th>
+                  <th className="bg-rose-200 px-4 py-3 font-semibold text-rose-950">Plan Mejora</th>
                   <th className="px-4 py-3 text-right font-semibold">Peso</th>
                   <th className="px-4 py-3 text-center font-semibold">Acción</th>
                 </tr>
@@ -1744,10 +1750,26 @@ function CategoryScaleTab() {
                       <td className="px-4 py-3.5 font-semibold text-slate-800">
                         {metric.metricName}
                       </td>
-                      <td className="bg-amber-50 px-4 py-3.5">{metric.seniorRequirement}</td>
-                      <td className="bg-orange-50 px-4 py-3.5">{metric.semiSeniorRequirement}</td>
-                      <td className="bg-orange-50/60 px-4 py-3.5">{metric.juniorRequirement}</td>
-                      <td className="bg-rose-50 px-4 py-3.5">{metric.improvementRequirement}</td>
+                      <ScaleValueCell
+                        tone="senior"
+                        value={metric.seniorValue}
+                        valueType={metric.valueType}
+                      />
+                      <ScaleValueCell
+                        tone="semi"
+                        value={metric.semiSeniorValue}
+                        valueType={metric.valueType}
+                      />
+                      <ScaleValueCell
+                        tone="junior"
+                        value={metric.juniorValue}
+                        valueType={metric.valueType}
+                      />
+                      <ScaleValueCell
+                        tone="improvement"
+                        value={metric.improvementValue}
+                        valueType={metric.valueType}
+                      />
                       <td className="px-4 py-3.5 text-right font-semibold text-slate-800">
                         {metric.weightPercent}%
                       </td>
@@ -1925,33 +1947,77 @@ function ScaleEditRow({
   onSave: () => void;
   onCancel: () => void;
 }) {
-  const field = (key: keyof CategoryScaleMetricInput, numeric = false) => (
+  const textField = (key: 'sectionName' | 'metricName') => (
     <input
-      type={numeric ? 'number' : 'text'}
-      value={String(draft[key])}
+      type="text"
+      value={draft[key]}
       onChange={(event) =>
         setDraft((current) =>
-          current
-            ? {
-                ...current,
-                [key]: numeric ? Number(event.target.value) : event.target.value,
-              }
-            : current,
+          current ? { ...current, [key]: event.target.value } : current,
         )
       }
       className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] text-slate-700 outline-none focus:border-slate-400"
     />
   );
 
+  const numberField = (
+    key:
+      | 'seniorValue'
+      | 'semiSeniorValue'
+      | 'juniorValue'
+      | 'improvementValue'
+      | 'weightPercent',
+  ) => (
+    <input
+      type="number"
+      step="0.01"
+      value={draft[key] ?? ''}
+      placeholder="—"
+      onChange={(event) => {
+        const raw = event.target.value;
+        setDraft((current) =>
+          current
+            ? {
+                ...current,
+                [key]: raw === '' ? null : Number(raw),
+              }
+            : current,
+        );
+      }}
+      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] tabular-nums text-slate-700 outline-none focus:border-slate-400"
+    />
+  );
+
   return (
     <tr className="border-t border-blue-100 bg-blue-50/40">
-      <td className="px-2 py-2">{field('sectionName')}</td>
-      <td className="px-2 py-2">{field('metricName')}</td>
-      <td className="px-2 py-2">{field('seniorRequirement')}</td>
-      <td className="px-2 py-2">{field('semiSeniorRequirement')}</td>
-      <td className="px-2 py-2">{field('juniorRequirement')}</td>
-      <td className="px-2 py-2">{field('improvementRequirement')}</td>
-      <td className="px-2 py-2">{field('weightPercent', true)}</td>
+      <td className="px-2 py-2">{textField('sectionName')}</td>
+      <td className="px-2 py-2">
+        {textField('metricName')}
+        <select
+          value={draft.valueType}
+          onChange={(event) =>
+            setDraft((current) =>
+              current
+                ? {
+                    ...current,
+                    valueType: event.target.value as CategoryScaleValueType,
+                  }
+                : current,
+            )
+          }
+          className="mt-1.5 h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-[9px] text-slate-500 outline-none"
+        >
+          <option value="number">Número</option>
+          <option value="percent">Porcentaje</option>
+          <option value="count">Cantidad</option>
+          <option value="currency">Importe</option>
+        </select>
+      </td>
+      <td className="bg-emerald-900/10 px-2 py-2">{numberField('seniorValue')}</td>
+      <td className="bg-emerald-100 px-2 py-2">{numberField('semiSeniorValue')}</td>
+      <td className="bg-amber-100 px-2 py-2">{numberField('juniorValue')}</td>
+      <td className="bg-rose-100 px-2 py-2">{numberField('improvementValue')}</td>
+      <td className="px-2 py-2">{numberField('weightPercent')}</td>
       <td className="px-2 py-2">
         <div className="flex justify-center gap-1">
           <button
@@ -1977,6 +2043,40 @@ function ScaleEditRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+function ScaleValueCell({
+  tone,
+  value,
+  valueType,
+}: {
+  tone: 'senior' | 'semi' | 'junior' | 'improvement';
+  value: number | null;
+  valueType: CategoryScaleValueType;
+}) {
+  const classes = {
+    senior: 'bg-emerald-900 text-white',
+    semi: 'bg-emerald-200 text-emerald-950',
+    junior: 'bg-amber-200 text-amber-950',
+    improvement: 'bg-rose-200 text-rose-950',
+  };
+
+  let formatted = '—';
+  if (value !== null) {
+    if (valueType === 'currency') {
+      formatted = currencyFormatter.format(value);
+    } else {
+      formatted = Number.isInteger(value)
+        ? integerFormatter.format(value)
+        : value.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+    }
+  }
+
+  return (
+    <td className={`px-4 py-3.5 text-center text-[13px] font-semibold tabular-nums ${classes[tone]}`}>
+      {formatted}
+    </td>
   );
 }
 
