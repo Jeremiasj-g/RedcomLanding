@@ -167,7 +167,7 @@ function findHeaderIndex(row: CellValue[], label: string) {
 
 function parsePivot(matrix: Matrix) {
   const headerRowIndex = matrix.findIndex((row) =>
-    row.some((cell) => normalizeText(cell) === 'SECTOR DE VENTAS'),
+    (row ?? []).some((cell) => normalizeText(cell) === 'SECTOR DE VENTAS'),
   );
 
   if (headerRowIndex < 0) {
@@ -287,7 +287,7 @@ function detectTmpBranch(
 
 function parseTmp(matrix: Matrix) {
   const headerRowIndex = matrix.findIndex((row) => {
-    const normalized = row.map(normalizeText);
+    const normalized = (row ?? []).map(normalizeText);
     return (
       normalized.includes('CODIGO') &&
       normalized.includes('DESCRIPCION') &&
