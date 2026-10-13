@@ -12,7 +12,9 @@ export function getNavModel(ctx: NavRuleCtx, badges?: Badges): NavSectionModel[]
   const unreadNotifs = badges?.unreadNotifs ?? 0;
 
   const sections: NavSectionModel[] = NAV_SECTIONS.map((section) => {
-    const items = section.items.map((it) => {
+    const items = section.items
+      .filter((it) => (it.visibleWhen ? it.visibleWhen(ctx) : true))
+      .map((it) => {
       const enabled = it.enabledWhen ? it.enabledWhen(ctx) : true;
       const reason = !enabled && it.enabledReason ? it.enabledReason(ctx) : undefined;
 
