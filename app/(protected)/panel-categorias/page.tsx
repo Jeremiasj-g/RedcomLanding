@@ -8,6 +8,7 @@ import {
   Database,
   FileSpreadsheet,
   Loader2,
+  Pencil,
   RefreshCw,
   Save,
   Search,
@@ -29,6 +30,7 @@ import {
 } from '@/lib/categoryPanel';
 import {
   parseCategoryPanelFiles,
+  type CategoryPanelBranchKey,
   type CategoryPanelParseResult,
   type CategoryPanelRow,
 } from '@/lib/categoryPanelExcel';
@@ -42,6 +44,17 @@ const currencyFormatter = new Intl.NumberFormat('es-AR', {
 });
 
 const integerFormatter = new Intl.NumberFormat('es-AR');
+
+const EDIT_BRANCH_OPTIONS: Array<{
+  value: CategoryPanelBranchKey;
+  label: string;
+}> = [
+  { value: 'corrientes_masivos', label: 'Corrientes' },
+  { value: 'corrientes_refrigerados', label: 'Corrientes Refrigerados' },
+  { value: 'chaco', label: 'Chaco' },
+  { value: 'misiones', label: 'Misiones' },
+  { value: 'obera', label: 'Oberá' },
+];
 
 const emptyState: CategoryPanelState = {
   lastImportedAt: null,
@@ -91,6 +104,8 @@ export default function CategoryPanelPage() {
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+  const [editingRow, setEditingRow] = useState<CategoryPanelRow | null>(null);
+  const [editingOriginalKey, setEditingOriginalKey] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
@@ -222,6 +237,68 @@ export default function CategoryPanelPage() {
     } finally {
       setParsing(false);
     }
+  };
+
+  const openRowEditor = (row: CategoryPanelRow) => {
+    setEditingOriginalKey(`${row.branchKey}:${row.sellerId}`);
+    setEditingRow({ ...row });
+  };
+
+  const closeRowEditor = () => {
+    setEditingRow(null);
+    setEditingOriginalKey(null);
+  };
+
+  const saveEditedRow = () => {
+    if (!preview || !editingRow || !editingOriginalKey) return;
+
+    if (
+      !editingRow.sellerName.trim() ||
+      editingRow.sellerId <= 0 ||
+      editingRow.sector <= 0
+    ) {
+      notify.error('Sucursal, sector, ID y nombre del vendedor deben ser válidos.');
+      return;
+    }
+
+    const branchMeta = EDIT_BRANCH_OPTIONS.find(
+      (option) => option.value === editingRow.branchKey,
+    );
+    const nextRow: CategoryPanelRow = {
+      ...editingRow,
+      branchLabel: branchMeta?.label ?? editingRow.branchLabel,
+      sellerName: editingRow.sellerName.trim(),
+    };
+
+    const nextRows = preview.rows.map((row) =>
+      `${row.branchKey}:${row.sellerId}` === editingOriginalKey
+        ? nextRow
+        : row,
+    );
+
+    const counts = new Map<string, number>();
+    for (const row of nextRows) {
+      const key = `${row.branchKey}:${row.sellerId}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    const duplicateKeys = Array.from(counts.entries())
+      .filter(([, count]) => count > 1)
+      .map(([key]) => key);
+
+    setPreview({
+      ...preview,
+      rows: nextRows,
+      duplicateKeys,
+      canSave:
+        nextRows.length > 0 &&
+        preview.unmatchedPivot.length === 0 &&
+        preview.unmatchedTmp.length === 0 &&
+        duplicateKeys.length === 0,
+    });
+
+    closeRowEditor();
+    notify.success('Fila actualizada en la vista previa.');
   };
 
   const savePreview = async () => {
@@ -472,7 +549,11 @@ export default function CategoryPanelPage() {
                 </div>
               </div>
             ) : displayRows.length ? (
-              <UnifiedTable rows={filteredRows} />
+              <UnifiedTable
+                rows={filteredRows}
+                editable={Boolean(preview)}
+                onEdit={openRowEditor}
+              />
             ) : (
               <div className="grid min-h-[340px] place-items-center px-6 text-center">
                 <div>
@@ -519,6 +600,201 @@ export default function CategoryPanelPage() {
           </section>
         </div>
       </main>
+
+      <AnimatePresence>
+        {editingRow ? (
+          <motion.div
+            className="fixed inset-0 z-[105] grid place-items-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <button
+              type="button"
+              className="absolute inset-0 bg-slate-950/30 backdrop-blur-md"
+              onClick={closeRowEditor}
+              aria-label="Cerrar editor"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.99 }}
+              className="relative z-10 max-h-[92vh] w-full max-w-[720px] overflow-y-auto rounded-[26px] border border-white/70 bg-white p-6 shadow-[0_35px_100px_rgba(15,23,42,.25)] sm:p-7"
+            >
+              <button
+                type="button"
+                onClick={closeRowEditor}
+                className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-blue-600">
+                Ajuste manual
+              </div>
+              <h3 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+                Editar vendedor
+              </h3>
+              <p className="mt-1 text-[12px] leading-5 text-slate-500">
+                Los cambios se aplican únicamente a esta vista previa y serán los
+                valores que se guarden al confirmar el reemplazo.
+              </p>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <EditorField label="Sucursal">
+                  <RedcomSelect
+                    value={editingRow.branchKey}
+                    onValueChange={(value) =>
+                      setEditingRow((current) =>
+                        current
+                          ? {
+                              ...current,
+                              branchKey: value as CategoryPanelBranchKey,
+                              branchLabel:
+                                EDIT_BRANCH_OPTIONS.find(
+                                  (option) => option.value === value,
+                                )?.label ?? current.branchLabel,
+                            }
+                          : current,
+                      )
+                    }
+                    options={EDIT_BRANCH_OPTIONS}
+                    className="h-11"
+                  />
+                </EditorField>
+
+                <EditorField label="Sector">
+                  <EditorNumberInput
+                    value={editingRow.sector}
+                    onChange={(value) =>
+                      setEditingRow((current) =>
+                        current ? { ...current, sector: value } : current,
+                      )
+                    }
+                  />
+                </EditorField>
+
+                <EditorField label="N° vendedor">
+                  <EditorNumberInput
+                    value={editingRow.sellerId}
+                    onChange={(value) =>
+                      setEditingRow((current) =>
+                        current ? { ...current, sellerId: value } : current,
+                      )
+                    }
+                  />
+                </EditorField>
+
+                <EditorField label="Vendedor">
+                  <input
+                    value={editingRow.sellerName}
+                    onChange={(event) =>
+                      setEditingRow((current) =>
+                        current
+                          ? { ...current, sellerName: event.target.value }
+                          : current,
+                      )
+                    }
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[12px] text-slate-800 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                  />
+                </EditorField>
+
+                <EditorField label="Visitados">
+                  <EditorNumberInput
+                    value={editingRow.visitados}
+                    onChange={(value) =>
+                      setEditingRow((current) =>
+                        current ? { ...current, visitados: value } : current,
+                      )
+                    }
+                  />
+                </EditorField>
+
+                <EditorField label="Venta a distancia">
+                  <EditorNumberInput
+                    value={editingRow.ventaDistancia}
+                    onChange={(value) =>
+                      setEditingRow((current) =>
+                        current
+                          ? { ...current, ventaDistancia: value }
+                          : current,
+                      )
+                    }
+                  />
+                </EditorField>
+
+                <EditorField label="Venta PDV">
+                  <EditorNumberInput
+                    value={editingRow.ventaPdv}
+                    onChange={(value) =>
+                      setEditingRow((current) =>
+                        current ? { ...current, ventaPdv: value } : current,
+                      )
+                    }
+                  />
+                </EditorField>
+
+                <EditorField label="Visitas planeadas">
+                  <EditorNumberInput
+                    value={editingRow.visitasPlaneadas}
+                    onChange={(value) =>
+                      setEditingRow((current) =>
+                        current
+                          ? { ...current, visitasPlaneadas: value }
+                          : current,
+                      )
+                    }
+                  />
+                </EditorField>
+
+                <EditorField label="Importe Final Facturado">
+                  <EditorNumberInput
+                    value={editingRow.importeFinalFacturado}
+                    decimals
+                    onChange={(value) =>
+                      setEditingRow((current) =>
+                        current
+                          ? { ...current, importeFinalFacturado: value }
+                          : current,
+                      )
+                    }
+                  />
+                </EditorField>
+
+                <EditorField label="Cnt.Fac.">
+                  <EditorNumberInput
+                    value={editingRow.cntFac}
+                    onChange={(value) =>
+                      setEditingRow((current) =>
+                        current ? { ...current, cntFac: value } : current,
+                      )
+                    }
+                  />
+                </EditorField>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-5">
+                <button
+                  type="button"
+                  onClick={closeRowEditor}
+                  className="h-10 rounded-xl px-4 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={saveEditedRow}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-[11px] font-semibold text-white transition hover:bg-slate-800"
+                >
+                  <Save className="h-4 w-4" />
+                  Aplicar cambios
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <AnimatePresence>
         {confirmSaveOpen && preview ? (
@@ -903,10 +1179,18 @@ function TableStat({
   );
 }
 
-function UnifiedTable({ rows }: { rows: CategoryPanelRow[] }) {
+function UnifiedTable({
+  rows,
+  editable,
+  onEdit,
+}: {
+  rows: CategoryPanelRow[];
+  editable: boolean;
+  onEdit: (row: CategoryPanelRow) => void;
+}) {
   return (
     <div className="max-h-[680px] overflow-auto">
-      <table className="w-full min-w-[1220px] text-left">
+      <table className="w-full min-w-[1280px] text-left">
         <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl">
           <tr className="border-b border-slate-200 text-[9px] uppercase tracking-[0.08em] text-slate-400">
             <th className="px-5 py-3.5 font-semibold">Sucursal</th>
@@ -920,7 +1204,10 @@ function UnifiedTable({ rows }: { rows: CategoryPanelRow[] }) {
             <th className="px-4 py-3.5 text-right font-semibold">
               Importe Final Facturado
             </th>
-            <th className="px-5 py-3.5 text-right font-semibold">Cnt.Fac.</th>
+            <th className="px-4 py-3.5 text-right font-semibold">Cnt.Fac.</th>
+            <th className="sticky right-0 w-[72px] bg-white/95 px-4 py-3.5 text-center font-semibold">
+              Acciones
+            </th>
           </tr>
         </thead>
 
@@ -928,7 +1215,7 @@ function UnifiedTable({ rows }: { rows: CategoryPanelRow[] }) {
           {rows.map((row) => (
             <tr
               key={`${row.branchKey}-${row.sellerId}`}
-              className="border-b border-slate-100 text-[12px] text-slate-600 transition hover:bg-slate-50/80 last:border-b-0"
+              className="group border-b border-slate-100 text-[12px] text-slate-600 transition hover:bg-slate-50/80 last:border-b-0"
             >
               <td className="px-5 py-3.5">
                 <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-500">
@@ -959,15 +1246,30 @@ function UnifiedTable({ rows }: { rows: CategoryPanelRow[] }) {
               <td className="px-4 py-3.5 text-right font-semibold text-slate-800">
                 {currencyFormatter.format(row.importeFinalFacturado)}
               </td>
-              <td className="px-5 py-3.5 text-right font-semibold text-slate-700">
+              <td className="px-4 py-3.5 text-right font-semibold text-slate-700">
                 {integerFormatter.format(row.cntFac)}
+              </td>
+              <td className="sticky right-0 bg-white px-4 py-3.5 text-center group-hover:bg-slate-50/95">
+                {editable ? (
+                  <button
+                    type="button"
+                    onClick={() => onEdit(row)}
+                    className="mx-auto grid h-8 w-8 place-items-center rounded-xl border border-slate-200 bg-white text-slate-400 shadow-sm transition hover:border-slate-300 hover:bg-slate-950 hover:text-white"
+                    aria-label={`Editar ${row.sellerName}`}
+                    title="Editar fila"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-slate-300">—</span>
+                )}
               </td>
             </tr>
           ))}
 
           {!rows.length ? (
             <tr>
-              <td colSpan={10} className="px-6 py-16 text-center text-sm text-slate-400">
+              <td colSpan={11} className="px-6 py-16 text-center text-sm text-slate-400">
                 No hay vendedores que coincidan con los filtros actuales.
               </td>
             </tr>
@@ -976,4 +1278,45 @@ function UnifiedTable({ rows }: { rows: CategoryPanelRow[] }) {
       </table>
     </div>
   );
+} 
+
+function EditorField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label>
+      <span className="mb-1.5 block text-[9px] font-semibold uppercase tracking-[0.09em] text-slate-400">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
 }
+
+function EditorNumberInput({
+  value,
+  onChange,
+  decimals = false,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  decimals?: boolean;
+}) {
+  return (
+    <input
+      type="number"
+      step={decimals ? '0.01' : '1'}
+      value={Number.isFinite(value) ? value : 0}
+      onChange={(event) => {
+        const parsed = Number(event.target.value);
+        onChange(Number.isFinite(parsed) ? parsed : 0);
+      }}
+      className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[12px] tabular-nums text-slate-800 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+    />
+  );
+}
+
