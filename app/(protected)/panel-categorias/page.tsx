@@ -38,6 +38,7 @@ import {
   type CategoryPanelRow,
 } from '@/lib/categoryPanelExcel';
 import { errorMessage, notify } from '@/lib/notifications';
+import SellerConsiderations from '@/components/category-panel/SellerConsiderations';
 import {
   createCategoryScaleGate,
   createCategoryScaleMetric,
@@ -1903,6 +1904,8 @@ function CategoryScaleTab() {
           )}
         </div>
       </section>
+
+      <SellerConsiderations metrics={metrics} gates={gates} />
     </div>
   );
 }
