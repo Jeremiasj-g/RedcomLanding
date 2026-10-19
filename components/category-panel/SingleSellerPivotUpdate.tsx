@@ -42,7 +42,7 @@ export default function SingleSellerPivotUpdate({ savedRows, onUpdated }: {
         p_venta_pdv:parsed.ventaPdv,p_visitas_planeadas:parsed.visitasPlaneadas,
       });
       if(error)throw error;
-      onUpdated({...current,...parsed});
+      onUpdated({...current,...parsed,partialUpdatedAt:new Date().toISOString(),partialUpdateSource:'pivot'});
       setFile(null);setParsed(null);
       notify.success('Vendedor actualizado. Se conservaron los demás registros y los datos de facturación.');
     }catch(error){notify.error(errorMessage(error,'No se pudo actualizar al vendedor.'));}
