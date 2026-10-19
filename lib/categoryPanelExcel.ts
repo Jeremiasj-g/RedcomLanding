@@ -17,6 +17,8 @@ export type CategoryPanelRow = {
   visitasPlaneadas: number;
   importeFinalFacturado: number;
   cntFac: number;
+  partialUpdatedAt?: string | null;
+  partialUpdateSource?: string | null;
 };
 
 export type CategoryPanelMismatch = {
@@ -727,4 +729,44 @@ export async function parseSingleSellerPivot(file: File) {
   }
   const { key, ...seller } = parsed.records[0];
   return seller;
+}
+
+/** TMP individual o general. Agrupa las filas del mismo vendedor (por período). */
+export async function parseTmpSellerTotals(file: File) {
+ const matrix = await readFirstWorksheet(file);
+ const headerIndex = matrix.findIndex(row => {
+   const values=(row??[]).map(normalizeText);
+   return values.includes('CODIGO') && values.includes('DESCRIPCION') &&
+     values.includes('IMPORTE FINAL FACTURADO') && values.includes('CNT.FAC.');
+ });
+ if(headerIndex<0) throw new Error('No se reconocieron las columnas del TMP.');
+ const headers=matrix[headerIndex]??[];
+ const ci=findHeaderIndex(headers,'Código'), di=findHeaderIndex(headers,'Descripción');
+ const ai=findHeaderIndex(headers,'Importe Final Facturado'), ni=findHeaderIndex(headers,'Cnt.Fac.');
+ const groups=new Map<string,{branchKey:CategoryPanelBranchKey;branchLabel:string;sellerId:number;sellerName:string;amount:number;invoices:number;periods:number}>();
+ let branch:CategoryPanelBranchKey|null=null;
+ for(const row of matrix.slice(headerIndex+1)){
+   if(!row)continue;
+   const desc=cleanText(row[di]);
+   if(!desc)continue;
+   branch=detectTmpBranch(desc,branch);
+   const label=normalizeText(desc);
+   if(!branch || label==='CASA CENTRAL' || label.includes('ESQUEMA') ||
+     label.startsWith('SUCURSAL ') || label.includes('SIN VENDEDOR'))continue;
+   const id=toInteger(row[ci]);
+   if(id<=0)continue;
+   if(cleanText(row[ai])==='' && cleanText(row[ni])==='')continue;
+   const key=makeKey(branch,id),prev=groups.get(key);
+   if(prev){
+     prev.amount+=toNumber(row[ai]);
+     prev.invoices+=toInteger(row[ni]);
+     prev.periods++;
+   } else {
+     groups.set(key,{branchKey:branch,branchLabel:BRANCH_META[branch].label,
+       sellerId:id,sellerName:desc,amount:toNumber(row[ai]),
+       invoices:toInteger(row[ni]),periods:1});
+   }
+ }
+ if(!groups.size)throw new Error('No se encontraron vendedores válidos en el TMP.');
+ return [...groups.values()].sort((a,b)=>a.branchLabel.localeCompare(b.branchLabel,'es')||a.sellerId-b.sellerId);
 }
