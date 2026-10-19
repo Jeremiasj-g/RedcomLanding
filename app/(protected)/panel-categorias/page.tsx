@@ -40,6 +40,7 @@ import {
 import { errorMessage, notify } from '@/lib/notifications';
 import SellerConsiderations from '@/components/category-panel/SellerConsiderations';
 import SingleSellerPivotUpdate from '@/components/category-panel/SingleSellerPivotUpdate';
+import SingleSellerTmpUpdate from '@/components/category-panel/SingleSellerTmpUpdate';
 import {
   createCategoryScaleGate,
   createCategoryScaleMetric,
@@ -511,6 +512,19 @@ export default function CategoryPanelPage() {
           </section>
 
           <SingleSellerPivotUpdate
+            savedRows={savedRows}
+            onUpdated={(updated) =>
+              setSavedRows((current) =>
+                current.map((row) =>
+                  row.branchKey === updated.branchKey && row.sellerId === updated.sellerId
+                    ? updated
+                    : row,
+                ),
+              )
+            }
+          />
+
+          <SingleSellerTmpUpdate
             savedRows={savedRows}
             onUpdated={(updated) =>
               setSavedRows((current) =>
@@ -1289,7 +1303,11 @@ function UnifiedTable({
           {rows.map((row) => (
             <tr
               key={`${row.branchKey}-${row.sellerId}`}
-              className="group border-b border-slate-100 text-[12px] text-slate-600 transition hover:bg-slate-50/80 last:border-b-0"
+              className={`group border-b border-slate-100 text-[12px] text-slate-600 transition last:border-b-0 ${
+                row.partialUpdatedAt
+                  ? 'bg-emerald-50 hover:bg-emerald-100/70'
+                  : 'hover:bg-slate-50/80'
+              }`}
             >
               <td className="px-5 py-3.5">
                 <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-500">
@@ -1323,7 +1341,9 @@ function UnifiedTable({
               <td className="px-4 py-3.5 text-right font-semibold text-slate-700">
                 {integerFormatter.format(row.cntFac)}
               </td>
-              <td className="sticky right-0 bg-white px-4 py-3.5 text-center group-hover:bg-slate-50/95">
+              <td className={`sticky right-0 px-4 py-3.5 text-center ${
+                row.partialUpdatedAt ? 'bg-emerald-50 group-hover:bg-emerald-100/70' : 'bg-white group-hover:bg-slate-50/95'
+              }`}>
                 {editable ? (
                   <button
                     type="button"
