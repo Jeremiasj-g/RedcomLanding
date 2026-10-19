@@ -39,6 +39,7 @@ import {
 } from '@/lib/categoryPanelExcel';
 import { errorMessage, notify } from '@/lib/notifications';
 import SellerConsiderations from '@/components/category-panel/SellerConsiderations';
+import SingleSellerPivotUpdate from '@/components/category-panel/SingleSellerPivotUpdate';
 import {
   createCategoryScaleGate,
   createCategoryScaleMetric,
@@ -508,6 +509,19 @@ export default function CategoryPanelPage() {
               </button>
             </div>
           </section>
+
+          <SingleSellerPivotUpdate
+            savedRows={savedRows}
+            onUpdated={(updated) =>
+              setSavedRows((current) =>
+                current.map((row) =>
+                  row.branchKey === updated.branchKey && row.sellerId === updated.sellerId
+                    ? updated
+                    : row,
+                ),
+              )
+            }
+          />
 
           {preview ? <ValidationSummary result={preview} /> : null}
 
