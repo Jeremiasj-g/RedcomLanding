@@ -716,3 +716,15 @@ export async function parseCategoryPanelFiles(
 
   return unifyCategoryPanelMatrices(pivotMatrix, tmpMatrix);
 }
+
+/** Importación parcial de PivotGrid: no requiere el reporte TMP. */
+export async function parseSingleSellerPivot(file: File) {
+  const matrix = await readFirstWorksheet(file);
+  const parsed = parsePivot(matrix);
+  if (parsed.duplicates.length) throw new Error('El reporte contiene IDs duplicados.');
+  if (parsed.records.length !== 1) {
+    throw new Error(`El archivo debe contener exactamente un vendedor. Se encontraron ${parsed.records.length}.`);
+  }
+  const { key, ...seller } = parsed.records[0];
+  return seller;
+}
