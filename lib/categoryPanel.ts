@@ -21,6 +21,8 @@ type DbCategoryPanelRow = {
   cnt_fac: number;
   imported_at: string;
   imported_by: string | null;
+  partial_updated_at: string | null;
+  partial_update_source: string | null;
 };
 
 function fromDbRow(row: DbCategoryPanelRow): CategoryPanelRow {
@@ -36,6 +38,8 @@ function fromDbRow(row: DbCategoryPanelRow): CategoryPanelRow {
     visitasPlaneadas: Number(row.visitas_planeadas),
     importeFinalFacturado: Number(row.importe_final_facturado),
     cntFac: Number(row.cnt_fac),
+    partialUpdatedAt: row.partial_updated_at ?? null,
+    partialUpdateSource: row.partial_update_source ?? null,
   };
 }
 
