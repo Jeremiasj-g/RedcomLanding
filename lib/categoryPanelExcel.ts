@@ -747,8 +747,10 @@ export async function parseTmpSellerTotals(file: File) {
  let branch:CategoryPanelBranchKey|null=null;
  for(const row of matrix.slice(headerIndex+1)){
    if(!row)continue;
+   // Las filas de fecha/subtotal de cada período no son vendedores.
+   if(typeof row[di] !== 'string') continue;
    const desc=cleanText(row[di]);
-   if(!desc)continue;
+   if(!desc || /^\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}/.test(desc)) continue;
    branch=detectTmpBranch(desc,branch);
    const label=normalizeText(desc);
    if(!branch || label==='CASA CENTRAL' || label.includes('ESQUEMA') ||
