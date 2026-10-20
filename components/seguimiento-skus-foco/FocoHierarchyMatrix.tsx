@@ -195,7 +195,7 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
       <div className="text-left px-4">Gerencia → Supervisión → Venta</div>
       {['Objetivo','Avance','Resta','%','Objetivo','Avance','Resta','%'].map((v,i)=><div key={i}>{v}</div>)}
      </div>
-     {roots.length?roots.map(root=>render(root,line.linea)):<div className="p-8 text-center text-sm text-slate-400">Sin equipos para los filtros actuales.</div>}
+     {roots.length?roots.map(root=>render(root,line.line)):<div className="p-8 text-center text-sm text-slate-400">Sin equipos para los filtros actuales.</div>}
     </div>
    </div>
   </section>)}
