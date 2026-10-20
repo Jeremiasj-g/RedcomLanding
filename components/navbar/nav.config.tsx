@@ -5,6 +5,7 @@ import {
   Sparkles,
   CalendarDays,
   ListChecks,
+  Target,
   Shield,
   ClipboardList,
   Hammer,
@@ -152,6 +153,15 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         enabledReason: () => 'Sin permiso para Proyectos',
         // ✅ color original
         className: 'text-emerald-300 hover:text-emerald-200',
+      },
+      {
+        id: 'seguimiento-skus-foco',
+        label: 'Seguimiento SKUs FOCO',
+        href: '/seguimiento-skus-foco',
+        icon: <Target className="h-4 w-4" />,
+        enabledWhen: mustBeLoggedActive,
+        enabledReason: () => 'Debés iniciar sesión para acceder',
+        className: 'text-rose-300 hover:text-rose-200',
       },
       {
         id: 'ccc-calificados',

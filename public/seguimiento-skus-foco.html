@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Ventas - Foco</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); padding: 20px; margin-bottom: 20px; }
+        .table-header { background-color: #1e3a8a; color: white; }
+        .editable-obj { width: 70px; border: 1px solid #d1d5db; border-radius: 4px; padding: 2px 4px; text-align: center; }
+        .editable-obj:focus { outline: none; border-color: #2563eb; }
+        .tab-btn { padding: 10px 20px; font-weight: bold; border-bottom: 2px solid transparent; cursor: pointer; }
+        .tab-btn.active { border-bottom-color: #2563eb; color: #2563eb; }
+        .foco-item { border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px; margin-bottom: 10px; background: #f9fafb; }
+    </style>
+</head>
+<body class="p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6"><i class="fas fa-bullseye text-blue-600 mr-2"></i> Dashboard de Ventas por Foco</h1>
+
+        <!-- Tabs Navigation -->
+        <div class="flex border-b border-gray-300 mb-6">
+            <div class="tab-btn active" id="tabNavFoco" onclick="switchTab('foco')"><i class="fas fa-crosshairs mr-2"></i> 1. Definir Foco</div>
+            <div class="tab-btn" id="tabNavDatos" onclick="switchTab('datos')"><i class="fas fa-file-excel mr-2"></i> 2. Cargar Datos</div>
+            <div class="tab-btn" id="tabNavDashboard" onclick="switchTab('dashboard')"><i class="fas fa-chart-bar mr-2"></i> 3. Dashboard</div>
+        </div>
+
+        <!-- TAB 1: Definir Foco -->
+        <div id="tabFoco" class="card block">
+            <h2 class="text-lg font-bold text-gray-700 mb-2">Configurar Líneas y Artículos de Foco</h2>
+            <p class="text-sm text-gray-500 mb-4">Agrega las Líneas de Objetivo y los códigos de los artículos específicos que deseas analizar. Solo estos aparecerán en el resultado.</p>
+            
+            <div id="focoContainer"></div>
+            
+            <button onclick="addFocoLine()" class="mt-4 bg-blue-100 text-blue-700 hover:bg-blue-200 px-4 py-2 rounded-md font-semibold text-sm transition-colors">
+                <i class="fas fa-plus mr-1"></i> Agregar Línea de Foco
+            </button>
+            
+            <div class="mt-6 pt-4 border-t border-gray-200 text-right">
+                <button onclick="switchTab('datos')" class="bg-blue-600 text-white hover:bg-blue-700 px-6 py-2 rounded-md font-bold transition-colors">
+                    Siguiente Paso <i class="fas fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB 2: Cargar Datos -->
+        <div id="tabDatos" class="card hidden">
+            <h2 class="text-lg font-bold text-gray-700 mb-4">Importar Reportes Excel</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="border border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-file-excel text-3xl text-green-600 mb-3"></i>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Ventas x Línea (Acumulado de la Línea)</label>
+                    <input type="file" id="fileLineas" accept=".xlsx, .xls" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 cursor-pointer">
+                    <p id="statusLineas" class="text-xs text-gray-400 mt-2">Esperando archivo...</p>
+                </div>
+                <div class="border border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-file-excel text-3xl text-green-600 mb-3"></i>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Ventas x Artículo (Detalle Foco)</label>
+                    <input type="file" id="fileArticulos" accept=".xlsx, .xls" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 cursor-pointer">
+                    <p id="statusArticulos" class="text-xs text-gray-400 mt-2">Esperando archivo...</p>
+                </div>
+            </div>
+            <div class="mt-6 pt-4 border-t border-gray-200 text-right flex justify-between">
+                <button onclick="switchTab('foco')" class="text-gray-600 hover:text-gray-900 px-4 py-2 font-semibold">Volver</button>
+                <button onclick="processAndShowDashboard()" class="bg-blue-600 text-white hover:bg-blue-700 px-6 py-2 rounded-md font-bold transition-colors">
+                    Generar Reporte <i class="fas fa-magic ml-1"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB 3: Dashboard -->
+        <div id="tabDashboard" class="hidden">
+            <div class="card flex items-center justify-between bg-blue-50 border border-blue-100">
+                <div class="flex items-center space-x-4">
+                    <label class="font-bold text-blue-900"><i class="fas fa-filter mr-2"></i>Vendedor:</label>
+                    <select id="vendorSelect" class="border border-blue-300 rounded-md p-2 min-w-[250px] font-semibold text-blue-800 bg-white">
+                        <option value="all">Todos los Vendedores</option>
+                    </select>
+                </div>
+                <button onclick="switchTab('datos')" class="text-sm text-blue-600 hover:underline"><i class="fas fa-redo mr-1"></i>Recargar Datos</button>
+            </div>
+
+            <div id="dashboardContainer"></div>
+        </div>
+
+    </div>
+
+    <script>
+        let dataLineas = [];
+        let dataArticulos = [];
+        let globalData = {}; 
+        let focusConfig = []; // Array de { lineaId: "", articulos: [] }
+
+        // Mapeo de códigos de artículos a su descripción completa
+        let articuloDescriptions = {}; 
+        let lineaDescriptions = {};
+
+        // Inicializar un foco por defecto
+        document.addEventListener("DOMContentLoaded", () => {
+            addFocoLine();
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('tabNav' + tabId.charAt(0).toUpperCase() + tabId.slice(1)).classList.add('active');
+            
+            document.getElementById('tabFoco').classList.add('hidden');
+            document.getElementById('tabDatos').classList.add('hidden');
+            document.getElementById('tabDashboard').classList.add('hidden');
+            
+            document.getElementById('tab' + tabId.charAt(0).toUpperCase() + tabId.slice(1)).classList.remove('hidden');
+        }
+
+        // --- LÓGICA DEL FOCO ---
+        function addFocoLine() {
+            const container = document.getElementById('focoContainer');
+            const id = Date.now();
+            const div = document.createElement('div');
+            div.className = 'foco-item relative';
+            div.id = 'foco-' + id;
+            div.innerHTML = `
+                <button onclick="removeFocoLine('${id}')" class="absolute top-2 right-3 text-red-400 hover:text-red-600" title="Eliminar"><i class="fas fa-times"></i></button>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="col-span-1">
+                        <label class="block text-xs font-bold text-gray-600 mb-1">Nombre o Código de Línea (Ej. "04 WINNERS" o "1126")</label>
+                        <input type="text" class="foco-linea-input w-full border border-gray-300 rounded p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Línea de Objetivo">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-bold text-gray-600 mb-1">Códigos de Artículos Foco (Separados por coma)</label>
+                        <input type="text" class="foco-arts-input w-full border border-gray-300 rounded p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Ej: 670218, 671376, 128">
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeFocoLine(id) {
+            const el = document.getElementById('foco-' + id);
+            if(el) el.remove();
+        }
+
+        function saveFocoConfig() {
+            focusConfig = [];
+            document.querySelectorAll('.foco-item').forEach(item => {
+                const linea = item.querySelector('.foco-linea-input').value.trim();
+                const artsRaw = item.querySelector('.foco-arts-input').value;
+                if(linea) {
+                    const articulos = artsRaw.split(',').map(s => s.trim()).filter(s => s !== "");
+                    focusConfig.push({ linea: linea.toUpperCase(), articulos: articulos });
+                }
+            });
+        }
+
+        // --- LÓGICA DE ARCHIVOS ---
+        document.getElementById('fileLineas').addEventListener('change', (e) => handleFileUpload(e, 'lineas'));
+        document.getElementById('fileArticulos').addEventListener('change', (e) => handleFileUpload(e, 'articulos'));
+        document.getElementById('vendorSelect').addEventListener('change', renderDashboard);
+
+        function handleFileUpload(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const statusEl = document.getElementById('status' + (type === 'lineas' ? 'Lineas' : 'Articulos'));
+            statusEl.textContent = "Procesando...";
+            statusEl.classList.remove('text-gray-400', 'text-red-500');
+            statusEl.classList.add('text-blue-500');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    
+                    if (type === 'lineas') dataLineas = jsonData;
+                    if (type === 'articulos') dataArticulos = jsonData;
+
+                    statusEl.textContent = `¡Cargado! (${jsonData.length} filas)`;
+                    statusEl.classList.remove('text-blue-500');
+                    statusEl.classList.add('text-green-600', 'font-bold');
+                } catch (err) {
+                    statusEl.textContent = "Error al leer el archivo.";
+                    statusEl.classList.add('text-red-500');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- PROCESAMIENTO DE DATOS ---
+        function processAndShowDashboard() {
+            saveFocoConfig();
+            
+            if (focusConfig.length === 0) {
+                alert("Por favor, define al menos una Línea de Foco en el Paso 1.");
+                switchTab('foco');
+                return;
+            }
+            if (dataLineas.length === 0 || dataArticulos.length === 0) {
+                alert("Faltan cargar archivos Excel. Por favor importa ambos reportes.");
+                return;
+            }
+
+            globalData = {};
+            articuloDescriptions = {};
+            lineaDescriptions = {};
+            const vendors = new Set();
+
+            // Mapear configuraciones para busqueda rapida
+            // Queremos encontrar si una "Línea" del excel coincide con nuestra config
+            // y si un "Código" de artículo está en nuestra config de esa línea
+            
+            // 1. Procesar Líneas
+            dataLineas.forEach(row => {
+                const vendor = row['Descripción Vendedor'] || 'Sin Vendedor';
+                const descLinea = (row['Descripción.2'] || row['Lineas objetivos'] || '').toString().trim();
+                const codLinea = (row['Código'] || '').toString().trim();
+                
+                // Verificar si esta línea está en el foco (por código o por nombre parcial)
+                const configMatch = focusConfig.find(cfg => 
+                    descLinea.toUpperCase().includes(cfg.linea) || 
+                    codLinea === cfg.linea || 
+                    cfg.linea.includes(codLinea)
+                );
+
+                if (!configMatch) return; // Filtrar: Solo procesamos si está en foco
+
+                // Guardar la descripcion real
+                const lineaKey = configMatch.linea; // Agrupamos bajo el nombre definido en el Foco
+                lineaDescriptions[lineaKey] = descLinea; // Guardamos su nombre real del Excel
+
+                const vol = parseFloat(row['Cantidades CON Cargo']) || 0;
+                const cliente = row['Cod. Cliente'];
+
+                vendors.add(vendor);
+
+                if (!globalData[vendor]) globalData[vendor] = { lineas: {} };
+                if (!globalData[vendor].lineas[lineaKey]) {
+                    globalData[vendor].lineas[lineaKey] = { 
+                        realName: descLinea,
+                        vol: 0, cov: new Set(), objVol: 0, objCov: 0, 
+                        articulos: {} // Aquí anidaremos los artículos
+                    };
+                }
+                
+                globalData[vendor].lineas[lineaKey].vol += vol;
+                if (cliente && vol > 0) {
+                    globalData[vendor].lineas[lineaKey].cov.add(cliente);
+                }
+            });
+
+            // 2. Procesar Artículos
+            dataArticulos.forEach(row => {
+                const vendor = row['Descripción Vendedor'] || 'Sin Vendedor';
+                const codArticuloRaw = (row['Código'] || '').toString().trim();
+                const descArticulo = (row['Descripción.2'] || row['Artículos'] || 'Desconocido').toString();
+                
+                // Buscar si este artículo pertenece a alguna de nuestras líneas de foco
+                let matchingConfig = null;
+                for (let cfg of focusConfig) {
+                    if (cfg.articulos.includes(codArticuloRaw)) {
+                        matchingConfig = cfg;
+                        break;
+                    }
+                }
+
+                if (!matchingConfig) return; // Filtrar: Solo procesamos artículos en foco
+
+                const lineaKey = matchingConfig.linea;
+                
+                // Asegurarse de que exista el vendedor y la línea (incluso si no hubo venta de la línea en dataLineas)
+                if (!globalData[vendor]) globalData[vendor] = { lineas: {} };
+                if (!globalData[vendor].lineas[lineaKey]) {
+                    globalData[vendor].lineas[lineaKey] = { 
+                        realName: lineaKey, // Fallback si no lo encontró en dataLineas
+                        vol: 0, cov: new Set(), objVol: 0, objCov: 0, 
+                        articulos: {} 
+                    };
+                }
+
+                articuloDescriptions[codArticuloRaw] = descArticulo;
+
+                // Anidar el artículo dentro de la línea
+                if (!globalData[vendor].lineas[lineaKey].articulos[codArticuloRaw]) {
+                    globalData[vendor].lineas[lineaKey].articulos[codArticuloRaw] = { 
+                        vol: 0, cov: new Set(), objVol: 0, objCov: 0 
+                    };
+                }
+                
+                const vol = parseFloat(row['Cantidades CON Cargo']) || 0;
+                const cliente = row['Cod. Cliente'];
+
+                globalData[vendor].lineas[lineaKey].articulos[codArticuloRaw].vol += vol;
+                if (cliente && vol > 0) {
+                    globalData[vendor].lineas[lineaKey].articulos[codArticuloRaw].cov.add(cliente);
+                }
+                vendors.add(vendor);
+            });
+
+            // 3. Popular Select Vendedores
+            const select = document.getElementById('vendorSelect');
+            select.innerHTML = '<option value="all">Todos los Vendedores</option>';
+            Array.from(vendors).sort().forEach(v => {
+                if(v !== 'Sin Vendedor' && v !== 'NaN') {
+                    const option = document.createElement('option');
+                    option.value = v;
+                    option.textContent = v;
+                    select.appendChild(option);
+                }
+            });
+
+            switchTab('dashboard');
+            renderDashboard();
+        }
+
+        function renderDashboard() {
+            const selectedVendor = document.getElementById('vendorSelect').value;
+            const dashContainer = document.getElementById('dashboardContainer');
+            dashContainer.innerHTML = '';
+
+            let vendorsToRender = selectedVendor === 'all' ? Object.keys(globalData).sort() : [selectedVendor];
+
+            if (vendorsToRender.length === 0 || (vendorsToRender.length === 1 && !globalData[vendorsToRender[0]])) {
+                dashContainer.innerHTML = '<div class="p-6 text-center text-gray-500 font-bold">No se encontraron datos para el Foco definido. Revisa los códigos y los archivos.</div>';
+                return;
+            }
+
+            vendorsToRender.forEach(vendor => {
+                if (vendor === 'Sin Vendedor' || vendor === 'NaN' || !globalData[vendor]) return;
+                
+                const lineasVendor = globalData[vendor].lineas;
+                if (Object.keys(lineasVendor).length === 0) return;
+
+                let html = `<div class="card mb-8 p-0 overflow-hidden">
+                    <div class="bg-blue-800 text-white p-3 flex items-center">
+                        <i class="fas fa-user-tie text-xl mr-3 bg-white text-blue-800 p-2 rounded-full"></i>
+                        <h2 class="text-xl font-bold tracking-wide">${vendor}</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-700">
+                                    <th class="p-3 border-b border-gray-300 w-2/5 font-bold">Concepto (Línea / Artículo)</th>
+                                    <th class="p-3 border-b border-gray-300 text-center text-blue-900 border-l" colspan="3"><i class="fas fa-box-open mr-1"></i> VOLUMEN</th>
+                                    <th class="p-3 border-b border-gray-300 text-center text-green-900 border-l" colspan="3"><i class="fas fa-users mr-1"></i> COBERTURA</th>
+                                </tr>
+                                <tr class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+                                    <th class="p-2 border-b border-gray-300"></th>
+                                    <th class="p-2 border-b border-gray-300 text-center border-l">Obj.</th>
+                                    <th class="p-2 border-b border-gray-300 text-center text-blue-600 font-bold">Avance</th>
+                                    <th class="p-2 border-b border-gray-300 text-center">Resta</th>
+                                    <th class="p-2 border-b border-gray-300 text-center border-l">Obj.</th>
+                                    <th class="p-2 border-b border-gray-300 text-center text-green-600 font-bold">Avance</th>
+                                    <th class="p-2 border-b border-gray-300 text-center">Resta</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+
+                // Render Líneas y sus artículos
+                // Iteramos basándonos en la configuración original para mantener el orden
+                focusConfig.forEach(cfg => {
+                    const lineaKey = cfg.linea;
+                    const dataLinea = lineasVendor[lineaKey];
+                    
+                    if (!dataLinea) return; // Si el vendedor no tiene esta línea en foco, saltar
+
+                    const realName = dataLinea.realName || lineaKey;
+                    const avanceVolL = Number.isInteger(dataLinea.vol) ? dataLinea.vol : dataLinea.vol.toFixed(2);
+                    const avanceCovL = dataLinea.cov.size;
+                    const restaVolL = Math.max(0, dataLinea.objVol - dataLinea.vol);
+                    const restaCovL = Math.max(0, dataLinea.objCov - avanceCovL);
+
+                    // Fila de la Línea
+                    html += `
+                        <tr class="bg-blue-50 font-bold border-b border-blue-100 hover:bg-blue-100 transition-colors">
+                            <td class="p-3 text-blue-900"><i class="fas fa-layer-group text-blue-400 mr-2"></i> ${realName}</td>
+                            
+                            <td class="p-2 text-center border-l border-gray-200"><input type="number" class="editable-obj" value="${dataLinea.objVol}" onchange="updateObj('${vendor}', '${lineaKey}', null, 'objVol', this.value)"></td>
+                            <td class="p-3 text-center text-blue-700">${avanceVolL}</td>
+                            <td class="p-3 text-center text-red-500">${Number.isInteger(restaVolL) ? restaVolL : restaVolL.toFixed(2)}</td>
+                            
+                            <td class="p-2 text-center border-l border-gray-200"><input type="number" class="editable-obj" value="${dataLinea.objCov}" onchange="updateObj('${vendor}', '${lineaKey}', null, 'objCov', this.value)"></td>
+                            <td class="p-3 text-center text-green-700">${avanceCovL}</td>
+                            <td class="p-3 text-center text-red-500">${restaCovL}</td>
+                        </tr>
+                    `;
+
+                    // Filas de los Artículos (solo los definidos en el foco)
+                    cfg.articulos.forEach(codArt => {
+                        const dataArt = dataLinea.articulos[codArt];
+                        if (!dataArt) return; // Si no hay datos, lo omitimos para que no ensucie
+                        
+                        // Si el volumen es mayor a cero, lo renderizamos
+                        if (dataArt.vol > 0) {
+                            const descArticulo = articuloDescriptions[codArt] || 'Cod: ' + codArt;
+                            const avanceVolA = Number.isInteger(dataArt.vol) ? dataArt.vol : dataArt.vol.toFixed(2);
+                            const avanceCovA = dataArt.cov.size;
+                            
+                            // Para los artículos, si quieren objetivo editable a nivel artículo, se añade
+                            // Según tu imagen solo muestran resultados, pero podemos dejar obj editables
+                            const restaVolA = Math.max(0, dataArt.objVol - dataArt.vol);
+                            const restaCovA = Math.max(0, dataArt.objCov - avanceCovA);
+
+                            html += `
+                                <tr class="bg-white border-b border-gray-100 hover:bg-gray-50 text-sm">
+                                    <td class="p-3 pl-8 text-gray-700"><i class="fas fa-cube text-gray-300 mr-2 text-xs"></i> <span class="text-xs font-bold text-gray-400 mr-1">(${codArt})</span> ${descArticulo}</td>
+                                    
+                                    <td class="p-2 text-center border-l border-gray-100"><input type="number" class="editable-obj bg-gray-50" style="width:60px; height:24px; font-size:12px;" value="${dataArt.objVol}" onchange="updateObj('${vendor}', '${lineaKey}', '${codArt}', 'objVol', this.value)"></td>
+                                    <td class="p-2 text-center font-semibold text-blue-600">${avanceVolA}</td>
+                                    <td class="p-2 text-center text-red-400">${Number.isInteger(restaVolA) ? restaVolA : restaVolA.toFixed(2)}</td>
+                                    
+                                    <td class="p-2 text-center border-l border-gray-100"><input type="number" class="editable-obj bg-gray-50" style="width:60px; height:24px; font-size:12px;" value="${dataArt.objCov}" onchange="updateObj('${vendor}', '${lineaKey}', '${codArt}', 'objCov', this.value)"></td>
+                                    <td class="p-2 text-center font-semibold text-green-600">${avanceCovA}</td>
+                                    <td class="p-2 text-center text-red-400">${restaCovA}</td>
+                                </tr>
+                            `;
+                        }
+                    });
+                });
+
+                html += `</tbody></table></div></div>`;
+                dashContainer.innerHTML += html;
+            });
+        }
+
+        window.updateObj = function(vendor, lineaKey, articuloCod, field, val) {
+            val = parseFloat(val) || 0;
+            if (articuloCod) {
+                globalData[vendor].lineas[lineaKey].articulos[articuloCod][field] = val;
+            } else {
+                globalData[vendor].lineas[lineaKey][field] = val;
+            }
+            renderDashboard();
+        }
+    </script>
+</body>
+</html>
