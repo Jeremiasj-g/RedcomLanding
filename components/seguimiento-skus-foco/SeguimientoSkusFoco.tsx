@@ -110,6 +110,7 @@ function MetricCells({data, goalVol, goalCov}:{
 export default function SeguimientoSkusFoco() {
   const {me} = useMe();
   const admin = me?.role === 'admin';
+  const canEditFocus = admin || me?.role === 'supervisor';
   const [tab,setTab] = useState<'foco'|'datos'|'dashboard'>('foco');
   const [state,setState] = useState<Shared>(emptyShared);
   const [forms,setForms] = useState<FormLine[]>([{key:1,linea:'',articulos:''}]);
@@ -117,6 +118,7 @@ export default function SeguimientoSkusFoco() {
   const [vendorFilter,setVendorFilter] = useState('all');
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
+  const [savingFocus,setSavingFocus] = useState(false);
   const [xlsxReady,setXlsxReady] = useState(false);
   const [lineFile,setLineFile] = useState<File|null>(null);
   const [articleFile,setArticleFile] = useState<File|null>(null);
@@ -194,6 +196,26 @@ export default function SeguimientoSkusFoco() {
     if(!window.XLSX)throw new Error('El lector de Excel todavía se está cargando. Intentá nuevamente.');
     const wb = window.XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array'});
     return window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+  }
+  async function saveFocusConfiguration() {
+    if(!canEditFocus || savingFocus)return;
+    if(!parsedFocus.length){
+      notify.error('Definí al menos una línea de foco.');
+      return;
+    }
+    try{
+      setSavingFocus(true);
+      const {error}=await supabase.rpc('save_sku_foco_configuration',{
+        p_focus_config:parsedFocus,
+      });
+      if(error)throw error;
+      setState(prev=>({...prev,focus_config:parsedFocus,updated_at:new Date().toISOString()}));
+      notify.success('Líneas y códigos FOCO guardados para todos los usuarios.');
+    }catch(error){
+      notify.error(errorMessage(error,'No se pudo guardar la configuración FOCO.'));
+    }finally{
+      setSavingFocus(false);
+    }
   }
   async function saveSnapshot() {
     if(!admin)return;
@@ -287,13 +309,13 @@ export default function SeguimientoSkusFoco() {
             <h2 className="text-xl font-semibold text-slate-950">Configurar líneas y artículos de foco</h2>
             <p className="mt-1 text-sm text-slate-500">Agregá las líneas de objetivo y los códigos de los artículos específicos que querés analizar. Solo estos aparecerán en el resultado.</p>
             <div className="mt-6 space-y-3">{forms.map(f=><div key={f.key} className="grid gap-3 rounded-2xl border border-slate-200 bg-[#fafbfc] p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto]">
-              <label className="text-xs font-semibold text-slate-600">Nombre o código de línea<input disabled={!admin} value={f.linea} onChange={e=>setForms(old=>old.map(item=>item.key===f.key?{...item,linea:e.target.value}:item))} placeholder="Ej.: 04 WINNERS o 1126" className="mt-2 block h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-normal outline-none focus:border-blue-400 disabled:bg-slate-50"/></label>
-              <label className="text-xs font-semibold text-slate-600">Códigos de artículos FOCO (separados por coma)<input disabled={!admin} value={f.articulos} onChange={e=>setForms(old=>old.map(item=>item.key===f.key?{...item,articulos:e.target.value}:item))} placeholder="Ej.: 670218, 671376, 128" className="mt-2 block h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-normal outline-none focus:border-blue-400 disabled:bg-slate-50"/></label>
-              {admin&&<button title="Eliminar línea" onClick={()=>setForms(old=>old.filter(item=>item.key!==f.key))} className="self-end rounded-xl p-3 text-rose-500 hover:bg-rose-50"><X className="h-4 w-4"/></button>}
+              <label className="text-xs font-semibold text-slate-600">Nombre o código de línea<input disabled={!canEditFocus} value={f.linea} onChange={e=>setForms(old=>old.map(item=>item.key===f.key?{...item,linea:e.target.value}:item))} placeholder="Ej.: 04 WINNERS o 1126" className="mt-2 block h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-normal outline-none focus:border-blue-400 disabled:bg-slate-50"/></label>
+              <label className="text-xs font-semibold text-slate-600">Códigos de artículos FOCO (separados por coma)<input disabled={!canEditFocus} value={f.articulos} onChange={e=>setForms(old=>old.map(item=>item.key===f.key?{...item,articulos:e.target.value}:item))} placeholder="Ej.: 670218, 671376, 128" className="mt-2 block h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-normal outline-none focus:border-blue-400 disabled:bg-slate-50"/></label>
+              {canEditFocus&&<button title="Eliminar línea" onClick={()=>setForms(old=>old.filter(item=>item.key!==f.key))} className="self-end rounded-xl p-3 text-rose-500 hover:bg-rose-50"><X className="h-4 w-4"/></button>}
             </div>)}</div>
             <div className="mt-5 flex flex-wrap justify-between gap-3">
-              {admin?<button onClick={()=>{setForms(old=>[...old,{key:counter,linea:'',articulos:''}]);setCounter(x=>x+1);}} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-50 px-4 text-xs font-semibold text-blue-700"><Plus className="h-4 w-4"/> Agregar línea de foco</button>:<span className="text-xs text-slate-400">La configuración es administrada centralmente.</span>}
-              <button onClick={()=>setTab('datos')} className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-5 text-xs font-semibold text-white">Siguiente paso <ArrowRight className="h-4 w-4"/></button>
+              {canEditFocus?<button onClick={()=>{setForms(old=>[...old,{key:counter,linea:'',articulos:''}]);setCounter(x=>x+1);}} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-50 px-4 text-xs font-semibold text-blue-700"><Plus className="h-4 w-4"/> Agregar línea de foco</button>:<span className="text-xs text-slate-400">La configuración es administrada centralmente.</span>}
+              <div className="flex flex-wrap items-center gap-2">{canEditFocus&&<button type="button" disabled={savingFocus} onClick={()=>void saveFocusConfiguration()} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-5 text-xs font-semibold text-white disabled:opacity-50">{savingFocus?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar foco</button>}<button onClick={()=>setTab('datos')} className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-5 text-xs font-semibold text-white">Siguiente paso <ArrowRight className="h-4 w-4"/></button></div>
             </div>
           </section>}
 
