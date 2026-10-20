@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
 import { notify, errorMessage } from '@/lib/notifications';
 import { findLineObjective, parseObjectiveMatrix, type ObjectiveValues } from '@/lib/skuFocoObjectives';
+import FocoHierarchyMatrix from './FocoHierarchyMatrix';
 
 type ExcelRow = Record<string, unknown>;
 type FocusLine = { linea: string; articulos: string[] };
@@ -19,6 +20,7 @@ type Shared = {
   lineas_storage_path?: string | null; articulos_storage_path?: string | null;
   objetivo_volumen_storage_path?: string | null; objetivo_cobertura_storage_path?: string | null;
   objetivo_volumen_file_name?: string | null; objetivo_cobertura_file_name?: string | null;
+  personal_storage_path?: string | null; personal_file_name?: string | null;
 };
 type Metric = { vol: number; cov: Set<string>; objVol: number; objCov: number };
 type LineMetric = Metric & { realName: string; articulos: Record<string, Metric> };
@@ -28,7 +30,8 @@ declare global { interface Window { XLSX?: { read: (value: Uint8Array, config: {
 
 const emptyShared: Shared = {lineas:[],articulos:[],focus_config:[],objectives:{},file_lineas_name:null,file_articulos_name:null,updated_at:'',lineas_storage_path:null,articulos_storage_path:null,
  objetivo_volumen_storage_path:null,objetivo_cobertura_storage_path:null,
- objetivo_volumen_file_name:null,objetivo_cobertura_file_name:null};
+ objetivo_volumen_file_name:null,objetivo_cobertura_file_name:null,
+ personal_storage_path:null,personal_file_name:null};
 const int = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
 const newMetric = (): Metric => ({vol:0,cov:new Set<string>(),objVol:0,objCov:0});
 const keyObj = (vendor:string,line:string,art?:string) => JSON.stringify([vendor,line,art??null]);
@@ -119,11 +122,13 @@ export default function SeguimientoSkusFoco() {
   const [articleFile,setArticleFile] = useState<File|null>(null);
   const [objectiveVolumeFile,setObjectiveVolumeFile] = useState<File|null>(null);
   const [objectiveCoverageFile,setObjectiveCoverageFile] = useState<File|null>(null);
+  const [personalFile,setPersonalFile] = useState<File|null>(null);
+  const [personalRows,setPersonalRows] = useState<ExcelRow[]>([]);
   const [volumeObjectives,setVolumeObjectives] = useState<ObjectiveValues>({});
   const [coverageObjectives,setCoverageObjectives] = useState<ObjectiveValues>({});
   const [storedPaths,setStoredPaths] = useState<{
-    lineas:string|null;articulos:string|null;volume:string|null;coverage:string|null;
-  }>({lineas:null,articulos:null,volume:null,coverage:null});
+    lineas:string|null;articulos:string|null;volume:string|null;coverage:string|null;personal:string|null;
+  }>({lineas:null,articulos:null,volume:null,coverage:null,personal:null});
 
   const load = useCallback(async()=>{
     const {data,error}=await supabase.from('sku_foco_shared_state').select('*').eq('id',1).single();
@@ -134,6 +139,7 @@ export default function SeguimientoSkusFoco() {
       lineas:value.lineas_storage_path??null,articulos:value.articulos_storage_path??null,
       volume:value.objetivo_volumen_storage_path??null,
       coverage:value.objetivo_cobertura_storage_path??null,
+      personal:value.personal_storage_path??null,
     });
     setForms(value.focus_config.length?value.focus_config.map((f,i)=>({key:i+1,linea:f.linea,articulos:f.articulos.join(', ')})):[{key:1,linea:'',articulos:''}]);
     setCounter(value.focus_config.length+1 || 2);
@@ -148,7 +154,7 @@ export default function SeguimientoSkusFoco() {
   // Al entrar, los archivos congelados se descargan una sola vez desde Storage.
   // La tabla SQL solo almacena metadatos, no miles de filas JSON.
   useEffect(()=>{
-    if(!xlsxReady || (!storedPaths.lineas && !storedPaths.articulos && !storedPaths.volume && !storedPaths.coverage))return;
+    if(!xlsxReady || (!storedPaths.lineas && !storedPaths.articulos && !storedPaths.volume && !storedPaths.coverage && !storedPaths.personal))return;
     let cancelled=false;
     (async()=>{
       try{
@@ -159,21 +165,23 @@ export default function SeguimientoSkusFoco() {
           const wb=window.XLSX!.read(new Uint8Array(await data.arrayBuffer()),{type:'array'});
           return window.XLSX!.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
         };
-        const [lineas,articulos,volumes,coverages]=await Promise.all([
+        const [lineas,articulos,volumes,coverages,personal]=await Promise.all([
           storedPaths.lineas?download(storedPaths.lineas):Promise.resolve(null),
           storedPaths.articulos?download(storedPaths.articulos):Promise.resolve(null),
           storedPaths.volume?download(storedPaths.volume):Promise.resolve(null),
           storedPaths.coverage?download(storedPaths.coverage):Promise.resolve(null),
+          storedPaths.personal?download(storedPaths.personal):Promise.resolve(null),
         ]);
         if(cancelled)return;
         setState(prev=>({...prev,lineas:lineas??prev.lineas,articulos:articulos??prev.articulos}));
         setVolumeObjectives(volumes ? parseObjectiveMatrix(volumes) : {});
         setCoverageObjectives(coverages ? parseObjectiveMatrix(coverages) : {});
+        setPersonalRows(personal??[]);
       }catch(e){if(!cancelled)notify.error(errorMessage(e,'No se pudieron recuperar los reportes compartidos.'));}
       finally{if(!cancelled)setLoading(false);}
     })();
     return ()=>{cancelled=true;};
-  },[xlsxReady,storedPaths.lineas,storedPaths.articulos,storedPaths.volume,storedPaths.coverage]);
+  },[xlsxReady,storedPaths.lineas,storedPaths.articulos,storedPaths.volume,storedPaths.coverage,storedPaths.personal]);
 
   const parsedFocus = useMemo(()=>forms.filter(f=>f.linea.trim()).map(f=>({
     linea:f.linea.trim().toUpperCase(),articulos:f.articulos.split(',').map(a=>a.trim()).filter(Boolean),
@@ -197,14 +205,16 @@ export default function SeguimientoSkusFoco() {
     const newUploads:string[]=[];
     try{
       setBusy(true);
-      const [rowsLines,rowsArts,rowsVolume,rowsCoverage]=await Promise.all([
+      const [rowsLines,rowsArts,rowsVolume,rowsCoverage,rowsPersonal]=await Promise.all([
         lineFile?readFile(lineFile):Promise.resolve(state.lineas),
         articleFile?readFile(articleFile):Promise.resolve(state.articulos),
         objectiveVolumeFile?readFile(objectiveVolumeFile):Promise.resolve(null),
         objectiveCoverageFile?readFile(objectiveCoverageFile):Promise.resolve(null),
+        personalFile?readFile(personalFile):Promise.resolve(null),
       ]);
       const newVolume=rowsVolume ? parseObjectiveMatrix(rowsVolume) : volumeObjectives;
       const newCoverage=rowsCoverage ? parseObjectiveMatrix(rowsCoverage) : coverageObjectives;
+      if(rowsPersonal && !rowsPersonal.some(r=>r['Superior']!==undefined&&r['Cargo']!==undefined&&r['Código']!==undefined)) throw new Error('DetallePersonal no tiene columnas Superior, Cargo y Código.');
       const upload=async(file:File,kind:string)=>{
         const path=`live/${kind}-${Date.now()}-${Math.random().toString(36).slice(2,10)}.xlsx`;
         const {error}=await supabase.storage.from('sku-foco-reports').upload(path,file,{
@@ -219,12 +229,14 @@ export default function SeguimientoSkusFoco() {
       const articulosPath=articleFile?await upload(articleFile,'articulos'):storedPaths.articulos;
       const volumePath=objectiveVolumeFile?await upload(objectiveVolumeFile,'objetivo-volumen'):storedPaths.volume;
       const coveragePath=objectiveCoverageFile?await upload(objectiveCoverageFile,'objetivo-cobertura'):storedPaths.coverage;
+      const personalPath=personalFile?await upload(personalFile,'personal'):storedPaths.personal;
       // Sin enviar todas las filas en un único JSON: evita timeout y Failed to fetch.
       const timestamp=new Date().toISOString();
       const {error}=await supabase.from('sku_foco_shared_state').update({
         lineas:[],articulos:[],
         lineas_storage_path:lineasPath,articulos_storage_path:articulosPath,
         objetivo_volumen_storage_path:volumePath,objetivo_cobertura_storage_path:coveragePath,
+        personal_storage_path:personalPath,personal_file_name:personalFile?.name??state.personal_file_name,
         objetivo_volumen_file_name:objectiveVolumeFile?.name??state.objetivo_volumen_file_name,
         objetivo_cobertura_file_name:objectiveCoverageFile?.name??state.objetivo_cobertura_file_name,
         focus_config:parsedFocus,
@@ -238,13 +250,15 @@ export default function SeguimientoSkusFoco() {
         file_articulos_name:articleFile?.name??prev.file_articulos_name,
         lineas_storage_path:lineasPath,articulos_storage_path:articulosPath,
         objetivo_volumen_storage_path:volumePath,objetivo_cobertura_storage_path:coveragePath,
+        personal_storage_path:personalPath,personal_file_name:personalFile?.name??prev.personal_file_name,
         objetivo_volumen_file_name:objectiveVolumeFile?.name??prev.objetivo_volumen_file_name,
         objetivo_cobertura_file_name:objectiveCoverageFile?.name??prev.objetivo_cobertura_file_name,
         updated_at:timestamp}));
       setVolumeObjectives(newVolume);setCoverageObjectives(newCoverage);
+      if(rowsPersonal)setPersonalRows(rowsPersonal);
       setStoredPaths({lineas:lineasPath??null,articulos:articulosPath??null,
-        volume:volumePath??null,coverage:coveragePath??null});
-      setLineFile(null);setArticleFile(null);setObjectiveVolumeFile(null);setObjectiveCoverageFile(null);setVendorFilter('all');setTab('dashboard');
+        volume:volumePath??null,coverage:coveragePath??null,personal:personalPath??null});
+      setLineFile(null);setArticleFile(null);setObjectiveVolumeFile(null);setObjectiveCoverageFile(null);setPersonalFile(null);setVendorFilter('all');setTab('dashboard');
       notify.success('Reportes congelados en Storage y disponibles para los demás usuarios.');
     }catch(e){
       if(newUploads.length)void supabase.storage.from('sku-foco-reports').remove(newUploads);
@@ -318,6 +332,19 @@ export default function SeguimientoSkusFoco() {
                   className="mt-4 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-semibold file:text-blue-700 disabled:opacity-50"/>}
               </div>)}
             </div>
+            <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-[#fafbfc] p-5">
+              <div className="flex items-center gap-3"><Users className="h-6 w-6 text-violet-600"/>
+                <div><h3 className="text-sm font-semibold text-slate-800">Detalle de Personal Comercial</h3>
+                <p className="mt-1 text-xs text-slate-500">Jefes de ventas, supervisores y vendedores. Se vinculan por sucursal, código y superior.</p></div>
+              </div>
+              <p className="mt-3 text-xs text-slate-500">{storedPaths.personal
+                ? 'Guardado: '+(state.personal_file_name??'DetallePersonal.xlsx')+' · '+personalRows.length+' personas'
+                : 'Todavía no hay un organigrama guardado'}</p>
+              {personalFile&&<p className="mt-2 text-xs font-semibold text-blue-700">Nuevo archivo: {personalFile.name}</p>}
+              {admin&&<input aria-label="Detalle de Personal Comercial" type="file" accept=".xlsx,.xls"
+                disabled={!xlsxReady} onChange={e=>setPersonalFile(e.target.files?.[0]??null)}
+                className="mt-4 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-50 file:px-3 file:py-2 file:font-semibold file:text-violet-700 disabled:opacity-50"/>}
+            </div>
             <p className="mt-3 text-xs text-slate-500">Los objetivos se cruzan por ID de vendedor y línea comercial. Las planillas corresponden a Casa Central.</p>
             <div className="mt-6 flex justify-between border-t border-slate-100 pt-5">
               <button onClick={()=>setTab('foco')} className="h-10 px-3 text-xs font-semibold text-slate-500">Volver</button>
@@ -326,31 +353,16 @@ export default function SeguimientoSkusFoco() {
           </section>}
 
           {tab==='dashboard'&&<section>
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4">
-              <label className="flex items-center gap-3 text-xs font-semibold text-slate-700"><Users className="h-4 w-4 text-blue-600"/> Vendedor
-                <select value={vendorFilter} onChange={e=>setVendorFilter(e.target.value)} className="h-10 min-w-[230px] max-w-[340px] rounded-xl border border-slate-200 bg-[#fafbfc] px-3 text-xs text-slate-800"><option value="all">Todos los vendedores</option>{vendors.map(v=><option key={v} value={v}>{vendorLabels[v]} · ID {v.split(':')[1]}</option>)}</select>
-              </label>
-              <div className="flex items-center gap-2">
-
-                <button onClick={()=>setTab('datos')} className="inline-flex h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50"><RefreshCw className="h-4 w-4"/> Recargar datos</button>
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div><h2 className="text-xl font-semibold tracking-tight text-slate-950">Matriz de seguimiento comercial</h2>
+                <p className="mt-1 text-xs text-slate-500">Jefes de ventas, supervisores y vendedores con objetivos, avances, cobertura y cumplimiento.</p>
               </div>
+              <button onClick={()=>setTab('datos')} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 hover:bg-slate-50"><RefreshCw className="h-4 w-4"/> Actualizar reportes</button>
             </div>
-            {!configured?<div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center text-sm text-slate-500">Todavía no hay un reporte compartido. Un administrador debe configurar el foco e importar ambos Excel.</div>:
-            <div className="space-y-5">{visibleVendors.map(vendor=>{
-              const lines=globalData[vendor]?.lineas??{};
-              const existing=state.focus_config.filter(cfg=>lines[cfg.linea]);
-              if(!existing.length)return null;
-              return <article key={vendor} className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center gap-2 bg-[#1b263e] px-5 py-4 text-white"><Users className="h-4 w-4"/><h2 className="text-base font-semibold">{vendorLabels[vendor]} <span className="ml-2 text-xs font-normal text-white/50">ID {vendor.split(':')[1]}</span></h2></div>
-                <div className="overflow-x-auto"><table className="w-full min-w-[950px] border-collapse text-left text-xs">
-                  <thead><tr className="bg-slate-100 text-slate-700"><th className="w-[40%] border-b border-slate-200 px-4 py-3">Concepto (línea / artículo)</th><th colSpan={3} className="border-b border-l border-slate-200 px-4 py-3 text-center text-blue-900">VOLUMEN</th><th colSpan={3} className="border-b border-l border-slate-200 px-4 py-3 text-center text-emerald-900">COBERTURA</th></tr><tr className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><th className="px-4 py-2"></th><th className="border-l px-3 py-2 text-center">Obj.</th><th className="px-3 py-2 text-center">Avance</th><th className="px-3 py-2 text-center">Resta</th><th className="border-l px-3 py-2 text-center">Obj.</th><th className="px-3 py-2 text-center">Avance</th><th className="px-3 py-2 text-center">Resta</th></tr></thead>
-                  <tbody>{existing.map(cfg=>{
-                    const line=lines[cfg.linea];
-                    return <FragmentLine key={cfg.linea} cfg={cfg} line={line} vendor={vendor} descArt={descArt} volumeGoals={volumeObjectives} coverageGoals={coverageObjectives}/>;
-                  })}</tbody>
-                </table></div>
-              </article>;
-            })}</div>}
+            {!configured?<div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center text-sm text-slate-500">Todavía no hay un reporte compartido. Un administrador debe configurar el foco e importar los Excel.</div>:
+              <FocoHierarchyMatrix lineRows={state.lineas} articleRows={state.articulos}
+                peopleRows={personalRows} focus={state.focus_config}
+                volumeGoals={volumeObjectives} coverageGoals={coverageObjectives}/>}
           </section>}
         </>
       )}
