@@ -15,6 +15,7 @@ type Shared = {
   lineas: ExcelRow[]; articulos: ExcelRow[]; focus_config: FocusLine[];
   objectives: Objectives; file_lineas_name: string | null;
   file_articulos_name: string | null; updated_at: string;
+  lineas_storage_path?: string | null; articulos_storage_path?: string | null;
 };
 type Metric = { vol: number; cov: Set<string>; objVol: number; objCov: number };
 type LineMetric = Metric & { realName: string; articulos: Record<string, Metric> };
@@ -22,7 +23,7 @@ type Vendor = { lineas: Record<string, LineMetric> };
 type Dashboard = Record<string, Vendor>;
 declare global { interface Window { XLSX?: { read: (value: Uint8Array, config: {type: 'array'}) => { Sheets: Record<string, unknown>; SheetNames: string[] }; utils: { sheet_to_json: (sheet: unknown) => ExcelRow[] } } } }
 
-const emptyShared: Shared = {lineas:[],articulos:[],focus_config:[],objectives:{},file_lineas_name:null,file_articulos_name:null,updated_at:''};
+const emptyShared: Shared = {lineas:[],articulos:[],focus_config:[],objectives:{},file_lineas_name:null,file_articulos_name:null,updated_at:'',lineas_storage_path:null,articulos_storage_path:null};
 const int = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
 const newMetric = (): Metric => ({vol:0,cov:new Set<string>(),objVol:0,objCov:0});
 const keyObj = (vendor:string,line:string,art?:string) => JSON.stringify([vendor,line,art??null]);
@@ -101,21 +102,49 @@ export default function SeguimientoSkusFoco() {
   const [lineFile,setLineFile] = useState<File|null>(null);
   const [articleFile,setArticleFile] = useState<File|null>(null);
   const [objectivesDirty,setObjectivesDirty] = useState(false);
+  const [storedPaths,setStoredPaths] = useState<{lineas:string|null;articulos:string|null}>({lineas:null,articulos:null});
 
   const load = useCallback(async()=>{
     const {data,error}=await supabase.from('sku_foco_shared_state').select('*').eq('id',1).single();
     if(error) throw error;
     const value = {...emptyShared,...data} as Shared;
     setState(value);
+    setStoredPaths({lineas:value.lineas_storage_path??null,articulos:value.articulos_storage_path??null});
     setForms(value.focus_config.length?value.focus_config.map((f,i)=>({key:i+1,linea:f.linea,articulos:f.articulos.join(', ')})):[{key:1,linea:'',articulos:''}]);
     setCounter(value.focus_config.length+1 || 2);
-    if(value.lineas.length && value.articulos.length && value.focus_config.length)setTab('dashboard');
+    if((value.lineas.length || value.lineas_storage_path) && (value.articulos.length || value.articulos_storage_path) && value.focus_config.length)setTab('dashboard');
   },[]);
   useEffect(()=>{
     let cancelled=false;
     (async()=>{try{await load();}catch(e){if(!cancelled)notify.error(errorMessage(e,'No se pudo recuperar el seguimiento guardado.'));}finally{if(!cancelled)setLoading(false);}})();
     return ()=>{cancelled=true;};
   },[load]);
+
+  // Al entrar, los archivos congelados se descargan una sola vez desde Storage.
+  // La tabla SQL solo almacena metadatos, no miles de filas JSON.
+  useEffect(()=>{
+    if(!xlsxReady || (!storedPaths.lineas && !storedPaths.articulos))return;
+    let cancelled=false;
+    (async()=>{
+      try{
+        setLoading(true);
+        const download=async(path:string):Promise<ExcelRow[]>=>{
+          const {data,error}=await supabase.storage.from('sku-foco-reports').download(path);
+          if(error)throw error;
+          const wb=window.XLSX!.read(new Uint8Array(await data.arrayBuffer()),{type:'array'});
+          return window.XLSX!.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+        };
+        const [lineas,articulos]=await Promise.all([
+          storedPaths.lineas?download(storedPaths.lineas):Promise.resolve(null),
+          storedPaths.articulos?download(storedPaths.articulos):Promise.resolve(null),
+        ]);
+        if(cancelled)return;
+        setState(prev=>({...prev,lineas:lineas??prev.lineas,articulos:articulos??prev.articulos}));
+      }catch(e){if(!cancelled)notify.error(errorMessage(e,'No se pudieron recuperar los reportes compartidos.'));}
+      finally{if(!cancelled)setLoading(false);}
+    })();
+    return ()=>{cancelled=true;};
+  },[xlsxReady,storedPaths.lineas,storedPaths.articulos]);
 
   const parsedFocus = useMemo(()=>forms.filter(f=>f.linea.trim()).map(f=>({
     linea:f.linea.trim().toUpperCase(),articulos:f.articulos.split(',').map(a=>a.trim()).filter(Boolean),
@@ -132,21 +161,50 @@ export default function SeguimientoSkusFoco() {
   async function saveSnapshot() {
     if(!admin)return;
     if(!parsedFocus.length){notify.error('Definí al menos una línea de foco.');setTab('foco');return;}
-    if(!lineFile&&!state.lineas.length){notify.error('Falta el reporte por línea.');return;}
-    if(!articleFile&&!state.articulos.length){notify.error('Falta el reporte por artículo.');return;}
+    if(!lineFile&&!storedPaths.lineas&&!state.lineas.length){notify.error('Falta el reporte por línea.');return;}
+    if(!articleFile&&!storedPaths.articulos&&!state.articulos.length){notify.error('Falta el reporte por artículo.');return;}
+    const newUploads:string[]=[];
     try{
       setBusy(true);
-      const [rowsLines,rowsArts]=await Promise.all([lineFile?readFile(lineFile):Promise.resolve(state.lineas),articleFile?readFile(articleFile):Promise.resolve(state.articulos)]);
-      const next={...state,lineas:rowsLines,articulos:rowsArts,focus_config:parsedFocus,
+      const [rowsLines,rowsArts]=await Promise.all([
+        lineFile?readFile(lineFile):Promise.resolve(state.lineas),
+        articleFile?readFile(articleFile):Promise.resolve(state.articulos),
+      ]);
+      const upload=async(file:File,kind:string)=>{
+        const path=`live/${kind}-${Date.now()}-${Math.random().toString(36).slice(2,10)}.xlsx`;
+        const {error}=await supabase.storage.from('sku-foco-reports').upload(path,file,{
+          contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          upsert:false,
+        });
+        if(error)throw error;
+        newUploads.push(path);
+        return path;
+      };
+      const lineasPath=lineFile?await upload(lineFile,'lineas'):storedPaths.lineas;
+      const articulosPath=articleFile?await upload(articleFile,'articulos'):storedPaths.articulos;
+      // Sin enviar todas las filas en un único JSON: evita timeout y Failed to fetch.
+      const timestamp=new Date().toISOString();
+      const {error}=await supabase.from('sku_foco_shared_state').update({
+        lineas:[],articulos:[],
+        lineas_storage_path:lineasPath,articulos_storage_path:articulosPath,
+        focus_config:parsedFocus,
         file_lineas_name:lineFile?.name??state.file_lineas_name,
         file_articulos_name:articleFile?.name??state.file_articulos_name,
-        updated_at:new Date().toISOString()};
-      const {error}=await supabase.from('sku_foco_shared_state').update({...next,updated_by:me?.id}).eq('id',1);
+        updated_at:timestamp,updated_by:me?.id,
+      }).eq('id',1);
       if(error)throw error;
-      setState(next);setLineFile(null);setArticleFile(null);setVendorFilter('all');setTab('dashboard');
-      notify.success('Reportes y configuración guardados para todos los usuarios.');
-    }catch(e){notify.error(errorMessage(e,'No se pudieron procesar o guardar los reportes.'));}
-    finally{setBusy(false);}
+      setState(prev=>({...prev,lineas:rowsLines,articulos:rowsArts,focus_config:parsedFocus,
+        file_lineas_name:lineFile?.name??prev.file_lineas_name,
+        file_articulos_name:articleFile?.name??prev.file_articulos_name,
+        lineas_storage_path:lineasPath,articulos_storage_path:articulosPath,
+        updated_at:timestamp}));
+      setStoredPaths({lineas:lineasPath??null,articulos:articulosPath??null});
+      setLineFile(null);setArticleFile(null);setVendorFilter('all');setTab('dashboard');
+      notify.success('Reportes congelados en Storage y disponibles para los demás usuarios.');
+    }catch(e){
+      if(newUploads.length)void supabase.storage.from('sku-foco-reports').remove(newUploads);
+      notify.error(errorMessage(e,'No se pudieron procesar o guardar los reportes.'));
+    }finally{setBusy(false);}
   }
   function editGoal(id:string,field:'objVol'|'objCov',value:number){
     setState(prev=>({...prev,objectives:{...prev.objectives,[id]:{objVol:prev.objectives[id]?.objVol??0,objCov:prev.objectives[id]?.objCov??0,[field]:value}}}));
