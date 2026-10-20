@@ -39,6 +39,7 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
   const personsByBranch=new Map<string,Person[]>();
   for(const p of people)personsByBranch.set(p.branch,[...(personsByBranch.get(p.branch)??[]),p]);
   const sales:Sales={};
+  const lineDescriptions:Record<string,string>={};
   const labels:Record<string,string>={};
   const getSeller=(r:Row)=>{
    const id=Number(r['Vendedor']),branch=branchNumber(r['Sucursal']);
@@ -53,6 +54,7 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
    const code=norm(r['Código']);
    const cfg=focus.find(f=>description.includes(norm(f.linea))||code===norm(f.linea)||norm(f.linea).includes(code));
    if(!cfg)continue;
+   if(description) lineDescriptions[cfg.linea]=txt(r['Descripción.2']||r['Lineas objetivos']);
    const v=Number(r['Cantidades CON Cargo'])||0,customer=txt(r['Cod. Cliente']);
    const line=sales[seller]??={};
    const item=line[cfg.linea]??=newItem();
@@ -98,8 +100,8 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
   const aggregate=(node:TreeNode,line:string):Item=>{
    if(node.kind==='seller'){
     const value=sales[node.sellerKey!]?.[line];
-    const oV=findLineObjective(volumeGoals,node.sellerKey!,line);
-    const oC=findLineObjective(coverageGoals,node.sellerKey!,line);
+    const oV=findLineObjective(volumeGoals,node.sellerKey!,lineDescriptions[line]??'',line);
+    const oC=findLineObjective(coverageGoals,node.sellerKey!,lineDescriptions[line]??'',line);
     return {vol:value?.vol??0,clients:new Set(value?.clients??[]),objectiveVol:oV,objectiveCov:oC};
    }
    const value=newItem();let hasV=false,hasC=false;
