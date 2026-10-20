@@ -201,9 +201,9 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
     addWorksheet:(name:string,options:Record<string,unknown>)=>ExcelSheet;
     xlsx:{writeBuffer:()=>Promise<ArrayBuffer>};
   };
-  type ExcelJSConstructor=new()=>ExcelBook;
-  const getExcelJS=async():Promise<ExcelJSConstructor>=>{
-    const w=window as Window & {ExcelJS?:ExcelJSConstructor};
+  type ExcelJSModule={Workbook:new()=>ExcelBook};
+  const getExcelJS=async():Promise<ExcelJSModule>=>{
+    const w=window as Window & {ExcelJS?:ExcelJSModule};
     if(w.ExcelJS)return w.ExcelJS;
     await new Promise<void>((resolve,reject)=>{
       const existing=document.querySelector('script[data-redcom-exceljs]');
@@ -221,7 +221,7 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
   };
   try{
     const ExcelJS=await getExcelJS();
-    const workbook=new ExcelJS();
+    const workbook=new ExcelJS.Workbook();
     workbook.creator='REDCOM · Seguimiento SKUs FOCO';
     workbook.created=new Date();
     const sheet=workbook.addWorksheet('Matriz FOCO',{properties:{defaultRowHeight:19}});
