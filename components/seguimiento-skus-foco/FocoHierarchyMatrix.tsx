@@ -1,7 +1,7 @@
 'use client';
 
 import {useMemo,useState} from 'react';
-import {ChevronDown,ChevronRight,Search,UsersRound,Building2,UserRound,ChartNoAxesCombined} from 'lucide-react';
+import {ChevronDown,ChevronRight,Search,UserRound,Download,FileSpreadsheet} from 'lucide-react';
 import {findLineObjective,type ObjectiveValues} from '@/lib/skuFocoObjectives';
 
 type Row=Record<string,unknown>;
@@ -9,6 +9,8 @@ type Focus={linea:string;articulos:string[]};
 type Person={id:number;name:string;branch:string;role:string;superior:string};
 type Item={vol:number;clients:Set<string>;objectiveVol:number|null;objectiveCov:number|null};
 type Sales=Record<string,Record<string,Item>>;
+const skuKey=(line:string,sku:string)=>line+'::sku::'+sku;
+type ExcelAPI={utils:{aoa_to_sheet:(v:(string|number|null)[][])=>unknown;book_new:()=>unknown;book_append_sheet:(b:unknown,s:unknown,n:string)=>void};writeFile:(b:unknown,n:string)=>void};
 const format=new Intl.NumberFormat('es-AR',{maximumFractionDigits:1});
 const norm=(v:unknown)=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim().replace(/\s+/g,' ');
 const txt=(v:unknown)=>String(v??'').trim();
@@ -28,6 +30,8 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
  const [query,setQuery]=useState('');
  const [branch,setBranch]=useState('all');
  const [selectedLine,setSelectedLine]=useState('all');
+ const [selectedSkus,setSelectedSkus]=useState<string[]>([]);
+ const [skuMenu,setSkuMenu]=useState(false);
  const [expanded,setExpanded]=useState<string[]>([]);
  const [level,setLevel]=useState<'managers'|'supervisors'|'all'>('supervisors');
 
@@ -40,6 +44,7 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
   for(const p of people)personsByBranch.set(p.branch,[...(personsByBranch.get(p.branch)??[]),p]);
   const sales:Sales={};
   const lineDescriptions:Record<string,string>={};
+  const skuDescriptions:Record<string,string>={};
   const labels:Record<string,string>={};
   const getSeller=(r:Row)=>{
    const id=Number(r['Vendedor']),branch=branchNumber(r['Sucursal']);
@@ -60,8 +65,20 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
    const item=line[cfg.linea]??=newItem();
    item.vol+=v;if(customer&&v>0)item.clients.add(customer);
   }
-  // The article report keeps focus SKU contributions available; line totals
-  // always come from the line workbook to prevent double counting.
+  // SKU rows come exclusively from article sales; line totals stay unchanged.
+  for(const r of articleRows){
+   const seller=getSeller(r);if(!seller)continue;
+   const code=txt(r['Código']);
+   const cfg=focus.find(f=>f.articulos.some(v=>norm(v)===norm(code)));
+   if(!cfg)continue;
+   const desc=txt(r['Descripción.2']||r['Artículos']);
+   if(desc)skuDescriptions[skuKey(cfg.linea,code)]=desc;
+   const value=Number(r['Cantidades CON Cargo'])||0;
+   const item=(sales[seller]??={})[skuKey(cfg.linea,code)]??=newItem();
+   item.vol+=value;
+   const customer=txt(r['Cod. Cliente']);
+   if(customer&&value>0)item.clients.add(customer);
+  }
   const salesSellerKeys=Object.keys(sales);
   const usedKeys=new Set<string>();
   const roots:TreeNode[]=[];
@@ -100,8 +117,9 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
   const aggregate=(node:TreeNode,line:string):Item=>{
    if(node.kind==='seller'){
     const value=sales[node.sellerKey!]?.[line];
-    const oV=findLineObjective(volumeGoals,node.sellerKey!,lineDescriptions[line]??'',line);
-    const oC=findLineObjective(coverageGoals,node.sellerKey!,lineDescriptions[line]??'',line);
+    const isSku=line.includes('::sku::');
+    const oV=isSku?null:findLineObjective(volumeGoals,node.sellerKey!,lineDescriptions[line]??'',line);
+    const oC=isSku?null:findLineObjective(coverageGoals,node.sellerKey!,lineDescriptions[line]??'',line);
     return {vol:value?.vol??0,clients:new Set(value?.clients??[]),objectiveVol:oV,objectiveCov:oC};
    }
    const value=newItem();let hasV=false,hasC=false;
@@ -118,7 +136,7 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
   };
   const branchLabels:Record<string,string>={'1':'Casa Central','2':'Resistencia','3':'Posadas','4':'Oberá'};
   const isMatch=(node:TreeNode,q:string):boolean=>norm(node.name).includes(q)||node.id.includes(q)||node.children.some(ch=>isMatch(ch,q));
-  return {roots,sales,aggregate,branchLabels,isMatch};
+  return {roots,sales,aggregate,branchLabels,isMatch,skuDescriptions};
  },[lineRows,articleRows,peopleRows,focus,volumeGoals,coverageGoals]);
 
  const roots=data.roots.filter(root=>{
@@ -126,6 +144,9 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
   return !query||data.isMatch(root,norm(query));
  });
  const lines=selectedLine==='all'?focus:focus.filter(f=>f.linea===selectedLine);
+ const availableSkus=[...new Set(lines.flatMap(f=>f.articulos))];
+ const selectedCodes=(f:Focus)=>f.articulos.filter(code=>!selectedSkus.length||selectedSkus.includes(code));
+ const filteredKeys=(f:Focus)=>selectedSkus.length?selectedCodes(f).map(code=>skuKey(f.linea,code)):[f.linea];
  const isOpen=(n:TreeNode)=>level==='all'||(level==='supervisors'&&n.kind==='manager')||expanded.includes(n.id);
  const toggle=(id:string)=>setExpanded(x=>x.includes(id)?x.filter(y=>y!==id):[...x,id]);
  const labels={'manager':'Jefe de ventas','supervisor':'Supervisor','seller':'Vendedor'};
@@ -154,12 +175,36 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
   </div>;
  };
  const summary=lines.map(line=>{
-  const items=roots.map(n=>data.aggregate(n,line.linea));
+  const items=roots.flatMap(n=>filteredKeys(line).map(key=>data.aggregate(n,key)));
   const volume=items.reduce((s,x)=>s+x.vol,0),clients=items.reduce((s,x)=>s+x.clients.size,0);
   const volGoals=items.map(x=>x.objectiveVol).filter((v):v is number=>v!==null);
   const covGoals=items.map(x=>x.objectiveCov).filter((v):v is number=>v!==null);
   return {line:line.linea,volume,clients,volGoal:volGoals.length?volGoals.reduce((a,b)=>a+b,0):null,covGoal:covGoals.length?covGoals.reduce((a,b)=>a+b,0):null};
  });
+ const exportMatrix=(complete:boolean)=>{
+  const xlsx=(window as Window & {XLSX?:ExcelAPI}).XLSX;
+  if(!xlsx){window.alert('Esperá a que termine de cargar el lector Excel.');return;}
+  const selectedRoots=complete?data.roots:roots;
+  const selectedLines=complete?focus:lines;
+  const rows:(string|number|null)[][]=[['Seguimiento SKUs FOCO',complete?'Completo':'Filtrado'],
+    ['Línea','SKU','Nivel','Sucursal','Nombre','ID vendedor','Obj Volumen','Avance Volumen','Resta Volumen','% Volumen','Obj Cobertura','Avance Cobertura','Resta Cobertura','% Cobertura']];
+  const add=(node:TreeNode,line:string,sku:string|null)=>{
+   const m=data.aggregate(node,sku?skuKey(line,sku):line);
+   const parts=node.sellerKey?.split(':');
+   rows.push([line,sku??'',node.kind==='manager'?'Jefe':node.kind==='supervisor'?'Supervisor':'Vendedor',
+     data.branchLabels[node.id.split(':')[1]]??'',node.name,parts?Number(parts[1]):null,
+     m.objectiveVol,m.vol,m.objectiveVol===null?null:Math.max(0,m.objectiveVol-m.vol),progress(m.vol,m.objectiveVol),
+     m.objectiveCov,m.clients.size,m.objectiveCov===null?null:Math.max(0,m.objectiveCov-m.clients.size),progress(m.clients.size,m.objectiveCov)]);
+   node.children.forEach(child=>add(child,line,sku));
+  };
+  selectedLines.forEach(f=>{
+    if(complete||!selectedSkus.length)selectedRoots.forEach(root=>add(root,f.linea,null));
+    (complete?f.articulos:selectedCodes(f)).forEach(code=>selectedRoots.forEach(root=>add(root,f.linea,code)));
+  });
+  const book=xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(book,xlsx.utils.aoa_to_sheet(rows),'Matriz FOCO');
+  xlsx.writeFile(book,'SKUs-FOCO-'+(complete?'completo':'filtrado')+'.xlsx');
+ };
  const cards=summary.reduce((a,x)=>({volume:a.volume+x.volume,clients:a.clients+x.clients,volGoal:a.volGoal+(x.volGoal??0),covGoal:a.covGoal+(x.covGoal??0),volumeHas:a.volumeHas||x.volGoal!==null,coverageHas:a.coverageHas||x.covGoal!==null}),{volume:0,clients:0,volGoal:0,covGoal:0,volumeHas:false,coverageHas:false});
  return <div className="space-y-5">
   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -177,8 +222,25 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
   <div className="flex flex-wrap items-end gap-3 rounded-[20px] border border-slate-200 bg-white p-4">
    <label className="relative min-w-[200px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar jefe, supervisor, vendedor o ID" className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none focus:border-blue-300"/></label>
    <select aria-label="Sucursal" value={branch} onChange={e=>setBranch(e.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700"><option value="all">Todas las sucursales</option>{Object.entries(data.branchLabels).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select>
-   <select aria-label="Línea" value={selectedLine} onChange={e=>setSelectedLine(e.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700"><option value="all">Todas las líneas</option>{focus.map(f=><option key={f.linea} value={f.linea}>{f.linea}</option>)}</select>
+   <select aria-label="Línea" value={selectedLine} onChange={e=>{setSelectedLine(e.target.value);setSelectedSkus([]);setSkuMenu(false);}} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700"><option value="all">Todas las líneas</option>{focus.map(f=><option key={f.linea} value={f.linea}>{f.linea}</option>)}</select>
+   <div className="relative">
+    <button type="button" onClick={()=>setSkuMenu(v=>!v)} className="flex h-10 min-w-[160px] items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">
+      SKUs: {selectedSkus.length?selectedSkus.length+' elegidos':'Todos'} <ChevronDown className="h-4 w-4"/>
+    </button>
+    {skuMenu&&<div className="absolute right-0 top-12 z-30 max-h-[300px] w-[300px] overflow-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+      <button type="button" onClick={()=>setSelectedSkus([])} className="mb-2 w-full rounded-lg bg-slate-100 px-3 py-2 text-left text-xs font-semibold">Todos los SKUs</button>
+      {availableSkus.map(code=><label key={code} className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs hover:bg-slate-50">
+        <input type="checkbox" checked={selectedSkus.includes(code)} onChange={e=>setSelectedSkus(old=>e.target.checked?[...old,code]:old.filter(s=>s!==code))}/>
+        {code} · {lines.find(f=>f.articulos.includes(code))?.linea}
+      </label>)}
+      <button type="button" onClick={()=>setSkuMenu(false)} className="mt-2 w-full rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white">Aplicar</button>
+    </div>}
+   </div>
    <div className="flex rounded-xl bg-slate-100 p-1">{([{id:'managers',label:'Jefes'},{id:'supervisors',label:'Supervisores'},{id:'all',label:'Todo'}] as const).map(item=><button key={item.id} onClick={()=>setLevel(item.id)} className={'rounded-lg px-3 py-2 text-[11px] font-semibold '+(level===item.id?'bg-white text-slate-950 shadow-sm':'text-slate-500')}>{item.label}</button>)}</div>
+  </div>
+  <div className="flex flex-wrap justify-end gap-2">
+   <button onClick={()=>exportMatrix(false)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700"><Download className="h-4 w-4"/>Exportar filtrado</button>
+   <button onClick={()=>exportMatrix(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-semibold text-white"><FileSpreadsheet className="h-4 w-4"/>Exportar completo</button>
   </div>
   {!peopleRows.length?<div className="rounded-[20px] border border-amber-200 bg-amber-50 px-5 py-5 text-sm text-amber-800">Importá DetallePersonal para consultar la jerarquía comercial. Los reportes de ventas se conservan.</div>:null}
   {summary.map(line=><section key={line.line} className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
@@ -197,7 +259,14 @@ export default function FocoHierarchyMatrix({lineRows,articleRows,peopleRows,foc
       <div className="text-left px-4">Gerencia → Supervisión → Venta</div>
       {['Objetivo','Avance','Resta','%','Objetivo','Avance','Resta','%'].map((v,i)=><div key={i}>{v}</div>)}
      </div>
-     {roots.length?roots.map(root=>render(root,line.line)):<div className="p-8 text-center text-sm text-slate-400">Sin equipos para los filtros actuales.</div>}
+     {roots.length?<div>
+       {(!selectedSkus.length)&&<div className="border-b bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700">Total de línea · {line.line}</div>}
+       {(!selectedSkus.length)&&roots.map(root=>render(root,line.line))}
+       {selectedCodes(focus.find(f=>f.linea===line.line)!).map(code=><div key={code}>
+         <div className="border-b bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-700">SKU {code} · {data.skuDescriptions[skuKey(line.line,code)]??'Artículo'}</div>
+         {roots.map(root=>render(root,skuKey(line.line,code)))}
+       </div>)}
+      </div>:<div className="p-8 text-center text-sm text-slate-400">Sin equipos para los filtros actuales.</div>}
     </div>
    </div>
   </section>)}
