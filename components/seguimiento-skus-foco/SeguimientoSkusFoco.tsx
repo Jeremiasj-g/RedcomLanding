@@ -6,6 +6,7 @@ import { ArrowRight, BarChart3, CheckCircle2, FileSpreadsheet, Layers3, Loader2,
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
 import { notify, errorMessage } from '@/lib/notifications';
+import { findLineObjective, parseObjectiveMatrix, type ObjectiveValues } from '@/lib/skuFocoObjectives';
 
 type ExcelRow = Record<string, unknown>;
 type FocusLine = { linea: string; articulos: string[] };
@@ -16,6 +17,8 @@ type Shared = {
   objectives: Objectives; file_lineas_name: string | null;
   file_articulos_name: string | null; updated_at: string;
   lineas_storage_path?: string | null; articulos_storage_path?: string | null;
+  objetivo_volumen_storage_path?: string | null; objetivo_cobertura_storage_path?: string | null;
+  objetivo_volumen_file_name?: string | null; objetivo_cobertura_file_name?: string | null;
 };
 type Metric = { vol: number; cov: Set<string>; objVol: number; objCov: number };
 type LineMetric = Metric & { realName: string; articulos: Record<string, Metric> };
@@ -23,7 +26,9 @@ type Vendor = { lineas: Record<string, LineMetric> };
 type Dashboard = Record<string, Vendor>;
 declare global { interface Window { XLSX?: { read: (value: Uint8Array, config: {type: 'array'}) => { Sheets: Record<string, unknown>; SheetNames: string[] }; utils: { sheet_to_json: (sheet: unknown) => ExcelRow[] } } } }
 
-const emptyShared: Shared = {lineas:[],articulos:[],focus_config:[],objectives:{},file_lineas_name:null,file_articulos_name:null,updated_at:'',lineas_storage_path:null,articulos_storage_path:null};
+const emptyShared: Shared = {lineas:[],articulos:[],focus_config:[],objectives:{},file_lineas_name:null,file_articulos_name:null,updated_at:'',lineas_storage_path:null,articulos_storage_path:null,
+ objetivo_volumen_storage_path:null,objetivo_cobertura_storage_path:null,
+ objetivo_volumen_file_name:null,objetivo_cobertura_file_name:null};
 const int = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
 const newMetric = (): Metric => ({vol:0,cov:new Set<string>(),objVol:0,objCov:0});
 const keyObj = (vendor:string,line:string,art?:string) => JSON.stringify([vendor,line,art??null]);
@@ -34,10 +39,20 @@ function buildDashboard(state: Shared) {
   const descArt: Record<string,string> = {};
   const vendors = new Set<string>();
   const lineDescriptions: Record<string,string> = {};
+  const vendorLabels: Record<string,string> = {};
+  const vendorKeyFromRow = (row:ExcelRow):string | null => {
+    const raw = text(row['Vendedor']);
+    const id = Number(raw);
+    if (!raw || !Number.isFinite(id) || id <= 0) return null;
+    const branch = text(row['Sucursal']).match(/^\s*(\d+)/)?.[1];
+    return branch ? `${Number(branch)}:${id}` : null;
+  };
 
   // Misma selección por código/nombre y mismos cálculos del HTML suministrado.
   for (const row of state.lineas) {
-    const vendor = text(row['Descripción Vendedor']) || 'Sin Vendedor';
+    const vendor = vendorKeyFromRow(row);
+    if (!vendor) continue;
+    vendorLabels[vendor] = text(row['Descripción Vendedor']) || `Vendedor ${vendor.split(':')[1]}`;
     const desc = text(row['Descripción.2'] || row['Lineas objetivos']);
     const code = text(row['Código']);
     const cfg = state.focus_config.find(f=>desc.toUpperCase().includes(f.linea) || code===f.linea || f.linea.includes(code));
@@ -52,7 +67,9 @@ function buildDashboard(state: Shared) {
     if (cliente && vol > 0) line.cov.add(String(cliente));
   }
   for (const row of state.articulos) {
-    const vendor = text(row['Descripción Vendedor']) || 'Sin Vendedor';
+    const vendor = vendorKeyFromRow(row);
+    if (!vendor) continue;
+    vendorLabels[vendor] = text(row['Descripción Vendedor']) || `Vendedor ${vendor.split(':')[1]}`;
     const cod = text(row['Código']);
     const desc = text(row['Descripción.2'] || row['Artículos']) || 'Desconocido';
     const cfg = state.focus_config.find(f=>f.articulos.includes(cod));
@@ -67,24 +84,23 @@ function buildDashboard(state: Shared) {
     if (cliente && vol > 0) item.cov.add(String(cliente));
     vendors.add(vendor);
   }
-  return { globalData, descArt, vendors:[...vendors].filter(v=>v!=='Sin Vendedor'&&v!=='NaN').sort() };
+  return { globalData, descArt, vendorLabels,
+    vendors:[...vendors].sort((a,b)=>vendorLabels[a].localeCompare(vendorLabels[b],'es')) };
 }
 
-function MetricCells({data, vendor, line, article, goals, onChange, canEdit}:{
-  data: Metric; vendor:string; line:string; article?:string;
-  goals:Objectives; onChange:(key:string,field:'objVol'|'objCov',value:number)=>void;canEdit:boolean;
+function MetricCells({data, goalVol, goalCov}:{
+  data: Metric; goalVol: number | null; goalCov: number | null;
 }) {
-  const id = keyObj(vendor,line,article);
-  const saved = goals[id] || {objVol:0,objCov:0};
-  const remainingVol = Math.max(0,saved.objVol-data.vol);
-  const remainingCov = Math.max(0,saved.objCov-data.cov.size);
+  const remainingVol = goalVol === null ? null : Math.max(0,goalVol-data.vol);
+  const remainingCov = goalCov === null ? null : Math.max(0,goalCov-data.cov.size);
+  const show = (value:number|null)=>value===null?'—':int.format(value);
   return <>
-    <td className="border-l border-slate-100 px-2 py-2 text-center"><input aria-label="Objetivo volumen" type="number" min={0} step="any" disabled={!canEdit} value={saved.objVol} onChange={e=>onChange(id,'objVol',Number(e.target.value)||0)} className="w-[76px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-center text-xs text-slate-800 outline-none focus:border-blue-400 disabled:bg-slate-50"/></td>
+    <td className="border-l border-slate-100 px-3 py-3 text-center font-semibold text-slate-700">{show(goalVol)}</td>
     <td className="px-3 py-3 text-center font-semibold text-blue-700">{int.format(data.vol)}</td>
-    <td className="px-3 py-3 text-center text-rose-500">{int.format(remainingVol)}</td>
-    <td className="border-l border-slate-100 px-2 py-2 text-center"><input aria-label="Objetivo cobertura" type="number" min={0} step="any" disabled={!canEdit} value={saved.objCov} onChange={e=>onChange(id,'objCov',Number(e.target.value)||0)} className="w-[76px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-center text-xs text-slate-800 outline-none focus:border-blue-400 disabled:bg-slate-50"/></td>
+    <td className="px-3 py-3 text-center text-rose-500">{show(remainingVol)}</td>
+    <td className="border-l border-slate-100 px-3 py-3 text-center font-semibold text-slate-700">{show(goalCov)}</td>
     <td className="px-3 py-3 text-center font-semibold text-emerald-700">{data.cov.size}</td>
-    <td className="px-3 py-3 text-center text-rose-500">{int.format(remainingCov)}</td>
+    <td className="px-3 py-3 text-center text-rose-500">{show(remainingCov)}</td>
   </>;
 }
 
@@ -101,15 +117,24 @@ export default function SeguimientoSkusFoco() {
   const [xlsxReady,setXlsxReady] = useState(false);
   const [lineFile,setLineFile] = useState<File|null>(null);
   const [articleFile,setArticleFile] = useState<File|null>(null);
-  const [objectivesDirty,setObjectivesDirty] = useState(false);
-  const [storedPaths,setStoredPaths] = useState<{lineas:string|null;articulos:string|null}>({lineas:null,articulos:null});
+  const [objectiveVolumeFile,setObjectiveVolumeFile] = useState<File|null>(null);
+  const [objectiveCoverageFile,setObjectiveCoverageFile] = useState<File|null>(null);
+  const [volumeObjectives,setVolumeObjectives] = useState<ObjectiveValues>({});
+  const [coverageObjectives,setCoverageObjectives] = useState<ObjectiveValues>({});
+  const [storedPaths,setStoredPaths] = useState<{
+    lineas:string|null;articulos:string|null;volume:string|null;coverage:string|null;
+  }>({lineas:null,articulos:null,volume:null,coverage:null});
 
   const load = useCallback(async()=>{
     const {data,error}=await supabase.from('sku_foco_shared_state').select('*').eq('id',1).single();
     if(error) throw error;
     const value = {...emptyShared,...data} as Shared;
     setState(value);
-    setStoredPaths({lineas:value.lineas_storage_path??null,articulos:value.articulos_storage_path??null});
+    setStoredPaths({
+      lineas:value.lineas_storage_path??null,articulos:value.articulos_storage_path??null,
+      volume:value.objetivo_volumen_storage_path??null,
+      coverage:value.objetivo_cobertura_storage_path??null,
+    });
     setForms(value.focus_config.length?value.focus_config.map((f,i)=>({key:i+1,linea:f.linea,articulos:f.articulos.join(', ')})):[{key:1,linea:'',articulos:''}]);
     setCounter(value.focus_config.length+1 || 2);
     if((value.lineas.length || value.lineas_storage_path) && (value.articulos.length || value.articulos_storage_path) && value.focus_config.length)setTab('dashboard');
@@ -123,7 +148,7 @@ export default function SeguimientoSkusFoco() {
   // Al entrar, los archivos congelados se descargan una sola vez desde Storage.
   // La tabla SQL solo almacena metadatos, no miles de filas JSON.
   useEffect(()=>{
-    if(!xlsxReady || (!storedPaths.lineas && !storedPaths.articulos))return;
+    if(!xlsxReady || (!storedPaths.lineas && !storedPaths.articulos && !storedPaths.volume && !storedPaths.coverage))return;
     let cancelled=false;
     (async()=>{
       try{
@@ -134,22 +159,26 @@ export default function SeguimientoSkusFoco() {
           const wb=window.XLSX!.read(new Uint8Array(await data.arrayBuffer()),{type:'array'});
           return window.XLSX!.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
         };
-        const [lineas,articulos]=await Promise.all([
+        const [lineas,articulos,volumes,coverages]=await Promise.all([
           storedPaths.lineas?download(storedPaths.lineas):Promise.resolve(null),
           storedPaths.articulos?download(storedPaths.articulos):Promise.resolve(null),
+          storedPaths.volume?download(storedPaths.volume):Promise.resolve(null),
+          storedPaths.coverage?download(storedPaths.coverage):Promise.resolve(null),
         ]);
         if(cancelled)return;
         setState(prev=>({...prev,lineas:lineas??prev.lineas,articulos:articulos??prev.articulos}));
+        setVolumeObjectives(volumes ? parseObjectiveMatrix(volumes) : {});
+        setCoverageObjectives(coverages ? parseObjectiveMatrix(coverages) : {});
       }catch(e){if(!cancelled)notify.error(errorMessage(e,'No se pudieron recuperar los reportes compartidos.'));}
       finally{if(!cancelled)setLoading(false);}
     })();
     return ()=>{cancelled=true;};
-  },[xlsxReady,storedPaths.lineas,storedPaths.articulos]);
+  },[xlsxReady,storedPaths.lineas,storedPaths.articulos,storedPaths.volume,storedPaths.coverage]);
 
   const parsedFocus = useMemo(()=>forms.filter(f=>f.linea.trim()).map(f=>({
     linea:f.linea.trim().toUpperCase(),articulos:f.articulos.split(',').map(a=>a.trim()).filter(Boolean),
   })),[forms]);
-  const {globalData,descArt,vendors}=useMemo(()=>buildDashboard(state),[state]);
+  const {globalData,descArt,vendors,vendorLabels}=useMemo(()=>buildDashboard(state),[state]);
   const visibleVendors = vendorFilter==='all'?vendors:[vendorFilter];
   const configured=Boolean(state.lineas.length && state.articulos.length && state.focus_config.length);
 
@@ -163,13 +192,19 @@ export default function SeguimientoSkusFoco() {
     if(!parsedFocus.length){notify.error('Definí al menos una línea de foco.');setTab('foco');return;}
     if(!lineFile&&!storedPaths.lineas&&!state.lineas.length){notify.error('Falta el reporte por línea.');return;}
     if(!articleFile&&!storedPaths.articulos&&!state.articulos.length){notify.error('Falta el reporte por artículo.');return;}
+    if(!objectiveVolumeFile&&!storedPaths.volume){notify.error('Falta Objetivo-volumen.xlsx.');return;}
+    if(!objectiveCoverageFile&&!storedPaths.coverage){notify.error('Falta Objetivo-cobertura.xlsx.');return;}
     const newUploads:string[]=[];
     try{
       setBusy(true);
-      const [rowsLines,rowsArts]=await Promise.all([
+      const [rowsLines,rowsArts,rowsVolume,rowsCoverage]=await Promise.all([
         lineFile?readFile(lineFile):Promise.resolve(state.lineas),
         articleFile?readFile(articleFile):Promise.resolve(state.articulos),
+        objectiveVolumeFile?readFile(objectiveVolumeFile):Promise.resolve(null),
+        objectiveCoverageFile?readFile(objectiveCoverageFile):Promise.resolve(null),
       ]);
+      const newVolume=rowsVolume ? parseObjectiveMatrix(rowsVolume) : volumeObjectives;
+      const newCoverage=rowsCoverage ? parseObjectiveMatrix(rowsCoverage) : coverageObjectives;
       const upload=async(file:File,kind:string)=>{
         const path=`live/${kind}-${Date.now()}-${Math.random().toString(36).slice(2,10)}.xlsx`;
         const {error}=await supabase.storage.from('sku-foco-reports').upload(path,file,{
@@ -182,11 +217,16 @@ export default function SeguimientoSkusFoco() {
       };
       const lineasPath=lineFile?await upload(lineFile,'lineas'):storedPaths.lineas;
       const articulosPath=articleFile?await upload(articleFile,'articulos'):storedPaths.articulos;
+      const volumePath=objectiveVolumeFile?await upload(objectiveVolumeFile,'objetivo-volumen'):storedPaths.volume;
+      const coveragePath=objectiveCoverageFile?await upload(objectiveCoverageFile,'objetivo-cobertura'):storedPaths.coverage;
       // Sin enviar todas las filas en un único JSON: evita timeout y Failed to fetch.
       const timestamp=new Date().toISOString();
       const {error}=await supabase.from('sku_foco_shared_state').update({
         lineas:[],articulos:[],
         lineas_storage_path:lineasPath,articulos_storage_path:articulosPath,
+        objetivo_volumen_storage_path:volumePath,objetivo_cobertura_storage_path:coveragePath,
+        objetivo_volumen_file_name:objectiveVolumeFile?.name??state.objetivo_volumen_file_name,
+        objetivo_cobertura_file_name:objectiveCoverageFile?.name??state.objetivo_cobertura_file_name,
         focus_config:parsedFocus,
         file_lineas_name:lineFile?.name??state.file_lineas_name,
         file_articulos_name:articleFile?.name??state.file_articulos_name,
@@ -197,28 +237,19 @@ export default function SeguimientoSkusFoco() {
         file_lineas_name:lineFile?.name??prev.file_lineas_name,
         file_articulos_name:articleFile?.name??prev.file_articulos_name,
         lineas_storage_path:lineasPath,articulos_storage_path:articulosPath,
+        objetivo_volumen_storage_path:volumePath,objetivo_cobertura_storage_path:coveragePath,
+        objetivo_volumen_file_name:objectiveVolumeFile?.name??prev.objetivo_volumen_file_name,
+        objetivo_cobertura_file_name:objectiveCoverageFile?.name??prev.objetivo_cobertura_file_name,
         updated_at:timestamp}));
-      setStoredPaths({lineas:lineasPath??null,articulos:articulosPath??null});
-      setLineFile(null);setArticleFile(null);setVendorFilter('all');setTab('dashboard');
+      setVolumeObjectives(newVolume);setCoverageObjectives(newCoverage);
+      setStoredPaths({lineas:lineasPath??null,articulos:articulosPath??null,
+        volume:volumePath??null,coverage:coveragePath??null});
+      setLineFile(null);setArticleFile(null);setObjectiveVolumeFile(null);setObjectiveCoverageFile(null);setVendorFilter('all');setTab('dashboard');
       notify.success('Reportes congelados en Storage y disponibles para los demás usuarios.');
     }catch(e){
       if(newUploads.length)void supabase.storage.from('sku-foco-reports').remove(newUploads);
       notify.error(errorMessage(e,'No se pudieron procesar o guardar los reportes.'));
     }finally{setBusy(false);}
-  }
-  function editGoal(id:string,field:'objVol'|'objCov',value:number){
-    setState(prev=>({...prev,objectives:{...prev.objectives,[id]:{objVol:prev.objectives[id]?.objVol??0,objCov:prev.objectives[id]?.objCov??0,[field]:value}}}));
-    setObjectivesDirty(true);
-  }
-  async function saveGoals(){
-    if(!admin)return;
-    try{
-      setBusy(true);
-      const {error}=await supabase.from('sku_foco_shared_state').update({objectives:state.objectives}).eq('id',1);
-      if(error)throw error;
-      setObjectivesDirty(false);notify.success('Objetivos guardados para todos los usuarios.');
-    }catch(e){notify.error(errorMessage(e,'No se pudieron guardar los objetivos.'));}
-    finally{setBusy(false);}
   }
 
   return <main className="min-h-screen bg-[#F4F5F7] px-4 pb-14 pt-8 sm:px-6 lg:px-8">
@@ -267,6 +298,27 @@ export default function SeguimientoSkusFoco() {
                 </div>
               )}
             </div>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {([
+                {title:'Objetivo de volumen',name:state.objetivo_volumen_file_name,
+                  path:storedPaths.volume,file:objectiveVolumeFile,set:setObjectiveVolumeFile},
+                {title:'Objetivo de cobertura',name:state.objetivo_cobertura_file_name,
+                  path:storedPaths.coverage,file:objectiveCoverageFile,set:setObjectiveCoverageFile},
+              ] as const).map(item=><div key={item.title}
+                className="rounded-2xl border border-dashed border-slate-300 bg-[#fafbfc] p-5">
+                <FileSpreadsheet className="h-7 w-7 text-blue-600"/>
+                <h3 className="mt-3 text-sm font-semibold text-slate-800">{item.title}</h3>
+                <p className="mt-2 text-xs text-slate-500">{item.path
+                  ? 'Guardado: '+(item.name??'Planilla de objetivos')
+                  : 'Aún sin datos guardados'}</p>
+                {item.file&&<p className="mt-2 text-xs font-semibold text-blue-700">
+                  Nuevo archivo: {item.file.name}</p>}
+                {admin&&<input aria-label={item.title} type="file" accept=".xlsx,.xls"
+                  disabled={!xlsxReady} onChange={e=>item.set(e.target.files?.[0]??null)}
+                  className="mt-4 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-semibold file:text-blue-700 disabled:opacity-50"/>}
+              </div>)}
+            </div>
+            <p className="mt-3 text-xs text-slate-500">Los objetivos se cruzan por ID de vendedor y línea comercial. Las planillas corresponden a Casa Central.</p>
             <div className="mt-6 flex justify-between border-t border-slate-100 pt-5">
               <button onClick={()=>setTab('foco')} className="h-10 px-3 text-xs font-semibold text-slate-500">Volver</button>
               {admin?<button disabled={busy||!xlsxReady} onClick={()=>void saveSnapshot()} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-5 text-xs font-semibold text-white disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar y generar reporte</button>:<button onClick={()=>setTab('dashboard')} className="rounded-xl bg-slate-950 px-4 text-xs font-semibold text-white">Ver dashboard</button>}
@@ -276,10 +328,10 @@ export default function SeguimientoSkusFoco() {
           {tab==='dashboard'&&<section>
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4">
               <label className="flex items-center gap-3 text-xs font-semibold text-slate-700"><Users className="h-4 w-4 text-blue-600"/> Vendedor
-                <select value={vendorFilter} onChange={e=>setVendorFilter(e.target.value)} className="h-10 min-w-[230px] max-w-[340px] rounded-xl border border-slate-200 bg-[#fafbfc] px-3 text-xs text-slate-800"><option value="all">Todos los vendedores</option>{vendors.map(v=><option key={v} value={v}>{v}</option>)}</select>
+                <select value={vendorFilter} onChange={e=>setVendorFilter(e.target.value)} className="h-10 min-w-[230px] max-w-[340px] rounded-xl border border-slate-200 bg-[#fafbfc] px-3 text-xs text-slate-800"><option value="all">Todos los vendedores</option>{vendors.map(v=><option key={v} value={v}>{vendorLabels[v]} · ID {v.split(':')[1]}</option>)}</select>
               </label>
               <div className="flex items-center gap-2">
-                {admin&&objectivesDirty&&<button disabled={busy} onClick={()=>void saveGoals()} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white"><Save className="h-4 w-4"/> Guardar objetivos</button>}
+
                 <button onClick={()=>setTab('datos')} className="inline-flex h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50"><RefreshCw className="h-4 w-4"/> Recargar datos</button>
               </div>
             </div>
@@ -289,12 +341,12 @@ export default function SeguimientoSkusFoco() {
               const existing=state.focus_config.filter(cfg=>lines[cfg.linea]);
               if(!existing.length)return null;
               return <article key={vendor} className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center gap-2 bg-[#1b263e] px-5 py-4 text-white"><Users className="h-4 w-4"/><h2 className="text-base font-semibold">{vendor}</h2></div>
+                <div className="flex items-center gap-2 bg-[#1b263e] px-5 py-4 text-white"><Users className="h-4 w-4"/><h2 className="text-base font-semibold">{vendorLabels[vendor]} <span className="ml-2 text-xs font-normal text-white/50">ID {vendor.split(':')[1]}</span></h2></div>
                 <div className="overflow-x-auto"><table className="w-full min-w-[950px] border-collapse text-left text-xs">
                   <thead><tr className="bg-slate-100 text-slate-700"><th className="w-[40%] border-b border-slate-200 px-4 py-3">Concepto (línea / artículo)</th><th colSpan={3} className="border-b border-l border-slate-200 px-4 py-3 text-center text-blue-900">VOLUMEN</th><th colSpan={3} className="border-b border-l border-slate-200 px-4 py-3 text-center text-emerald-900">COBERTURA</th></tr><tr className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><th className="px-4 py-2"></th><th className="border-l px-3 py-2 text-center">Obj.</th><th className="px-3 py-2 text-center">Avance</th><th className="px-3 py-2 text-center">Resta</th><th className="border-l px-3 py-2 text-center">Obj.</th><th className="px-3 py-2 text-center">Avance</th><th className="px-3 py-2 text-center">Resta</th></tr></thead>
                   <tbody>{existing.map(cfg=>{
                     const line=lines[cfg.linea];
-                    return <FragmentLine key={cfg.linea} cfg={cfg} line={line} vendor={vendor} descArt={descArt} goals={state.objectives} canEdit={admin} onChange={editGoal}/>;
+                    return <FragmentLine key={cfg.linea} cfg={cfg} line={line} vendor={vendor} descArt={descArt} volumeGoals={volumeObjectives} coverageGoals={coverageObjectives}/>;
                   })}</tbody>
                 </table></div>
               </article>;
@@ -306,12 +358,24 @@ export default function SeguimientoSkusFoco() {
   </main>;
 }
 
-function FragmentLine({cfg,line,vendor,descArt,goals,canEdit,onChange}:{
+function FragmentLine({cfg,line,vendor,descArt,volumeGoals,coverageGoals}:{
   cfg:FocusLine;line:LineMetric;vendor:string;descArt:Record<string,string>;
-  goals:Objectives;canEdit:boolean;onChange:(id:string,field:'objVol'|'objCov',value:number)=>void;
+  volumeGoals:ObjectiveValues;coverageGoals:ObjectiveValues;
 }) {
- return <>
-   <tr className="border-b border-blue-100 bg-blue-50 font-semibold text-blue-900"><td className="px-4 py-3"><Layers3 className="mr-2 inline h-4 w-4 text-blue-500"/>{line.realName||cfg.linea}</td><MetricCells data={line} vendor={vendor} line={cfg.linea} goals={goals} canEdit={canEdit} onChange={onChange}/></tr>
-   {cfg.articulos.map(cod=>{const art=line.articulos[cod];if(!art||art.vol<=0)return null;return <tr key={cod} className="border-b border-slate-100 text-slate-700 hover:bg-slate-50"><td className="px-4 py-3 pl-9"><span className="mr-2 text-[10px] font-semibold text-slate-400">({cod})</span>{descArt[cod]||'Cod: '+cod}</td><MetricCells data={art} vendor={vendor} line={cfg.linea} article={cod} goals={goals} canEdit={canEdit} onChange={onChange}/></tr>;})}
- </>;
+  const volGoal=findLineObjective(volumeGoals,vendor,line.realName,cfg.linea);
+  const covGoal=findLineObjective(coverageGoals,vendor,line.realName,cfg.linea);
+  return <>
+    <tr className="border-b border-blue-100 bg-blue-50 font-semibold text-blue-900">
+      <td className="px-4 py-3"><Layers3 className="mr-2 inline h-4 w-4 text-blue-500"/>{line.realName||cfg.linea}</td>
+      <MetricCells data={line} goalVol={volGoal} goalCov={covGoal}/>
+    </tr>
+    {cfg.articulos.map(cod=>{
+      const art=line.articulos[cod];
+      if(!art||art.vol<=0)return null;
+      return <tr key={cod} className="border-b border-slate-100 text-slate-700 hover:bg-slate-50">
+        <td className="px-4 py-3 pl-9"><span className="mr-2 text-[10px] font-semibold text-slate-400">({cod})</span>{descArt[cod]||'Cod: '+cod}</td>
+        <MetricCells data={art} goalVol={null} goalCov={null}/>
+      </tr>;
+    })}
+  </>;
 }
