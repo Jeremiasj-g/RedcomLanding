@@ -273,9 +273,8 @@ export default function CategorySigoHistory(){
    </tr>)}</tbody>
   </table>{loading?<p className="p-12 text-center text-sm text-slate-400">Cargando histórico...</p>:!shown.length?<p className="p-12 text-center text-sm text-slate-400"><FileSpreadsheet className="mx-auto mb-2 h-6 w-6"/>No hay registros para mostrar.</p>:null}</div>
   </>}
-  {view==='averages'&&<div className="bg-[#f4f5f7] px-4 py-6 sm:px-6">
-   <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white">
-    <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 px-5 py-5">
+  {view==='averages'&&<div className="bg-white">
+    <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 px-6 py-6">
      <div>
       <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-600">Resumen mensual</div>
       <h3 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Promedio de horarios por vendedor</h3>
@@ -298,7 +297,6 @@ export default function CategorySigoHistory(){
      </table>
      {!monthlyAverages.length&&<p className="px-6 py-12 text-center text-xs text-slate-400">No hay vendedores registrados en el mes seleccionado.</p>}
     </div>
-   </div>
   </div>}
  </section>;
 }
