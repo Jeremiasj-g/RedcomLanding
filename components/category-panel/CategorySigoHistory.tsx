@@ -30,6 +30,13 @@ const normalizeTime=(value:unknown)=>{
  if(!match||Number(match[1])>23||Number(match[2])>59||Number(match[3]??0)>59)return null;
  return [match[1].padStart(2,'0'),match[2],match[3]??'00'].join(':');
 };
+const workedHours=(start:string|null,end:string|null)=>{
+ if(!start||!end)return '—';
+ const seconds=(time:string)=>{const [h,m,s]=time.split(':').map(Number);return h*3600+m*60+s;};
+ const duration=seconds(end)-seconds(start);
+ if(!Number.isFinite(duration)||duration<0)return '—';
+ return [Math.floor(duration/3600),Math.floor(duration%3600/60),duration%60].map(n=>String(n).padStart(2,'0')).join(':');
+};
 function parseReport(matrix:(string|number|boolean|null)[][]):Daily[]{
  const header=matrix.findIndex(row=>norm(row?.[7])==='SECTOR'&&norm(row?.[8])==='FECHA'&&norm(row?.[9])==='VISITADO');
  if(header<0)throw new Error('No se encontraron las columnas H: Sector, I: Fecha y J: Visitado.');
@@ -106,12 +113,13 @@ export default function CategorySigoHistory(){
    <div className="relative"><CalendarDays className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400"/><select aria-label="Fecha" value={date} onChange={e=>setDate(e.target.value)} className="h-10 min-w-[170px] rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs"><option value="all">Todas las fechas</option>{days.map(day=><option key={day} value={day}>{displayDate(day)}</option>)}</select></div>
   </div>
   <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-xs">
-   <thead className="bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500"><tr>{['Fecha','Vendedor','Clientes asignados','Visitados','Sin visitar','Inicio','Fin'].map(h=><th key={h} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
+   <thead className="bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500"><tr>{['Fecha','Vendedor','Clientes asignados','Visitados','Sin visitar','Inicio','Fin','Horas trabajadas'].map(h=><th key={h} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
    <tbody>{shown.map((item,i)=><tr key={item.visit_date+'|'+item.seller_name} className={'border-t border-slate-100 '+(i%2?'bg-slate-50/40':'bg-white')}>
     <td className="whitespace-nowrap px-5 py-3 font-semibold text-slate-600">{displayDate(item.visit_date)}</td><td className="px-5 py-3 font-semibold text-slate-900">{item.seller_name}</td>
     <td className="px-5 py-3 tabular-nums">{item.total_clients}</td><td className="px-5 py-3 tabular-nums text-emerald-700">{item.visited_clients}</td>
     <td className="px-5 py-3"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
     <td className="px-5 py-3 font-medium tabular-nums">{item.first_visit??'—'}</td><td className="px-5 py-3 font-medium tabular-nums">{item.last_visit??'—'}</td>
+    <td className="px-5 py-3 font-semibold tabular-nums text-blue-700">{workedHours(item.first_visit,item.last_visit)}</td>
    </tr>)}</tbody>
   </table>{loading?<p className="p-12 text-center text-sm text-slate-400">Cargando histórico...</p>:!shown.length?<p className="p-12 text-center text-sm text-slate-400"><FileSpreadsheet className="mx-auto mb-2 h-6 w-6"/>No hay registros para mostrar.</p>:null}</div>
  </section>;
