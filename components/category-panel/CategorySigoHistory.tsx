@@ -1,7 +1,7 @@
 'use client';
 
 import {useEffect,useMemo,useState} from 'react';
-import {CalendarDays,FileSpreadsheet,Loader2,Save,Search,Upload} from 'lucide-react';
+import {CalendarDays,ChevronDown,Check,FileSpreadsheet,Filter,Loader2,Save,Search,Upload,X} from 'lucide-react';
 import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
@@ -69,6 +69,9 @@ export default function CategorySigoHistory(){
  const [busy,setBusy]=useState(false);
  const [date,setDate]=useState('all');
  const [query,setQuery]=useState('');
+ const [columnFilters,setColumnFilters]=useState<Record<string,string[]>>({});
+ const [activeColumn,setActiveColumn]=useState<string|null>(null);
+ const [filterSearch,setFilterSearch]=useState('');
  useEffect(()=>{let live=true;void(async()=>{try{
   const all:Daily[]=[];let offset=0;
   while(true){
@@ -107,13 +110,52 @@ export default function CategorySigoHistory(){
    const {error}=await supabase.rpc('replace_category_sigo_days',{p_rows:preview});
    if(error)throw error;
    const other=history.filter(item=>!dates.includes(item.visit_date));
-   setHistory([...preview,...other].sort((a,b)=>b.visit_date.localeCompare(a.visit_date)||a.seller_name.localeCompare(b.seller_name,'es')));
+   setHistory([...preview,...other].sort((a,b)=>a.visit_date.localeCompare(b.visit_date)||a.seller_name.localeCompare(b.seller_name,'es')));
    setPreview(null);setFile(null);notify.success('Histórico SIGO actualizado. Días anteriores conservados.');
   }catch(e){notify.error(errorMessage(e,'No se pudo guardar el histórico.'));}finally{setBusy(false);}
  };
  const dataset=preview??history;
- const days=[...new Set(dataset.map(item=>item.visit_date))].sort((a,b)=>b.localeCompare(a));
- const shown=dataset.filter(item=>(date==='all'||item.visit_date===date)&&(!query||norm(item.seller_name).includes(norm(query))));
+ const days=[...new Set(dataset.map(item=>item.visit_date))].sort((a,b)=>a.localeCompare(b));
+ const columns=[
+  {key:'month',label:'Mes'},
+  {key:'date',label:'Fecha'},
+  {key:'supervisor',label:'Supervisor'},
+  {key:'code',label:'Cod Vendedor'},
+  {key:'seller',label:'Vendedor'},
+  {key:'start',label:'Inicio'},
+  {key:'end',label:'Fin'},
+  {key:'hours',label:'Horario ruta'},
+  {key:'missing',label:'PDVs Sin visitar'},
+ ];
+ const cellValue=(item:Daily,key:string):string=>{
+  const detail=sellerDetails.get(norm(item.seller_name));
+  switch(key){
+   case 'month':return new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(item.visit_date+'T12:00:00Z'));
+   case 'date':return displayDate(item.visit_date);
+   case 'supervisor':return detail?.supervisor??'—';
+   case 'code':return detail?.code??'—';
+   case 'seller':return item.seller_name;
+   case 'start':return item.first_visit??'—';
+   case 'end':return item.last_visit??'—';
+   case 'hours':return workedHours(item.first_visit,item.last_visit);
+   case 'missing':return String(item.unvisited_clients);
+   default:return '';
+  }
+ };
+ const baseRows=dataset.filter(item=>(date==='all'||item.visit_date===date)&&(!query||norm(item.seller_name).includes(norm(query))));
+ const matches=(item:Daily,key:string)=>!columnFilters[key]?.length||columnFilters[key].includes(cellValue(item,key));
+ const shown=baseRows.filter(item=>columns.every(col=>matches(item,col.key))).sort((a,b)=>a.visit_date.localeCompare(b.visit_date)||a.seller_name.localeCompare(b.seller_name,'es'));
+ const options=activeColumn?[...new Set(baseRows.filter(item=>columns.every(col=>col.key===activeColumn||matches(item,col.key))).map(item=>cellValue(item,activeColumn)))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true})):[];
+ const visibleOptions=options.filter(value=>norm(value).includes(norm(filterSearch)));
+ const checked=activeColumn?columnFilters[activeColumn]??[]:[];
+ const toggleOption=(value:string)=>{
+  if(!activeColumn)return;
+  const next=checked.length?checked.filter(v=>options.includes(v)):options;
+  const values=next.includes(value)?next.filter(v=>v!==value):[...next,value];
+  setColumnFilters(old=>({...old,[activeColumn]:values.length===options.length?[]:values}));
+ };
+ const clearFilters=()=>{setColumnFilters({});setActiveColumn(null);setFilterSearch('');};
+
  const totals=shown.reduce((a,r)=>({assigned:a.assigned+r.total_clients,visited:a.visited+r.visited_clients,missing:a.missing+r.unvisited_clients}),{assigned:0,visited:0,missing:0});
  const datesInPreview=[...new Set(preview?.map(item=>item.visit_date)??[])];
  return <section className="mt-6 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,.035)]">
@@ -130,8 +172,21 @@ export default function CategorySigoHistory(){
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
    <div className="relative"><CalendarDays className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400"/><select aria-label="Fecha" value={date} onChange={e=>setDate(e.target.value)} className="h-10 min-w-[170px] rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs"><option value="all">Todas las fechas</option>{days.map(day=><option key={day} value={day}>{displayDate(day)}</option>)}</select></div>
   </div>
+  {Object.values(columnFilters).some(values=>values.length>0)&&<div className="flex items-center justify-between border-b border-blue-100 bg-blue-50 px-5 py-2 text-[11px] font-medium text-blue-700"><span><Filter className="mr-1 inline h-3.5 w-3.5"/>Filtros activos · {shown.length} filas</span><button type="button" onClick={clearFilters} className="rounded-lg px-2 py-1 hover:bg-blue-100">Limpiar todos</button></div>}
+  {activeColumn&&<div className="border-b border-slate-200 bg-[#fafbfc] px-5 py-4">
+   <div className="mx-auto max-w-[680px] rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-800">Filtrar: {columns.find(col=>col.key===activeColumn)?.label}</span><button type="button" aria-label="Cerrar filtro" onClick={()=>{setActiveColumn(null);setFilterSearch('');}} className="rounded-lg p-1.5 hover:bg-slate-100"><X className="h-4 w-4"/></button></div>
+    <div className="relative mt-3"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400"/><input value={filterSearch} onChange={e=>setFilterSearch(e.target.value)} placeholder="Buscar valores..." className="h-9 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-blue-300"/></div>
+    <div className="mt-3 flex gap-2"><button type="button" onClick={()=>setColumnFilters(old=>({...old,[activeColumn]:[]}))} className="rounded-lg bg-slate-100 px-3 py-1.5 text-[11px] font-medium">Seleccionar todos</button><button type="button" onClick={()=>setColumnFilters(old=>({...old,[activeColumn]:['__NINGUN_VALOR__']}))} className="rounded-lg bg-slate-100 px-3 py-1.5 text-[11px] font-medium">Deseleccionar todos</button></div>
+    <div className="mt-2 max-h-48 space-y-0.5 overflow-y-auto">
+     {visibleOptions.map(value=><label key={value} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50"><input type="checkbox" checked={!checked.length||checked.includes(value)} onChange={()=>toggleOption(value)} className="accent-blue-600"/><span className="truncate">{value}</span></label>)}
+     {!visibleOptions.length&&<div className="px-2 py-3 text-xs text-slate-400">Sin valores coincidentes</div>}
+    </div>
+    <div className="mt-3 flex justify-end"><button type="button" onClick={()=>{setActiveColumn(null);setFilterSearch('');}} className="rounded-lg bg-slate-950 px-4 py-2 text-xs font-semibold text-white">Aplicar</button></div>
+   </div>
+  </div>}
   <div className="overflow-x-auto"><table className="w-full min-w-[1100px] text-left text-xs">
-   <thead className="bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500"><tr>{['Mes','Fecha','Supervisor','Cod Vendedor','Vendedor','Inicio','Fin','Horario ruta','PDVs Sin visitar'].map(h=><th key={h} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
+   <thead className="bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500"><tr>{columns.map(col=><th key={col.key} className="px-3 py-2 font-semibold"><button type="button" onClick={()=>{setActiveColumn(old=>old===col.key?null:col.key);setFilterSearch('');}} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(columnFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5 shrink-0"/></button></th>)}</tr></thead>
    <tbody>{shown.map((item,i)=><tr key={item.visit_date+'|'+item.seller_name} className={'border-t border-slate-100 '+(i%2?'bg-slate-50/40':'bg-white')}>
     <td className="whitespace-nowrap px-5 py-3 font-medium capitalize text-slate-600">{new Intl.DateTimeFormat('es-AR',{month:'long',timeZone:'UTC'}).format(new Date(item.visit_date+'T12:00:00Z'))}</td>
     <td className="whitespace-nowrap px-5 py-3 font-semibold text-slate-600">{displayDate(item.visit_date)}</td>
