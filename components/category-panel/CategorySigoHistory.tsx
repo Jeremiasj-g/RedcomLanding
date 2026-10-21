@@ -31,6 +31,13 @@ const normalizeTime=(value:unknown)=>{
  if(!match||Number(match[1])>23||Number(match[2])>59||Number(match[3]??0)>59)return null;
  return [match[1].padStart(2,'0'),match[2],match[3]??'00'].join(':');
 };
+const durationSeconds=(start:string|null,end:string|null):number|null=>{
+ if(!start||!end)return null;
+ const seconds=(time:string)=>{const [h,m,s]=time.split(':').map(Number);return h*3600+m*60+s;};
+ const duration=seconds(end)-seconds(start);
+ return Number.isFinite(duration)&&duration>=0?duration:null;
+};
+const formatDuration=(duration:number)=>[Math.floor(duration/3600),Math.floor(duration%3600/60),duration%60].map(n=>String(n).padStart(2,'0')).join(':');
 const workedHours=(start:string|null,end:string|null)=>{
  if(!start||!end)return '—';
  const seconds=(time:string)=>{const [h,m,s]=time.split(':').map(Number);return h*3600+m*60+s;};
@@ -68,6 +75,7 @@ export default function CategorySigoHistory(){
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
  const [date,setDate]=useState('all');
+ const [averageMonth,setAverageMonth]=useState('');
  const [query,setQuery]=useState('');
  const [columnFilters,setColumnFilters]=useState<Record<string,string[]>>({});
  const [activeColumn,setActiveColumn]=useState<string|null>(null);
@@ -187,6 +195,21 @@ export default function CategorySigoHistory(){
  const clearFilters=()=>{setColumnFilters({});closeFilter();};
 
  const totals=shown.reduce((a,r)=>({assigned:a.assigned+r.total_clients,visited:a.visited+r.visited_clients,missing:a.missing+r.unvisited_clients}),{assigned:0,visited:0,missing:0});
+ const months=useMemo(()=>[...new Set(dataset.map(item=>item.visit_date.slice(0,7)))].sort((a,b)=>b.localeCompare(a)),[dataset]);
+ const effectiveMonth=months.includes(averageMonth)?averageMonth:months[0]??'';
+ const monthlyAverages=useMemo(()=>{
+  const groups=new Map<string,{seller:string;seconds:number;days:number}>();
+  for(const item of dataset){
+   if(item.visit_date.slice(0,7)!==effectiveMonth)continue;
+   const duration=durationSeconds(item.first_visit,item.last_visit);
+   const key=norm(item.seller_name);
+   const current=groups.get(key)??{seller:item.seller_name,seconds:0,days:0};
+   if(duration!==null){current.seconds+=duration;current.days++;}
+   groups.set(key,current);
+  }
+  return [...groups.values()].sort((a,b)=>a.seller.localeCompare(b.seller,'es'));
+ },[dataset,effectiveMonth]);
+ const monthLabel=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'));
  const datesInPreview=[...new Set(preview?.map(item=>item.visit_date)??[])];
  return <section className="mt-6 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,.035)]">
   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-6">
@@ -243,5 +266,32 @@ export default function CategorySigoHistory(){
     <td className="px-5 py-3"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
    </tr>)}</tbody>
   </table>{loading?<p className="p-12 text-center text-sm text-slate-400">Cargando histórico...</p>:!shown.length?<p className="p-12 text-center text-sm text-slate-400"><FileSpreadsheet className="mx-auto mb-2 h-6 w-6"/>No hay registros para mostrar.</p>:null}</div>
+  <div className="border-t border-slate-200 bg-[#f4f5f7] px-4 py-6 sm:px-6">
+   <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white">
+    <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 px-5 py-5">
+     <div>
+      <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-600">Resumen mensual</div>
+      <h3 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Promedio de horarios por vendedor</h3>
+      <p className="mt-1 text-[11px] text-slate-500">Promedio de Horario ruta en los días con inicio y fin registrados. Los días sin horario válido no se incluyen.</p>
+     </div>
+     <label className="text-[11px] font-semibold text-slate-600">Mes
+      <select aria-label="Mes de promedios" value={effectiveMonth} onChange={event=>setAverageMonth(event.target.value)} disabled={!months.length} className="mt-1.5 block h-10 min-w-[200px] rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal capitalize text-slate-800 outline-none focus:border-blue-400 disabled:opacity-50">
+       {months.length?months.map(month=><option key={month} value={month}>{monthLabel(month)}</option>):<option value="">Sin meses cargados</option>}
+      </select>
+     </label>
+    </div>
+    <div className="overflow-x-auto">
+     <table className="w-full min-w-[500px] text-left text-xs">
+      <thead className="bg-[#f5f7fa] text-[10px] font-semibold uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Cod vendedor</th><th className="px-5 py-3">Vendedor</th><th className="px-5 py-3">Hora promedio</th></tr></thead>
+      <tbody>{monthlyAverages.map((item,index)=><tr key={norm(item.seller)} className={'border-t border-slate-100 '+(index%2?'bg-slate-50/40':'bg-white')}>
+       <td className="px-5 py-3 font-medium tabular-nums text-slate-600">{sellerDetails.get(norm(item.seller))?.code??'—'}</td>
+       <td className="px-5 py-3 font-semibold text-slate-900">{item.seller}</td>
+       <td className="px-5 py-3 font-semibold tabular-nums text-blue-700">{item.days?formatDuration(Math.round(item.seconds/item.days)):'—'}</td>
+      </tr>)}</tbody>
+     </table>
+     {!monthlyAverages.length&&<p className="px-6 py-12 text-center text-xs text-slate-400">No hay vendedores registrados en el mes seleccionado.</p>}
+    </div>
+   </div>
+  </div>
  </section>;
 }
