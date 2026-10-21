@@ -7,6 +7,7 @@ import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
 
 type Daily={visit_date:string;seller_name:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
+type Person={id:number;name:string;branch:string;role:string;superior:string};
 const clean=(value:unknown)=>String(value??'').trim().replace(/\s+/g,' ');
 const norm=(value:unknown)=>clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
 const displayDate=(date:string)=>{const [y,m,d]=date.split('-');return d+'/'+m+'/'+y;};
@@ -61,6 +62,7 @@ function parseReport(matrix:(string|number|boolean|null)[][]):Daily[]{
 
 export default function CategorySigoHistory(){
  const [history,setHistory]=useState<Daily[]>([]);
+ const [personnel,setPersonnel]=useState<Person[]>([]);
  const [preview,setPreview]=useState<Daily[]|null>(null);
  const [file,setFile]=useState<File|null>(null);
  const [loading,setLoading]=useState(true);
@@ -76,6 +78,22 @@ export default function CategorySigoHistory(){
   }
   if(live)setHistory(all);
  }catch(e){if(live)notify.error(errorMessage(e,'No se pudo cargar el histórico SIGO.'));}finally{if(live)setLoading(false);}})();return()=>{live=false;};},[]);
+ useEffect(()=>{let active=true;void(async()=>{
+  const {data,error}=await supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle();
+  if(error){if(active)notify.error(errorMessage(error,'No se pudo cargar la jerarquía comercial.'));return;}
+  if(active)setPersonnel(Array.isArray(data?.people)?data.people as Person[]:[]);
+ })();return()=>{active=false;};},[]);
+ const sellerDetails=useMemo(()=>{
+  const map=new Map<string,{code:string;supervisor:string}>();
+  for(const seller of personnel.filter(p=>norm(p.role)==='VENDEDOR')){
+   const key=norm(seller.name);
+   const supervisors=personnel.filter(p=>norm(p.role)==='SUPERVISOR'&&norm(p.branch)===norm(seller.branch)&&norm(p.name)===norm(seller.superior));
+   const detail={code:String(seller.id),supervisor:supervisors.length===1?supervisors[0].name:'—'};
+   // Repeated names across branches cannot safely be resolved without an ID in SIGO.
+   map.set(key,map.has(key)?{code:'—',supervisor:'—'}:detail);
+  }
+  return map;
+ },[personnel]);
  const upload=async(next:File|null)=>{
   setFile(next);setPreview(null);if(!next)return;
   try{setBusy(true);const parsed=parseReport(await readFirstWorksheet(next));setPreview(parsed);setDate('all');notify.success('Archivo procesado. Revisá los datos y guardalos para incorporar cada fecha.');}
@@ -112,14 +130,18 @@ export default function CategorySigoHistory(){
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
    <div className="relative"><CalendarDays className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400"/><select aria-label="Fecha" value={date} onChange={e=>setDate(e.target.value)} className="h-10 min-w-[170px] rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs"><option value="all">Todas las fechas</option>{days.map(day=><option key={day} value={day}>{displayDate(day)}</option>)}</select></div>
   </div>
-  <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-xs">
-   <thead className="bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500"><tr>{['Fecha','Vendedor','Clientes asignados','Visitados','Sin visitar','Inicio','Fin','Horas trabajadas'].map(h=><th key={h} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
+  <div className="overflow-x-auto"><table className="w-full min-w-[1100px] text-left text-xs">
+   <thead className="bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500"><tr>{['Mes','Fecha','Supervisor','Cod Vendedor','Vendedor','Inicio','Fin','Horario ruta','PDVs Sin visitar'].map(h=><th key={h} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
    <tbody>{shown.map((item,i)=><tr key={item.visit_date+'|'+item.seller_name} className={'border-t border-slate-100 '+(i%2?'bg-slate-50/40':'bg-white')}>
-    <td className="whitespace-nowrap px-5 py-3 font-semibold text-slate-600">{displayDate(item.visit_date)}</td><td className="px-5 py-3 font-semibold text-slate-900">{item.seller_name}</td>
-    <td className="px-5 py-3 tabular-nums">{item.total_clients}</td><td className="px-5 py-3 tabular-nums text-emerald-700">{item.visited_clients}</td>
-    <td className="px-5 py-3"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
-    <td className="px-5 py-3 font-medium tabular-nums">{item.first_visit??'—'}</td><td className="px-5 py-3 font-medium tabular-nums">{item.last_visit??'—'}</td>
+    <td className="whitespace-nowrap px-5 py-3 font-medium capitalize text-slate-600">{new Intl.DateTimeFormat('es-AR',{month:'long',timeZone:'UTC'}).format(new Date(item.visit_date+'T12:00:00Z'))}</td>
+    <td className="whitespace-nowrap px-5 py-3 font-semibold text-slate-600">{displayDate(item.visit_date)}</td>
+    <td className="px-5 py-3 text-slate-700">{sellerDetails.get(norm(item.seller_name))?.supervisor??'—'}</td>
+    <td className="px-5 py-3 font-medium tabular-nums">{sellerDetails.get(norm(item.seller_name))?.code??'—'}</td>
+    <td className="px-5 py-3 font-semibold text-slate-900">{item.seller_name}</td>
+    <td className="px-5 py-3 font-medium tabular-nums">{item.first_visit??'—'}</td>
+    <td className="px-5 py-3 font-medium tabular-nums">{item.last_visit??'—'}</td>
     <td className="px-5 py-3 font-semibold tabular-nums text-blue-700">{workedHours(item.first_visit,item.last_visit)}</td>
+    <td className="px-5 py-3"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
    </tr>)}</tbody>
   </table>{loading?<p className="p-12 text-center text-sm text-slate-400">Cargando histórico...</p>:!shown.length?<p className="p-12 text-center text-sm text-slate-400"><FileSpreadsheet className="mx-auto mb-2 h-6 w-6"/>No hay registros para mostrar.</p>:null}</div>
  </section>;
