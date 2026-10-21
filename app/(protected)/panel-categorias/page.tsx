@@ -41,6 +41,7 @@ import {
 import { errorMessage, notify } from '@/lib/notifications';
 import SellerConsiderations from '@/components/category-panel/SellerConsiderations';
 import CommercialPersonnel from '@/components/category-panel/CommercialPersonnel';
+import CategorySigoHistory from '@/components/category-panel/CategorySigoHistory';
 import SingleSellerPivotUpdate from '@/components/category-panel/SingleSellerPivotUpdate';
 import SingleSellerTmpUpdate from '@/components/category-panel/SingleSellerTmpUpdate';
 import {
@@ -679,18 +680,7 @@ export default function CategoryPanelPage() {
           </section>
             </>
           ) : activeTab === 'sigo' ? (
-            <section className="mt-6 rounded-[26px] border border-slate-200/80 bg-white px-6 py-12 text-center shadow-[0_16px_45px_rgba(15,23,42,.035)]">
-              <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-500">
-                <Clock3 className="h-5 w-5" />
-              </span>
-              <h2 className="mt-4 text-xl font-semibold tracking-[-0.025em] text-slate-950">
-                Horarios SIGO
-              </h2>
-              <p className="mx-auto mt-2 max-w-lg text-[12px] leading-6 text-slate-500">
-                Esta vista queda preparada como el próximo bloque del Panel de categorías.
-                Acá vamos a incorporar el seguimiento de horarios y sus parámetros.
-              </p>
-            </section>
+            <CategorySigoHistory />
           ) : (
             <CategoryScaleTab />
           )}
