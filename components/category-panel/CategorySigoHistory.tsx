@@ -1,7 +1,7 @@
 'use client';
 
 import {useEffect,useMemo,useState} from 'react';
-import {CalendarDays,ChevronDown,Check,FileSpreadsheet,Filter,Loader2,Save,Search,Upload,X} from 'lucide-react';
+import {CalendarDays,ChevronDown,FileSpreadsheet,Filter,Loader2,Save,Search,Upload,X} from 'lucide-react';
 import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
