@@ -76,6 +76,7 @@ export default function CategorySigoHistory(){
  const [busy,setBusy]=useState(false);
  const [date,setDate]=useState('all');
  const [averageMonth,setAverageMonth]=useState('');
+ const [view,setView]=useState<'daily'|'averages'>('daily');
  const [query,setQuery]=useState('');
  const [columnFilters,setColumnFilters]=useState<Record<string,string[]>>({});
  const [activeColumn,setActiveColumn]=useState<string|null>(null);
@@ -220,6 +221,11 @@ export default function CategorySigoHistory(){
    </div>
   </div>
   {preview&&<div className="border-b border-blue-100 bg-blue-50 px-6 py-3 text-xs text-blue-700"><strong>Vista previa sin guardar:</strong> {preview.length} registros de vendedor/día · {datesInPreview.map(displayDate).join(', ')}. Al guardar se actualizan solo estas fechas.</div>}
+  <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-[#fafbfc] px-5 py-3" role="tablist" aria-label="Vistas de Horarios SIGO">
+   <button type="button" role="tab" aria-selected={view==='daily'} onClick={()=>{setView('daily');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='daily'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Detalle diario</button>
+   <button type="button" role="tab" aria-selected={view==='averages'} onClick={()=>{setView('averages');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='averages'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Promedios mensuales</button>
+  </div>
+  {view==='daily'&&<>
   <div className="grid grid-cols-2 border-b border-slate-200 md:grid-cols-4">{[['Días registrados',days.length],['Clientes asignados',totals.assigned],['Visitados',totals.visited],['Sin visitar',totals.missing]].map(([label,n])=><div key={label} className="border-r border-slate-100 px-6 py-4"><p className="text-[10px] uppercase text-slate-400">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{Number(n).toLocaleString('es-AR')}</p></div>)}</div>
   <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4">
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
@@ -266,7 +272,8 @@ export default function CategorySigoHistory(){
     <td className="px-5 py-3"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
    </tr>)}</tbody>
   </table>{loading?<p className="p-12 text-center text-sm text-slate-400">Cargando histórico...</p>:!shown.length?<p className="p-12 text-center text-sm text-slate-400"><FileSpreadsheet className="mx-auto mb-2 h-6 w-6"/>No hay registros para mostrar.</p>:null}</div>
-  <div className="border-t border-slate-200 bg-[#f4f5f7] px-4 py-6 sm:px-6">
+  </>}
+  {view==='averages'&&<div className="bg-[#f4f5f7] px-4 py-6 sm:px-6">
    <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white">
     <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 px-5 py-5">
      <div>
@@ -292,6 +299,6 @@ export default function CategorySigoHistory(){
      {!monthlyAverages.length&&<p className="px-6 py-12 text-center text-xs text-slate-400">No hay vendedores registrados en el mes seleccionado.</p>}
     </div>
    </div>
-  </div>
+  </div>}
  </section>;
 }
