@@ -9,6 +9,7 @@ import {
   Database,
   FileSpreadsheet,
   Gauge,
+  UsersRound,
   Loader2,
   Pencil,
   Plus,
@@ -39,6 +40,7 @@ import {
 } from '@/lib/categoryPanelExcel';
 import { errorMessage, notify } from '@/lib/notifications';
 import SellerConsiderations from '@/components/category-panel/SellerConsiderations';
+import CommercialPersonnel from '@/components/category-panel/CommercialPersonnel';
 import SingleSellerPivotUpdate from '@/components/category-panel/SingleSellerPivotUpdate';
 import SingleSellerTmpUpdate from '@/components/category-panel/SingleSellerTmpUpdate';
 import {
@@ -130,7 +132,7 @@ export default function CategoryPanelPage() {
 
   const [search, setSearch] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState<'kpis' | 'sigo' | 'scales'>('kpis');
+  const [activeTab, setActiveTab] = useState<'kpis' | 'sigo' | 'scales' | 'personnel'>('kpis');
 
   useEffect(() => {
     if (meLoading) return;
@@ -440,9 +442,15 @@ export default function CategoryPanelPage() {
               icon={<Gauge className="h-4 w-4" />}
               label="Cuadro de escalas"
             />
+            <PanelTab
+              active={activeTab === 'personnel'}
+              onClick={() => setActiveTab('personnel')}
+              icon={<UsersRound className="h-4 w-4" />}
+              label="Personal comercial"
+            />
           </div>
 
-          {activeTab === 'kpis' ? (
+          {activeTab === 'personnel' ? <CommercialPersonnel /> : activeTab === 'kpis' ? (
             <>
           <section className="mt-6 grid gap-4 lg:grid-cols-2">
             <UploadCard
