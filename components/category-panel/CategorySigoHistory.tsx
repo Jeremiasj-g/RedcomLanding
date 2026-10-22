@@ -6,7 +6,7 @@ import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
 
-type Daily={visit_date:string;seller_name:string;branch:string;sales_force:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
+type Daily={visit_date:string;seller_name:string;seller_id:number|null;branch:string;sales_force:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
 type Person={id:number;name:string;branch:string;role:string;superior:string;force?:string};
 const TEAM_CARDS=[
  {id:'masivos',name:'Masivos',branch:'CASA CENTRAL',force:'ESQUEMA 1',category:'Masivos',description:'Distribución de productos de consumo masivo para toda la región',tone:'from-[#07567d] via-[#0879b4] to-[#039add]'},
@@ -74,7 +74,7 @@ function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[])
   const person=teams[0];
   const key=date+'|'+norm(person.branch)+'|'+norm(person.force)+'|'+norm(name);
   let item=result.get(key);
-  if(!item){item={visit_date:date,seller_name:norm(name),branch:person.branch,sales_force:person.force!,total_clients:0,visited_clients:0,unvisited_clients:0,first_visit:null,last_visit:null};result.set(key,item);}
+  if(!item){item={visit_date:date,seller_name:norm(name),seller_id:person.id,branch:person.branch,sales_force:person.force!,total_clients:0,visited_clients:0,unvisited_clients:0,first_visit:null,last_visit:null};result.set(key,item);}
   item.total_clients++;
   if(status==='SI')item.visited_clients++;else item.unvisited_clients++;
   const time=normalizeTime(row?.[10]);
@@ -102,7 +102,8 @@ export default function CategorySigoHistory(){
  const [confirmReplace,setConfirmReplace]=useState(false);
  const [date,setDate]=useState('all');
  const [averageMonth,setAverageMonth]=useState('');
- const [view,setView]=useState<'daily'|'averages'>('daily');
+ const [view,setView]=useState<'daily'|'averages'|'id-history'>('daily');
+ const [historySellerId,setHistorySellerId]=useState<string>('');
  const [query,setQuery]=useState('');
  const [columnFilters,setColumnFilters]=useState<Record<string,string[]>>({});
  const [activeColumn,setActiveColumn]=useState<string|null>(null);
@@ -114,7 +115,7 @@ export default function CategorySigoHistory(){
  useEffect(()=>{let live=true;void(async()=>{try{
   const all:Daily[]=[];let offset=0;
   while(true){
-   const {data,error}=await supabase.from('category_sigo_daily').select('visit_date,seller_name,branch,sales_force,total_clients,visited_clients,unvisited_clients,first_visit,last_visit').order('visit_date',{ascending:false}).order('seller_name',{ascending:true}).range(offset,offset+999);
+   const {data,error}=await supabase.from('category_sigo_daily').select('visit_date,seller_name,seller_id,branch,sales_force,total_clients,visited_clients,unvisited_clients,first_visit,last_visit').order('visit_date',{ascending:false}).order('seller_name',{ascending:true}).range(offset,offset+999);
    if(error)throw error;
    all.push(...(data??[]));if((data??[]).length<1000)break;offset+=1000;
   }
@@ -215,7 +216,7 @@ export default function CategorySigoHistory(){
    case 'month':return new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(item.visit_date+'T12:00:00Z'));
    case 'date':return displayDate(item.visit_date);
    case 'supervisor':return detail?.supervisor??'—';
-   case 'code':return detail?.code??'—';
+   case 'code':return item.seller_id!==null?String(item.seller_id):detail?.code??'—';
    case 'seller':return item.seller_name;
    case 'start':return item.first_visit??'—';
    case 'end':return item.last_visit??'—';
@@ -269,17 +270,18 @@ export default function CategorySigoHistory(){
  const months=useMemo(()=>[...new Set(scopedData.map(item=>item.visit_date.slice(0,7)))].sort((a,b)=>b.localeCompare(a)),[scopedData]);
  const effectiveMonth=months.includes(averageMonth)?averageMonth:months[0]??'';
  const monthlyAverages=useMemo(()=>{
-  const groups=new Map<string,{seller:string;seconds:number;days:number}>();
-  for(const item of scopedData){
-   if(item.visit_date.slice(0,7)!==effectiveMonth)continue;
-   const duration=durationSeconds(item.first_visit,item.last_visit);
-   const key=norm(item.seller_name);
-   const current=groups.get(key)??{seller:item.seller_name,seconds:0,days:0};
-   if(duration!==null){current.seconds+=duration;current.days++;}
-   groups.set(key,current);
-  }
-  return [...groups.values()].sort((a,b)=>a.seller.localeCompare(b.seller,'es'));
- },[scopedData,effectiveMonth]);
+  const currentSellers=personnel.filter(person=>norm(person.role)==='VENDEDOR'&&person.branch===selectedBranch&&(selectedForce==='all'||person.force===selectedForce));
+  return currentSellers.map(person=>{
+   const matching=scopedData.filter(item=>item.visit_date.slice(0,7)===effectiveMonth&&item.seller_id===person.id&&norm(item.seller_name)===norm(person.name)&&item.sales_force===person.force);
+   const durations=matching.map(item=>durationSeconds(item.first_visit,item.last_visit)).filter((seconds):seconds is number=>seconds!==null);
+   return {seller:person.name,id:person.id,days:durations.length,seconds:durations.reduce((sum,seconds)=>sum+seconds,0)};
+  }).filter(item=>item.days>0).sort((a,b)=>a.seller.localeCompare(b.seller,'es'));
+ },[scopedData,effectiveMonth,personnel,selectedBranch,selectedForce]);
+ const historyIds=[...new Set(scopedData.map(item=>item.seller_id).filter((id):id is number=>id!==null))].sort((a,b)=>a-b);
+ const activeHistoryId=historyIds.includes(Number(historySellerId))?Number(historySellerId):historyIds[0];
+ const idHistoryRows=scopedData.filter(item=>item.seller_id===activeHistoryId&&(effectiveMonth?item.visit_date.startsWith(effectiveMonth):true)).sort((a,b)=>a.visit_date.localeCompare(b.visit_date));
+ const idHistoryDurations=idHistoryRows.map(item=>durationSeconds(item.first_visit,item.last_visit)).filter((seconds):seconds is number=>seconds!==null);
+ const idHistoryAverage=idHistoryDurations.length?formatDuration(Math.round(idHistoryDurations.reduce((sum,value)=>sum+value,0)/idHistoryDurations.length)):'—';
  const monthLabel=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'));
  const datesInPreview=[...new Set(preview?.map(item=>item.visit_date)??[])];
  return <div className="mt-6">
@@ -335,6 +337,7 @@ export default function CategorySigoHistory(){
   <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-[#fafbfc] px-5 py-3" role="tablist" aria-label="Vistas de Horarios SIGO">
    <button type="button" role="tab" aria-selected={view==='daily'} onClick={()=>{setView('daily');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='daily'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Detalle diario</button>
    <button type="button" role="tab" aria-selected={view==='averages'} onClick={()=>{setView('averages');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='averages'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Promedios mensuales</button>
+   <button type="button" role="tab" aria-selected={view==='id-history'} onClick={()=>{setView('id-history');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='id-history'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Análisis por ID</button>
   </div>
   {view==='daily'&&<>
   <div className="grid grid-cols-2 border-b border-slate-200 md:grid-cols-4">{[['Días registrados',days.length],['Clientes asignados',totals.assigned],['Visitados',totals.visited],['Sin visitar',totals.missing]].map(([label,n])=><div key={label} className="border-r border-slate-100 px-6 py-4"><p className="text-[10px] uppercase text-slate-400">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{Number(n).toLocaleString('es-AR')}</p></div>)}</div>
@@ -378,7 +381,7 @@ export default function CategorySigoHistory(){
     <td className="whitespace-nowrap px-5 py-3 font-medium capitalize text-slate-600">{new Intl.DateTimeFormat('es-AR',{month:'long',timeZone:'UTC'}).format(new Date(item.visit_date+'T12:00:00Z'))}</td>
     <td className="whitespace-nowrap px-5 py-3 font-semibold text-slate-600">{displayDate(item.visit_date)}</td>
     <td className="px-5 py-3 text-slate-700">{sellerDetails.get(norm(item.seller_name))?.supervisor??'—'}</td>
-    <td className="px-5 py-3 font-medium tabular-nums">{sellerDetails.get(norm(item.seller_name))?.code??'—'}</td>
+    <td className="px-5 py-3 font-medium tabular-nums">{item.seller_id??'—'}</td>
     <td className="px-5 py-3 font-semibold text-slate-900">{item.seller_name}</td>
     <td className="px-5 py-3 font-medium tabular-nums">{item.first_visit??'—'}</td>
     <td className="px-5 py-3 font-medium tabular-nums">{item.last_visit??'—'}</td>
@@ -408,13 +411,35 @@ export default function CategorySigoHistory(){
      <table className="w-full min-w-[500px] text-left text-xs">
       <thead className="bg-[#f5f7fa] text-[10px] font-semibold uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Cod vendedor</th><th className="px-5 py-3">Vendedor</th><th className="px-5 py-3">Hora promedio</th></tr></thead>
       <tbody>{monthlyAverages.map((item,index)=><tr key={norm(item.seller)} className={'border-t border-slate-100 '+(index%2?'bg-slate-50/40':'bg-white')}>
-       <td className="px-5 py-3 font-medium tabular-nums text-slate-600">{sellerDetails.get(norm(item.seller))?.code??'—'}</td>
+       <td className="px-5 py-3 font-medium tabular-nums text-slate-600">{item.id}</td>
        <td className="px-5 py-3 font-semibold text-slate-900">{item.seller}</td>
        <td className="px-5 py-3 font-semibold tabular-nums text-blue-700">{item.days?formatDuration(Math.round(item.seconds/item.days)):'—'}</td>
       </tr>)}</tbody>
      </table>
      {!monthlyAverages.length&&<p className="px-6 py-12 text-center text-xs text-slate-400">No hay vendedores registrados en el mes seleccionado.</p>}
     </div>
+  </div>}
+  {view==='id-history'&&<div className="bg-white">
+   <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 px-6 py-5">
+    <div><h3 className="text-lg font-semibold text-slate-900">Histórico del código de vendedor</h3><p className="mt-1 text-xs text-slate-500">Incluye distintos nombres que ocuparon el mismo ID durante el mes. Conserva el nombre de cada fecha.</p></div>
+    <div className="flex flex-wrap gap-2">
+     <select aria-label="ID del vendedor" value={activeHistoryId??''} onChange={e=>setHistorySellerId(e.target.value)} className="h-10 min-w-[140px] rounded-xl border border-slate-200 px-3 text-xs">
+      {historyIds.map(id=><option key={id} value={id}>ID {id}</option>)}
+     </select>
+     <select aria-label="Mes de análisis por ID" value={effectiveMonth} onChange={e=>setAverageMonth(e.target.value)} className="h-10 min-w-[165px] rounded-xl border border-slate-200 px-3 text-xs">
+      {months.map(month=><option key={month} value={month}>{monthLabel(month)}</option>)}
+     </select>
+    </div>
+   </div>
+   <div className="border-b border-slate-100 px-6 py-4 text-xs text-slate-600">Registros: <strong>{idHistoryRows.length}</strong> · Promedio del ID: <strong>{idHistoryAverage}</strong></div>
+   <div className="overflow-x-auto"><table className="w-full min-w-[700px] text-left text-xs">
+    <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr>{['Fecha','Cod vendedor','Nombre histórico','Inicio','Fin','Horario ruta','PDVs sin visitar'].map(label=><th key={label} className="px-5 py-3">{label}</th>)}</tr></thead>
+    <tbody>{idHistoryRows.map(item=><tr key={item.visit_date+'|'+item.branch+'|'+item.sales_force+'|'+item.seller_name} className="border-t border-slate-100">
+     <td className="px-5 py-3">{displayDate(item.visit_date)}</td><td className="px-5 py-3">{item.seller_id}</td><td className="px-5 py-3 font-semibold">{item.seller_name}</td>
+     <td className="px-5 py-3">{item.first_visit??'—'}</td><td className="px-5 py-3">{item.last_visit??'—'}</td>
+     <td className="px-5 py-3 font-semibold text-blue-700">{workedHours(item.first_visit,item.last_visit)}</td><td className="px-5 py-3">{item.unvisited_clients}</td>
+    </tr>)}</tbody>
+   </table>{!idHistoryRows.length&&<p className="p-8 text-center text-xs text-slate-400">No hay registros con ID histórico para este período.</p>}</div>
   </div>}
  </section></div>;
 }
