@@ -69,7 +69,7 @@ function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[])
   const name=clean(row?.[7]),date=normalizeDate(row?.[8]),status=norm(row?.[9]);
   if(!name||!date||!['SI','NO'].includes(status))continue;
   const matches=byName.get(norm(name))??[];
-  const teams=[...new Map(matches.filter(person=>person.branch&&person.force).map(person=>[person.branch+'|'+person.force,person])).values()];
+  const teams=[...new Map(matches.filter(person=>person.branch&&person.force).map(person=>[person.branch+'|'+person.force+'|'+person.id,person])).values()];
   if(teams.length!==1){unknown.add(name);continue;}
   const person=teams[0];
   const key=date+'|'+norm(person.branch)+'|'+norm(person.force)+'|'+norm(name);
