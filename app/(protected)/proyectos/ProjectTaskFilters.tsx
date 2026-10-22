@@ -113,6 +113,8 @@ export default function ProjectTaskFilters({
 
   const [responsibleOpen, setResponsibleOpen] = useState(false);
   const [responsibleSearch, setResponsibleSearch] = useState("");
+  const [dateWarning, setDateWarning] = useState("");
+  const invalidRange = Boolean(dueFrom && dueTo && dueTo < dueFrom);
 
   const selectedSupervisors = useMemo(
     () => safeSupervisors.filter((person) => responsibleIds.includes(person.id)),
@@ -144,6 +146,25 @@ export default function ProjectTaskFilters({
     onChange({ ...safeValue, ...patch });
   };
 
+  const changeDueFrom = (next: string) => {
+    if (next && dueTo && dueTo < next) {
+      handleChange({ dueFrom: next, dueTo: "" });
+      setDateWarning("La fecha «Hasta» debe ser igual o posterior a «Desde». Seleccioná una nueva fecha de finalización.");
+    } else {
+      handleChange({ dueFrom: next });
+      setDateWarning("");
+    }
+  };
+
+  const changeDueTo = (next: string) => {
+    if (next && dueFrom && next < dueFrom) {
+      setDateWarning("La fecha «Hasta» debe ser igual o posterior a «Desde».");
+      return;
+    }
+    handleChange({ dueTo: next });
+    setDateWarning("");
+  };
+
   const toggleResponsible = (id: string) => {
     handleChange({
       responsibleIds: responsibleIds.includes(id)
@@ -164,6 +185,7 @@ export default function ProjectTaskFilters({
       showClosed: safeValue.showClosed,
     });
     setResponsibleSearch("");
+    setDateWarning("");
   };
 
   const responsibleLabel =
@@ -350,7 +372,7 @@ export default function ProjectTaskFilters({
 
           <RedcomDatePicker
             value={dueFrom}
-            onChange={(next) => handleChange({ dueFrom: next })}
+            onChange={changeDueFrom}
             placeholder="Desde"
             surface="dark"
             accent="indigo"
@@ -359,7 +381,8 @@ export default function ProjectTaskFilters({
           />
           <RedcomDatePicker
             value={dueTo}
-            onChange={(next) => handleChange({ dueTo: next })}
+            onChange={changeDueTo}
+            minDate={dueFrom || undefined}
             placeholder="Hasta"
             surface="dark"
             accent="indigo"
@@ -368,6 +391,11 @@ export default function ProjectTaskFilters({
           />
         </div>
 
+        {(dateWarning || invalidRange) && (
+          <p role="alert" className="mt-2 flex items-center gap-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            {invalidRange ? "El filtro de fechas no es válido: «Hasta» debe ser igual o posterior a «Desde»." : dateWarning}
+          </p>
+        )}
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/[0.07] pt-3">
           <div className="mr-auto flex items-center gap-2 text-xs font-normal text-white/[0.68]">
             <Filter className="h-3.5 w-3.5" />
