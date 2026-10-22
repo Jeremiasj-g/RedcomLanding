@@ -240,21 +240,22 @@ export default function CategorySigoHistory(){
  const monthLabel=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'));
  const datesInPreview=[...new Set(preview?.map(item=>item.visit_date)??[])];
  return <div className="mt-6">
-  <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+  <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
    {TEAM_CARDS.map(team=>{
     const active=selectedBranch===team.branch&&selectedForce===team.force;
     const total=history.filter(item=>item.branch===team.branch&&(team.force==='all'||item.sales_force===team.force)).length;
+    const compactColor:Record<string,string>={
+     masivos:'border-sky-300 bg-sky-50 text-sky-800',
+     refrigerados:'border-blue-300 bg-blue-50 text-blue-800',
+     chaco:'border-rose-300 bg-rose-50 text-rose-800',
+     misiones:'border-green-300 bg-green-50 text-green-800',
+     obera:'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-800',
+    };
     return <button key={team.id} type="button" aria-pressed={active}
      onClick={()=>{setSelectedBranch(team.branch);setSelectedForce(team.force);setDate('all');setAverageMonth('');setColumnFilters({});setActiveColumn(null);setSortColumn(null);}}
-     className={'group relative flex min-h-[166px] flex-col overflow-hidden rounded-[22px] bg-gradient-to-br p-5 text-left text-white shadow-[0_8px_22px_rgba(15,23,42,.14)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_15px_32px_rgba(15,23,42,.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 '+team.tone+(active?' ring-[3px] ring-blue-500 ring-offset-[3px]':'')}>
-      <span className="relative z-10 self-start rounded-full border border-white/80 bg-white/5 px-2.5 py-0.5 text-[11px] font-medium">{team.category}</span>
-      <p className="relative z-10 mt-5 max-w-[180px] text-xs leading-5 text-white/80">{team.description}</p>
-      <div className="relative z-10 mt-auto pt-4">
-       <h3 className="text-xl font-bold tracking-tight">{team.name}</h3>
-       <span className="mt-1 block text-[10px] text-white/75">{total} registros históricos</span>
-      </div>
-      <span aria-hidden="true" className="pointer-events-none absolute -bottom-12 -right-8 h-36 w-36 rounded-full border-[17px] border-white/10 transition-transform duration-300 group-hover:scale-110"/>
-      <span aria-hidden="true" className="pointer-events-none absolute bottom-3 right-3 h-12 w-12 rounded-full border border-white/20"/>
+     className={'flex min-h-[88px] flex-col justify-center gap-1 rounded-2xl border px-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md '+compactColor[team.id]+(active?' ring-2 ring-offset-2 ring-current shadow-sm':'')}>
+      <span className="text-sm font-semibold">{team.name}</span>
+      <span className="text-[11px] opacity-70">{total} registros históricos</span>
      </button>;
    })}
   </div>
