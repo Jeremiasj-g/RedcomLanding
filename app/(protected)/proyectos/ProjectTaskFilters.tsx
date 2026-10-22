@@ -15,6 +15,7 @@ export type ProjectTaskFiltersState = {
   priority: "all" | "low" | "medium" | "high";
   project: string;
   responsibleIds: string[];
+  branch: string;
   dueFrom: string;
   dueTo: string;
   viewMode: "table" | "kanban";
@@ -31,6 +32,8 @@ type Stats = {
 type Props = {
   supervisors?: AssigneeOption[];
   projects?: ProjectWithMembers[];
+  isAdmin?: boolean;
+  branches?: string[];
   value?: ProjectTaskFiltersState;
   stats?: Stats;
   onChange: (next: ProjectTaskFiltersState) => void;
@@ -57,6 +60,7 @@ const DEFAULT_FILTERS: ProjectTaskFiltersState = {
   priority: "all",
   project: "",
   responsibleIds: [],
+  branch: 'all',
   dueFrom: "",
   dueTo: "",
   viewMode: "table",
@@ -80,6 +84,8 @@ function priorityTone(value: ProjectTaskFiltersState["priority"]) {
 export default function ProjectTaskFilters({
   supervisors,
   projects,
+  isAdmin = false,
+  branches = [],
   value,
   stats,
   onChange,
@@ -100,6 +106,7 @@ export default function ProjectTaskFilters({
     priority,
     project,
     responsibleIds,
+    branch,
     dueFrom,
     dueTo,
   } = safeValue;
@@ -128,6 +135,7 @@ export default function ProjectTaskFilters({
     status !== "all",
     priority !== "all",
     responsibleIds.length > 0,
+    isAdmin && branch !== 'all',
     Boolean(dueFrom),
     Boolean(dueTo),
   ].filter(Boolean).length;
@@ -227,6 +235,10 @@ export default function ProjectTaskFilters({
           </div>
         </div>
 
+        {isAdmin&&<div className="mt-3 max-w-sm">
+          <RedcomSelect value={branch} onValueChange={value=>handleChange({branch:value})} surface="dark" accent="indigo" className="h-11 rounded-[14px]" aria-label="Filtrar por sucursal"
+            options={[{value:'all',label:'Sucursal · Todas'},...branches.map(name=>({value:name,label:'Sucursal · '+name}))]}/>
+        </div>}
         <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_190px_190px]">
           <RedcomSearchableSelect
             value={project}
@@ -364,6 +376,7 @@ export default function ProjectTaskFilters({
               : `${activeCount} filtro${activeCount === 1 ? "" : "s"} activo${activeCount === 1 ? "" : "s"}`}
           </div>
 
+          {isAdmin&&branch!=='all'?<Chip label={'Sucursal: '+branch} onClear={()=>handleChange({branch:'all'})}/>:null}
           {project ? (
             <Chip label={project} onClear={() => handleChange({ project: "" })} />
           ) : null}

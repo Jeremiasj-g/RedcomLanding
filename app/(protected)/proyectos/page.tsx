@@ -186,6 +186,7 @@ export default function ProyectosPage() {
   const [tasks, setTasks] = useState<ProjectTaskWithAssignees[]>([]);
   const [projects, setProjects] = useState<ProjectWithMembers[]>([]);
   const [supervisors, setSupervisors] = useState<AssigneeOption[]>([]);
+  const [userBranches, setUserBranches] = useState<Record<string,string>>({});
   const [workspaceView, setWorkspaceView] = useState<'tasks' | 'projects'>('tasks');
   const [selectedTask, setSelectedTask] =
     useState<ProjectTaskWithAssignees | null>(null);
@@ -224,6 +225,7 @@ export default function ProyectosPage() {
     priority: 'all',
     project: '',
     responsibleIds: [], // multi
+    branch: 'all',
     dueFrom: '',
     dueTo: '',
     viewMode: 'table',
@@ -265,6 +267,11 @@ export default function ProyectosPage() {
           return db - da;
         }));
         setSupervisors(supervisorsData);
+        if (me.role === 'admin') {
+          const {data: branchProfiles,error: branchError}=await supabase.from('profiles').select('id,branch').not('branch','is',null);
+          if(branchError)throw branchError;
+          setUserBranches(Object.fromEntries((branchProfiles??[]).filter(p=>p.branch?.trim()).map(p=>[p.id,p.branch.trim()])));
+        }
         setProjects(projectsData ?? []);
         setNewProjectId((current) => {
           if (current) return current;
@@ -389,6 +396,7 @@ export default function ProyectosPage() {
   // Filtro + métricas
   // ─────────────────────────────────────────
   const filteredTasks = hydratedTasks.filter((t) => {
+    if(isAdmin&&filters.branch!=='all'&&!t.assignees.some(a=>userBranches[a.user_id]===filters.branch))return false;
     // search
     if (filters.search) {
       const text = `${t.title} ${t.summary ?? ''} ${t.project ?? ''}`.toLowerCase();
@@ -874,8 +882,8 @@ export default function ProyectosPage() {
 
           {workspaceView === 'projects' && me ? (
             <ProjectPortfolio
-              projects={projects}
-              tasks={hydratedTasks}
+              projects={isAdmin&&filters.branch!=='all'?projects.filter(p=>[p.owner_id,...p.members.map(m=>m.user_id)].some(id=>Boolean(id)&&userBranches[id!]===filters.branch)):projects}
+              tasks={isAdmin&&filters.branch!=='all'?hydratedTasks.filter(t=>t.assignees.some(a=>userBranches[a.user_id]===filters.branch)):hydratedTasks}
               currentUserId={me.id}
               canManage={canManage}
               onProjectCreated={(project) =>
@@ -923,6 +931,8 @@ export default function ProyectosPage() {
           </div>
 
           <ProjectTaskFilters
+            isAdmin={isAdmin}
+            branches={[...new Set(Object.values(userBranches))].sort((a,b)=>a.localeCompare(b,'es'))}
             supervisors={supervisors}
             projects={projects}
             value={filters}
