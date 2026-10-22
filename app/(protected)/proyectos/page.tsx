@@ -187,6 +187,7 @@ export default function ProyectosPage() {
   const [projects, setProjects] = useState<ProjectWithMembers[]>([]);
   const [supervisors, setSupervisors] = useState<AssigneeOption[]>([]);
   const [userBranches, setUserBranches] = useState<Record<string,string>>({});
+  const [availableBranchNames, setAvailableBranchNames] = useState<string[]>([]);
   const [workspaceView, setWorkspaceView] = useState<'tasks' | 'projects'>('tasks');
   const [selectedTask, setSelectedTask] =
     useState<ProjectTaskWithAssignees | null>(null);
@@ -268,9 +269,20 @@ export default function ProyectosPage() {
         }));
         setSupervisors(supervisorsData);
         if (me.role === 'admin') {
-          const {data: branchProfiles,error: branchError}=await supabase.from('profiles').select('id,branch').not('branch','is',null);
+          const [{data: branchProfiles,error: branchError},{data: availableBranches,error: branchesError}]=await Promise.all([
+            supabase.from('profiles').select('id,branch,branch_id'),
+            supabase.from('branches').select('id,code,name').order('name',{ascending:true}),
+          ]);
           if(branchError)throw branchError;
-          setUserBranches(Object.fromEntries((branchProfiles??[]).filter(p=>p.branch?.trim()).map(p=>[p.id,p.branch.trim()])));
+          if(branchesError)throw branchesError;
+          const branchById=new Map((availableBranches??[]).map(branch=>[Number(branch.id),String(branch.name)]));
+          const branchByName=new Map((availableBranches??[]).flatMap(branch=>[[String(branch.name).toLowerCase(),String(branch.name)],[String(branch.code).toLowerCase(),String(branch.name)]]));
+          setAvailableBranchNames((availableBranches??[]).map(branch=>String(branch.name)));
+          setUserBranches(Object.fromEntries((branchProfiles??[]).flatMap(person=>{
+            const raw=String(person.branch??'').trim();
+            const name=branchById.get(Number(person.branch_id))??branchByName.get(raw.toLowerCase())??raw;
+            return name?[[String(person.id),name]]:[];
+          })));
         }
         setProjects(projectsData ?? []);
         setNewProjectId((current) => {
@@ -932,7 +944,7 @@ export default function ProyectosPage() {
 
           <ProjectTaskFilters
             isAdmin={isAdmin}
-            branches={[...new Set(Object.values(userBranches))].sort((a,b)=>a.localeCompare(b,'es'))}
+            branches={availableBranchNames}
             supervisors={supervisors}
             projects={projects}
             value={filters}
