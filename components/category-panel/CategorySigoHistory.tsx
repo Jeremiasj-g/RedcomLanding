@@ -8,9 +8,13 @@ import {errorMessage,notify} from '@/lib/notifications';
 
 type Daily={visit_date:string;seller_name:string;branch:string;sales_force:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
 type Person={id:number;name:string;branch:string;role:string;superior:string;force?:string};
-const BRANCHES=['CASA CENTRAL','SUCURSAL RESISTENCIA','SUCURSAL POSADAS','SUCURSAL OBERA'] as const;
-const BRANCH_NAMES:Record<string,string>={'CASA CENTRAL':'Casa Central','SUCURSAL RESISTENCIA':'Resistencia','SUCURSAL POSADAS':'Posadas','SUCURSAL OBERA':'Oberá'};
-const BRANCH_COLORS=['border-blue-200 bg-blue-50 text-blue-700','border-emerald-200 bg-emerald-50 text-emerald-700','border-violet-200 bg-violet-50 text-violet-700','border-amber-200 bg-amber-50 text-amber-700'];
+const TEAM_CARDS=[
+ {id:'masivos',name:'Masivos',branch:'CASA CENTRAL',force:'ESQUEMA 1',category:'Masivos',description:'Distribución de productos de consumo masivo para toda la región',tone:'from-[#07567d] via-[#0879b4] to-[#039add]'},
+ {id:'refrigerados',name:'Refrigerados',branch:'CASA CENTRAL',force:'ESQUEMA REGRIGERADOS',category:'Refrigerados',description:'Cadena de frío garantizada para productos perecederos',tone:'from-[#07567d] via-[#0879b4] to-[#039add]'},
+ {id:'chaco',name:'Chaco',branch:'SUCURSAL RESISTENCIA',force:'all',category:'Regional',description:'Distribución especializada en la provincia del Chaco',tone:'from-[#a21524] via-[#c20d3e] to-[#eb5574]'},
+ {id:'misiones',name:'Misiones',branch:'SUCURSAL POSADAS',force:'all',category:'Regional',description:'Red de distribución en todo Misiones',tone:'from-[#086342] via-[#11904c] to-[#78ce42]'},
+ {id:'obera',name:'Oberá',branch:'SUCURSAL OBERA',force:'all',category:'Local',description:'Servicios especializados para Oberá',tone:'from-[#6f168f] via-[#9215b1] to-[#de46ae]'}
+] as const;
 const clean=(value:unknown)=>String(value??'').trim().replace(/\s+/g,' ');
 const norm=(value:unknown)=>clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
 const displayDate=(date:string)=>{const [y,m,d]=date.split('-');return d+'/'+m+'/'+y;};
@@ -84,7 +88,7 @@ export default function CategorySigoHistory(){
  const [history,setHistory]=useState<Daily[]>([]);
  const [personnel,setPersonnel]=useState<Person[]>([]);
  const [selectedBranch,setSelectedBranch]=useState<string>('CASA CENTRAL');
- const [selectedForce,setSelectedForce]=useState<string>('all');
+ const [selectedForce,setSelectedForce]=useState<string>('ESQUEMA 1');
  const [preview,setPreview]=useState<Daily[]|null>(null);
  const [file,setFile]=useState<File|null>(null);
  const [loading,setLoading]=useState(true);
@@ -236,14 +240,21 @@ export default function CategorySigoHistory(){
  const monthLabel=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'));
  const datesInPreview=[...new Set(preview?.map(item=>item.visit_date)??[])];
  return <div className="mt-6">
-  <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-   {BRANCHES.map((name,index)=>{
-    const active=name===selectedBranch;
-    const total=history.filter(item=>item.branch===name).length;
-    return <button key={name} type="button" onClick={()=>{setSelectedBranch(name);setSelectedForce('all');setDate('all');setAverageMonth('');setColumnFilters({});setActiveColumn(null);}} aria-pressed={active}
-     className={'flex min-h-[88px] flex-col justify-center gap-1 rounded-2xl border px-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md '+BRANCH_COLORS[index]+(active?' ring-2 ring-offset-2 ring-current shadow-sm':'')}>
-      <span className="text-sm font-semibold">{BRANCH_NAMES[name]}</span>
-      <span className="text-[11px] opacity-70">{total} registros históricos</span>
+  <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+   {TEAM_CARDS.map(team=>{
+    const active=selectedBranch===team.branch&&selectedForce===team.force;
+    const total=history.filter(item=>item.branch===team.branch&&(team.force==='all'||item.sales_force===team.force)).length;
+    return <button key={team.id} type="button" aria-pressed={active}
+     onClick={()=>{setSelectedBranch(team.branch);setSelectedForce(team.force);setDate('all');setAverageMonth('');setColumnFilters({});setActiveColumn(null);setSortColumn(null);}}
+     className={'group relative flex min-h-[166px] flex-col overflow-hidden rounded-[22px] bg-gradient-to-br p-5 text-left text-white shadow-[0_8px_22px_rgba(15,23,42,.14)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_15px_32px_rgba(15,23,42,.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 '+team.tone+(active?' ring-[3px] ring-blue-500 ring-offset-[3px]':'')}>
+      <span className="relative z-10 self-start rounded-full border border-white/80 bg-white/5 px-2.5 py-0.5 text-[11px] font-medium">{team.category}</span>
+      <p className="relative z-10 mt-5 max-w-[180px] text-xs leading-5 text-white/80">{team.description}</p>
+      <div className="relative z-10 mt-auto pt-4">
+       <h3 className="text-xl font-bold tracking-tight">{team.name}</h3>
+       <span className="mt-1 block text-[10px] text-white/75">{total} registros históricos</span>
+      </div>
+      <span aria-hidden="true" className="pointer-events-none absolute -bottom-12 -right-8 h-36 w-36 rounded-full border-[17px] border-white/10 transition-transform duration-300 group-hover:scale-110"/>
+      <span aria-hidden="true" className="pointer-events-none absolute bottom-3 right-3 h-12 w-12 rounded-full border border-white/20"/>
      </button>;
    })}
   </div>
