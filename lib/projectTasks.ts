@@ -244,7 +244,7 @@ export async function fetchProjectTasksForUser(
 
   let taskRows: ProjectTaskRow[] = [];
 
-  if (role === 'admin' || role === 'jdv') {
+  if (role === 'admin') {
     // Admin ve todo
     const { data, error } = await supabase
       .from('project_tasks')
