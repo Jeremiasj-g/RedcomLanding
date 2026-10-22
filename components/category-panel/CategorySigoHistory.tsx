@@ -6,8 +6,11 @@ import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
 
-type Daily={visit_date:string;seller_name:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
-type Person={id:number;name:string;branch:string;role:string;superior:string};
+type Daily={visit_date:string;seller_name:string;branch:string;sales_force:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
+type Person={id:number;name:string;branch:string;role:string;superior:string;force?:string};
+const BRANCHES=['CASA CENTRAL','SUCURSAL RESISTENCIA','SUCURSAL POSADAS','SUCURSAL OBERA'] as const;
+const BRANCH_NAMES:Record<string,string>={'CASA CENTRAL':'Casa Central','SUCURSAL RESISTENCIA':'Resistencia','SUCURSAL POSADAS':'Posadas','SUCURSAL OBERA':'Oberá'};
+const BRANCH_COLORS=['border-blue-200 bg-blue-50 text-blue-700','border-emerald-200 bg-emerald-50 text-emerald-700','border-violet-200 bg-violet-50 text-violet-700','border-amber-200 bg-amber-50 text-amber-700'];
 const clean=(value:unknown)=>String(value??'').trim().replace(/\s+/g,' ');
 const norm=(value:unknown)=>clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
 const displayDate=(date:string)=>{const [y,m,d]=date.split('-');return d+'/'+m+'/'+y;};
@@ -45,16 +48,25 @@ const workedHours=(start:string|null,end:string|null)=>{
  if(!Number.isFinite(duration)||duration<0)return '—';
  return [Math.floor(duration/3600),Math.floor(duration%3600/60),duration%60].map(n=>String(n).padStart(2,'0')).join(':');
 };
-function parseReport(matrix:(string|number|boolean|null)[][]):Daily[]{
+function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[]):Daily[]{
+ const byName=new Map<string,Person[]>();
+ for(const p of personnel.filter(p=>norm(p.role)==='VENDEDOR')){
+  const key=norm(p.name);byName.set(key,[...(byName.get(key)??[]),p]);
+ }
  const header=matrix.findIndex(row=>norm(row?.[7])==='SECTOR'&&norm(row?.[8])==='FECHA'&&norm(row?.[9])==='VISITADO');
  if(header<0)throw new Error('No se encontraron las columnas H: Sector, I: Fecha y J: Visitado.');
  const result=new Map<string,Daily>();
+ const unknown=new Set<string>();
  for(const row of matrix.slice(header+1)){
   const name=clean(row?.[7]),date=normalizeDate(row?.[8]),status=norm(row?.[9]);
   if(!name||!date||!['SI','NO'].includes(status))continue;
-  const key=date+'|'+norm(name);
+  const matches=byName.get(norm(name))??[];
+  const teams=[...new Map(matches.filter(person=>person.branch&&person.force).map(person=>[person.branch+'|'+person.force,person])).values()];
+  if(teams.length!==1){unknown.add(name);continue;}
+  const person=teams[0];
+  const key=date+'|'+norm(person.branch)+'|'+norm(person.force)+'|'+norm(name);
   let item=result.get(key);
-  if(!item){item={visit_date:date,seller_name:norm(name),total_clients:0,visited_clients:0,unvisited_clients:0,first_visit:null,last_visit:null};result.set(key,item);}
+  if(!item){item={visit_date:date,seller_name:norm(name),branch:person.branch,sales_force:person.force!,total_clients:0,visited_clients:0,unvisited_clients:0,first_visit:null,last_visit:null};result.set(key,item);}
   item.total_clients++;
   if(status==='SI')item.visited_clients++;else item.unvisited_clients++;
   const time=normalizeTime(row?.[10]);
@@ -63,6 +75,7 @@ function parseReport(matrix:(string|number|boolean|null)[][]):Daily[]{
    if(!item.last_visit||time>item.last_visit)item.last_visit=time;
   }
  }
+ if(unknown.size)throw new Error('No se pudo identificar sucursal y fuerza de venta para: '+[...unknown].slice(0,8).join(', ')+'. Revisá Personal comercial.');
  if(!result.size)throw new Error('No hay filas válidas de visitas para importar.');
  return [...result.values()].sort((a,b)=>b.visit_date.localeCompare(a.visit_date)||a.seller_name.localeCompare(b.seller_name,'es'));
 }
@@ -70,6 +83,8 @@ function parseReport(matrix:(string|number|boolean|null)[][]):Daily[]{
 export default function CategorySigoHistory(){
  const [history,setHistory]=useState<Daily[]>([]);
  const [personnel,setPersonnel]=useState<Person[]>([]);
+ const [selectedBranch,setSelectedBranch]=useState<string>('CASA CENTRAL');
+ const [selectedForce,setSelectedForce]=useState<string>('all');
  const [preview,setPreview]=useState<Daily[]|null>(null);
  const [file,setFile]=useState<File|null>(null);
  const [loading,setLoading]=useState(true);
@@ -88,7 +103,7 @@ export default function CategorySigoHistory(){
  useEffect(()=>{let live=true;void(async()=>{try{
   const all:Daily[]=[];let offset=0;
   while(true){
-   const {data,error}=await supabase.from('category_sigo_daily').select('visit_date,seller_name,total_clients,visited_clients,unvisited_clients,first_visit,last_visit').order('visit_date',{ascending:false}).order('seller_name',{ascending:true}).range(offset,offset+999);
+   const {data,error}=await supabase.from('category_sigo_daily').select('visit_date,seller_name,branch,sales_force,total_clients,visited_clients,unvisited_clients,first_visit,last_visit').order('visit_date',{ascending:false}).order('seller_name',{ascending:true}).range(offset,offset+999);
    if(error)throw error;
    all.push(...(data??[]));if((data??[]).length<1000)break;offset+=1000;
   }
@@ -101,7 +116,7 @@ export default function CategorySigoHistory(){
  })();return()=>{active=false;};},[]);
  const sellerDetails=useMemo(()=>{
   const map=new Map<string,{code:string;supervisor:string}>();
-  for(const seller of personnel.filter(p=>norm(p.role)==='VENDEDOR')){
+  for(const seller of personnel.filter(p=>norm(p.role)==='VENDEDOR'&&norm(p.branch)===norm(selectedBranch)&&(selectedForce==='all'||p.force===selectedForce))){
    const key=norm(seller.name);
    const supervisors=personnel.filter(p=>norm(p.role)==='SUPERVISOR'&&norm(p.branch)===norm(seller.branch)&&norm(p.name)===norm(seller.superior));
    const detail={code:String(seller.id),supervisor:supervisors.length===1?supervisors[0].name:'—'};
@@ -109,26 +124,29 @@ export default function CategorySigoHistory(){
    map.set(key,map.has(key)?{code:'—',supervisor:'—'}:detail);
   }
   return map;
- },[personnel]);
+ },[personnel,selectedBranch,selectedForce]);
  const upload=async(next:File|null)=>{
   setFile(next);setPreview(null);if(!next)return;
-  try{setBusy(true);const parsed=parseReport(await readFirstWorksheet(next));setPreview(parsed);setDate('all');notify.success('Archivo procesado. Revisá los datos y guardalos para incorporar cada fecha.');}
+  try{setBusy(true);const parsed=parseReport(await readFirstWorksheet(next),personnel);setPreview(parsed);setDate('all');if(new Set(parsed.map(p=>p.branch)).size===1)setSelectedBranch(parsed[0].branch);setSelectedForce('all');notify.success('Archivo identificado. Revisá sucursal, fuerza de venta y fechas.');}
   catch(e){notify.error(errorMessage(e,'No se pudo procesar el archivo SIGO.'));}finally{setBusy(false);}
  };
  const save=async()=>{
   if(!preview?.length||busy)return;
   try{setBusy(true);
-   const dates=[...new Set(preview.map(p=>p.visit_date))];
+   const scopes=new Set(preview.map(p=>p.visit_date+'|'+p.branch+'|'+p.sales_force));
    // Update only dates present in the uploaded report. Existing other days survive.
    const {error}=await supabase.rpc('replace_category_sigo_days',{p_rows:preview});
    if(error)throw error;
-   const other=history.filter(item=>!dates.includes(item.visit_date));
+   const other=history.filter(item=>!scopes.has(item.visit_date+'|'+item.branch+'|'+item.sales_force));
    setHistory([...preview,...other].sort((a,b)=>a.visit_date.localeCompare(b.visit_date)||a.seller_name.localeCompare(b.seller_name,'es')));
    setPreview(null);setFile(null);notify.success('Histórico SIGO actualizado. Días anteriores conservados.');
   }catch(e){notify.error(errorMessage(e,'No se pudo guardar el histórico.'));}finally{setBusy(false);}
  };
  const dataset=preview??history;
- const days=[...new Set(dataset.map(item=>item.visit_date))].sort((a,b)=>a.localeCompare(b));
+ const branchData=dataset.filter(item=>item.branch===selectedBranch);
+ const forces=[...new Set(personnel.filter(person=>norm(person.branch)===norm(selectedBranch)&&person.force).map(person=>person.force!))].sort((a,b)=>a.localeCompare(b,'es'));
+ const scopedData=branchData.filter(item=>selectedForce==='all'||item.sales_force===selectedForce);
+ const days=[...new Set(scopedData.map(item=>item.visit_date))].sort((a,b)=>a.localeCompare(b));
  const columns=[
   {key:'month',label:'Mes'},
   {key:'date',label:'Fecha'},
@@ -160,7 +178,7 @@ export default function CategorySigoHistory(){
    default:return '';
   }
  };
- const baseRows=dataset.filter(item=>(date==='all'||item.visit_date===date)&&(!query||norm(item.seller_name).includes(norm(query))));
+ const baseRows=scopedData.filter(item=>(date==='all'||item.visit_date===date)&&(!query||norm(item.seller_name).includes(norm(query))));
  const matches=(item:Daily,key:string)=>!columnFilters[key]?.length||columnFilters[key].includes(cellValue(item,key));
  const shown=baseRows.filter(item=>columns.every(col=>matches(item,col.key))).sort((a,b)=>{
   if(sortColumn){
@@ -201,11 +219,11 @@ export default function CategorySigoHistory(){
  const clearFilters=()=>{setColumnFilters({});closeFilter();};
 
  const totals=shown.reduce((a,r)=>({assigned:a.assigned+r.total_clients,visited:a.visited+r.visited_clients,missing:a.missing+r.unvisited_clients}),{assigned:0,visited:0,missing:0});
- const months=useMemo(()=>[...new Set(dataset.map(item=>item.visit_date.slice(0,7)))].sort((a,b)=>b.localeCompare(a)),[dataset]);
+ const months=useMemo(()=>[...new Set(scopedData.map(item=>item.visit_date.slice(0,7)))].sort((a,b)=>b.localeCompare(a)),[scopedData]);
  const effectiveMonth=months.includes(averageMonth)?averageMonth:months[0]??'';
  const monthlyAverages=useMemo(()=>{
   const groups=new Map<string,{seller:string;seconds:number;days:number}>();
-  for(const item of dataset){
+  for(const item of scopedData){
    if(item.visit_date.slice(0,7)!==effectiveMonth)continue;
    const duration=durationSeconds(item.first_visit,item.last_visit);
    const key=norm(item.seller_name);
@@ -214,10 +232,22 @@ export default function CategorySigoHistory(){
    groups.set(key,current);
   }
   return [...groups.values()].sort((a,b)=>a.seller.localeCompare(b.seller,'es'));
- },[dataset,effectiveMonth]);
+ },[scopedData,effectiveMonth]);
  const monthLabel=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'));
  const datesInPreview=[...new Set(preview?.map(item=>item.visit_date)??[])];
- return <section className="mt-6 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,.035)]">
+ return <div className="mt-6">
+  <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+   {BRANCHES.map((name,index)=>{
+    const active=name===selectedBranch;
+    const total=history.filter(item=>item.branch===name).length;
+    return <button key={name} type="button" onClick={()=>{setSelectedBranch(name);setSelectedForce('all');setDate('all');setAverageMonth('');setColumnFilters({});setActiveColumn(null);}} aria-pressed={active}
+     className={'flex min-h-[88px] flex-col justify-center gap-1 rounded-2xl border px-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md '+BRANCH_COLORS[index]+(active?' ring-2 ring-offset-2 ring-current shadow-sm':'')}>
+      <span className="text-sm font-semibold">{BRANCH_NAMES[name]}</span>
+      <span className="text-[11px] opacity-70">{total} registros históricos</span>
+     </button>;
+   })}
+  </div>
+  <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,.035)]">
   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-6">
    <div><div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-600">Histórico diario · SIGO</div><h2 className="mt-1 text-2xl font-semibold tracking-tight">Horarios de vendedores</h2><p className="mt-1 text-xs text-slate-500">Cada archivo se procesa localmente: solo se guardan los resultados diarios, nunca el Excel.</p></div>
    <div className="flex items-center gap-2">
@@ -233,6 +263,9 @@ export default function CategorySigoHistory(){
   {view==='daily'&&<>
   <div className="grid grid-cols-2 border-b border-slate-200 md:grid-cols-4">{[['Días registrados',days.length],['Clientes asignados',totals.assigned],['Visitados',totals.visited],['Sin visitar',totals.missing]].map(([label,n])=><div key={label} className="border-r border-slate-100 px-6 py-4"><p className="text-[10px] uppercase text-slate-400">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{Number(n).toLocaleString('es-AR')}</p></div>)}</div>
   <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4">
+   <select aria-label="Fuerza de venta" value={selectedForce} onChange={e=>{setSelectedForce(e.target.value);setDate('all');setAverageMonth('');setColumnFilters({});}} className="h-10 min-w-[205px] rounded-xl border border-slate-200 bg-white px-3 text-xs">
+    <option value="all">Todas las fuerzas de venta</option>{forces.map(force=><option key={force} value={force}>{force}</option>)}
+   </select>
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
    <div className="relative"><CalendarDays className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400"/><select aria-label="Fecha" value={date} onChange={e=>setDate(e.target.value)} className="h-10 min-w-[170px] rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs"><option value="all">Todas las fechas</option>{days.map(day=><option key={day} value={day}>{displayDate(day)}</option>)}</select></div>
   </div>
@@ -307,5 +340,5 @@ export default function CategorySigoHistory(){
      {!monthlyAverages.length&&<p className="px-6 py-12 text-center text-xs text-slate-400">No hay vendedores registrados en el mes seleccionado.</p>}
     </div>
   </div>}
- </section>;
+ </section></div>;
 }
