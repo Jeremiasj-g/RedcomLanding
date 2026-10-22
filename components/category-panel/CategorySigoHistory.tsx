@@ -139,6 +139,10 @@ export default function CategorySigoHistory(){
   {key:'end',label:'Fin'},
   {key:'hours',label:'Horario ruta'},
   {key:'missing',label:'PDVs Sin visitar'},
+  {key:'correctStart',label:'Corregir inicio'},
+  {key:'correctEnd',label:'Corregir fin'},
+  {key:'reason',label:'Motivo'},
+  {key:'comments',label:'Comentarios'},
  ];
  const cellValue=(item:Daily,key:string):string=>{
   const detail=sellerDetails.get(norm(item.seller_name));
@@ -152,6 +156,7 @@ export default function CategorySigoHistory(){
    case 'end':return item.last_visit??'—';
    case 'hours':return workedHours(item.first_visit,item.last_visit);
    case 'missing':return String(item.unvisited_clients);
+   case 'correctStart':case 'correctEnd':case 'reason':case 'comments':return '—';
    default:return '';
   }
  };
@@ -258,8 +263,8 @@ export default function CategorySigoHistory(){
     </div>
    </div>
   </>}
-  <div className="overflow-x-auto"><table className="w-full min-w-[1100px] text-left text-xs">
-   <thead className="bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500"><tr>{columns.map(col=><th key={col.key} className="px-3 py-2 font-semibold"><button type="button" onClick={event=>openFilter(col.key,event.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(columnFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5 shrink-0"/></button></th>)}</tr></thead>
+  <div className="overflow-x-auto"><table className="w-full min-w-[1690px] text-left text-xs">
+   <thead className="bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500"><tr>{columns.map(col=><th key={col.key} className={"px-3 py-2 font-semibold "+(col.key==='correctStart'?'border-l-[3px] border-l-slate-400 ':'')}><button type="button" onClick={event=>openFilter(col.key,event.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(columnFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5 shrink-0"/></button></th>)}</tr></thead>
    <tbody>{shown.map((item,i)=><tr key={item.visit_date+'|'+item.seller_name} className={(i>0&&item.visit_date!==shown[i-1].visit_date?'border-t-[3px] border-t-slate-400 ':'border-t border-t-slate-100 ')+(i%2?'bg-slate-50/40':'bg-white')}>
     <td className="whitespace-nowrap px-5 py-3 font-medium capitalize text-slate-600">{new Intl.DateTimeFormat('es-AR',{month:'long',timeZone:'UTC'}).format(new Date(item.visit_date+'T12:00:00Z'))}</td>
     <td className="whitespace-nowrap px-5 py-3 font-semibold text-slate-600">{displayDate(item.visit_date)}</td>
@@ -270,6 +275,10 @@ export default function CategorySigoHistory(){
     <td className="px-5 py-3 font-medium tabular-nums">{item.last_visit??'—'}</td>
     <td className="px-5 py-3 font-semibold tabular-nums text-blue-700">{workedHours(item.first_visit,item.last_visit)}</td>
     <td className="px-5 py-3"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
+    <td className="border-l-[3px] border-l-slate-400 px-5 py-3 text-slate-400">—</td>
+    <td className="px-5 py-3 text-slate-400">—</td>
+    <td className="px-5 py-3 text-slate-400">—</td>
+    <td className="px-5 py-3 text-slate-400">—</td>
    </tr>)}</tbody>
   </table>{loading?<p className="p-12 text-center text-sm text-slate-400">Cargando histórico...</p>:!shown.length?<p className="p-12 text-center text-sm text-slate-400"><FileSpreadsheet className="mx-auto mb-2 h-6 w-6"/>No hay registros para mostrar.</p>:null}</div>
   </>}

@@ -369,7 +369,7 @@ export default function CategoryPanelPage() {
   return (
     <>
       <main className="min-h-screen bg-[#f4f5f7] pb-16">
-        <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
+        <div className={activeTab === 'sigo' ? 'mx-auto w-full max-w-none px-3 py-6 sm:px-4 lg:px-5' : 'mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8'}>
           <section className="px-1 pb-2 pt-4 sm:px-2 sm:pt-6">
             <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
               <div className="max-w-3xl">

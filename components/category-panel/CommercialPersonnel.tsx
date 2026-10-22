@@ -2,7 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import {AnimatePresence,motion} from 'framer-motion';
-import {ChevronDown,ChevronRight,FileSpreadsheet,Loader2,Save,Search,UsersRound} from 'lucide-react';
+import {ChevronDown,ChevronRight,FileSpreadsheet,LayoutList,Network,Loader2,Save,Search,UsersRound} from 'lucide-react';
 import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
@@ -78,6 +78,7 @@ export default function CommercialPersonnel(){
  const [query,setQuery]=useState('');
  const [branch,setBranch]=useState('all');
  const [collapsed,setCollapsed]=useState<string[]>([]);
+ const [displayMode,setDisplayMode]=useState<'hierarchy'|'table'>('hierarchy');
  useEffect(()=>{
   let active=true;
   void(async()=>{
@@ -101,6 +102,7 @@ export default function CommercialPersonnel(){
   return children.length?{...node,children}:null;
  };
  const visible=shown.map(filterNode).filter((item):item is Node=>Boolean(item));
+ const visiblePeople=current.filter(person=>(branch==='all'||branchKey(person.branch)===branchKey(branch))&&(!query||norm([person.id,person.name,person.superior,person.role,person.branch].join(' ')).includes(norm(query)))).sort((a,b)=>a.branch.localeCompare(b.branch,'es')||({GERENTE:0,SUPERVISOR:1,VENDEDOR:2}[a.role]??3)-({GERENTE:0,SUPERVISOR:1,VENDEDOR:2}[b.role]??3)||a.name.localeCompare(b.name,'es'));
  const upload=async(next:File|null)=>{
   setFile(next);setPreview(null);setCollapsed([]);
   if(!next)return;
@@ -162,9 +164,23 @@ export default function CommercialPersonnel(){
   <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 p-4">
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar nombre, ID o superior..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
    <select aria-label="Sucursal" value={branch} onChange={e=>setBranch(e.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs">{[<option key="all" value="all">Todas las sucursales</option>,...[...new Set(current.map(p=>p.branch))].map(v=><option key={v} value={v}>{v}</option>)]}</select>
-   <button type="button" onClick={()=>setCollapsed([])} className="h-10 rounded-xl bg-slate-100 px-3 text-xs font-semibold text-slate-700">Expandir todo</button>
-   <button type="button" onClick={()=>setCollapsed(trees.flatMap(b=>[b.key,...b.children.flatMap(m=>[m.key,...m.children.map(s=>s.key)])]))} className="h-10 rounded-xl border border-slate-200 px-3 text-xs font-semibold">Contraer todo</button>
+   <div className="inline-flex h-10 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+    <button type="button" onClick={()=>setDisplayMode('hierarchy')} aria-pressed={displayMode==='hierarchy'} className={'inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors duration-300 '+(displayMode==='hierarchy'?'bg-slate-950 text-white':'text-slate-600 hover:bg-white')}><Network className="h-3.5 w-3.5"/>Jerarquía</button>
+    <button type="button" onClick={()=>setDisplayMode('table')} aria-pressed={displayMode==='table'} className={'inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors duration-300 '+(displayMode==='table'?'bg-slate-950 text-white':'text-slate-600 hover:bg-white')}><LayoutList className="h-3.5 w-3.5"/>Tabla</button>
+   </div>
+   {displayMode==='hierarchy'&&<button type="button" onClick={()=>setCollapsed([])} className="h-10 rounded-xl bg-slate-100 px-3 text-xs font-semibold text-slate-700">Expandir todo</button>}
+   {displayMode==='hierarchy'&&<button type="button" onClick={()=>setCollapsed(trees.flatMap(b=>[b.key,...b.children.flatMap(m=>[m.key,...m.children.map(s=>s.key)])]))} className="h-10 rounded-xl border border-slate-200 px-3 text-xs font-semibold">Contraer todo</button>}
   </div>
-  {loading?<div className="p-12 text-center text-sm text-slate-400">Cargando personal comercial...</div>:visible.length?<div>{visible.map(node=>renderNode(node))}</div>:<div className="p-12 text-center text-sm text-slate-400"><UsersRound className="mx-auto mb-3 h-7 w-7"/> {current.length?'No hay coincidencias.':'Importá DetallePersonal para visualizar la jerarquía.'}</div>}
+  {loading?<div className="p-12 text-center text-sm text-slate-400">Cargando personal comercial...</div>:displayMode==='table'?<div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs">
+   <thead className="bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-500"><tr>{['Sucursal','Código','Personal','Cargo','Superior','Fuerza de venta'].map(label=><th key={label} className="px-5 py-3">{label}</th>)}</tr></thead>
+   <tbody>{visiblePeople.map((person,index)=><tr key={person.branch+':'+person.role+':'+person.id} className={'border-t border-slate-100 '+(index%2?'bg-slate-50/40':'bg-white')}>
+    <td className="whitespace-nowrap px-5 py-3 text-slate-600">{person.branch}</td>
+    <td className="px-5 py-3 font-medium tabular-nums text-slate-700">{person.id}</td>
+    <td className="px-5 py-3 font-semibold text-slate-900">{person.name}</td>
+    <td className="px-5 py-3 text-slate-600">{person.role==='GERENTE'?'Gerencia':person.role==='SUPERVISOR'?'Supervisor':'Vendedor'}</td>
+    <td className="px-5 py-3 text-slate-600">{person.superior||'—'}</td>
+    <td className="px-5 py-3 text-slate-600">{person.force||'—'}</td>
+   </tr>)}</tbody>
+   </table>{!visiblePeople.length&&<p className="px-5 py-12 text-center text-sm text-slate-400">No hay personal para mostrar.</p>}</div>:visible.length?<div>{visible.map(node=>renderNode(node))}</div>:<div className="p-12 text-center text-sm text-slate-400"><UsersRound className="mx-auto mb-3 h-7 w-7"/> {current.length?'No hay coincidencias.':'Importá DetallePersonal para visualizar la jerarquía.'}</div>}
  </motion.section>;
 }
