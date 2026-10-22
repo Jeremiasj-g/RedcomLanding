@@ -52,6 +52,10 @@ const workedHours=(start:string|null,end:string|null)=>{
  if(!Number.isFinite(duration)||duration<0)return '—';
  return [Math.floor(duration/3600),Math.floor(duration%3600/60),duration%60].map(n=>String(n).padStart(2,'0')).join(':');
 };
+class PersonnelMismatchError extends Error {
+ names:string[];
+ constructor(names:string[]){super('Hay vendedores sin coincidencia única en Personal comercial.');this.name='PersonnelMismatchError';this.names=names;}
+}
 function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[]):Daily[]{
  const byName=new Map<string,Person[]>();
  for(const p of personnel.filter(p=>norm(p.role)==='VENDEDOR')){
@@ -79,7 +83,7 @@ function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[])
    if(!item.last_visit||time>item.last_visit)item.last_visit=time;
   }
  }
- if(unknown.size)throw new Error('No se pudo identificar sucursal y fuerza de venta para: '+[...unknown].slice(0,8).join(', ')+'. Revisá Personal comercial.');
+ if(unknown.size)throw new PersonnelMismatchError([...unknown].sort((a,b)=>a.localeCompare(b,'es')));
  if(!result.size)throw new Error('No hay filas válidas de visitas para importar.');
  return [...result.values()].sort((a,b)=>b.visit_date.localeCompare(a.visit_date)||a.seller_name.localeCompare(b.seller_name,'es'));
 }
@@ -93,6 +97,9 @@ export default function CategorySigoHistory(){
  const [file,setFile]=useState<File|null>(null);
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
+ const [missingNames,setMissingNames]=useState<string[]>([]);
+ const [duplicateScopes,setDuplicateScopes]=useState<{visit_date:string;branch:string;sales_force:string}[]>([]);
+ const [confirmReplace,setConfirmReplace]=useState(false);
  const [date,setDate]=useState('all');
  const [averageMonth,setAverageMonth]=useState('');
  const [view,setView]=useState<'daily'|'averages'>('daily');
@@ -130,21 +137,57 @@ export default function CategorySigoHistory(){
   return map;
  },[personnel,selectedBranch,selectedForce]);
  const upload=async(next:File|null)=>{
-  setFile(next);setPreview(null);if(!next)return;
-  try{setBusy(true);const parsed=parseReport(await readFirstWorksheet(next),personnel);setPreview(parsed);setDate('all');if(new Set(parsed.map(p=>p.branch)).size===1)setSelectedBranch(parsed[0].branch);setSelectedForce('all');notify.success('Archivo identificado. Revisá sucursal, fuerza de venta y fechas.');}
-  catch(e){notify.error(errorMessage(e,'No se pudo procesar el archivo SIGO.'));}finally{setBusy(false);}
- };
- const save=async()=>{
-  if(!preview?.length||busy)return;
-  try{setBusy(true);
-   const scopes=new Set(preview.map(p=>p.visit_date+'|'+p.branch+'|'+p.sales_force));
-   // Update only dates present in the uploaded report. Existing other days survive.
-   const {error}=await supabase.rpc('replace_category_sigo_days',{p_rows:preview});
+  setFile(next);setPreview(null);setMissingNames([]);setDuplicateScopes([]);setConfirmReplace(false);
+  if(!next)return;
+  try{
+   setBusy(true);
+   if(!personnel.length)throw new PersonnelMismatchError(['No se cargó el detalle de Personal comercial']);
+   const parsed=parseReport(await readFirstWorksheet(next),personnel);
+   setPreview(parsed);setDate('all');
+   if(new Set(parsed.map(p=>p.branch)).size===1)setSelectedBranch(parsed[0].branch);
+   setSelectedForce('all');
+   const scopes=[...new Map(parsed.map(p=>[p.visit_date+'|'+p.branch+'|'+p.sales_force,{visit_date:p.visit_date,branch:p.branch,sales_force:p.sales_force}])).values()];
+   const {data:existing,error}=await supabase.from('category_sigo_daily')
+    .select('visit_date,branch,sales_force')
+    .in('visit_date',[...new Set(scopes.map(s=>s.visit_date))]);
    if(error)throw error;
-   const other=history.filter(item=>!scopes.has(item.visit_date+'|'+item.branch+'|'+item.sales_force));
+   const existingKeys=new Set((existing??[]).map(p=>p.visit_date+'|'+p.branch+'|'+p.sales_force));
+   const duplicated=scopes.filter(scope=>existingKeys.has(scope.visit_date+'|'+scope.branch+'|'+scope.sales_force));
+   setDuplicateScopes(duplicated);
+   if(duplicated.length)notify.error('La fecha y equipo ya tienen datos guardados. Confirmá el reemplazo antes de continuar.');
+   else notify.success('Archivo procesado. Revisá la vista previa y guardá los resultados.');
+  }catch(e){
+   setPreview(null);
+   if(e instanceof PersonnelMismatchError){setMissingNames(e.names);}
+   else notify.error(errorMessage(e,'No se pudo procesar el archivo SIGO.'));
+  }finally{setBusy(false);}
+ };
+ const save=async(confirmed=false)=>{
+  if(!preview?.length||busy)return;
+  try{
+   setBusy(true);
+   // Always recheck in Supabase before writing, including when imported from another session.
+   const scopes=[...new Map(preview.map(p=>[p.visit_date+'|'+p.branch+'|'+p.sales_force,{visit_date:p.visit_date,branch:p.branch,sales_force:p.sales_force}])).values()];
+   const {data:existing,error:checkError}=await supabase.from('category_sigo_daily')
+    .select('visit_date,branch,sales_force')
+    .in('visit_date',[...new Set(scopes.map(s=>s.visit_date))]);
+   if(checkError)throw checkError;
+   const existingKeys=new Set((existing??[]).map(p=>p.visit_date+'|'+p.branch+'|'+p.sales_force));
+   const duplicates=scopes.filter(scope=>existingKeys.has(scope.visit_date+'|'+scope.branch+'|'+scope.sales_force));
+   if(duplicates.length&&!confirmed){
+    setDuplicateScopes(duplicates);
+    setConfirmReplace(true);
+    return;
+   }
+   const {error}=await supabase.rpc('replace_category_sigo_days',{p_rows:preview,p_confirm_replace:confirmed});
+   if(error)throw error;
+   const replaced=new Set(scopes.map(scope=>scope.visit_date+'|'+scope.branch+'|'+scope.sales_force));
+   const other=history.filter(item=>!replaced.has(item.visit_date+'|'+item.branch+'|'+item.sales_force));
    setHistory([...preview,...other].sort((a,b)=>a.visit_date.localeCompare(b.visit_date)||a.seller_name.localeCompare(b.seller_name,'es')));
-   setPreview(null);setFile(null);notify.success('Histórico SIGO actualizado. Días anteriores conservados.');
-  }catch(e){notify.error(errorMessage(e,'No se pudo guardar el histórico.'));}finally{setBusy(false);}
+   setPreview(null);setFile(null);setDuplicateScopes([]);setConfirmReplace(false);
+   notify.success('Histórico SIGO guardado. Los demás días y equipos se conservaron.');
+  }catch(e){notify.error(errorMessage(e,'No se pudo guardar el histórico.'));}
+  finally{setBusy(false);}
  };
  const dataset=preview??history;
  const branchData=dataset.filter(item=>item.branch===selectedBranch);
@@ -259,12 +302,33 @@ export default function CategorySigoHistory(){
      </button>;
    })}
   </div>
+  {missingNames.length>0&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-missing-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+   <div className="w-full max-w-lg rounded-[24px] bg-white p-6 shadow-2xl">
+    <div className="text-[10px] font-bold uppercase tracking-[.12em] text-amber-600">Importación bloqueada</div>
+    <h3 id="sigo-missing-title" className="mt-2 text-xl font-semibold text-slate-950">Actualizá Personal comercial</h3>
+    <p className="mt-2 text-sm leading-6 text-slate-600">Los siguientes nombres no tienen una coincidencia única de sucursal y fuerza de venta en el detalle de personal. Actualizá ese archivo en la pestaña <strong>Personal comercial</strong> y volvé a importar SIGO. No se guardó ningún dato.</p>
+    <div className="mt-4 max-h-48 overflow-y-auto rounded-xl bg-amber-50 p-3 text-sm text-amber-950">{missingNames.map(name=><div key={name} className="border-b border-amber-100 py-1.5 last:border-0">{name}</div>)}</div>
+    <div className="mt-5 flex justify-end"><button type="button" onClick={()=>setMissingNames([])} className="rounded-xl bg-slate-950 px-5 py-2.5 text-xs font-semibold text-white">Entendido</button></div>
+   </div>
+  </div>}
+  {confirmReplace&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-duplicate-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+   <div className="w-full max-w-lg rounded-[24px] bg-white p-6 shadow-2xl">
+    <div className="text-[10px] font-bold uppercase tracking-[.12em] text-amber-600">Datos ya importados</div>
+    <h3 id="sigo-duplicate-title" className="mt-2 text-xl font-semibold text-slate-950">¿Reemplazar los horarios existentes?</h3>
+    <p className="mt-2 text-sm leading-6 text-slate-600">Estos días y equipos ya tienen información guardada. Si continuás, <strong>se reemplazarán todos sus registros</strong> por los resultados del Excel actual. Los demás días y equipos no se modificarán.</p>
+    <div className="mt-4 max-h-48 overflow-y-auto rounded-xl bg-amber-50 p-3 text-xs text-amber-950">{duplicateScopes.map(scope=><div key={scope.visit_date+'|'+scope.branch+'|'+scope.sales_force} className="border-b border-amber-100 py-2 last:border-0">{displayDate(scope.visit_date)} · {scope.branch} · {scope.sales_force}</div>)}</div>
+    <div className="mt-5 flex justify-end gap-2">
+     <button type="button" disabled={busy} onClick={()=>setConfirmReplace(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-700">Cancelar</button>
+     <button type="button" disabled={busy} onClick={()=>void save(true)} className="rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">{busy?'Guardando...':'Sí, reemplazar datos'}</button>
+    </div>
+   </div>
+  </div>}
   <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,.035)]">
   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-6">
    <div><div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-600">Histórico diario · SIGO</div><h2 className="mt-1 text-2xl font-semibold tracking-tight">Horarios de vendedores</h2><p className="mt-1 text-xs text-slate-500">Cada archivo se procesa localmente: solo se guardan los resultados diarios, nunca el Excel.</p></div>
    <div className="flex items-center gap-2">
     <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-700"><Upload className="h-4 w-4"/>{file?file.name:'Importar Excel SIGO'}<input type="file" accept=".xlsx" className="sr-only" onChange={e=>void upload(e.target.files?.[0]??null)}/></label>
-    {preview&&<button disabled={busy} onClick={()=>void save()} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold text-white disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar días</button>}
+    {preview&&<button disabled={busy} onClick={()=>void save(false)} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold text-white disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar días</button>}
    </div>
   </div>
   {preview&&<div className="border-b border-blue-100 bg-blue-50 px-6 py-3 text-xs text-blue-700"><strong>Vista previa sin guardar:</strong> {preview.length} registros de vendedor/día · {datesInPreview.map(displayDate).join(', ')}. Al guardar se actualizan solo estas fechas.</div>}
