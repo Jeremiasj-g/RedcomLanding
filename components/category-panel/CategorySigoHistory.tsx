@@ -137,6 +137,10 @@ export default function CategorySigoHistory(){
   }
   return map;
  },[personnel,selectedBranch,selectedForce]);
+ const discardUpload=()=>{
+  setFile(null);setPreview(null);setMissingNames([]);setDuplicateScopes([]);setConfirmReplace(false);
+  setDate('all');setColumnFilters({});setActiveColumn(null);
+ };
  const upload=async(next:File|null)=>{
   setFile(next);setPreview(null);setMissingNames([]);setDuplicateScopes([]);setConfirmReplace(false);
   if(!next)return;
@@ -329,7 +333,10 @@ export default function CategorySigoHistory(){
   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-6">
    <div><div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-600">Histórico diario · SIGO</div><h2 className="mt-1 text-2xl font-semibold tracking-tight">Horarios de vendedores</h2><p className="mt-1 text-xs text-slate-500">Cada archivo se procesa localmente: solo se guardan los resultados diarios, nunca el Excel.</p></div>
    <div className="flex items-center gap-2">
-    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-700"><Upload className="h-4 w-4"/>{file?file.name:'Importar Excel SIGO'}<input type="file" accept=".xlsx" className="sr-only" onChange={e=>void upload(e.target.files?.[0]??null)}/></label>
+    <div className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700">
+     <label className="inline-flex h-full cursor-pointer items-center gap-2 rounded-l-xl px-4 hover:bg-slate-50"><Upload className="h-4 w-4"/>{file?file.name:'Importar Excel SIGO'}<input key={file?.name??'empty'} type="file" accept=".xlsx" className="sr-only" disabled={busy} onChange={e=>void upload(e.target.files?.[0]??null)}/></label>
+     {file&&<button type="button" aria-label="Quitar archivo importado" title="Quitar archivo importado" disabled={busy} onClick={discardUpload} className="flex h-full w-10 items-center justify-center rounded-r-xl border-l border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"><X className="h-4 w-4"/></button>}
+    </div>
     {preview&&<button disabled={busy} onClick={()=>void save(false)} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold text-white disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar días</button>}
    </div>
   </div>
