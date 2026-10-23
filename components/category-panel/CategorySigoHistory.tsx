@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {CalendarDays,ChevronDown,FileSpreadsheet,Filter,Loader2,Save,Search,Upload,X} from 'lucide-react';
 import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
+import {RedcomSelect} from '@/components/ui/redcom-select';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
 
@@ -455,11 +456,9 @@ export default function CategorySigoHistory(){
   {view==='daily'&&<>
   <div className="grid grid-cols-2 border-b border-slate-200 md:grid-cols-4">{[['Días registrados',days.length],['Clientes asignados',totals.assigned],['Visitados',totals.visited],['Sin visitar',totals.missing]].map(([label,n])=><div key={label} className="border-r border-slate-100 px-6 py-4"><p className="text-[10px] uppercase text-slate-400">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{Number(n).toLocaleString('es-AR')}</p></div>)}</div>
   <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4">
-   <select aria-label="Fuerza de venta" value={selectedForce} onChange={e=>{setSelectedForce(e.target.value);setDate('all');setAverageMonth('');setColumnFilters({});}} className="h-10 min-w-[205px] rounded-xl border border-slate-200 bg-white px-3 text-xs">
-    <option value="all">Todas las fuerzas de venta</option>{forces.map(force=><option key={force} value={force}>{force}</option>)}
-   </select>
+   <RedcomSelect aria-label="Fuerza de venta" value={selectedForce} onValueChange={value=>{setSelectedForce(value);setDate('all');setAverageMonth('');setColumnFilters({});}} options={[{value:'all',label:'Todas las fuerzas de venta'},...forces.map(force=>({value:force,label:force}))]} className="h-10 min-w-[205px] w-auto rounded-xl text-xs"/>
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
-   <div className="relative"><CalendarDays className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400"/><select aria-label="Fecha" value={date} onChange={e=>setDate(e.target.value)} className="h-10 min-w-[170px] rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs"><option value="all">Todas las fechas</option>{days.map(day=><option key={day} value={day}>{displayDate(day)}</option>)}</select></div>
+   <div className="min-w-[170px]"><RedcomSelect aria-label="Fecha" value={date} onValueChange={setDate} options={[{value:'all',label:'Todas las fechas'},...days.map(day=>({value:day,label:displayDate(day)}))]} className="h-10 rounded-xl text-xs"/></div>
   </div>
   {Object.values(columnFilters).some(values=>values.length>0)&&<div className="flex items-center justify-between border-b border-blue-100 bg-blue-50 px-5 py-2 text-[11px] font-medium text-blue-700"><span><Filter className="mr-1 inline h-3.5 w-3.5"/>Filtros activos · {shown.length} filas</span><button type="button" onClick={clearFilters} className="rounded-lg px-2 py-1 hover:bg-blue-100">Limpiar todos</button></div>}
   {activeColumn&&<>
@@ -502,7 +501,7 @@ export default function CategorySigoHistory(){
     <td className="px-5 py-3"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
     <td className="border-l-[3px] border-l-slate-400 px-3 py-2"><SigoTimeInput value={item.corrected_start} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{corrected_start:value})}/></td>
     <td className="px-3 py-2"><SigoTimeInput value={item.corrected_end} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{corrected_end:value})}/></td>
-    <td className="px-3 py-2"><select aria-label={'Motivo '+item.seller_name+' '+displayDate(item.visit_date)} value={item.reason??''} disabled={!!preview||savingCorrection===correctionKey(item)} onChange={e=>void updateCorrection(item,{reason:e.target.value||null})} className={'w-[145px] rounded-lg border border-slate-200 px-2 py-2 text-xs font-semibold '+reasonClass(item.reason)}><option value="">Sin motivo</option>{REASONS.map(reason=><option key={reason} value={reason}>{reason}</option>)}</select></td>
+    <td className="px-3 py-2"><RedcomSelect aria-label={'Motivo '+item.seller_name+' '+displayDate(item.visit_date)} value={item.reason??'none'} disabled={!!preview||savingCorrection===correctionKey(item)} onValueChange={value=>void updateCorrection(item,{reason:value==='none'?null:value})} options={[{value:'none',label:'Sin motivo'},...REASONS.map(reason=>({value:reason,label:reason}))]} className={'h-9 w-[155px] rounded-xl text-xs '+reasonClass(item.reason)}/></td>
     <td className="px-3 py-2"><SigoCommentInput value={item.comments} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{comments:value})}/></td>
    </tr>)}</tbody>
   </table>{loading?<p className="p-12 text-center text-sm text-slate-400">Cargando histórico...</p>:!shown.length?<p className="p-12 text-center text-sm text-slate-400"><FileSpreadsheet className="mx-auto mb-2 h-6 w-6"/>No hay registros para mostrar.</p>:null}</div>
@@ -515,9 +514,7 @@ export default function CategorySigoHistory(){
       <p className="mt-1 text-[11px] text-slate-500">Promedio de Horario ruta en los días con inicio y fin registrados. Los días sin horario válido no se incluyen.</p>
      </div>
      <label className="text-[11px] font-semibold text-slate-600">Mes
-      <select aria-label="Mes de promedios" value={effectiveMonth} onChange={event=>setAverageMonth(event.target.value)} disabled={!months.length} className="mt-1.5 block h-10 min-w-[200px] rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal capitalize text-slate-800 outline-none focus:border-blue-400 disabled:opacity-50">
-       {months.length?months.map(month=><option key={month} value={month}>{monthLabel(month)}</option>):<option value="">Sin meses cargados</option>}
-      </select>
+      <RedcomSelect aria-label="Mes de promedios" value={effectiveMonth} onValueChange={setAverageMonth} disabled={!months.length} options={months.map(month=>({value:month,label:monthLabel(month)}))} placeholder="Sin meses cargados" className="mt-1.5 h-10 min-w-[200px] rounded-xl text-xs"/>
      </label>
     </div>
     {Object.values(averageFilters).some(values=>values.length>0)&&<div className="flex items-center justify-between border-b border-blue-100 bg-blue-50 px-5 py-2 text-[11px] text-blue-700">
@@ -554,12 +551,8 @@ export default function CategorySigoHistory(){
    <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 px-6 py-5">
     <div><h3 className="text-lg font-semibold text-slate-900">Histórico del código de vendedor</h3><p className="mt-1 text-xs text-slate-500">Incluye distintos nombres que ocuparon el mismo ID durante el mes. Conserva el nombre de cada fecha.</p></div>
     <div className="flex flex-wrap gap-2">
-     <select aria-label="ID del vendedor" value={activeHistoryId??''} onChange={e=>setHistorySellerId(e.target.value)} className="h-10 min-w-[140px] rounded-xl border border-slate-200 px-3 text-xs">
-      {historyIds.map(id=><option key={id} value={id}>ID {id}</option>)}
-     </select>
-     <select aria-label="Mes de análisis por ID" value={effectiveMonth} onChange={e=>setAverageMonth(e.target.value)} className="h-10 min-w-[165px] rounded-xl border border-slate-200 px-3 text-xs">
-      {months.map(month=><option key={month} value={month}>{monthLabel(month)}</option>)}
-     </select>
+     <RedcomSelect aria-label="ID del vendedor" value={activeHistoryId===undefined?'':String(activeHistoryId)} onValueChange={setHistorySellerId} options={historyIds.map(id=>({value:String(id),label:'ID '+id}))} placeholder="Sin vendedores" className="h-10 min-w-[140px] rounded-xl text-xs"/>
+     <RedcomSelect aria-label="Mes de análisis por ID" value={effectiveMonth} onValueChange={setAverageMonth} options={months.map(month=>({value:month,label:monthLabel(month)}))} placeholder="Sin meses cargados" className="h-10 min-w-[165px] rounded-xl text-xs"/>
     </div>
    </div>
    <div className="border-b border-slate-100 px-6 py-4 text-xs text-slate-600">Registros: <strong>{idHistoryRows.length}</strong> · Promedio del ID: <strong>{idHistoryAverage}</strong></div>
