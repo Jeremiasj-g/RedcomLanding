@@ -111,6 +111,12 @@ export default function CategorySigoHistory(){
  const [averageMonth,setAverageMonth]=useState('');
  const [view,setView]=useState<'daily'|'averages'|'id-history'>('daily');
  const [historySellerId,setHistorySellerId]=useState<string>('');
+ const [averageFilters,setAverageFilters]=useState<Record<string,string[]>>({});
+ const [averageFilterColumn,setAverageFilterColumn]=useState<string|null>(null);
+ const [averageFilterSearch,setAverageFilterSearch]=useState('');
+ const [averageFilterDraft,setAverageFilterDraft]=useState<string[]>([]);
+ const [averageFilterPosition,setAverageFilterPosition]=useState({top:0,left:0});
+ const [averageSort,setAverageSort]=useState<{key:string;direction:'asc'|'desc'}|null>(null);
  const [query,setQuery]=useState('');
  const [columnFilters,setColumnFilters]=useState<Record<string,string[]>>({});
  const [activeColumn,setActiveColumn]=useState<string|null>(null);
@@ -285,9 +291,39 @@ export default function CategorySigoHistory(){
   return currentSellers.map(person=>{
    const matching=scopedData.filter(item=>item.visit_date.slice(0,7)===effectiveMonth&&item.seller_id===person.id&&norm(item.seller_name)===norm(person.name)&&item.sales_force===person.force);
    const durations=matching.map(item=>durationSeconds(item.first_visit,item.last_visit)).filter((seconds):seconds is number=>seconds!==null);
-   return {seller:person.name,id:person.id,days:durations.length,seconds:durations.reduce((sum,seconds)=>sum+seconds,0)};
+   const supervisor=personnel.find(p=>norm(p.role)==='SUPERVISOR'&&norm(p.branch)===norm(person.branch)&&norm(p.name)===norm(person.superior))?.name??'—';
+   return {seller:person.name,id:person.id,supervisor,days:durations.length,seconds:durations.reduce((sum,seconds)=>sum+seconds,0)};
   }).filter(item=>item.days>0).sort((a,b)=>a.seller.localeCompare(b.seller,'es'));
  },[scopedData,effectiveMonth,personnel,selectedBranch,selectedForce]);
+ const averageColumns=[{key:'id',label:'Cod vendedor'},{key:'supervisor',label:'Supervisor'},{key:'seller',label:'Vendedor'},{key:'average',label:'Hora promedio'}];
+ const averageValue=(item:(typeof monthlyAverages)[number],key:string):string=>{
+  if(key==='id')return String(item.id);
+  if(key==='supervisor')return item.supervisor;
+  if(key==='seller')return item.seller;
+  return item.days?formatDuration(Math.round(item.seconds/item.days)):'—';
+ };
+ const filteredAverages=monthlyAverages.filter(item=>averageColumns.every(col=>!averageFilters[col.key]?.length||averageFilters[col.key].includes(averageValue(item,col.key)))).sort((a,b)=>{
+  if(averageSort){
+   const left=averageValue(a,averageSort.key),right=averageValue(b,averageSort.key);
+   const diff=left.localeCompare(right,'es',{numeric:true});
+   if(diff)return averageSort.direction==='asc'?diff:-diff;
+  }
+  return a.seller.localeCompare(b.seller,'es');
+ });
+ const averageOptions=averageFilterColumn?[...new Set(monthlyAverages.filter(item=>averageColumns.every(col=>col.key===averageFilterColumn||!averageFilters[col.key]?.length||averageFilters[col.key].includes(averageValue(item,col.key)))).map(item=>averageValue(item,averageFilterColumn)))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true})):[];
+ const openAverageFilter=(key:string,button:HTMLButtonElement)=>{
+  if(averageFilterColumn===key){setAverageFilterColumn(null);return;}
+  const rect=button.getBoundingClientRect();
+  setAverageFilterPosition({top:Math.max(8,Math.min(rect.bottom+6,window.innerHeight-420)),left:Math.max(8,Math.min(rect.left,window.innerWidth-318))});
+  const values=[...new Set(monthlyAverages.filter(item=>averageColumns.every(col=>col.key===key||!averageFilters[col.key]?.length||averageFilters[col.key].includes(averageValue(item,col.key)))).map(item=>averageValue(item,key)))];
+  setAverageFilterDraft(averageFilters[key]?.length?values.filter(value=>averageFilters[key].includes(value)):values);
+  setAverageFilterSearch('');setAverageFilterColumn(key);
+ };
+ const applyAverageFilter=()=>{
+  if(!averageFilterColumn)return;
+  setAverageFilters(old=>({...old,[averageFilterColumn]:averageFilterDraft.length===averageOptions.length?[]:averageFilterDraft}));
+  setAverageFilterColumn(null);
+ };
  const historyIds=[...new Set(scopedData.map(item=>item.seller_id).filter((id):id is number=>id!==null))].sort((a,b)=>a-b);
  const activeHistoryId=historyIds.includes(Number(historySellerId))?Number(historySellerId):historyIds[0];
  const idHistoryRows=scopedData.filter(item=>item.seller_id===activeHistoryId&&(effectiveMonth?item.visit_date.startsWith(effectiveMonth):true)).sort((a,b)=>a.visit_date.localeCompare(b.visit_date));
@@ -421,16 +457,34 @@ export default function CategorySigoHistory(){
       </select>
      </label>
     </div>
-    <div className="overflow-x-auto">
-     <table className="w-full min-w-[500px] text-left text-xs">
-      <thead className="bg-[#f5f7fa] text-[10px] font-semibold uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Cod vendedor</th><th className="px-5 py-3">Vendedor</th><th className="px-5 py-3">Hora promedio</th></tr></thead>
-      <tbody>{monthlyAverages.map((item,index)=><tr key={norm(item.seller)} className={'border-t border-slate-100 '+(index%2?'bg-slate-50/40':'bg-white')}>
+    {Object.values(averageFilters).some(values=>values.length>0)&&<div className="flex items-center justify-between border-b border-blue-100 bg-blue-50 px-5 py-2 text-[11px] text-blue-700">
+     <span>Filtros activos · {filteredAverages.length} vendedores</span><button type="button" onClick={()=>{setAverageFilters({});setAverageFilterColumn(null);}} className="font-semibold hover:underline">Limpiar todos</button>
+    </div>}
+    {averageFilterColumn&&<>
+     <button type="button" aria-label="Cerrar filtro mensual" className="fixed inset-0 z-40 bg-transparent" onClick={()=>setAverageFilterColumn(null)}/>
+     <div role="dialog" aria-label={'Filtrar '+averageColumns.find(col=>col.key===averageFilterColumn)?.label} className="fixed z-50 w-[310px] overflow-hidden rounded-xl border border-slate-200 bg-white text-xs shadow-[0_18px_45px_rgba(15,23,42,.2)]" style={{top:averageFilterPosition.top,left:averageFilterPosition.left}}>
+      <div className="border-b border-slate-100 p-2">
+       {(['asc','desc'] as const).map(direction=><button key={direction} type="button" onClick={()=>{setAverageSort({key:averageFilterColumn,direction});applyAverageFilter();}} className="w-full rounded-lg px-3 py-2 text-left hover:bg-slate-100">{direction==='asc'?'Ordenar A a Z / Menor a mayor':'Ordenar Z a A / Mayor a menor'}</button>)}
+      </div>
+      <div className="px-3 pt-3"><div className="mb-2 font-semibold">Filtrar por valores</div>
+       <div className="flex justify-between text-blue-600"><button type="button" onClick={()=>setAverageFilterDraft(averageOptions)}>Seleccionar todo</button><button type="button" onClick={()=>setAverageFilterDraft([])}>Borrar</button></div>
+       <input aria-label="Buscar valores" value={averageFilterSearch} onChange={e=>setAverageFilterSearch(e.target.value)} placeholder="Buscar..." className="mt-3 h-9 w-full rounded-lg border border-slate-200 px-3 outline-none"/>
+       <div className="my-3 max-h-48 overflow-y-auto">{averageOptions.filter(value=>norm(value).includes(norm(averageFilterSearch))).map(value=><label key={value} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-slate-50"><input type="checkbox" checked={averageFilterDraft.includes(value)} onChange={()=>setAverageFilterDraft(old=>old.includes(value)?old.filter(v=>v!==value):[...old,value])}/>{value}</label>)}</div>
+      </div>
+      <div className="flex justify-end gap-2 border-t border-slate-100 p-3"><button type="button" onClick={()=>setAverageFilterColumn(null)} className="rounded-lg border border-slate-200 px-4 py-2">Cancelar</button><button type="button" onClick={applyAverageFilter} className="rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white">Aceptar</button></div>
+     </div>
+    </>}
+    <div className="max-h-[calc(100dvh-350px)] min-h-[240px] overflow-auto border-t-[3px] border-t-slate-400">
+     <table className="w-full min-w-[680px] text-left text-xs">
+      <thead className="sticky top-0 z-20 bg-[#f5f7fa] text-[10px] font-semibold uppercase tracking-wider text-slate-500"><tr>{averageColumns.map(col=><th key={col.key} className={'px-3 py-2 '+(col.key==='supervisor'?'border-l-[3px] border-l-slate-400':'')}><button type="button" onClick={e=>openAverageFilter(col.key,e.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(averageFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5"/></button></th>)}</tr></thead>
+      <tbody>{filteredAverages.map((item,index)=><tr key={item.id+'|'+item.seller} className={'border-t border-slate-100 '+(index%2?'bg-slate-50/40':'bg-white')}>
        <td className="px-5 py-3 font-medium tabular-nums text-slate-600">{item.id}</td>
+       <td className="border-l-[3px] border-l-slate-400 px-5 py-3 text-slate-700">{item.supervisor}</td>
        <td className="px-5 py-3 font-semibold text-slate-900">{item.seller}</td>
-       <td className="px-5 py-3 font-semibold tabular-nums text-blue-700">{item.days?formatDuration(Math.round(item.seconds/item.days)):'—'}</td>
+       <td className="px-5 py-3"><span className={'inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums '+(item.days?item.seconds/item.days<5*3600?'bg-red-100 text-red-700':item.seconds/item.days<5*3600+20*60?'bg-amber-100 text-amber-800':'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-500')}>{item.days?formatDuration(Math.round(item.seconds/item.days)):'—'}</span></td>
       </tr>)}</tbody>
      </table>
-     {!monthlyAverages.length&&<p className="px-6 py-12 text-center text-xs text-slate-400">No hay vendedores registrados en el mes seleccionado.</p>}
+     {!filteredAverages.length&&<p className="px-6 py-12 text-center text-xs text-slate-400">No hay vendedores para mostrar con los filtros actuales.</p>}
     </div>
   </div>}
   {view==='id-history'&&<div className="bg-white">
