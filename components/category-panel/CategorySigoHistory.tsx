@@ -181,7 +181,7 @@ function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[])
  return [...result.values()].sort((a,b)=>b.visit_date.localeCompare(a.visit_date)||a.seller_name.localeCompare(b.seller_name,'es'));
 }
 
-export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:string;force:string}}={}){
+export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:string;force:string;editorRole:string;editorName:string}}={}){
  const [history,setHistory]=useState<Daily[]>([]);
  const [personnel,setPersonnel]=useState<Person[]>([]);
  const [selectedBranch,setSelectedBranch]=useState<string>(branchScope?.branch??'CASA CENTRAL');
@@ -316,6 +316,8 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   finally{setBusy(false);}
  };
  const correctionKey=(row:Daily)=>[row.visit_date,row.branch,row.sales_force,row.seller_name].join('|');
+ const canEditRow=(row:Daily)=>!branchScope||branchScope.editorRole==='admin'||branchScope.editorRole==='jdv'||
+  personnel.some(person=>norm(person.role)==='VENDEDOR'&&person.id===row.seller_id&&norm(person.branch)===norm(row.branch)&&norm(person.force)===norm(row.sales_force)&&norm(person.superior)===norm(branchScope.editorName));
  const updateCorrection=async(row:Daily,patch:Partial<Pick<Daily,'corrected_start'|'corrected_end'|'reason'|'comments'>>)=>{
   if(preview){notify.error('Guardá o descartá el Excel pendiente antes de editar correcciones.');return;}
   const key=correctionKey(row);
@@ -567,10 +569,10 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
     <td className="px-5 py-3 font-medium tabular-nums">{item.last_visit??'—'}</td>
     <td className="px-5 py-3"><span className={"inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums "+hoursColor(effectiveStart(item),effectiveEnd(item))}>{workedHours(effectiveStart(item),effectiveEnd(item))}</span></td>
     <td className="px-5 py-3"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
-    <td className="border-l-[3px] border-l-slate-400 px-3 py-2"><SigoTimeInput value={item.corrected_start} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{corrected_start:value})}/></td>
-    <td className="px-3 py-2"><SigoTimeInput value={item.corrected_end} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{corrected_end:value})}/></td>
-    <td className="px-3 py-2"><RedcomSelect aria-label={'Motivo '+item.seller_name+' '+displayDate(item.visit_date)} value={item.reason??'none'} disabled={!!preview||savingCorrection===correctionKey(item)} onValueChange={value=>void updateCorrection(item,{reason:value==='none'?null:value})} options={[{value:'none',label:'Sin motivo'},...REASONS.map(reason=>({value:reason,label:reason}))]} className={'h-9 w-[155px] rounded-xl text-xs '+reasonClass(item.reason)}/></td>
-    <td className="px-3 py-2"><div className="flex items-center gap-2"><SigoCommentInput value={item.comments} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{comments:value})}/><SigoAuditButton row={item}/></div></td>
+    <td className="border-l-[3px] border-l-slate-400 px-3 py-2"><SigoTimeInput value={item.corrected_start} disabled={!!preview||savingCorrection===correctionKey(item)||!canEditRow(item)} onSave={value=>void updateCorrection(item,{corrected_start:value})}/></td>
+    <td className="px-3 py-2"><SigoTimeInput value={item.corrected_end} disabled={!!preview||savingCorrection===correctionKey(item)||!canEditRow(item)} onSave={value=>void updateCorrection(item,{corrected_end:value})}/></td>
+    <td className="px-3 py-2"><RedcomSelect aria-label={'Motivo '+item.seller_name+' '+displayDate(item.visit_date)} value={item.reason??'none'} disabled={!!preview||savingCorrection===correctionKey(item)||!canEditRow(item)} onValueChange={value=>void updateCorrection(item,{reason:value==='none'?null:value})} options={[{value:'none',label:'Sin motivo'},...REASONS.map(reason=>({value:reason,label:reason}))]} className={'h-9 w-[155px] rounded-xl text-xs '+reasonClass(item.reason)}/></td>
+    <td className="px-3 py-2"><div className="flex items-center gap-2"><SigoCommentInput value={item.comments} disabled={!!preview||savingCorrection===correctionKey(item)||!canEditRow(item)} onSave={value=>void updateCorrection(item,{comments:value})}/><SigoAuditButton row={item}/></div></td>
    </tr>)}</tbody>
   </table>{loading?<p className="p-12 text-center text-sm text-slate-400">Cargando histórico...</p>:!shown.length?<p className="p-12 text-center text-sm text-slate-400"><FileSpreadsheet className="mx-auto mb-2 h-6 w-6"/>No hay registros para mostrar.</p>:null}</div>
   </>}
