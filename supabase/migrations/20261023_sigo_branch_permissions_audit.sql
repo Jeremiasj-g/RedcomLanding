@@ -16,7 +16,7 @@ $$;
 revoke all on function public.sigo_allowed_team(text,text) from public,anon;
 grant execute on function public.sigo_allowed_team(text,text) to authenticated;
 create or replace function public.sigo_seller_allowed(p_branch text,p_force text,p_seller text)
-returns boolean language sql stable security definer set search_path=public as $
+returns boolean language sql stable security definer set search_path=public as $$
  select exists (
  select 1 from public.profiles p
  where p.id=auth.uid() and p.is_active=true
@@ -34,7 +34,7 @@ returns boolean language sql stable security definer set search_path=public as $
  ))
  )
  )
-$;
+$$;
 revoke all on function public.sigo_seller_allowed(text,text,text) from public,anon;
 grant execute on function public.sigo_seller_allowed(text,text,text) to authenticated;
 create policy "Category SIGO assigned managers select" on public.category_sigo_daily

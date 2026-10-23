@@ -9,6 +9,16 @@ import {errorMessage,notify} from '@/lib/notifications';
 
 type Daily={visit_date:string;seller_name:string;seller_id:number|null;corrected_start:string|null;corrected_end:string|null;reason:string|null;comments:string|null;branch:string;sales_force:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
 type Person={id:number;name:string;branch:string;role:string;superior:string;force?:string};
+async function loadSigoRows():Promise<Daily[]>{
+ const rows:Daily[]=[];let offset=0;
+ while(true){
+  const {data,error}=await supabase.from('category_sigo_daily').select('visit_date,seller_name,seller_id,corrected_start,corrected_end,reason,comments,branch,sales_force,total_clients,visited_clients,unvisited_clients,first_visit,last_visit')
+   .order('visit_date',{ascending:false}).order('seller_name',{ascending:true}).range(offset,offset+999);
+  if(error)throw error;
+  rows.push(...(data??[]));if((data??[]).length<1000)break;offset+=1000;
+ }
+ return rows;
+}
 const TEAM_CARDS=[
  {id:'masivos',name:'Masivos',branch:'CASA CENTRAL',force:'ESQUEMA 1',category:'Masivos',description:'Distribución de productos de consumo masivo para toda la región',tone:'from-[#07567d] via-[#0879b4] to-[#039add]'},
  {id:'refrigerados',name:'Refrigerados',branch:'CASA CENTRAL',force:'ESQUEMA REGRIGERADOS',category:'Refrigerados',description:'Cadena de frío garantizada para productos perecederos',tone:'from-[#07567d] via-[#0879b4] to-[#039add]'},
@@ -76,11 +86,11 @@ const reasonClass=(reason:string|null)=>{
 };
 function SigoAuditButton({row}:{row:Daily}){
  const [open,setOpen]=useState(false);
- const [entries,setEntries]=useState<Array<{id:number;column_name:string;old_value:string|null;new_value:string|null;actor_id:string;edited_at:string}>>([]);
+ const [entries,setEntries]=useState<Array<{id:number;column_name:string;old_value:string|null;new_value:string|null;actor_id:string;actor_name:string|null;edited_at:string}>>([]);
  const [loading,setLoading]=useState(false);
  const load=async()=>{
   setLoading(true);
-  const {data,error}=await supabase.from('category_sigo_edit_log').select('id,column_name,old_value,new_value,actor_id,edited_at')
+  const {data,error}=await supabase.from('category_sigo_edit_log').select('id,column_name,old_value,new_value,actor_id,actor_name,edited_at')
    .eq('visit_date',row.visit_date).eq('branch',row.branch).eq('sales_force',row.sales_force).eq('seller_name',row.seller_name).order('edited_at',{ascending:false}).limit(100);
   if(error)notify.error(errorMessage(error,'No se pudo cargar el historial.'));
   else setEntries(data??[]);
@@ -95,7 +105,7 @@ function SigoAuditButton({row}:{row:Daily}){
     {loading?<p className="py-8 text-sm text-slate-500">Cargando...</p>:!entries.length?<p className="py-8 text-sm text-slate-500">Sin correcciones registradas.</p>:<div className="mt-5 space-y-3">{entries.map(entry=><div key={entry.id} className="rounded-xl border border-slate-200 p-3 text-xs">
       <div className="font-semibold">{({corrected_start:'Corregir inicio',corrected_end:'Corregir fin',reason:'Motivo',comments:'Comentarios'} as Record<string,string>)[entry.column_name]??entry.column_name}</div>
       <div className="mt-1 text-slate-600">{entry.old_value??'—'} → {entry.new_value??'—'}</div>
-      <div className="mt-2 text-[11px] text-slate-400">{new Date(entry.edited_at).toLocaleString('es-AR')} · Usuario {entry.actor_id.slice(0,8)}…</div>
+      <div className="mt-2 text-[11px] text-slate-400">{new Date(entry.edited_at).toLocaleString('es-AR')} · {entry.actor_name||('Usuario '+entry.actor_id.slice(0,8)+'…')}</div>
      </div>)}</div>}
    </div>
   </div>}
@@ -202,31 +212,24 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  const [filterPosition,setFilterPosition]=useState({top:0,left:0});
  const [sortColumn,setSortColumn]=useState<string|null>(null);
  const [sortDirection,setSortDirection]=useState<'asc'|'desc'>('asc');
- useEffect(()=>{let live=true;void(async()=>{try{
-  const all:Daily[]=[];let offset=0;
-  while(true){
-   const {data,error}=await supabase.from('category_sigo_daily').select('visit_date,seller_name,seller_id,corrected_start,corrected_end,reason,comments,branch,sales_force,total_clients,visited_clients,unvisited_clients,first_visit,last_visit').order('visit_date',{ascending:false}).order('seller_name',{ascending:true}).range(offset,offset+999);
-   if(error)throw error;
-   all.push(...(data??[]));if((data??[]).length<1000)break;offset+=1000;
-  }
-  if(live)setHistory(all);
- }catch(e){if(live)notify.error(errorMessage(e,'No se pudo cargar el histórico SIGO.'));}finally{if(live)setLoading(false);}})();return()=>{live=false;};},[]);
+ useEffect(()=>{let live=true;
+  void loadSigoRows().then(rows=>{if(live)setHistory(rows);}).catch(e=>{if(live)notify.error(errorMessage(e,'No se pudo cargar el histórico SIGO.'));}).finally(()=>{if(live)setLoading(false);});
+  return()=>{live=false;};
+ },[]);
  useEffect(()=>{let active=true;void(async()=>{
   const {data,error}=branchScope
     ?await supabase.rpc('sigo_personnel_for_team',{p_branch:branchScope.branch,p_force:branchScope.force})
     :await supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle();
   if(error){if(active)notify.error(errorMessage(error,'No se pudo cargar la jerarquía comercial.'));return;}
-  if(active)setPersonnel(Array.isArray(branchScope?data:(data as {people?:Person[]}|null)?.people)?(branchScope?data:(data as {people?:Person[]}|null)?.people) as Person[]:[]);
+  const people=branchScope?data:(data as {people?:Person[]}|null)?.people;
+  if(active)setPersonnel(Array.isArray(people)?people as Person[]:[]);
  })();return()=>{active=false;};},[branchScope?.branch,branchScope?.force]);
  useEffect(()=>{
+  let live=true;
   const channel=supabase.channel('sigo-daily-sync').on('postgres_changes',{event:'*',schema:'public',table:'category_sigo_daily'},()=>{
-   void (async()=>{
-    const records:Daily[]=[];let offset=0;
-    while(true){const {data,error}=await supabase.from('category_sigo_daily').select('*').order('visit_date',{ascending:false}).range(offset,offset+999);if(error)break;records.push(...(data??[]));if((data??[]).length<1000)break;offset+=1000;}
-    if(records.length)setHistory(records);
-   })();
+   void loadSigoRows().then(rows=>{if(live)setHistory(rows);}).catch(e=>{if(live)notify.error(errorMessage(e,'No se pudieron sincronizar los cambios de horarios.'));});
   }).subscribe();
-  return()=>{void supabase.removeChannel(channel);};
+  return()=>{live=false;void supabase.removeChannel(channel);};
  },[]);
  const sellerDetails=useMemo(()=>{
   const map=new Map<string,{code:string;supervisor:string}>();
@@ -304,9 +307,9 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
    }
    const {error}=await supabase.rpc('replace_category_sigo_days',{p_rows:preview,p_confirm_replace:confirmed});
    if(error)throw error;
-   const replaced=new Set(scopes.map(scope=>scope.visit_date+'|'+scope.branch+'|'+scope.sales_force));
-   const other=history.filter(item=>!replaced.has(item.visit_date+'|'+item.branch+'|'+item.sales_force));
-   setHistory([...preview,...other].sort((a,b)=>a.visit_date.localeCompare(b.visit_date)||a.seller_name.localeCompare(b.seller_name,'es')));
+   // Read the persisted rows back: the RPC preserves manual corrections during re-imports.
+   try{setHistory(await loadSigoRows());}
+   catch(e){notify.error('Se guardaron los horarios, pero no se pudo refrescar la tabla. Recargá la página para ver las correcciones conservadas.');}
    setPreview(null);setFiles([]);setDuplicateScopes([]);setConfirmReplace(false);
    notify.success('Histórico SIGO guardado. Los demás días y equipos se conservaron.');
   }catch(e){notify.error(errorMessage(e,'No se pudo guardar el histórico.'));}

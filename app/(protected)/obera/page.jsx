@@ -1,3 +1,4 @@
+import BranchSigoEntry from '@/components/category-panel/BranchSigoEntry';
 'use client';
 
 import { useMemo } from 'react';
@@ -44,6 +45,7 @@ export default function Obera() {
       />
 
       <div className="min-h-screen bg-white">
+        <BranchSigoEntry branchKey="obera" href="/obera/horarios-sigo" />
         <BranchResourcesSection branchName="Oberá" branchKey="obera" />
 
         {canSeeAnalytics && (

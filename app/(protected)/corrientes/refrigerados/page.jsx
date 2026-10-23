@@ -1,3 +1,4 @@
+import BranchSigoEntry from '@/components/category-panel/BranchSigoEntry';
 'use client';
 
 import { useMemo } from 'react';
@@ -44,6 +45,7 @@ export default function CorrientesRefrigerados() {
       />
 
       <div className="min-h-screen bg-white">
+        <BranchSigoEntry branchKey="refrigerados" href="/corrientes/refrigerados/horarios-sigo" />
         <BranchResourcesSection
           branchName="Corrientes Refrigerados"
           branchKey="corrientes_refrigerados"

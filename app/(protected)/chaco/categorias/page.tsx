@@ -1,3 +1,4 @@
+import BranchSigoEntry from '@/components/category-panel/BranchSigoEntry';
 import React from 'react'
 import CategoriasTable from '@/components/categoria/CategoriasTable'
 import CategoriasGrid from '@/components/categoria/CategoriasGrid'
@@ -5,6 +6,8 @@ import CategoriasLayout from '@/components/categoria/CategoriasLayout'
 
 export default function Page() {
   return (
+   <>
+    <BranchSigoEntry branchKey="chaco" href="/chaco/horarios-sigo"/>
     <CategoriasLayout
       roles={['admin', 'supervisor', 'jdv' ,'vendedor', 'rrhh']}
       branches={['chaco']}
@@ -14,5 +17,6 @@ export default function Page() {
       grid={<CategoriasGrid />}
       historyHref="/chaco/categorias/historico"
     />
+   </>
   )
 }
