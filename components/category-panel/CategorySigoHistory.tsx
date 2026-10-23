@@ -150,7 +150,7 @@ export default function CategorySigoHistory(){
  const [selectedBranch,setSelectedBranch]=useState<string>('CASA CENTRAL');
  const [selectedForce,setSelectedForce]=useState<string>('ESQUEMA 1');
  const [preview,setPreview]=useState<Daily[]|null>(null);
- const [file,setFile]=useState<File|null>(null);
+ const [files,setFiles]=useState<File[]>([]);
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
  const [savingCorrection,setSavingCorrection]=useState<string|null>(null);
@@ -201,33 +201,49 @@ export default function CategorySigoHistory(){
   return map;
  },[personnel,selectedBranch,selectedForce]);
  const discardUpload=()=>{
-  setFile(null);setPreview(null);setMissingNames([]);setDuplicateScopes([]);setConfirmReplace(false);
+  setFiles([]);setPreview(null);setMissingNames([]);setDuplicateScopes([]);setConfirmReplace(false);
   setDate('all');setColumnFilters({});setActiveColumn(null);
  };
- const upload=async(next:File|null)=>{
-  setFile(next);setPreview(null);setMissingNames([]);setDuplicateScopes([]);setConfirmReplace(false);
-  if(!next)return;
+ const upload=async(nextFiles:File[])=>{
+  setFiles(nextFiles);setPreview(null);setMissingNames([]);setDuplicateScopes([]);setConfirmReplace(false);
+  if(!nextFiles.length)return;
   try{
    setBusy(true);
    if(!personnel.length)throw new PersonnelMismatchError(['No se cargó el detalle de Personal comercial']);
-   const parsed=parseReport(await readFirstWorksheet(next),personnel);
-   setPreview(parsed);setDate('all');
-   if(new Set(parsed.map(p=>p.branch)).size===1)setSelectedBranch(parsed[0].branch);
+   const parsed:Daily[]=[];
+   const missing=new Set<string>();
+   for(const next of nextFiles){
+    try{parsed.push(...parseReport(await readFirstWorksheet(next),personnel));}
+    catch(e){
+     if(e instanceof PersonnelMismatchError){e.names.forEach(name=>missing.add(next.name+' · '+name));continue;}
+     throw new Error(next.name+': '+errorMessage(e,'No se pudo procesar el Excel.'));
+    }
+   }
+   if(missing.size)throw new PersonnelMismatchError([...missing].sort((a,b)=>a.localeCompare(b,'es')));
+   const unique=new Map<string,Daily>();
+   for(const item of parsed){
+    const key=[item.visit_date,item.branch,item.sales_force,item.seller_name].join('|');
+    if(unique.has(key))throw new Error('Registro duplicado entre los Excel seleccionados: '+displayDate(item.visit_date)+' · '+item.seller_name+'. Quitá uno de los archivos para evitar duplicar sus visitas.');
+    unique.set(key,item);
+   }
+   const combined=[...unique.values()];
+   setPreview(combined);setDate('all');
+   if(new Set(combined.map(p=>p.branch)).size===1)setSelectedBranch(combined[0].branch);
    setSelectedForce('all');
-   const scopes=[...new Map(parsed.map(p=>[p.visit_date+'|'+p.branch+'|'+p.sales_force,{visit_date:p.visit_date,branch:p.branch,sales_force:p.sales_force}])).values()];
+   const scopes=[...new Map(combined.map(p=>[p.visit_date+'|'+p.branch+'|'+p.sales_force,{visit_date:p.visit_date,branch:p.branch,sales_force:p.sales_force}])).values()];
    const {data:existing,error}=await supabase.from('category_sigo_daily')
     .select('visit_date,branch,sales_force')
     .in('visit_date',[...new Set(scopes.map(s=>s.visit_date))]);
    if(error)throw error;
-   const existingKeys=new Set((existing??[]).map(p=>p.visit_date+'|'+p.branch+'|'+p.sales_force));
-   const duplicated=scopes.filter(scope=>existingKeys.has(scope.visit_date+'|'+scope.branch+'|'+scope.sales_force));
+   const keys=new Set((existing??[]).map(p=>p.visit_date+'|'+p.branch+'|'+p.sales_force));
+   const duplicated=scopes.filter(scope=>keys.has(scope.visit_date+'|'+scope.branch+'|'+scope.sales_force));
    setDuplicateScopes(duplicated);
-   if(duplicated.length)notify.error('La fecha y equipo ya tienen datos guardados. Confirmá el reemplazo antes de continuar.');
-   else notify.success('Archivo procesado. Revisá la vista previa y guardá los resultados.');
+   if(duplicated.length)notify.error('Algunas fechas y equipos ya tienen datos. Se solicitará confirmación antes de reemplazarlos.');
+   else notify.success(nextFiles.length+' archivo(s) procesados. Revisá los resultados antes de guardar.');
   }catch(e){
    setPreview(null);
-   if(e instanceof PersonnelMismatchError){setMissingNames(e.names);}
-   else notify.error(errorMessage(e,'No se pudo procesar el archivo SIGO.'));
+   if(e instanceof PersonnelMismatchError)setMissingNames(e.names);
+   else notify.error(errorMessage(e,'No se pudieron procesar los archivos SIGO.'));
   }finally{setBusy(false);}
  };
  const save=async(confirmed=false)=>{
@@ -252,7 +268,7 @@ export default function CategorySigoHistory(){
    const replaced=new Set(scopes.map(scope=>scope.visit_date+'|'+scope.branch+'|'+scope.sales_force));
    const other=history.filter(item=>!replaced.has(item.visit_date+'|'+item.branch+'|'+item.sales_force));
    setHistory([...preview,...other].sort((a,b)=>a.visit_date.localeCompare(b.visit_date)||a.seller_name.localeCompare(b.seller_name,'es')));
-   setPreview(null);setFile(null);setDuplicateScopes([]);setConfirmReplace(false);
+   setPreview(null);setFiles([]);setDuplicateScopes([]);setConfirmReplace(false);
    notify.success('Histórico SIGO guardado. Los demás días y equipos se conservaron.');
   }catch(e){notify.error(errorMessage(e,'No se pudo guardar el histórico.'));}
   finally{setBusy(false);}
@@ -443,12 +459,13 @@ export default function CategorySigoHistory(){
    <div><div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-600">Histórico diario · SIGO</div><h2 className="mt-1 text-2xl font-semibold tracking-tight">Horarios de vendedores</h2><p className="mt-1 text-xs text-slate-500">Cada archivo se procesa localmente: solo se guardan los resultados diarios, nunca el Excel.</p></div>
    <div className="flex items-center gap-2">
     <div className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700">
-     <label className="inline-flex h-full cursor-pointer items-center gap-2 rounded-l-xl px-4 hover:bg-slate-50"><Upload className="h-4 w-4"/>{file?file.name:'Importar Excel SIGO'}<input key={file?.name??'empty'} type="file" accept=".xlsx" className="sr-only" disabled={busy} onChange={e=>void upload(e.target.files?.[0]??null)}/></label>
-     {file&&<button type="button" aria-label="Quitar archivo importado" title="Quitar archivo importado" disabled={busy} onClick={discardUpload} className="flex h-full w-10 items-center justify-center rounded-r-xl border-l border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"><X className="h-4 w-4"/></button>}
+     <label className="inline-flex h-full cursor-pointer items-center gap-2 rounded-l-xl px-4 hover:bg-slate-50"><Upload className="h-4 w-4"/>{files.length?files.length+' Excel seleccionados':'Importar Excel SIGO'}<input type="file" multiple accept=".xlsx" className="sr-only" disabled={busy} onChange={e=>{const selected=Array.from(e.target.files??[]);e.target.value='';if(selected.length)void upload([...files,...selected]);}}/></label>
+     {files.length>0&&<button type="button" aria-label="Quitar todos los archivos importados" title="Quitar todos" disabled={busy} onClick={discardUpload} className="flex h-full w-10 items-center justify-center rounded-r-xl border-l border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"><X className="h-4 w-4"/></button>}
     </div>
     {preview&&<button disabled={busy} onClick={()=>void save(false)} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold text-white disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar días</button>}
    </div>
   </div>
+  {files.length>0&&<div className="flex flex-wrap gap-2 border-b border-slate-200 px-6 py-3">{files.map((item,index)=><span key={item.name+'-'+index} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700">{item.name}<button type="button" aria-label={'Quitar '+item.name} disabled={busy} onClick={()=>void upload(files.filter((_,i)=>i!==index))} className="rounded text-slate-400 hover:text-red-600 disabled:opacity-40"><X className="h-3.5 w-3.5"/></button></span>)}</div>}
   {preview&&<div className="border-b border-blue-100 bg-blue-50 px-6 py-3 text-xs text-blue-700"><strong>Vista previa sin guardar:</strong> {preview.length} registros de vendedor/día · {datesInPreview.map(displayDate).join(', ')}. Al guardar se actualizan solo estas fechas.</div>}
   <div className="sticky top-[72px] z-30 flex flex-wrap gap-2 border-b border-slate-200 bg-[#fafbfc] px-5 py-3" role="tablist" aria-label="Vistas de Horarios SIGO">
    <button type="button" role="tab" aria-selected={view==='daily'} onClick={()=>{setView('daily');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='daily'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Detalle diario</button>
