@@ -74,6 +74,33 @@ const reasonClass=(reason:string|null)=>{
   default:return 'bg-white text-slate-600';
  }
 };
+function SigoAuditButton({row}:{row:Daily}){
+ const [open,setOpen]=useState(false);
+ const [entries,setEntries]=useState<Array<{id:number;column_name:string;old_value:string|null;new_value:string|null;actor_id:string;edited_at:string}>>([]);
+ const [loading,setLoading]=useState(false);
+ const load=async()=>{
+  setLoading(true);
+  const {data,error}=await supabase.from('category_sigo_edit_log').select('id,column_name,old_value,new_value,actor_id,edited_at')
+   .eq('visit_date',row.visit_date).eq('branch',row.branch).eq('sales_force',row.sales_force).eq('seller_name',row.seller_name).order('edited_at',{ascending:false}).limit(100);
+  if(error)notify.error(errorMessage(error,'No se pudo cargar el historial.'));
+  else setEntries(data??[]);
+  setLoading(false);
+ };
+ return <>
+  <button type="button" aria-label={'Ver historial de correcciones '+row.seller_name} title="Historial de correcciones" onClick={()=>{setOpen(true);void load();}} className="rounded-lg border border-slate-200 px-2 py-2 text-slate-500 hover:bg-slate-100"><CalendarDays className="h-4 w-4"/></button>
+  {open&&<div role="dialog" aria-modal="true" aria-label="Historial de correcciones" className="fixed inset-0 z-[310] flex items-center justify-center bg-slate-950/60 p-4">
+   <div className="max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 text-slate-800 shadow-2xl">
+    <div className="flex items-center justify-between gap-4"><h3 className="text-lg font-semibold">Historial · {row.seller_name}</h3><button type="button" aria-label="Cerrar historial" onClick={()=>setOpen(false)}><X className="h-5 w-5"/></button></div>
+    <p className="mt-1 text-xs text-slate-500">{displayDate(row.visit_date)} · {row.sales_force}</p>
+    {loading?<p className="py-8 text-sm text-slate-500">Cargando...</p>:!entries.length?<p className="py-8 text-sm text-slate-500">Sin correcciones registradas.</p>:<div className="mt-5 space-y-3">{entries.map(entry=><div key={entry.id} className="rounded-xl border border-slate-200 p-3 text-xs">
+      <div className="font-semibold">{({corrected_start:'Corregir inicio',corrected_end:'Corregir fin',reason:'Motivo',comments:'Comentarios'} as Record<string,string>)[entry.column_name]??entry.column_name}</div>
+      <div className="mt-1 text-slate-600">{entry.old_value??'—'} → {entry.new_value??'—'}</div>
+      <div className="mt-2 text-[11px] text-slate-400">{new Date(entry.edited_at).toLocaleString('es-AR')} · Usuario {entry.actor_id.slice(0,8)}…</div>
+     </div>)}</div>}
+   </div>
+  </div>}
+ </>;
+}
 function SigoCommentInput({value,disabled,onSave}:{value:string|null;disabled:boolean;onSave:(value:string|null)=>void}){
  const [draft,setDraft]=useState(value??'');
  useEffect(()=>setDraft(value??''),[value]);
@@ -144,11 +171,11 @@ function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[])
  return [...result.values()].sort((a,b)=>b.visit_date.localeCompare(a.visit_date)||a.seller_name.localeCompare(b.seller_name,'es'));
 }
 
-export default function CategorySigoHistory(){
+export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:string;force:string}}={}){
  const [history,setHistory]=useState<Daily[]>([]);
  const [personnel,setPersonnel]=useState<Person[]>([]);
- const [selectedBranch,setSelectedBranch]=useState<string>('CASA CENTRAL');
- const [selectedForce,setSelectedForce]=useState<string>('ESQUEMA 1');
+ const [selectedBranch,setSelectedBranch]=useState<string>(branchScope?.branch??'CASA CENTRAL');
+ const [selectedForce,setSelectedForce]=useState<string>(branchScope?.force??'ESQUEMA 1');
  const [preview,setPreview]=useState<Daily[]|null>(null);
  const [files,setFiles]=useState<File[]>([]);
  const [loading,setLoading]=useState(true);
@@ -185,10 +212,22 @@ export default function CategorySigoHistory(){
   if(live)setHistory(all);
  }catch(e){if(live)notify.error(errorMessage(e,'No se pudo cargar el histórico SIGO.'));}finally{if(live)setLoading(false);}})();return()=>{live=false;};},[]);
  useEffect(()=>{let active=true;void(async()=>{
-  const {data,error}=await supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle();
+  const {data,error}=branchScope
+    ?await supabase.rpc('sigo_personnel_for_team',{p_branch:branchScope.branch,p_force:branchScope.force})
+    :await supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle();
   if(error){if(active)notify.error(errorMessage(error,'No se pudo cargar la jerarquía comercial.'));return;}
-  if(active)setPersonnel(Array.isArray(data?.people)?data.people as Person[]:[]);
- })();return()=>{active=false;};},[]);
+  if(active)setPersonnel(Array.isArray(branchScope?data:(data as {people?:Person[]}|null)?.people)?(branchScope?data:(data as {people?:Person[]}|null)?.people) as Person[]:[]);
+ })();return()=>{active=false;};},[branchScope?.branch,branchScope?.force]);
+ useEffect(()=>{
+  const channel=supabase.channel('sigo-daily-sync').on('postgres_changes',{event:'*',schema:'public',table:'category_sigo_daily'},()=>{
+   void (async()=>{
+    const records:Daily[]=[];let offset=0;
+    while(true){const {data,error}=await supabase.from('category_sigo_daily').select('*').order('visit_date',{ascending:false}).range(offset,offset+999);if(error)break;records.push(...(data??[]));if((data??[]).length<1000)break;offset+=1000;}
+    if(records.length)setHistory(records);
+   })();
+  }).subscribe();
+  return()=>{void supabase.removeChannel(channel);};
+ },[]);
  const sellerDetails=useMemo(()=>{
   const map=new Map<string,{code:string;supervisor:string}>();
   for(const seller of personnel.filter(p=>norm(p.role)==='VENDEDOR'&&norm(p.branch)===norm(selectedBranch)&&(selectedForce==='all'||p.force===selectedForce))){
@@ -279,11 +318,18 @@ export default function CategorySigoHistory(){
   const key=correctionKey(row);
   const next={...row,...patch};
   setSavingCorrection(key);
-  const {data,error}=await supabase.from('category_sigo_daily').update(patch)
-   .eq('visit_date',row.visit_date).eq('branch',row.branch).eq('sales_force',row.sales_force).eq('seller_name',row.seller_name)
-   .select('visit_date').single();
+  const field=Object.keys(patch)[0] as keyof typeof patch;
+  const {data,error}=await supabase.rpc('sigo_update_correction',{
+   p_date:row.visit_date,p_branch:row.branch,p_force:row.sales_force,
+   p_seller:row.seller_name,p_field:field,p_expected:row[field]??null,p_value:patch[field]??null
+  });
   if(error){notify.error(errorMessage(error,'No se pudo guardar la corrección.'));setSavingCorrection(null);return;}
-  if(data)setHistory(prev=>prev.map(item=>correctionKey(item)===key?next:item));
+  if(!data){
+   notify.error('Otro usuario modificó este campo. Se actualizarán los datos para que puedas revisar el cambio.');
+   const {data:fresh}=await supabase.from('category_sigo_daily').select('*')
+    .eq('visit_date',row.visit_date).eq('branch',row.branch).eq('sales_force',row.sales_force).eq('seller_name',row.seller_name).maybeSingle();
+   if(fresh)setHistory(prev=>prev.map(item=>correctionKey(item)===key?fresh as Daily:item));
+  }else setHistory(prev=>prev.map(item=>correctionKey(item)===key?next:item));
   setSavingCorrection(null);
  };
  const dataset=preview??history;
@@ -414,7 +460,7 @@ export default function CategorySigoHistory(){
  const monthLabel=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'));
  const datesInPreview=[...new Set(preview?.map(item=>item.visit_date)??[])];
  return <div className="mt-6">
-  <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+  {!branchScope&&<div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
    {TEAM_CARDS.map(team=>{
     const active=selectedBranch===team.branch&&selectedForce===team.force;
     const total=history.filter(item=>item.branch===team.branch&&(team.force==='all'||item.sales_force===team.force)).length;
@@ -432,8 +478,8 @@ export default function CategorySigoHistory(){
       <span className="text-[11px] opacity-70">{total} registros históricos</span>
      </button>;
    })}
-  </div>
-  {missingNames.length>0&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-missing-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+  </div>}
+  {!branchScope&&missingNames.length>0&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-missing-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
    <div className="w-full max-w-lg rounded-[24px] bg-white p-6 shadow-2xl">
     <div className="text-[10px] font-bold uppercase tracking-[.12em] text-amber-600">Importación bloqueada</div>
     <h3 id="sigo-missing-title" className="mt-2 text-xl font-semibold text-slate-950">Actualizá Personal comercial</h3>
@@ -442,7 +488,7 @@ export default function CategorySigoHistory(){
     <div className="mt-5 flex justify-end"><button type="button" onClick={()=>setMissingNames([])} className="rounded-xl bg-slate-950 px-5 py-2.5 text-xs font-semibold text-white">Entendido</button></div>
    </div>
   </div>}
-  {confirmReplace&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-duplicate-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+  {!branchScope&&confirmReplace&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-duplicate-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
    <div className="w-full max-w-lg rounded-[24px] bg-white p-6 shadow-2xl">
     <div className="text-[10px] font-bold uppercase tracking-[.12em] text-amber-600">Datos ya importados</div>
     <h3 id="sigo-duplicate-title" className="mt-2 text-xl font-semibold text-slate-950">¿Reemplazar los horarios existentes?</h3>
@@ -458,15 +504,15 @@ export default function CategorySigoHistory(){
   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-6">
    <div><div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-600">Histórico diario · SIGO</div><h2 className="mt-1 text-2xl font-semibold tracking-tight">Horarios de vendedores</h2><p className="mt-1 text-xs text-slate-500">Cada archivo se procesa localmente: solo se guardan los resultados diarios, nunca el Excel.</p></div>
    <div className="flex items-center gap-2">
-    <div className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700">
+    {!branchScope&&<div className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700">
      <label className="inline-flex h-full cursor-pointer items-center gap-2 rounded-l-xl px-4 hover:bg-slate-50"><Upload className="h-4 w-4"/>{files.length?files.length+' Excel seleccionados':'Importar Excel SIGO'}<input type="file" multiple accept=".xlsx" className="sr-only" disabled={busy} onChange={e=>{const selected=Array.from(e.target.files??[]);e.target.value='';if(selected.length)void upload([...files,...selected]);}}/></label>
      {files.length>0&&<button type="button" aria-label="Quitar todos los archivos importados" title="Quitar todos" disabled={busy} onClick={discardUpload} className="flex h-full w-10 items-center justify-center rounded-r-xl border-l border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"><X className="h-4 w-4"/></button>}
-    </div>
-    {preview&&<button disabled={busy} onClick={()=>void save(false)} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold text-white disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar días</button>}
+    </div>}
+    {!branchScope&&preview&&<button disabled={busy} onClick={()=>void save(false)} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold text-white disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar días</button>}
    </div>
   </div>
-  {files.length>0&&<div className="flex flex-wrap gap-2 border-b border-slate-200 px-6 py-3">{files.map((item,index)=><span key={item.name+'-'+index} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700">{item.name}<button type="button" aria-label={'Quitar '+item.name} disabled={busy} onClick={()=>void upload(files.filter((_,i)=>i!==index))} className="rounded text-slate-400 hover:text-red-600 disabled:opacity-40"><X className="h-3.5 w-3.5"/></button></span>)}</div>}
-  {preview&&<div className="border-b border-blue-100 bg-blue-50 px-6 py-3 text-xs text-blue-700"><strong>Vista previa sin guardar:</strong> {preview.length} registros de vendedor/día · {datesInPreview.map(displayDate).join(', ')}. Al guardar se actualizan solo estas fechas.</div>}
+  {!branchScope&&files.length>0&&<div className="flex flex-wrap gap-2 border-b border-slate-200 px-6 py-3">{files.map((item,index)=><span key={item.name+'-'+index} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700">{item.name}<button type="button" aria-label={'Quitar '+item.name} disabled={busy} onClick={()=>void upload(files.filter((_,i)=>i!==index))} className="rounded text-slate-400 hover:text-red-600 disabled:opacity-40"><X className="h-3.5 w-3.5"/></button></span>)}</div>}
+  {!branchScope&&preview&&<div className="border-b border-blue-100 bg-blue-50 px-6 py-3 text-xs text-blue-700"><strong>Vista previa sin guardar:</strong> {preview.length} registros de vendedor/día · {datesInPreview.map(displayDate).join(', ')}. Al guardar se actualizan solo estas fechas.</div>}
   <div className="sticky top-[72px] z-30 flex flex-wrap gap-2 border-b border-slate-200 bg-[#fafbfc] px-5 py-3" role="tablist" aria-label="Vistas de Horarios SIGO">
    <button type="button" role="tab" aria-selected={view==='daily'} onClick={()=>{setView('daily');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='daily'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Detalle diario</button>
    <button type="button" role="tab" aria-selected={view==='averages'} onClick={()=>{setView('averages');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='averages'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Promedios mensuales</button>
@@ -475,7 +521,7 @@ export default function CategorySigoHistory(){
   {view==='daily'&&<>
   <div className="grid grid-cols-2 border-b border-slate-200 md:grid-cols-4">{[['Días registrados',days.length],['Clientes asignados',totals.assigned],['Visitados',totals.visited],['Sin visitar',totals.missing]].map(([label,n])=><div key={label} className="border-r border-slate-100 px-6 py-4"><p className="text-[10px] uppercase text-slate-400">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{Number(n).toLocaleString('es-AR')}</p></div>)}</div>
   <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4">
-   <RedcomSelect aria-label="Fuerza de venta" value={selectedForce} onValueChange={value=>{setSelectedForce(value);setDate('all');setAverageMonth('');setColumnFilters({});}} options={[{value:'all',label:'Todas las fuerzas de venta'},...forces.map(force=>({value:force,label:force}))]} className="h-10 min-w-[205px] w-auto rounded-xl text-xs"/>
+   {!branchScope&&<RedcomSelect aria-label="Fuerza de venta" value={selectedForce} onValueChange={value=>{setSelectedForce(value);setDate('all');setAverageMonth('');setColumnFilters({});}} options={[{value:'all',label:'Todas las fuerzas de venta'},...forces.map(force=>({value:force,label:force}))]} className="h-10 min-w-[205px] w-auto rounded-xl text-xs"/>}
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
    <div className="min-w-[170px]"><RedcomSelect aria-label="Fecha" value={date} onValueChange={setDate} options={[{value:'all',label:'Todas las fechas'},...days.map(day=>({value:day,label:displayDate(day)}))]} className="h-10 rounded-xl text-xs"/></div>
   </div>
@@ -521,7 +567,7 @@ export default function CategorySigoHistory(){
     <td className="border-l-[3px] border-l-slate-400 px-3 py-2"><SigoTimeInput value={item.corrected_start} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{corrected_start:value})}/></td>
     <td className="px-3 py-2"><SigoTimeInput value={item.corrected_end} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{corrected_end:value})}/></td>
     <td className="px-3 py-2"><RedcomSelect aria-label={'Motivo '+item.seller_name+' '+displayDate(item.visit_date)} value={item.reason??'none'} disabled={!!preview||savingCorrection===correctionKey(item)} onValueChange={value=>void updateCorrection(item,{reason:value==='none'?null:value})} options={[{value:'none',label:'Sin motivo'},...REASONS.map(reason=>({value:reason,label:reason}))]} className={'h-9 w-[155px] rounded-xl text-xs '+reasonClass(item.reason)}/></td>
-    <td className="px-3 py-2"><SigoCommentInput value={item.comments} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{comments:value})}/></td>
+    <td className="px-3 py-2"><div className="flex items-center gap-2"><SigoCommentInput value={item.comments} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{comments:value})}/><SigoAuditButton row={item}/></div></td>
    </tr>)}</tbody>
   </table>{loading?<p className="p-12 text-center text-sm text-slate-400">Cargando histórico...</p>:!shown.length?<p className="p-12 text-center text-sm text-slate-400"><FileSpreadsheet className="mx-auto mb-2 h-6 w-6"/>No hay registros para mostrar.</p>:null}</div>
   </>}
