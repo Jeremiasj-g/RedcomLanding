@@ -6,7 +6,7 @@ import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
 
-type Daily={visit_date:string;seller_name:string;seller_id:number|null;branch:string;sales_force:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
+type Daily={visit_date:string;seller_name:string;seller_id:number|null;corrected_start:string|null;corrected_end:string|null;reason:string|null;comments:string|null;branch:string;sales_force:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
 type Person={id:number;name:string;branch:string;role:string;superior:string;force?:string};
 const TEAM_CARDS=[
  {id:'masivos',name:'Masivos',branch:'CASA CENTRAL',force:'ESQUEMA 1',category:'Masivos',description:'Distribución de productos de consumo masivo para toda la región',tone:'from-[#07567d] via-[#0879b4] to-[#039add]'},
@@ -59,6 +59,52 @@ const workedHours=(start:string|null,end:string|null)=>{
  if(!Number.isFinite(duration)||duration<0)return '—';
  return [Math.floor(duration/3600),Math.floor(duration%3600/60),duration%60].map(n=>String(n).padStart(2,'0')).join(':');
 };
+const REASONS=['Vacaciones','Desvinculado','Suspendido','Médico','Duelo','Otro'] as const;
+const reasonClass=(reason:string|null)=>{
+ switch(reason){
+  case 'Vacaciones':return 'bg-sky-50 text-sky-700';
+  case 'Desvinculado':return 'bg-rose-50 text-rose-700';
+  case 'Suspendido':return 'bg-orange-50 text-orange-700';
+  case 'Médico':return 'bg-emerald-50 text-emerald-700';
+  case 'Duelo':return 'bg-violet-50 text-violet-700';
+  case 'Otro':return 'bg-amber-50 text-amber-700';
+  default:return 'bg-white text-slate-600';
+ }
+};
+function SigoCommentInput({value,disabled,onSave}:{value:string|null;disabled:boolean;onSave:(value:string|null)=>void}){
+ const [draft,setDraft]=useState(value??'');
+ useEffect(()=>setDraft(value??''),[value]);
+ return <input aria-label="Comentario del día" value={draft} disabled={disabled} onChange={event=>setDraft(event.target.value)} onBlur={()=>{if(draft!==(value??''))onSave(draft||null);}} onKeyDown={event=>{if(event.key==='Enter')event.currentTarget.blur();}} placeholder="Agregar comentario..." className="w-[205px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-400"/>;
+}
+function SigoTimeInput({value,disabled,onSave}:{value:string|null;disabled:boolean;onSave:(value:string|null)=>void}){
+ const [draft,setDraft]=useState(value??'');
+ const [focused,setFocused]=useState(false);
+ useEffect(()=>{if(!focused)setDraft(value??'');},[value,focused]);
+ const parse=(raw:string)=>{
+  const input=raw.trim().toLowerCase().replace(/\s/g,'');
+  if(!input)return null;
+  const match=/^(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?(am|pm|a\\.m\\.|p\\.m\\.)?$/.exec(input);
+  if(!match)return undefined;
+  let hour=Number(match[1]),minute=Number(match[2]??0),second=Number(match[3]??0);
+  const meridiem=match[4]?.startsWith('a')?'am':match[4]?.startsWith('p')?'pm':null;
+  if(minute>59||second>59||hour>(meridiem?12:23)||hour<0||(meridiem&&hour===0))return undefined;
+  if(meridiem)hour=hour%12+(meridiem==='pm'?12:0);
+  return [hour,minute,second].map(v=>String(v).padStart(2,'0')).join(':');
+ };
+ const parsed=parse(draft);
+ const alternate=parsed&&Number(parsed.slice(0,2))<12?[String(Number(parsed.slice(0,2))+12).padStart(2,'0')+parsed.slice(2)]:null;
+ const suggested=parsed===undefined||parsed===null?[]:[parsed,...(alternate?[alternate]:[]),...[-10,-5,5,10].map(mins=>{
+  const [h,m]=parsed.split(':').map(Number);const shifted=h*60+m+mins;
+  return shifted<0||shifted>=1440?null:[Math.floor(shifted/60),shifted%60,0].map(v=>String(v).padStart(2,'0')).join(':');
+ }).filter((item):item is string=>item!==null)];
+ const label=(time:string)=>{const [h,m]=time.split(':').map(Number);return String(h%12||12).padStart(2,'0')+':'+String(m).padStart(2,'0')+(h<12?' a. m.':' p. m.');};
+ const commit=(raw=draft)=>{const next=parse(raw);if(next===undefined){setDraft(value??'');return;}onSave(next);setDraft(next??'');setFocused(false);};
+ return <div className="relative w-[125px]">
+  <input aria-label="Horario corregido" type="text" value={focused?draft:draft?label(draft):''} disabled={disabled} onFocus={()=>{setFocused(true);setDraft(value??'');}} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commit();e.currentTarget.blur();}if(e.key==='Escape'){setDraft(value??'');setFocused(false);e.currentTarget.blur();}}} onBlur={()=>{if(focused)commit();}} placeholder="08:20" className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs outline-none focus:border-blue-400 disabled:opacity-50"/>
+  {focused&&suggested.length>0&&<div className="absolute left-0 top-full z-30 mt-1 max-h-44 w-36 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">{[...new Set(suggested)].map(time=><button key={time} type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>commit(time)} className="block w-full rounded-lg px-2 py-1.5 text-left text-xs hover:bg-blue-50">{label(time)}</button>)}</div>}
+ </div>;
+}
+
 class PersonnelMismatchError extends Error {
  names:string[];
  constructor(names:string[]){super('Hay vendedores sin coincidencia única en Personal comercial.');this.name='PersonnelMismatchError';this.names=names;}
@@ -81,7 +127,7 @@ function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[])
   const person=teams[0];
   const key=date+'|'+norm(person.branch)+'|'+norm(person.force)+'|'+norm(name);
   let item=result.get(key);
-  if(!item){item={visit_date:date,seller_name:norm(name),seller_id:person.id,branch:person.branch,sales_force:person.force!,total_clients:0,visited_clients:0,unvisited_clients:0,first_visit:null,last_visit:null};result.set(key,item);}
+  if(!item){item={visit_date:date,seller_name:norm(name),seller_id:person.id,corrected_start:null,corrected_end:null,reason:null,comments:null,branch:person.branch,sales_force:person.force!,total_clients:0,visited_clients:0,unvisited_clients:0,first_visit:null,last_visit:null};result.set(key,item);}
   item.total_clients++;
   if(status==='SI')item.visited_clients++;else item.unvisited_clients++;
   const time=normalizeTime(row?.[10]);
@@ -104,6 +150,7 @@ export default function CategorySigoHistory(){
  const [file,setFile]=useState<File|null>(null);
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
+ const [savingCorrection,setSavingCorrection]=useState<string|null>(null);
  const [missingNames,setMissingNames]=useState<string[]>([]);
  const [duplicateScopes,setDuplicateScopes]=useState<{visit_date:string;branch:string;sales_force:string}[]>([]);
  const [confirmReplace,setConfirmReplace]=useState(false);
@@ -128,7 +175,7 @@ export default function CategorySigoHistory(){
  useEffect(()=>{let live=true;void(async()=>{try{
   const all:Daily[]=[];let offset=0;
   while(true){
-   const {data,error}=await supabase.from('category_sigo_daily').select('visit_date,seller_name,seller_id,branch,sales_force,total_clients,visited_clients,unvisited_clients,first_visit,last_visit').order('visit_date',{ascending:false}).order('seller_name',{ascending:true}).range(offset,offset+999);
+   const {data,error}=await supabase.from('category_sigo_daily').select('visit_date,seller_name,seller_id,corrected_start,corrected_end,reason,comments,branch,sales_force,total_clients,visited_clients,unvisited_clients,first_visit,last_visit').order('visit_date',{ascending:false}).order('seller_name',{ascending:true}).range(offset,offset+999);
    if(error)throw error;
    all.push(...(data??[]));if((data??[]).length<1000)break;offset+=1000;
   }
@@ -207,6 +254,19 @@ export default function CategorySigoHistory(){
   }catch(e){notify.error(errorMessage(e,'No se pudo guardar el histórico.'));}
   finally{setBusy(false);}
  };
+ const correctionKey=(row:Daily)=>[row.visit_date,row.branch,row.sales_force,row.seller_name].join('|');
+ const updateCorrection=async(row:Daily,patch:Partial<Pick<Daily,'corrected_start'|'corrected_end'|'reason'|'comments'>>)=>{
+  if(preview){notify.error('Guardá o descartá el Excel pendiente antes de editar correcciones.');return;}
+  const key=correctionKey(row);
+  const next={...row,...patch};
+  setSavingCorrection(key);
+  const {data,error}=await supabase.from('category_sigo_daily').update(patch)
+   .eq('visit_date',row.visit_date).eq('branch',row.branch).eq('sales_force',row.sales_force).eq('seller_name',row.seller_name)
+   .select('visit_date').single();
+  if(error){notify.error(errorMessage(error,'No se pudo guardar la corrección.'));setSavingCorrection(null);return;}
+  if(data)setHistory(prev=>prev.map(item=>correctionKey(item)===key?next:item));
+  setSavingCorrection(null);
+ };
  const dataset=preview??history;
  const branchData=dataset.filter(item=>item.branch===selectedBranch);
  const forces=[...new Set(personnel.filter(person=>norm(person.branch)===norm(selectedBranch)&&person.force).map(person=>person.force!))].sort((a,b)=>a.localeCompare(b,'es'));
@@ -239,7 +299,10 @@ export default function CategorySigoHistory(){
    case 'end':return item.last_visit??'—';
    case 'hours':return workedHours(item.first_visit,item.last_visit);
    case 'missing':return String(item.unvisited_clients);
-   case 'correctStart':case 'correctEnd':case 'reason':case 'comments':return '—';
+   case 'correctStart':return item.corrected_start??'—';
+   case 'correctEnd':return item.corrected_end??'—';
+   case 'reason':return item.reason??'—';
+   case 'comments':return item.comments??'—';
    default:return '';
   }
  };
@@ -290,7 +353,7 @@ export default function CategorySigoHistory(){
   const currentSellers=personnel.filter(person=>norm(person.role)==='VENDEDOR'&&person.branch===selectedBranch&&(selectedForce==='all'||person.force===selectedForce));
   return currentSellers.map(person=>{
    const matching=scopedData.filter(item=>item.visit_date.slice(0,7)===effectiveMonth&&item.seller_id===person.id&&norm(item.seller_name)===norm(person.name)&&item.sales_force===person.force);
-   const durations=matching.map(item=>durationSeconds(item.first_visit,item.last_visit)).filter((seconds):seconds is number=>seconds!==null);
+   const durations=matching.filter(item=>!item.reason).map(item=>durationSeconds(item.corrected_start??item.first_visit,item.corrected_end??item.last_visit)).filter((seconds):seconds is number=>seconds!==null);
    const supervisor=personnel.find(p=>norm(p.role)==='SUPERVISOR'&&norm(p.branch)===norm(person.branch)&&norm(p.name)===norm(person.superior))?.name??'—';
    return {seller:person.name,id:person.id,supervisor,days:durations.length,seconds:durations.reduce((sum,seconds)=>sum+seconds,0)};
   }).filter(item=>item.days>0).sort((a,b)=>a.seller.localeCompare(b.seller,'es'));
@@ -437,10 +500,10 @@ export default function CategorySigoHistory(){
     <td className="px-5 py-3 font-medium tabular-nums">{item.last_visit??'—'}</td>
     <td className="px-5 py-3"><span className={"inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums "+hoursColor(item.first_visit,item.last_visit)}>{workedHours(item.first_visit,item.last_visit)}</span></td>
     <td className="px-5 py-3"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
-    <td className="border-l-[3px] border-l-slate-400 px-5 py-3 text-slate-400">—</td>
-    <td className="px-5 py-3 text-slate-400">—</td>
-    <td className="px-5 py-3 text-slate-400">—</td>
-    <td className="px-5 py-3 text-slate-400">—</td>
+    <td className="border-l-[3px] border-l-slate-400 px-3 py-2"><SigoTimeInput value={item.corrected_start} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{corrected_start:value})}/></td>
+    <td className="px-3 py-2"><SigoTimeInput value={item.corrected_end} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{corrected_end:value})}/></td>
+    <td className="px-3 py-2"><select aria-label={'Motivo '+item.seller_name+' '+displayDate(item.visit_date)} value={item.reason??''} disabled={!!preview||savingCorrection===correctionKey(item)} onChange={e=>void updateCorrection(item,{reason:e.target.value||null})} className={'w-[145px] rounded-lg border border-slate-200 px-2 py-2 text-xs font-semibold '+reasonClass(item.reason)}><option value="">Sin motivo</option>{REASONS.map(reason=><option key={reason} value={reason}>{reason}</option>)}</select></td>
+    <td className="px-3 py-2"><SigoCommentInput value={item.comments} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{comments:value})}/></td>
    </tr>)}</tbody>
   </table>{loading?<p className="p-12 text-center text-sm text-slate-400">Cargando histórico...</p>:!shown.length?<p className="p-12 text-center text-sm text-slate-400"><FileSpreadsheet className="mx-auto mb-2 h-6 w-6"/>No hay registros para mostrar.</p>:null}</div>
   </>}
