@@ -45,6 +45,8 @@ const durationSeconds=(start:string|null,end:string|null):number|null=>{
  const duration=seconds(end)-seconds(start);
  return Number.isFinite(duration)&&duration>=0?duration:null;
 };
+const effectiveStart=(row:Daily)=>row.corrected_start??row.first_visit;
+const effectiveEnd=(row:Daily)=>row.corrected_end??row.last_visit;
 const formatDuration=(duration:number)=>[Math.floor(duration/3600),Math.floor(duration%3600/60),duration%60].map(n=>String(n).padStart(2,'0')).join(':');
 const hoursColor=(start:string|null,end:string|null)=>{
  const seconds=durationSeconds(start,end);
@@ -298,7 +300,7 @@ export default function CategorySigoHistory(){
    case 'seller':return item.seller_name;
    case 'start':return item.first_visit??'—';
    case 'end':return item.last_visit??'—';
-   case 'hours':return workedHours(item.first_visit,item.last_visit);
+   case 'hours':return workedHours(effectiveStart(item),effectiveEnd(item));
    case 'missing':return String(item.unvisited_clients);
    case 'correctStart':return item.corrected_start??'—';
    case 'correctEnd':return item.corrected_end??'—';
@@ -354,7 +356,7 @@ export default function CategorySigoHistory(){
   const currentSellers=personnel.filter(person=>norm(person.role)==='VENDEDOR'&&person.branch===selectedBranch&&(selectedForce==='all'||person.force===selectedForce));
   return currentSellers.map(person=>{
    const matching=scopedData.filter(item=>item.visit_date.slice(0,7)===effectiveMonth&&item.seller_id===person.id&&norm(item.seller_name)===norm(person.name)&&item.sales_force===person.force);
-   const durations=matching.filter(item=>!item.reason).map(item=>durationSeconds(item.corrected_start??item.first_visit,item.corrected_end??item.last_visit)).filter((seconds):seconds is number=>seconds!==null);
+   const durations=matching.filter(item=>!item.reason).map(item=>durationSeconds(effectiveStart(item),effectiveEnd(item))).filter((seconds):seconds is number=>seconds!==null);
    const supervisor=personnel.find(p=>norm(p.role)==='SUPERVISOR'&&norm(p.branch)===norm(person.branch)&&norm(p.name)===norm(person.superior))?.name??'—';
    return {seller:person.name,id:person.id,supervisor,days:durations.length,seconds:durations.reduce((sum,seconds)=>sum+seconds,0)};
   }).filter(item=>item.days>0).sort((a,b)=>a.seller.localeCompare(b.seller,'es'));
@@ -391,7 +393,7 @@ export default function CategorySigoHistory(){
  const historyIds=[...new Set(scopedData.map(item=>item.seller_id).filter((id):id is number=>id!==null))].sort((a,b)=>a-b);
  const activeHistoryId=historyIds.includes(Number(historySellerId))?Number(historySellerId):historyIds[0];
  const idHistoryRows=scopedData.filter(item=>item.seller_id===activeHistoryId&&(effectiveMonth?item.visit_date.startsWith(effectiveMonth):true)).sort((a,b)=>a.visit_date.localeCompare(b.visit_date));
- const idHistoryDurations=idHistoryRows.map(item=>durationSeconds(item.first_visit,item.last_visit)).filter((seconds):seconds is number=>seconds!==null);
+ const idHistoryDurations=idHistoryRows.map(item=>durationSeconds(effectiveStart(item),effectiveEnd(item))).filter((seconds):seconds is number=>seconds!==null);
  const idHistoryAverage=idHistoryDurations.length?formatDuration(Math.round(idHistoryDurations.reduce((sum,value)=>sum+value,0)/idHistoryDurations.length)):'—';
  const monthLabel=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'));
  const datesInPreview=[...new Set(preview?.map(item=>item.visit_date)??[])];
@@ -497,7 +499,7 @@ export default function CategorySigoHistory(){
     <td className="px-5 py-3 font-semibold text-slate-900">{item.seller_name}</td>
     <td className="px-5 py-3 font-medium tabular-nums">{item.first_visit??'—'}</td>
     <td className="px-5 py-3 font-medium tabular-nums">{item.last_visit??'—'}</td>
-    <td className="px-5 py-3"><span className={"inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums "+hoursColor(item.first_visit,item.last_visit)}>{workedHours(item.first_visit,item.last_visit)}</span></td>
+    <td className="px-5 py-3"><span className={"inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums "+hoursColor(effectiveStart(item),effectiveEnd(item))}>{workedHours(effectiveStart(item),effectiveEnd(item))}</span></td>
     <td className="px-5 py-3"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
     <td className="border-l-[3px] border-l-slate-400 px-3 py-2"><SigoTimeInput value={item.corrected_start} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{corrected_start:value})}/></td>
     <td className="px-3 py-2"><SigoTimeInput value={item.corrected_end} disabled={!!preview||savingCorrection===correctionKey(item)} onSave={value=>void updateCorrection(item,{corrected_end:value})}/></td>
@@ -561,7 +563,7 @@ export default function CategorySigoHistory(){
     <tbody>{idHistoryRows.map(item=><tr key={item.visit_date+'|'+item.branch+'|'+item.sales_force+'|'+item.seller_name} className="border-t border-slate-100">
      <td className="px-5 py-3">{displayDate(item.visit_date)}</td><td className="px-5 py-3">{item.seller_id}</td><td className="px-5 py-3 font-semibold">{item.seller_name}</td>
      <td className="px-5 py-3">{item.first_visit??'—'}</td><td className="px-5 py-3">{item.last_visit??'—'}</td>
-     <td className="px-5 py-3"><span className={"inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums "+hoursColor(item.first_visit,item.last_visit)}>{workedHours(item.first_visit,item.last_visit)}</span></td><td className="px-5 py-3">{item.unvisited_clients}</td>
+     <td className="px-5 py-3"><span className={"inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums "+hoursColor(effectiveStart(item),effectiveEnd(item))}>{workedHours(effectiveStart(item),effectiveEnd(item))}</span></td><td className="px-5 py-3">{item.unvisited_clients}</td>
     </tr>)}</tbody>
    </table>{!idHistoryRows.length&&<p className="p-8 text-center text-xs text-slate-400">No hay registros con ID histórico para este período.</p>}</div>
   </div>}
