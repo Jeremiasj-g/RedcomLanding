@@ -1,5 +1,6 @@
-import BranchSigoEntry from '@/components/category-panel/BranchSigoEntry';
 'use client';
+
+import BranchSigoEntry from '@/components/category-panel/BranchSigoEntry';
 
 import { useMemo } from 'react';
 import { BarChart3, Flame, Table } from 'lucide-react';
