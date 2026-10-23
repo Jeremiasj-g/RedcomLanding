@@ -93,7 +93,7 @@ function SigoTimeInput({value,disabled,onSave}:{value:string|null;disabled:boole
   return [hour,minute,second].map(v=>String(v).padStart(2,'0')).join(':');
  };
  const parsed=parse(draft);
- const alternate=parsed&&Number(parsed.slice(0,2))<12?[String(Number(parsed.slice(0,2))+12).padStart(2,'0')+parsed.slice(2)]:null;
+ const alternate=parsed&&Number(parsed.slice(0,2))<12?String(Number(parsed.slice(0,2))+12).padStart(2,'0')+parsed.slice(2):null;
  const suggested=parsed===undefined||parsed===null?[]:[parsed,...(alternate?[alternate]:[]),...[-10,-5,5,10].map(mins=>{
   const [h,m]=parsed.split(':').map(Number);const shifted=h*60+m+mins;
   return shifted<0||shifted>=1440?null:[Math.floor(shifted/60),shifted%60,0].map(v=>String(v).padStart(2,'0')).join(':');
