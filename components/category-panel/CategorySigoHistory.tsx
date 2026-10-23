@@ -348,7 +348,7 @@ export default function CategorySigoHistory(){
    </div>
   </div>
   {preview&&<div className="border-b border-blue-100 bg-blue-50 px-6 py-3 text-xs text-blue-700"><strong>Vista previa sin guardar:</strong> {preview.length} registros de vendedor/día · {datesInPreview.map(displayDate).join(', ')}. Al guardar se actualizan solo estas fechas.</div>}
-  <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-[#fafbfc] px-5 py-3" role="tablist" aria-label="Vistas de Horarios SIGO">
+  <div className="sticky top-[72px] z-30 flex flex-wrap gap-2 border-b border-slate-200 bg-[#fafbfc] px-5 py-3" role="tablist" aria-label="Vistas de Horarios SIGO">
    <button type="button" role="tab" aria-selected={view==='daily'} onClick={()=>{setView('daily');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='daily'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Detalle diario</button>
    <button type="button" role="tab" aria-selected={view==='averages'} onClick={()=>{setView('averages');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='averages'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Promedios mensuales</button>
    <button type="button" role="tab" aria-selected={view==='id-history'} onClick={()=>{setView('id-history');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='id-history'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Análisis por ID</button>
@@ -389,8 +389,8 @@ export default function CategorySigoHistory(){
     </div>
    </div>
   </>}
-  <div className="overflow-x-auto border-t-[3px] border-t-slate-400"><table className="w-full min-w-[1690px] text-left text-xs">
-   <thead className="bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500"><tr>{columns.map(col=><th key={col.key} className={"px-3 py-2 font-semibold "+(col.key==='correctStart'||col.key==='supervisor'?'border-l-[3px] border-l-slate-400 ':'')}><button type="button" onClick={event=>openFilter(col.key,event.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(columnFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5 shrink-0"/></button></th>)}</tr></thead>
+  <div className="max-h-[calc(100dvh-380px)] min-h-[290px] overflow-auto overscroll-contain border-t-[3px] border-t-slate-400"><table className="w-full min-w-[1690px] text-left text-xs">
+   <thead className="sticky top-0 z-20 bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500 shadow-[0_1px_0_#cbd5e1]"><tr>{columns.map(col=><th key={col.key} className={"px-3 py-2 font-semibold "+(col.key==='correctStart'||col.key==='supervisor'?'border-l-[3px] border-l-slate-400 ':'')}><button type="button" onClick={event=>openFilter(col.key,event.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(columnFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5 shrink-0"/></button></th>)}</tr></thead>
    <tbody>{shown.map((item,i)=><tr key={item.visit_date+'|'+item.seller_name} className={(i>0&&item.visit_date!==shown[i-1].visit_date?'border-t-[3px] border-t-slate-400 ':'border-t border-t-slate-100 ')+(i%2?'bg-slate-50/40':'bg-white')}>
     <td className="whitespace-nowrap px-5 py-3 font-medium capitalize text-slate-600">{new Intl.DateTimeFormat('es-AR',{month:'long',timeZone:'UTC'}).format(new Date(item.visit_date+'T12:00:00Z'))}</td>
     <td className="whitespace-nowrap px-5 py-3 font-semibold text-slate-600">{displayDate(item.visit_date)}</td>
