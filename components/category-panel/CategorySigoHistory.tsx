@@ -9,6 +9,8 @@ import {errorMessage,notify} from '@/lib/notifications';
 
 type Daily={visit_date:string;seller_name:string;seller_id:number|null;corrected_start:string|null;corrected_end:string|null;reason:string|null;comments:string|null;branch:string;sales_force:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
 type Person={id:number;name:string;branch:string;role:string;superior:string;force?:string};
+type CorrectionField='corrected_start'|'corrected_end'|'reason'|'comments';
+type CorrectionConflict={current:Daily;field:CorrectionField;desired:string|null};
 async function loadSigoRows():Promise<Daily[]>{
  const rows:Daily[]=[];let offset=0;
  while(true){
@@ -191,6 +193,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
  const [savingCorrection,setSavingCorrection]=useState<string|null>(null);
+ const [pendingConflict,setPendingConflict]=useState<CorrectionConflict|null>(null);
  const [missingNames,setMissingNames]=useState<string[]>([]);
  const [duplicateScopes,setDuplicateScopes]=useState<{visit_date:string;branch:string;sales_force:string}[]>([]);
  const [confirmReplace,setConfirmReplace]=useState(false);
@@ -323,17 +326,19 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   const key=correctionKey(row);
   const next={...row,...patch};
   setSavingCorrection(key);
-  const field=Object.keys(patch)[0] as keyof typeof patch;
+  const field=Object.keys(patch)[0] as CorrectionField;
   const {data,error}=await supabase.rpc('sigo_update_correction',{
    p_date:row.visit_date,p_branch:row.branch,p_force:row.sales_force,
    p_seller:row.seller_name,p_field:field,p_expected:row[field]??null,p_value:patch[field]??null
   });
   if(error){notify.error(errorMessage(error,'No se pudo guardar la corrección.'));setSavingCorrection(null);return;}
   if(!data){
-   notify.error('Otro usuario modificó este campo. Se actualizarán los datos para que puedas revisar el cambio.');
-   const {data:fresh}=await supabase.from('category_sigo_daily').select('*')
+   const {data:fresh,error:freshError}=await supabase.from('category_sigo_daily').select('*')
     .eq('visit_date',row.visit_date).eq('branch',row.branch).eq('sales_force',row.sales_force).eq('seller_name',row.seller_name).maybeSingle();
-   if(fresh)setHistory(prev=>prev.map(item=>correctionKey(item)===key?fresh as Daily:item));
+   if(fresh){
+    setHistory(prev=>prev.map(item=>correctionKey(item)===key?fresh as Daily:item));
+    setPendingConflict({current:fresh as Daily,field,desired:patch[field]??null});
+   }else notify.error(errorMessage(freshError,'Otro usuario cambió este registro. Recargá la página para consultar el valor actual.'));
   }else setHistory(prev=>prev.map(item=>correctionKey(item)===key?next:item));
   setSavingCorrection(null);
  };
@@ -483,6 +488,22 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
       <span className="text-[11px] opacity-70">{total} registros históricos</span>
      </button>;
    })}
+  </div>}
+  {pendingConflict&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-conflict-title" className="fixed inset-0 z-[330] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+   <div className="w-full max-w-lg rounded-[24px] bg-white p-6 shadow-2xl">
+    <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">Edición simultánea detectada</div>
+    <h3 id="sigo-conflict-title" className="mt-2 text-xl font-semibold text-slate-950">Esta celda fue modificada</h3>
+    <p className="mt-2 text-sm leading-6 text-slate-600">Otro usuario guardó una corrección sobre el mismo campo antes que vos. No se sobrescribió su cambio. Revisá los valores y elegí qué conservar.</p>
+    <p className="mt-3 text-xs font-semibold text-slate-700">{pendingConflict.current.seller_name} · {displayDate(pendingConflict.current.visit_date)} · {({corrected_start:'Corregir inicio',corrected_end:'Corregir fin',reason:'Motivo',comments:'Comentarios'} as Record<string,string>)[pendingConflict.field]}</p>
+    <div className="mt-3 grid grid-cols-2 gap-3">
+     <div className="rounded-xl bg-slate-100 p-3"><div className="text-[11px] text-slate-500">Último valor guardado</div><div className="mt-1 break-words text-sm font-semibold">{pendingConflict.current[pendingConflict.field]??'—'}</div></div>
+     <div className="rounded-xl bg-amber-50 p-3"><div className="text-[11px] text-amber-700">Tu corrección</div><div className="mt-1 break-words text-sm font-semibold text-amber-950">{pendingConflict.desired??'—'}</div></div>
+    </div>
+    <div className="mt-5 flex flex-wrap justify-end gap-2">
+     <button type="button" onClick={()=>setPendingConflict(null)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Conservar valor guardado</button>
+     <button type="button" onClick={()=>{const conflict=pendingConflict;setPendingConflict(null);void updateCorrection(conflict.current,{[conflict.field]:conflict.desired} as Partial<Pick<Daily,CorrectionField>>);}} className="rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-semibold text-white hover:bg-slate-800">Aplicar mi corrección</button>
+    </div>
+   </div>
   </div>}
   {!branchScope&&missingNames.length>0&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-missing-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
    <div className="w-full max-w-lg rounded-[24px] bg-white p-6 shadow-2xl">
