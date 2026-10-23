@@ -45,6 +45,13 @@ const durationSeconds=(start:string|null,end:string|null):number|null=>{
  return Number.isFinite(duration)&&duration>=0?duration:null;
 };
 const formatDuration=(duration:number)=>[Math.floor(duration/3600),Math.floor(duration%3600/60),duration%60].map(n=>String(n).padStart(2,'0')).join(':');
+const hoursColor=(start:string|null,end:string|null)=>{
+ const seconds=durationSeconds(start,end);
+ if(seconds===null)return 'bg-slate-100 text-slate-500';
+ if(seconds<5*3600)return 'bg-red-100 text-red-700';
+ if(seconds<5*3600+20*60)return 'bg-amber-100 text-amber-800';
+ return 'bg-emerald-100 text-emerald-700';
+};
 const workedHours=(start:string|null,end:string|null)=>{
  if(!start||!end)return '—';
  const seconds=(time:string)=>{const [h,m,s]=time.split(':').map(Number);return h*3600+m*60+s;};
@@ -392,7 +399,7 @@ export default function CategorySigoHistory(){
     <td className="px-5 py-3 font-semibold text-slate-900">{item.seller_name}</td>
     <td className="px-5 py-3 font-medium tabular-nums">{item.first_visit??'—'}</td>
     <td className="px-5 py-3 font-medium tabular-nums">{item.last_visit??'—'}</td>
-    <td className="px-5 py-3 font-semibold tabular-nums text-blue-700">{workedHours(item.first_visit,item.last_visit)}</td>
+    <td className="px-5 py-3"><span className={"inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums "+hoursColor(item.first_visit,item.last_visit)}>{workedHours(item.first_visit,item.last_visit)}</span></td>
     <td className="px-5 py-3"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
     <td className="border-l-[3px] border-l-slate-400 px-5 py-3 text-slate-400">—</td>
     <td className="px-5 py-3 text-slate-400">—</td>
@@ -444,7 +451,7 @@ export default function CategorySigoHistory(){
     <tbody>{idHistoryRows.map(item=><tr key={item.visit_date+'|'+item.branch+'|'+item.sales_force+'|'+item.seller_name} className="border-t border-slate-100">
      <td className="px-5 py-3">{displayDate(item.visit_date)}</td><td className="px-5 py-3">{item.seller_id}</td><td className="px-5 py-3 font-semibold">{item.seller_name}</td>
      <td className="px-5 py-3">{item.first_visit??'—'}</td><td className="px-5 py-3">{item.last_visit??'—'}</td>
-     <td className="px-5 py-3 font-semibold text-blue-700">{workedHours(item.first_visit,item.last_visit)}</td><td className="px-5 py-3">{item.unvisited_clients}</td>
+     <td className="px-5 py-3"><span className={"inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums "+hoursColor(item.first_visit,item.last_visit)}>{workedHours(item.first_visit,item.last_visit)}</span></td><td className="px-5 py-3">{item.unvisited_clients}</td>
     </tr>)}</tbody>
    </table>{!idHistoryRows.length&&<p className="p-8 text-center text-xs text-slate-400">No hay registros con ID histórico para este período.</p>}</div>
   </div>}
