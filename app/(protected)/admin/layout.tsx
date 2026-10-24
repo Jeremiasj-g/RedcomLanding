@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, UserPlus, ClipboardList, Smartphone, ShieldCheck, UserCog, ChartNoAxesCombined, type LucideIcon } from 'lucide-react';
+import { Users, UserPlus, ClipboardList, Smartphone, ShieldCheck, UserCog, ChartNoAxesCombined, Megaphone, type LucideIcon } from 'lucide-react';
 import RequireAdmin from '@/app/auth/RequireAdmin';
 
 type Tab = {
