@@ -18,6 +18,7 @@ import {
 import AdminChangePasswordModal from '@/components/AdminChangePasswordModal';
 import { RequireAuth } from '@/components/RouteGuards';
 import DualSpinner from '@/components/ui/DualSpinner';
+import SiteNoticeSettings from '@/components/announcements/SiteNoticeSettings';
 
 type Row = {
   id: string;
@@ -366,6 +367,7 @@ export default function AdminUsersPage() {
   return (
     <RequireAuth roles={['admin']}>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+        <div className="mx-auto max-w-7xl px-4 pt-6"><SiteNoticeSettings /></div>
         {/* Modal activar/desactivar */}
         {confirmOpen && targetUser && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
