@@ -7,6 +7,7 @@ import FloatingTelegramButton from '@/components/Icons/FloatingTelegramButton';
 import AuthProvider from '@/app/auth/AuthProvider';
 import ReactToastProvider from '@/components/providers/ReactToastProvider';
 import ModulePermissionsProvider from '@/components/permissions/ModulePermissionsProvider';
+import GlobalSiteNotice from '@/components/announcements/GlobalSiteNotice';
 
 export const metadata: Metadata = {
   title: 'Redcom',
@@ -50,6 +51,7 @@ export default function RootLayout({
             {/* <FloatingTelegramButton /> */}
             <Footer />
             <ReactToastProvider />
+            <GlobalSiteNotice />
           </ModulePermissionsProvider>
         </AuthProvider>
       </body>
