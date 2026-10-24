@@ -240,6 +240,7 @@ export default function ProyectosPage() {
 
   const isAdmin = me?.role === 'admin';
   const canManage = isAdmin || me?.role === 'jdv';
+  const canCreateTask = canManage || me?.role === 'supervisor';
   const todayIso = localTodayIso();
 
   const closeAllPopovers = () => {
@@ -492,10 +493,10 @@ export default function ProyectosPage() {
   const visibleTasks = filteredTasks.slice(startIndex, endIndex);
 
   // ─────────────────────────────────────────
-  // 2) Crear tarea nueva (solo admin)
+  // 2) Crear tarea nueva (admin, JDV y supervisor)
   // ─────────────────────────────────────────
   const handleCreate = async () => {
-    if (!canManage || !me) return;
+    if (!canCreateTask || !me) return;
 
     const cleanTitle = newTitle.trim();
     const cleanSummary = newSummary.trim();
@@ -879,7 +880,7 @@ export default function ProyectosPage() {
                 </button>
               </div>
 
-              {canManage && workspaceView === 'tasks' ? (
+              {canCreateTask && workspaceView === 'tasks' ? (
                 <button
                   type="button"
                   onClick={() => setQuickCreateOpen((open) => !open)}
@@ -958,7 +959,7 @@ export default function ProyectosPage() {
           />
 
           <AnimatePresence initial={false}>
-            {canManage && quickCreateOpen ? (
+            {canCreateTask && quickCreateOpen ? (
               <motion.section
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
