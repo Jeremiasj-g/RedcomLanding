@@ -238,9 +238,9 @@ export default function ProyectosPage() {
   // paginación
   const [page, setPage] = useState(1);
 
-  const isAdmin = me?.role === 'admin';
-  const canManage = isAdmin || me?.role === 'jdv';
-  const canCreateTask = canManage || me?.role === 'supervisor';
+  const isAdmin = ['admin', 'jdv', 'supervisor'].includes(me?.role ?? '');
+  const canManage = isAdmin;
+  const canCreateTask = canManage;
   const todayIso = localTodayIso();
 
   const closeAllPopovers = () => {
@@ -269,7 +269,7 @@ export default function ProyectosPage() {
           return db - da;
         }));
         setSupervisors(supervisorsData);
-        if (me.role === 'admin') {
+        if (['admin', 'jdv', 'supervisor'].includes(me.role)) {
           const [{data: branchProfiles,error: branchError},{data: availableBranches,error: branchesError}]=await Promise.all([
             supabase.from('profiles').select('id,branch,branch_id'),
             supabase.from('branches').select('id,code,name').order('name',{ascending:true}),

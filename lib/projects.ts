@@ -118,7 +118,7 @@ export async function fetchProjectsForUser(
 ): Promise<ProjectWithMembers[]> {
   let rows: ProjectRow[] = [];
 
-  if (role === 'admin') {
+  if (['admin', 'jdv', 'supervisor'].includes(role)) {
     const { data, error } = await supabase
       .from('projects')
       .select('*')

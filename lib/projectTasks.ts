@@ -184,7 +184,7 @@ export type AssigneeOption = {
 export async function fetchEligibleAssignees(
   viewerRole: string,
 ): Promise<AssigneeOption[]> {
-  const roles = viewerRole === 'admin' ? ['supervisor', 'jdv'] : ['supervisor'];
+  const roles = ['admin', 'jdv', 'supervisor'].includes(viewerRole) ? ['supervisor', 'jdv'] : ['supervisor'];
 
   const { data, error } = await supabase
     .from('profiles')
@@ -244,7 +244,7 @@ export async function fetchProjectTasksForUser(
 
   let taskRows: ProjectTaskRow[] = [];
 
-  if (role === 'admin') {
+  if (['admin', 'jdv', 'supervisor'].includes(role)) {
     // Admin ve todo
     const { data, error } = await supabase
       .from('project_tasks')
