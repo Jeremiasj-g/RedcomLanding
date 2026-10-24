@@ -324,8 +324,11 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   finally{setBusy(false);}
  };
  const correctionKey=(row:Daily)=>[row.visit_date,row.branch,row.sales_force,row.seller_name].join('|');
- const canEditRow=(row:Daily)=>!branchScope||branchScope.editorRole==='admin'||branchScope.editorRole==='jdv'||
-  personnel.some(person=>norm(person.role)==='VENDEDOR'&&person.id===row.seller_id&&norm(person.branch)===norm(row.branch)&&norm(person.force)===norm(row.sales_force)&&sameSupervisor(person.superior,branchScope.editorName));
+ const canEditRow=(row:Daily)=>!branchScope||(
+  ['admin','jdv','supervisor'].includes(branchScope.editorRole)&&
+  row.branch===branchScope.branch&&
+  (branchScope.force==='all'||row.sales_force===branchScope.force)
+ );
  const updateCorrection=async(row:Daily,patch:Partial<Pick<Daily,'corrected_start'|'corrected_end'|'reason'|'comments'>>)=>{
   if(preview){notify.error('Guardá o descartá el Excel pendiente antes de editar correcciones.');return;}
   const key=correctionKey(row);
