@@ -30,6 +30,11 @@ const TEAM_CARDS=[
 ] as const;
 const clean=(value:unknown)=>String(value??'').trim().replace(/\s+/g,' ');
 const norm=(value:unknown)=>clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+const sameSupervisor=(assigned:string,profile:string)=>{
+ const a=norm(assigned).split(' ').filter(Boolean);
+ const b=norm(profile).split(' ').filter(Boolean);
+ return a.length>=2&&b.length>=2&&a[0]===b[0]&&a[a.length-1]===b[b.length-1];
+};
 const displayDate=(date:string)=>{const [y,m,d]=date.split('-');return d+'/'+m+'/'+y;};
 const normalizeDate=(value:unknown)=>{
  const s=clean(value);
@@ -320,7 +325,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  };
  const correctionKey=(row:Daily)=>[row.visit_date,row.branch,row.sales_force,row.seller_name].join('|');
  const canEditRow=(row:Daily)=>!branchScope||branchScope.editorRole==='admin'||branchScope.editorRole==='jdv'||
-  personnel.some(person=>norm(person.role)==='VENDEDOR'&&person.id===row.seller_id&&norm(person.branch)===norm(row.branch)&&norm(person.force)===norm(row.sales_force)&&norm(person.superior)===norm(branchScope.editorName));
+  personnel.some(person=>norm(person.role)==='VENDEDOR'&&person.id===row.seller_id&&norm(person.branch)===norm(row.branch)&&norm(person.force)===norm(row.sales_force)&&sameSupervisor(person.superior,branchScope.editorName));
  const updateCorrection=async(row:Daily,patch:Partial<Pick<Daily,'corrected_start'|'corrected_end'|'reason'|'comments'>>)=>{
   if(preview){notify.error('Guardá o descartá el Excel pendiente antes de editar correcciones.');return;}
   const key=correctionKey(row);
