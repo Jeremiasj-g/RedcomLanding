@@ -123,6 +123,7 @@ async function fetchRoleOptionsFromUserTypes(): Promise<RoleOption[] | null> {
 }
 
 export default function AdminUsersPage() {
+  const [adminTab, setAdminTab] = useState<'users' | 'notices'>('users');
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -367,7 +368,14 @@ export default function AdminUsersPage() {
   return (
     <RequireAuth roles={['admin']}>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        <div className="mx-auto max-w-7xl px-4 pt-6"><SiteNoticeSettings /></div>
+        <div className="mx-auto max-w-7xl px-4 pt-6">
+          <div className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-3" role="tablist" aria-label="Secciones de administración">
+            <button type="button" role="tab" aria-selected={adminTab === 'users'} onClick={() => setAdminTab('users')} className={`rounded-xl px-5 py-3 text-sm font-semibold transition-colors ${adminTab === 'users' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>Usuarios y permisos</button>
+            <button type="button" role="tab" aria-selected={adminTab === 'notices'} onClick={() => setAdminTab('notices')} className={`rounded-xl px-5 py-3 text-sm font-semibold transition-colors ${adminTab === 'notices' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>Avisos generales</button>
+          </div>
+          {adminTab === 'notices' && <SiteNoticeSettings />}
+        </div>
+        <div className={adminTab === 'users' ? '' : 'hidden'}>
         {/* Modal activar/desactivar */}
         {confirmOpen && targetUser && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -767,6 +775,7 @@ export default function AdminUsersPage() {
               onChanged={() => {}}
             />
           </div>
+        </div>
         </div>
       </div>
     </RequireAuth>
