@@ -40,11 +40,8 @@ import {
   type BranchResourceIcon,
   type BranchResourceInput,
 } from "@/lib/branchResources";
-import {
-  MODULE_PERMISSION_DEFINITIONS,
-  type ModulePermissionKey,
-} from "@/lib/module-permissions";
 import { errorMessage, notify } from "@/lib/notifications";
+import { supabase } from "@/lib/supabaseClient";
 
 type BranchResourcesSectionProps = {
   branchName: string;
@@ -91,16 +88,6 @@ const accentOptions: Array<{
   { value: "slate", label: "Gris" },
 ];
 
-const permissionOptions = [
-  { value: "none", label: "Sin permiso específico" },
-  ...MODULE_PERMISSION_DEFINITIONS.filter((definition) =>
-    definition.key.startsWith("branch_"),
-  ).map((definition) => ({
-    value: definition.key,
-    label: definition.label,
-  })),
-];
-
 const emptyForm: BranchResourceInput = {
   title: "",
   description: "",
@@ -111,6 +98,7 @@ const emptyForm: BranchResourceInput = {
   accent: "blue",
   action_label: "Abrir herramienta",
   permission_key: null,
+  allowed_roles: null,
 };
 
 function normalizeText(value = "") {
@@ -135,6 +123,8 @@ export default function BranchResourcesSection({
   const { canAccessModule } = useModulePermissions();
 
   const [resources, setResources] = useState<BranchResource[]>([]);
+  const [roleOptions, setRoleOptions] = useState<Array<{code:string;name:string}>>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todas");
@@ -146,6 +136,18 @@ export default function BranchResourcesSection({
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const isAdmin = me?.role === "admin";
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    setRolesLoading(true);
+    void supabase.from("user_types").select("code,name").eq("is_active", true).order("sort_order").then(({data,error}) => {
+      if(cancelled)return;
+      if(error) notify.error("No se pudieron obtener los roles del sistema.");
+      else setRoleOptions((data ?? []) as Array<{code:string;name:string}>);
+      setRolesLoading(false);
+    });
+    return () => {cancelled=true;};
+  }, [isAdmin]);
 
   const loadResources = useCallback(async () => {
     try {
@@ -168,10 +170,10 @@ export default function BranchResourcesSection({
     () =>
       resources.filter(
         (resource) =>
-          !resource.permission_key ||
-          canAccessModule(resource.permission_key),
+          (isAdmin || !resource.allowed_roles || resource.allowed_roles.includes(me?.role ?? "")) &&
+          (!resource.permission_key || canAccessModule(resource.permission_key)),
       ),
-    [canAccessModule, resources],
+    [canAccessModule, resources, isAdmin, me?.role],
   );
 
   const visibleFilters = useMemo(() => {
@@ -255,6 +257,7 @@ export default function BranchResourcesSection({
       accent: resource.accent,
       action_label: resource.action_label,
       permission_key: resource.permission_key,
+      allowed_roles: resource.allowed_roles ?? null,
     });
     setEditorOpen(true);
   };
@@ -691,25 +694,40 @@ export default function BranchResourcesSection({
                     />
                   </Field>
 
-                  <Field label="Permiso asociado" className="sm:col-span-2">
-                    <RedcomSelect
-                      value={form.permission_key || "none"}
-                      onValueChange={(value) =>
-                        setForm((current) => ({
-                          ...current,
-                          permission_key:
-                            value === "none"
-                              ? null
-                              : (value as ModulePermissionKey),
-                        }))
-                      }
-                      options={permissionOptions}
-                      className="h-11"
-                    />
-                    <p className="mt-1.5 text-[10px] leading-4 text-slate-400">
-                      Si elegís un permiso, el recurso respetará automáticamente
-                      la configuración de /admin/permisos.
-                    </p>
+                  <Field label="¿Qué roles pueden ver este recurso?" className="sm:col-span-2">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <label className="mb-3 flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700">
+                        <input type="checkbox" className="h-4 w-4 accent-blue-600"
+                          checked={form.allowed_roles === null}
+                          onChange={(e) => setForm((current) => ({...current, permission_key: null, allowed_roles:e.target.checked ? null : []}))}
+                        />
+                        Todos los roles
+                      </label>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {roleOptions.map((role) => (
+                          <label key={role.code} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                            <input type="checkbox" className="h-4 w-4 accent-blue-600"
+                              checked={form.allowed_roles === null || form.allowed_roles.includes(role.code)}
+                              onChange={(e) => setForm((current) => ({
+                                ...current,
+                                permission_key:null,
+                                allowed_roles: e.target.checked
+                                  ? [...(current.allowed_roles ?? []),role.code]
+                                  : (current.allowed_roles === null
+                                      ? roleOptions.map((option) => option.code).filter((code) => code !== role.code)
+                                      : current.allowed_roles.filter((code) => code !== role.code)),
+                              }))}
+                            />
+                            {role.name}
+                          </label>
+                        ))}
+                      </div>
+                      {rolesLoading && <p className="mt-2 text-xs text-slate-500">Cargando roles…</p>}
+                      <p className="mt-3 text-xs text-slate-500">
+                        Seleccioná uno o varios roles. Si elegís todos, el recurso estará visible para todos.
+                        Los administradores pueden gestionar los recursos independientemente de esta selección.
+                      </p>
+                    </div>
                   </Field>
                 </div>
 
