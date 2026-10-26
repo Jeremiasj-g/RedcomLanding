@@ -707,13 +707,13 @@ export default function BranchResourcesSection({
                         {roleOptions.map((role) => (
                           <label key={role.code} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
                             <input type="checkbox" className="h-4 w-4 accent-blue-600"
-                              checked={form.allowed_roles === null || form.allowed_roles.includes(role.code)}
+                              checked={form.allowed_roles == null || form.allowed_roles.includes(role.code)}
                               onChange={(e) => setForm((current) => ({
                                 ...current,
                                 permission_key:null,
                                 allowed_roles: e.target.checked
                                   ? [...(current.allowed_roles ?? []),role.code]
-                                  : (current.allowed_roles === null
+                                  : (current.allowed_roles == null
                                       ? roleOptions.map((option) => option.code).filter((code) => code !== role.code)
                                       : current.allowed_roles.filter((code) => code !== role.code)),
                               }))}
