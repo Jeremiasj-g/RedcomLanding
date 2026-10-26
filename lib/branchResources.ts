@@ -33,6 +33,7 @@ export type BranchResource = {
   accent: BranchResourceAccent;
   action_label: string;
   permission_key: ModulePermissionKey | null;
+  allowed_roles: string[] | null;
   sort_order: number;
   is_active: boolean;
   created_by: string | null;
@@ -51,6 +52,7 @@ export type BranchResourceInput = {
   accent: BranchResourceAccent;
   action_label?: string;
   permission_key?: ModulePermissionKey | null;
+  allowed_roles?: string[] | null;
 };
 
 export async function fetchBranchResources(
@@ -93,6 +95,7 @@ export async function createBranchResource(params: {
       accent: input.accent,
       action_label: input.action_label?.trim() || 'Abrir herramienta',
       permission_key: input.permission_key || null,
+      allowed_roles: input.allowed_roles ?? null,
       sort_order: sortOrder,
       created_by: currentUserId,
       updated_by: currentUserId,
@@ -121,6 +124,7 @@ export async function updateBranchResource(
       accent: input.accent,
       action_label: input.action_label?.trim() || 'Abrir herramienta',
       permission_key: input.permission_key || null,
+      allowed_roles: input.allowed_roles ?? null,
     })
     .eq('id', id)
     .select('*')
