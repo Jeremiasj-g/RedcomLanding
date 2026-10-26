@@ -27,7 +27,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import CardSucursales from "@/components/CardSucursales";
 import Container from "@/components/Container";
-import { useModulePermissions } from "@/components/permissions/ModulePermissionsProvider";
 import { RedcomSelect } from "@/components/ui/redcom-select";
 import { useMe } from "@/hooks/useMe";
 import {
@@ -120,7 +119,6 @@ export default function BranchResourcesSection({
   searchPlaceholder = "Buscar una herramienta...",
 }: BranchResourcesSectionProps) {
   const { me } = useMe();
-  const { canAccessModule } = useModulePermissions();
 
   const [resources, setResources] = useState<BranchResource[]>([]);
   const [roleOptions, setRoleOptions] = useState<Array<{code:string;name:string}>>([]);
@@ -170,10 +168,9 @@ export default function BranchResourcesSection({
     () =>
       resources.filter(
         (resource) =>
-          (isAdmin || !resource.allowed_roles || resource.allowed_roles.includes(me?.role ?? "")) &&
-          (!resource.permission_key || canAccessModule(resource.permission_key)),
+          isAdmin || !resource.allowed_roles || resource.allowed_roles.includes(me?.role ?? ""),
       ),
-    [canAccessModule, resources, isAdmin, me?.role],
+    [resources, isAdmin, me?.role],
   );
 
   const visibleFilters = useMemo(() => {
@@ -256,7 +253,7 @@ export default function BranchResourcesSection({
       icon: resource.icon,
       accent: resource.accent,
       action_label: resource.action_label,
-      permission_key: resource.permission_key,
+      permission_key: null,
       allowed_roles: resource.allowed_roles ?? null,
     });
     setEditorOpen(true);
@@ -498,7 +495,6 @@ export default function BranchResourcesSection({
                     icon={resource.icon}
                     accent={resource.accent}
                     actionLabel={resource.action_label}
-                    permissionKey={resource.permission_key ?? undefined}
                     variant="resource"
                   />
                 </motion.div>
