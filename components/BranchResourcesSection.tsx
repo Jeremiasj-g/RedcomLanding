@@ -697,7 +697,7 @@ export default function BranchResourcesSection({
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <label className="mb-3 flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700">
                         <input type="checkbox" className="h-4 w-4 accent-blue-600"
-                          checked={form.allowed_roles === null}
+                          checked={form.allowed_roles == null && !form.permission_key}
                           onChange={(e) => setForm((current) => ({...current, permission_key: null, allowed_roles:e.target.checked ? null : []}))}
                         />
                         Todos los roles (si no hay permiso heredado)
@@ -706,7 +706,7 @@ export default function BranchResourcesSection({
                         {roleOptions.map((role) => (
                           <label key={role.code} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
                             <input type="checkbox" className="h-4 w-4 accent-blue-600"
-                              checked={form.allowed_roles == null || form.allowed_roles.includes(role.code)}
+                              checked={form.allowed_roles != null ? form.allowed_roles.includes(role.code) : !form.permission_key}
                               onChange={(e) => setForm((current) => ({
                                 ...current,
                                 permission_key:null,
