@@ -217,6 +217,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  const [filterSearch,setFilterSearch]=useState('');
  const [draftSelection,setDraftSelection]=useState<string[]|null>(null);
  const [filterPosition,setFilterPosition]=useState({top:0,left:0});
+ const [visibleLimit,setVisibleLimit]=useState(120);
  const [sortColumn,setSortColumn]=useState<string|null>(null);
  const [sortDirection,setSortDirection]=useState<'asc'|'desc'>('asc');
  const deferredQuery=useDeferredValue(query);
@@ -417,7 +418,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  };
  const baseRows=useMemo(()=>scopedData.filter(item=>(date==='all'||item.visit_date===date)&&(!deferredQuery||norm(item.seller_name).includes(norm(deferredQuery)))),[scopedData,date,deferredQuery]);
  const matches=(item:Daily,key:string)=>!columnFilters[key]?.length||columnFilters[key].includes(cellValue(item,key));
- const shown=baseRows.filter(item=>columns.every(col=>matches(item,col.key))).sort((a,b)=>{
+ const shown=useMemo(()=>baseRows.filter(item=>columns.every(col=>matches(item,col.key))).sort((a,b)=>{
   if(sortColumn){
    const left=sortColumn==='date'?a.visit_date:cellValue(a,sortColumn);
    const right=sortColumn==='date'?b.visit_date:cellValue(b,sortColumn);
@@ -425,8 +426,10 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
    if(comp)return sortDirection==='asc'?comp:-comp;
   }
   return a.visit_date.localeCompare(b.visit_date)||a.seller_name.localeCompare(b.seller_name,'es');
- });
- const options=activeColumn?[...new Set(baseRows.filter(item=>columns.every(col=>col.key===activeColumn||matches(item,col.key))).map(item=>cellValue(item,activeColumn)))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true})):[];
+ }),[baseRows,columnFilters,sortColumn,sortDirection,sellerDetails]);
+ const visibleRows=useMemo(()=>shown.slice(0,visibleLimit),[shown,visibleLimit]);
+ useEffect(()=>{setVisibleLimit(120);},[date,selectedBranch,selectedForce,deferredQuery,columnFilters,sortColumn,sortDirection]);
+ const options=useMemo(()=>activeColumn?[...new Set(baseRows.filter(item=>columns.every(col=>col.key===activeColumn||matches(item,col.key))).map(item=>cellValue(item,activeColumn)))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true})):[],[activeColumn,baseRows,columnFilters,sellerDetails]);
  const visibleOptions=options.filter(value=>norm(value).includes(norm(filterSearch)));
  const selectedDraft=draftSelection===null?options:draftSelection;
  const openFilter=(key:string,button:HTMLButtonElement)=>{
@@ -455,7 +458,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  };
  const clearFilters=()=>{setColumnFilters({});closeFilter();};
 
- const totals=shown.reduce((a,r)=>({assigned:a.assigned+r.total_clients,visited:a.visited+r.visited_clients,missing:a.missing+r.unvisited_clients}),{assigned:0,visited:0,missing:0});
+ const totals=useMemo(()=>shown.reduce((a,r)=>({assigned:a.assigned+r.total_clients,visited:a.visited+r.visited_clients,missing:a.missing+r.unvisited_clients}),{assigned:0,visited:0,missing:0}),[shown]);
  const months=useMemo(()=>[...new Set(scopedData.map(item=>item.visit_date.slice(0,7)))].sort((a,b)=>b.localeCompare(a)),[scopedData]);
  const effectiveMonth=months.includes(averageMonth)?averageMonth:months[0]??'';
  const monthlyAverages=useMemo(()=>{
@@ -598,7 +601,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   </>}
   <div className="max-h-[calc(100dvh-380px)] min-h-[290px] overflow-auto overscroll-contain border-t-[3px] border-t-slate-400"><table className="w-full min-w-[1690px] text-left text-xs">
    <thead className="sticky top-0 z-20 bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500 shadow-[0_1px_0_#cbd5e1]"><tr>{columns.map(col=><th key={col.key} className={"px-3 py-2 font-semibold "+(col.key==='correctStart'||col.key==='supervisor'?'border-l-[3px] border-l-slate-400 ':'')}><button type="button" onClick={event=>openFilter(col.key,event.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(columnFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5 shrink-0"/></button></th>)}</tr></thead>
-   <tbody>{shown.map((item,i)=><tr key={item.visit_date+'|'+item.seller_name} className={(i>0&&item.visit_date!==shown[i-1].visit_date?'border-t-[3px] border-t-slate-400 ':'border-t border-t-slate-100 ')+(i%2?'bg-slate-50/40':'bg-white')}>
+   <tbody>{visibleRows.map((item,i)=><tr key={item.visit_date+'|'+item.seller_name} className={(i>0&&item.visit_date!==shown[i-1].visit_date?'border-t-[3px] border-t-slate-400 ':'border-t border-t-slate-100 ')+(i%2?'bg-slate-50/40':'bg-white')}>
     <td className="whitespace-nowrap px-5 py-3 font-medium capitalize text-slate-600">{new Intl.DateTimeFormat('es-AR',{month:'long',timeZone:'UTC'}).format(new Date(item.visit_date+'T12:00:00Z'))}</td>
     <td className="whitespace-nowrap px-5 py-3 font-semibold text-slate-600">{displayDate(item.visit_date)}</td>
     <td className="border-l-[3px] border-l-slate-400 px-5 py-3 text-slate-700">{sellerDetails.get(norm(item.seller_name))?.supervisor??'—'}</td>
