@@ -77,6 +77,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import DualSpinner from '@/components/ui/DualSpinner';
+import ResourceRolePermissions from '@/components/permissions/ResourceRolePermissions';
 
 type UserRow = {
   id: string;
@@ -96,7 +97,7 @@ type PermissionRow = {
 
 type RoleFilter = 'all' | string;
 type StatusFilter = 'all' | 'active' | 'inactive';
-type PermissionsView = 'users' | 'roles';
+type PermissionsView = 'users' | 'roles' | 'resources';
 
 type RoleCatalogRow = {
   id?: number;
@@ -316,6 +317,7 @@ export default function AdminModulePermissionsPage() {
     const requestedView = params.get('view');
     const requestedRole = params.get('role');
     if (requestedView === 'roles') setView('roles');
+    if (requestedView === 'resources') setView('resources');
     if (requestedView === 'users') setView('users');
     if (requestedRole) setSelectedRole(requestedRole);
   }, []);
@@ -685,10 +687,10 @@ export default function AdminModulePermissionsPage() {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-red-700">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium tracking-wide text-red-700">
             <ShieldCheck className="h-3.5 w-3.5" /> Control de acceso
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-950">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
             Permisos por módulo
           </h1>
           <p className="mt-2 max-w-3xl text-sm text-slate-500">
@@ -722,7 +724,7 @@ export default function AdminModulePermissionsPage() {
         onValueChange={(value) => setView(value as PermissionsView)}
         className="space-y-5"
       >
-        <TabsList className="h-auto w-full justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:w-auto">
+        <TabsList className="h-auto w-full justify-start gap-1 rounded-2xl border border-slate-100 bg-white p-1.5 shadow-[0_4px_18px_rgba(15,23,42,0.08)] sm:w-auto">
           <TabsTrigger
             value="users"
             className="gap-2 rounded-xl px-4 py-2.5 data-[state=active]:bg-slate-950 data-[state=active]:text-white"
@@ -735,7 +737,14 @@ export default function AdminModulePermissionsPage() {
           >
             <ShieldCheck className="h-4 w-4" /> Predeterminados por rol
           </TabsTrigger>
+          <TabsTrigger value="resources" className="gap-2 rounded-xl px-4 py-2.5 font-medium data-[state=active]:bg-slate-950 data-[state=active]:text-white">
+            <BriefcaseBusiness className="h-4 w-4" /> Herramientas
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="resources" className="mt-0">
+          <ResourceRolePermissions />
+        </TabsContent>
 
         <TabsContent value="users" className="mt-0 space-y-5">
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -765,7 +774,7 @@ export default function AdminModulePermissionsPage() {
           </section>
 
           <section className="grid min-h-[640px] gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-            <Card className="overflow-hidden rounded-2xl border-slate-200 shadow-sm">
+            <Card className="overflow-hidden rounded-3xl border-slate-100 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
               <CardHeader className="border-b border-slate-100 bg-slate-50/70 p-5">
                 <CardTitle className="text-base font-black text-slate-950">
                   Seleccionar usuario
