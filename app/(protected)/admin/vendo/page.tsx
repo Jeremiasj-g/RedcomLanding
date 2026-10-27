@@ -439,13 +439,13 @@ export default function AdminVendoPage() {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-red-700">Solicitudes VENDO</div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-950">Altas y bajas de dispositivos</h1>
+          <div className="mb-2 inline-flex items-center rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-red-700">Solicitudes VENDO</div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Altas y bajas de dispositivos</h1>
           <p className="mt-2 text-sm text-slate-600">Revisá, aceptá o rechazá las solicitudes registradas. Las peticiones de eliminación aparecen destacadas en rojo.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={exportToExcel} disabled={filtered.length === 0} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-bold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"><FileSpreadsheet className="h-4 w-4" /> Exportar Excel</button>
-          <button type="button" onClick={load} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Actualizar</button>
+          <button type="button" onClick={exportToExcel} disabled={filtered.length === 0} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"><FileSpreadsheet className="h-4 w-4" /> Exportar Excel</button>
+          <button type="button" onClick={load} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Actualizar</button>
         </div>
       </header>
 
@@ -457,7 +457,7 @@ export default function AdminVendoPage() {
         <Metric title="Solicitan eliminar" value={totals.deletionRequested} icon={<AlertTriangle className="h-5 w-5" />} className="border-rose-300 text-rose-700" />
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
         <div className="border-b border-slate-200 bg-slate-50/70 p-4">
           <div className="grid gap-3 xl:grid-cols-[minmax(260px,1fr)_160px_160px_180px]">
             <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar vendedor, IMEI, teléfono, email o solicitante…" className="h-11 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-3 text-sm outline-none focus:border-red-500 focus:ring-4 focus:ring-red-100" /></div>
@@ -467,11 +467,11 @@ export default function AdminVendoPage() {
           </div>
 
           {selectedCount > 0 && (
-            <div className="mt-3 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-3 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-xs text-slate-700"><span className="font-extrabold">{selectedCount}</span> solicitud{selectedCount === 1 ? '' : 'es'} seleccionada{selectedCount === 1 ? '' : 's'}</div>
               <div className="flex items-center justify-end gap-2">
-                <button type="button" onClick={() => setSelectedIds(new Set())} disabled={bulkDeleting} className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Limpiar</button>
-                <button type="button" onClick={deleteSelected} disabled={bulkDeleting} className="inline-flex h-9 items-center gap-2 rounded-xl border border-red-700 bg-red-700 px-3 text-xs font-bold text-white hover:bg-red-800 disabled:opacity-50"><Trash2 className="h-4 w-4" /> {bulkDeleting ? 'Eliminando…' : 'Eliminar seleccionadas'}</button>
+                <button type="button" onClick={() => setSelectedIds(new Set())} disabled={bulkDeleting} className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Limpiar</button>
+                <button type="button" onClick={deleteSelected} disabled={bulkDeleting} className="inline-flex h-9 items-center gap-2 rounded-xl border border-red-700 bg-red-700 px-3 text-xs font-semibold text-white hover:bg-red-800 disabled:opacity-50"><Trash2 className="h-4 w-4" /> {bulkDeleting ? 'Eliminando…' : 'Eliminar seleccionadas'}</button>
               </div>
             </div>
           )}
@@ -492,13 +492,13 @@ export default function AdminVendoPage() {
             <thead>
               <tr className="border-b border-slate-200 bg-white uppercase tracking-wide text-slate-500">
                 <th className="px-2 py-3"><div className="flex justify-center"><Checkbox checked={allFilteredSelected ? true : someFilteredSelected ? 'indeterminate' : false} onCheckedChange={toggleAllFiltered} aria-label="Seleccionar solicitudes filtradas" /></div></th>
-                <th className="px-3 py-3 font-bold">Estado / fecha</th>
-                <th className="px-3 py-3 font-bold">Sucursal</th>
-                <th className="px-3 py-3 font-bold">Vendedor</th>
-                <th className="px-3 py-3 font-bold">Dispositivo</th>
-                <th className="px-3 py-3 font-bold">Motivo</th>
-                <th className="px-3 py-3 font-bold">Solicitante</th>
-                <th className="px-3 py-3 text-right font-bold">Acciones</th>
+                <th className="px-3 py-3 font-semibold">Estado / fecha</th>
+                <th className="px-3 py-3 font-semibold">Sucursal</th>
+                <th className="px-3 py-3 font-semibold">Vendedor</th>
+                <th className="px-3 py-3 font-semibold">Dispositivo</th>
+                <th className="px-3 py-3 font-semibold">Motivo</th>
+                <th className="px-3 py-3 font-semibold">Solicitante</th>
+                <th className="px-3 py-3 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -508,11 +508,11 @@ export default function AdminVendoPage() {
                   <tr key={request.id} className={`${deletionPending ? 'bg-red-50/80 hover:bg-red-50' : request.status === 'pending' ? 'bg-amber-50/35 hover:bg-slate-50' : 'bg-white hover:bg-slate-50'} align-top`}>
                     <td className="px-2 py-4"><div className="flex justify-center"><Checkbox checked={selectedIds.has(request.id)} onCheckedChange={() => toggleSelected(request.id)} aria-label={`Seleccionar solicitud de ${request.first_name} ${request.last_name}`} /></div></td>
                     <td className="px-3 py-4"><StatusBadge request={request} />{deletionPending && <DeletionBadge request={request} />}<p className="mt-2 leading-4 text-slate-500">{dateFormatter.format(new Date(request.created_at))}</p></td>
-                    <td className="px-3 py-4"><div className="font-bold leading-4 text-slate-900">{request.branch_name}</div><span className={`mt-2 inline-flex rounded-md px-2 py-1 font-extrabold uppercase ${request.movement_type === 'alta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{request.movement_type}</span></td>
-                    <td className="px-3 py-4"><div className="font-bold leading-4 text-slate-900">{request.first_name} {request.last_name}</div><div className="mt-1 break-words leading-4 text-slate-500">{request.vendor_email}</div></td>
+                    <td className="px-3 py-4"><div className="font-semibold leading-4 text-slate-900">{request.branch_name}</div><span className={`mt-2 inline-flex rounded-md px-2 py-1 font-extrabold uppercase ${request.movement_type === 'alta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{request.movement_type}</span></td>
+                    <td className="px-3 py-4"><div className="font-semibold leading-4 text-slate-900">{request.first_name} {request.last_name}</div><div className="mt-1 break-words leading-4 text-slate-500">{request.vendor_email}</div></td>
                     <td className="px-3 py-4"><div className="break-all font-mono leading-4 text-slate-700">{request.imei}</div><div className="mt-2 leading-4 text-slate-500">{request.phone}</div></td>
                     <td className="px-3 py-4"><p className="line-clamp-4 break-words leading-4 text-slate-600" title={request.reason}>{request.reason}</p>{deletionPending && <DeletionRequestNotice request={request} />}</td>
-                    <td className="px-3 py-4"><div className="font-bold leading-4 text-slate-900">{request.requester_name}</div><div className="mt-1 break-words leading-4 text-slate-500">{request.requester_email}</div></td>
+                    <td className="px-3 py-4"><div className="font-semibold leading-4 text-slate-900">{request.requester_name}</div><div className="mt-1 break-words leading-4 text-slate-500">{request.requester_email}</div></td>
                     <td className="px-3 py-4"><div className="flex justify-end"><RequestActions request={request} reviewingId={reviewingId} replyingId={replyingId} resolvingDeletionId={resolvingDeletionId} deletingId={deletingId} onReply={replyToRequester} onReview={reviewRequest} onDismissDeletion={dismissDeletionRequest} onDelete={deleteRequest} /></div></td>
                   </tr>
                 );
@@ -531,12 +531,12 @@ export default function AdminVendoPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2"><StatusBadge request={request} />{deletionPending && <DeletionBadge request={request} />}</div><span className="text-xs text-slate-500">{dateFormatter.format(new Date(request.created_at))}</span></div>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <InfoBlock label="Sucursal / movimiento"><div className="font-bold text-slate-900">{request.branch_name}</div><span className={`mt-1 inline-flex rounded-md px-2 py-1 text-[11px] font-extrabold uppercase ${request.movement_type === 'alta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{request.movement_type}</span></InfoBlock>
-                      <InfoBlock label="Vendedor"><div className="font-bold text-slate-900">{request.first_name} {request.last_name}</div><div className="break-all text-xs text-slate-500">{request.vendor_email}</div></InfoBlock>
+                      <InfoBlock label="Sucursal / movimiento"><div className="font-semibold text-slate-900">{request.branch_name}</div><span className={`mt-1 inline-flex rounded-md px-2 py-1 text-[11px] font-extrabold uppercase ${request.movement_type === 'alta' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{request.movement_type}</span></InfoBlock>
+                      <InfoBlock label="Vendedor"><div className="font-semibold text-slate-900">{request.first_name} {request.last_name}</div><div className="break-all text-xs text-slate-500">{request.vendor_email}</div></InfoBlock>
                       <InfoBlock label="Dispositivo"><div className="break-all font-mono text-xs text-slate-700">{request.imei}</div><div className="text-xs text-slate-500">{request.phone}</div></InfoBlock>
-                      <InfoBlock label="Solicitante"><div className="font-bold text-slate-900">{request.requester_name}</div><div className="break-all text-xs text-slate-500">{request.requester_email}</div></InfoBlock>
+                      <InfoBlock label="Solicitante"><div className="font-semibold text-slate-900">{request.requester_name}</div><div className="break-all text-xs text-slate-500">{request.requester_email}</div></InfoBlock>
                     </div>
-                    <div className="mt-3 rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Motivo</p><p className="mt-1 text-xs leading-5 text-slate-600">{request.reason}</p></div>
+                    <div className="mt-3 rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Motivo</p><p className="mt-1 text-xs leading-5 text-slate-600">{request.reason}</p></div>
                     {deletionPending && <DeletionRequestNotice request={request} />}
                     <div className="mt-3 flex justify-end"><RequestActions request={request} reviewingId={reviewingId} replyingId={replyingId} resolvingDeletionId={resolvingDeletionId} deletingId={deletingId} onReply={replyToRequester} onReview={reviewRequest} onDismissDeletion={dismissDeletionRequest} onDelete={deleteRequest} /></div>
                   </div>
@@ -546,11 +546,11 @@ export default function AdminVendoPage() {
           })}
         </div>
 
-        {filtered.length === 0 && <div className="px-6 py-14 text-center"><Smartphone className="mx-auto h-10 w-10 text-slate-300" /><p className="mt-3 font-bold text-slate-700">No hay solicitudes para los filtros seleccionados.</p></div>}
+        {filtered.length === 0 && <div className="px-6 py-14 text-center"><Smartphone className="mx-auto h-10 w-10 text-slate-300" /><p className="mt-3 font-semibold text-slate-700">No hay solicitudes para los filtros seleccionados.</p></div>}
         <div className="flex flex-col gap-3 border-t border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500">
             <span>
-              Mostrando <span className="font-bold text-slate-900">{firstVisible}-{lastVisible}</span> de <span className="font-bold text-slate-900">{filtered.length}</span> filtradas
+              Mostrando <span className="font-semibold text-slate-900">{firstVisible}-{lastVisible}</span> de <span className="font-semibold text-slate-900">{filtered.length}</span> filtradas
               {filtered.length !== requests.length && <> · {requests.length} totales</>}.
             </span>
             <label className="flex items-center gap-2">
@@ -566,7 +566,7 @@ export default function AdminVendoPage() {
           <div className="flex items-center justify-end gap-1">
             <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1 || filtered.length === 0} aria-label="Página anterior" className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"><ChevronLeft className="h-4 w-4" /></button>
             {visiblePages.map((pageNumber) => (
-              <button key={pageNumber} type="button" onClick={() => setPage(pageNumber)} aria-current={pageNumber === page ? 'page' : undefined} className={`grid h-8 min-w-8 place-items-center rounded-lg border px-2 text-xs font-bold transition ${pageNumber === page ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
+              <button key={pageNumber} type="button" onClick={() => setPage(pageNumber)} aria-current={pageNumber === page ? 'page' : undefined} className={`grid h-8 min-w-8 place-items-center rounded-lg border px-2 text-xs font-semibold transition ${pageNumber === page ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
                 {pageNumber}
               </button>
             ))}
@@ -644,7 +644,7 @@ function DeletionRequestNotice({ request }: { request: VendoRequest }) {
   return (
     <div className="mt-3 rounded-xl border border-red-200 bg-white/80 p-3 text-red-900">
       <div className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-wide text-red-700"><AlertTriangle className="h-3.5 w-3.5" /> Petición de eliminación</div>
-      <p className="mt-1 text-xs font-bold leading-5">{vendoDeletionReasonLabel(request.deletion_reason_code)}</p>
+      <p className="mt-1 text-xs font-semibold leading-5">{vendoDeletionReasonLabel(request.deletion_reason_code)}</p>
       {request.deletion_reason_note && <p className="mt-1 text-xs leading-5 text-red-700">{request.deletion_reason_note}</p>}
     </div>
   );
@@ -660,17 +660,17 @@ function ReplyMailIcon({ className = '' }: { className?: string }) {
 }
 
 function StatusBadge({ request }: { request: VendoRequest }) {
-  if (request.status === 'accepted') return <div><span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-bold text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Aceptada</span>{request.reviewed_at && <p className="mt-1 text-[10px] leading-4 text-slate-500">{dateFormatter.format(new Date(request.reviewed_at))}</p>}</div>;
-  if (request.status === 'rejected') return <div><span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 font-bold text-red-700"><XCircle className="h-3.5 w-3.5" /> Rechazada</span>{request.review_note && <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-red-700">{request.review_note}</p>}</div>;
-  return <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-bold text-amber-700"><Clock3 className="h-3.5 w-3.5" /> Pendiente</span>;
+  if (request.status === 'accepted') return <div><span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Aceptada</span>{request.reviewed_at && <p className="mt-1 text-[10px] leading-4 text-slate-500">{dateFormatter.format(new Date(request.reviewed_at))}</p>}</div>;
+  if (request.status === 'rejected') return <div><span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 font-semibold text-red-700"><XCircle className="h-3.5 w-3.5" /> Rechazada</span>{request.review_note && <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-red-700">{request.review_note}</p>}</div>;
+  return <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-semibold text-amber-700"><Clock3 className="h-3.5 w-3.5" /> Pendiente</span>;
 }
 
 function Metric({ title, value, icon, className }: { title: string; value: number; icon: ReactNode; className: string }) {
-  return <div className={`rounded-2xl border bg-white p-5 shadow-sm ${className}`}><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-medium text-slate-500">{title}</p><p className="mt-2 text-3xl font-black">{value}</p></div><div className="grid h-11 w-11 place-items-center rounded-full bg-slate-100">{icon}</div></div></div>;
+  return <div className={`rounded-2xl border bg-white p-5 shadow-sm ${className}`}><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-medium text-slate-500">{title}</p><p className="mt-2 text-3xl font-semibold">{value}</p></div><div className="grid h-11 w-11 place-items-center rounded-full bg-slate-100">{icon}</div></div></div>;
 }
 
 function InfoBlock({ label, children }: { label: string; children: ReactNode }) {
-  return <div><p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p>{children}</div>;
+  return <div><p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>{children}</div>;
 }
 
 function Spinner() {
