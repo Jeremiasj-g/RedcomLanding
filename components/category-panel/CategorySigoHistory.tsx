@@ -12,7 +12,6 @@ type Person={id:number;name:string;branch:string;role:string;superior:string;for
 type CorrectionField='corrected_start'|'corrected_end'|'reason'|'comments';
 const nextMonth=(month:string)=>{const [year,m]=month.split('-').map(Number);const d=new Date(year,m,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
 const currentMonth=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
-const monthLabelFor=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric'}).format(new Date(month+'-01T12:00:00'));
 async function loadSigoRows(month:string,branchScope?:{branch:string;force:string}):Promise<Daily[]>{
  const rows:Daily[]=[];let offset=0;
  while(true){
@@ -573,7 +572,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4">
    {!branchScope&&<RedcomSelect aria-label="Fuerza de venta" value={selectedForce} onValueChange={value=>{setSelectedForce(value);setDate('all');setAverageMonth('');setColumnFilters({});}} options={[{value:'all',label:'Todas las fuerzas de venta'},...forces.map(force=>({value:force,label:force}))]} className="h-10 min-w-[205px] w-auto rounded-xl text-xs"/>}
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
-   <label className="flex items-center gap-2 text-xs text-slate-600">Mes <input aria-label="Mes del histórico" type="month" value={selectedMonth} onChange={event=>{if(/^\\d{4}-\\d{2}$/.test(event.target.value)){setSelectedMonth(event.target.value);setDate('all');setAverageMonth('');setColumnFilters({});}}} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800"/></label>
+   <label className="flex items-center gap-2 text-xs text-slate-600">Mes <input aria-label="Mes del histórico" type="month" value={selectedMonth} onChange={event=>{if(/^\d{4}-\d{2}$/.test(event.target.value)){setSelectedMonth(event.target.value);setDate('all');setAverageMonth('');setColumnFilters({});}}} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800"/></label>
    <div className="min-w-[170px]"><RedcomSelect aria-label="Día" value={date} onValueChange={setDate} options={[{value:'all',label:'Todos los días del mes'},...days.map(day=>({value:day,label:displayDate(day)}))]} className="h-10 rounded-xl text-xs"/></div>
   </div>
   {Object.values(columnFilters).some(values=>values.length>0)&&<div className="flex items-center justify-between border-b border-blue-100 bg-blue-50 px-5 py-2 text-[11px] font-medium text-blue-700"><span><Filter className="mr-1 inline h-3.5 w-3.5"/>Filtros activos · {shown.length} filas</span><button type="button" onClick={clearFilters} className="rounded-lg px-2 py-1 hover:bg-blue-100">Limpiar todos</button></div>}
