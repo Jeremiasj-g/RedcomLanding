@@ -408,15 +408,10 @@ export default function AdminRolesPage() {
         </Alert>
       )}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={ShieldCheck} label="Roles registrados" value={metrics.total} />
-        <MetricCard icon={BadgeCheck} label="Roles activos" value={metrics.active} tone="green" />
-        <MetricCard icon={KeyRound} label="Roles personalizados" value={metrics.custom} tone="violet" />
-        <MetricCard icon={Users} label="Roles en uso" value={metrics.assigned} tone="blue" />
-      </section>
+      <p className="text-sm text-slate-500">{metrics.total} roles · {metrics.active} activos · {metrics.assigned} en uso</p>
 
-      <Card className="overflow-hidden rounded-3xl border-slate-100 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
-        <CardHeader className="border-b border-slate-100 bg-slate-50/60 p-5">
+      <Card className="overflow-hidden rounded-3xl border-slate-100 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
+        <CardHeader className="border-b border-slate-100 bg-white p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <CardTitle className="text-lg font-semibold text-slate-950">Catálogo de roles</CardTitle>
@@ -463,7 +458,7 @@ export default function AdminRolesPage() {
                 return (
                   <article
                     key={role.id}
-                    className="grid gap-4 p-5 transition-colors hover:bg-slate-50/70 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,.8fr)_auto] lg:items-center"
+                    className="grid gap-4 p-5 transition-colors hover:bg-slate-50/70 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,.65fr)_auto] lg:items-center"
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -499,10 +494,9 @@ export default function AdminRolesPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
-                      <SmallStat label="Usuarios" value={roleUsers.total} helper={`${roleUsers.active} activos`} />
-                      <SmallStat label="Módulos" value={enabledModules} helper={`de ${MODULE_PERMISSION_DEFINITIONS.length}`} />
-                      <SmallStat label="Orden" value={role.sort_order} helper="en selectores" className="hidden xl:block" />
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-500">
+                      <span>{roleUsers.total} usuarios</span>
+                      <span>{enabledModules} módulos</span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 lg:justify-end">
