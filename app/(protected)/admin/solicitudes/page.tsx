@@ -263,22 +263,22 @@ export default function AdminSolicitudesPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-6">
-      <div className="mb-6 flex items-end justify-between gap-3">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="mb-7 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Solicitudes de acceso</h1>
-          <p className="text-slate-600">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Solicitudes de acceso</h1>
+          <p className="mt-1 text-sm text-slate-500">
             Aprobá o rechazá solicitudes y revisá el historial.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1 rounded-2xl bg-slate-100 p-1">
           {(['pending', 'approved', 'rejected', 'all'] as const).map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`rounded-lg px-3 py-2 text-sm border ${statusFilter === s
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white text-slate-700 hover:bg-slate-50'
+              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${statusFilter === s
+                  ? 'bg-white text-slate-900 shadow-[0_3px_12px_rgba(15,23,42,0.09)]'
+                  : 'text-slate-500 hover:bg-white/70 hover:text-slate-800'
                 }`}
             >
               {s === 'pending'
@@ -297,7 +297,7 @@ export default function AdminSolicitudesPage() {
 
       <div className="mb-4 flex items-center gap-2">
         <input
-          className="w-80 rounded-xl border px-3 py-2"
+          className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-[0_3px_12px_rgba(15,23,42,0.04)] outline-none focus:border-slate-400"
           placeholder="Buscar por email…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -310,7 +310,7 @@ export default function AdminSolicitudesPage() {
           return (
             <div
               key={r.id}
-              className="rounded-xl border p-4 bg-white flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+              className="flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-[0_7px_28px_rgba(15,23,42,0.07)] transition-shadow hover:shadow-[0_11px_32px_rgba(15,23,42,0.10)] md:flex-row md:items-center md:justify-between"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -365,13 +365,13 @@ export default function AdminSolicitudesPage() {
                 {r.status === 'pending' && (
                   <>
                     <button
-                      className="rounded-lg border px-3 py-2 hover:bg-slate-50"
+                      className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                       onClick={() => openApprove(r)}
                     >
                       Aprobar
                     </button>
                     <button
-                      className="rounded-lg border border-red-300 px-3 py-2 text-red-700 hover:bg-red-50"
+                      className="rounded-xl border border-red-100 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
                       onClick={() => openReject(r)}
                     >
                       Rechazar
@@ -393,7 +393,7 @@ export default function AdminSolicitudesPage() {
         })}
 
         {filtered.length === 0 && (
-          <div className="rounded-xl border p-10 text-center text-slate-500 bg-white">
+          <div className="rounded-3xl bg-white p-10 text-center text-sm text-slate-500 shadow-[0_7px_28px_rgba(15,23,42,0.06)]">
             No hay solicitudes.
           </div>
         )}
@@ -406,8 +406,8 @@ export default function AdminSolicitudesPage() {
             className="absolute inset-0 bg-black/40"
             onClick={() => !saving && setOpen(false)}
           />
-          <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold">Aprobar solicitud</h3>
+          <div className="relative z-10 mx-4 w-full max-w-lg rounded-[28px] bg-white p-7 shadow-[0_25px_90px_rgba(15,23,42,0.20)]">
+            <h3 className="text-xl font-semibold tracking-tight text-slate-900">Aprobar solicitud</h3>
             <p className="text-sm text-slate-600">
               Se creará el usuario para <b>{target.email}</b>.
             </p>
@@ -416,7 +416,7 @@ export default function AdminSolicitudesPage() {
               <div>
                 <label className="text-xs text-slate-600">Nombre completo</label>
                 <input
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-sm outline-none focus:border-slate-400 focus:bg-white"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Ej: Juan Pérez"
@@ -428,7 +428,7 @@ export default function AdminSolicitudesPage() {
                 </label>
                 <input
                   type="password"
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-sm outline-none focus:border-slate-400 focus:bg-white"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -437,7 +437,7 @@ export default function AdminSolicitudesPage() {
                 <div>
                   <label className="text-xs text-slate-600">Rol</label>
                   <select
-                    className="ml-2 rounded-lg border px-2 py-1"
+                    className="ml-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                     value={role}
                     onChange={(e) =>
                       setRole(
@@ -481,14 +481,14 @@ export default function AdminSolicitudesPage() {
 
             <div className="mt-5 flex justify-end gap-2">
               <button
-                className="rounded-lg border px-4 py-2 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
                 onClick={() => setOpen(false)}
                 disabled={saving}
               >
                 Cancelar
               </button>
               <button
-                className={`rounded-lg px-4 py-2 text-white ${saving ? 'opacity-60' : 'bg-slate-900 hover:bg-slate-800'
+                className={`rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-sm ${saving ? 'opacity-60' : 'bg-slate-900 hover:bg-slate-800'
                   }`}
                 onClick={approve}
                 disabled={saving}
@@ -507,7 +507,7 @@ export default function AdminSolicitudesPage() {
             className="absolute inset-0 bg-black/40"
             onClick={() => !rejecting && setRejectOpen(false)}
           />
-          <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border">
+          <div className="relative z-10 mx-4 w-full max-w-md rounded-[28px] bg-white p-7 shadow-[0_25px_90px_rgba(15,23,42,0.20)]">
             <div className="flex items-start gap-3">
               <div className="grid h-9 w-9 place-items-center rounded-full bg-red-100 text-red-700">
                 {/* ícono X simple */}
