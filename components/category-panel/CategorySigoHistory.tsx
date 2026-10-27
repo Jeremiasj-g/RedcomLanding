@@ -431,7 +431,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  useEffect(()=>{setVisibleLimit(120);},[date,selectedBranch,selectedForce,deferredQuery,columnFilters,sortColumn,sortDirection]);
  const options=useMemo(()=>activeColumn?[...new Set(baseRows.filter(item=>columns.every(col=>col.key===activeColumn||matches(item,col.key))).map(item=>cellValue(item,activeColumn)))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true})):[],[activeColumn,baseRows,columnFilters,sellerDetails]);
  const visibleOptions=options.filter(value=>norm(value).includes(norm(filterSearch)));
- const selectedDraft=draftSelection===null?options:draftSelection;
+ const selectedDraft=draftSelection??(activeColumn&&columnFilters[activeColumn]?.length?options.filter(value=>columnFilters[activeColumn].includes(value)):options);
  const openFilter=(key:string,button:HTMLButtonElement)=>{
   if(activeColumn===key){setActiveColumn(null);return;}
   const rect=button.getBoundingClientRect();
@@ -441,14 +441,12 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
    left:Math.max(8,Math.min(rect.left,window.innerWidth-panelWidth-8)),
   });
   setActiveColumn(key);setFilterSearch('');
-  const values=[...new Set(baseRows.filter(row=>columns.every(col=>col.key===key||matches(row,col.key))).map(row=>cellValue(row,key)))];
-  const applied=columnFilters[key]??[];
-  setDraftSelection(applied.length?values.filter(value=>applied.includes(value)):values);
+  setDraftSelection(null); // Las opciones se calculan una vez al renderizar el filtro abierto.
  };
  const closeFilter=()=>{setActiveColumn(null);setFilterSearch('');setDraftSelection(null);};
  const applyFilter=()=>{
   if(!activeColumn)return;
-  const chosen=draftSelection??options;
+  const chosen=selectedDraft;
   setColumnFilters(old=>({...old,[activeColumn]:chosen.length===options.length?[]:chosen}));
   closeFilter();
  };
