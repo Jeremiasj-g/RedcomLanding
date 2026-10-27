@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect,useMemo,useState} from 'react';
+import {useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
 import {CalendarDays,ChevronDown,FileSpreadsheet,Filter,Loader2,Save,Search,Upload,X} from 'lucide-react';
 import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
 import {RedcomSelect} from '@/components/ui/redcom-select';
@@ -10,11 +10,12 @@ import {errorMessage,notify} from '@/lib/notifications';
 type Daily={visit_date:string;seller_name:string;seller_id:number|null;corrected_start:string|null;corrected_end:string|null;reason:string|null;comments:string|null;branch:string;sales_force:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
 type Person={id:number;name:string;branch:string;role:string;superior:string;force?:string};
 type CorrectionField='corrected_start'|'corrected_end'|'reason'|'comments';
-async function loadSigoRows():Promise<Daily[]>{
+async function loadSigoRows(branchScope?:{branch:string;force:string}):Promise<Daily[]>{
  const rows:Daily[]=[];let offset=0;
  while(true){
-  const {data,error}=await supabase.from('category_sigo_daily').select('visit_date,seller_name,seller_id,corrected_start,corrected_end,reason,comments,branch,sales_force,total_clients,visited_clients,unvisited_clients,first_visit,last_visit')
-   .order('visit_date',{ascending:false}).order('seller_name',{ascending:true}).range(offset,offset+999);
+  let request=supabase.from('category_sigo_daily').select('visit_date,seller_name,seller_id,corrected_start,corrected_end,reason,comments,branch,sales_force,total_clients,visited_clients,unvisited_clients,first_visit,last_visit');
+  if(branchScope){request=request.eq('branch',branchScope.branch);if(branchScope.force!=='all')request=request.eq('sales_force',branchScope.force);}
+  const {data,error}=await request.order('visit_date',{ascending:false}).order('seller_name',{ascending:true}).range(offset,offset+999);
   if(error)throw error;
   rows.push(...(data??[]));if((data??[]).length<1000)break;offset+=1000;
  }
@@ -218,10 +219,15 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  const [filterPosition,setFilterPosition]=useState({top:0,left:0});
  const [sortColumn,setSortColumn]=useState<string|null>(null);
  const [sortDirection,setSortDirection]=useState<'asc'|'desc'>('asc');
- useEffect(()=>{let live=true;
-  void loadSigoRows().then(rows=>{if(live)setHistory(rows);}).catch(e=>{if(live)notify.error(errorMessage(e,'No se pudo cargar el histórico SIGO.'));}).finally(()=>{if(live)setLoading(false);});
-  return()=>{live=false;};
- },[]);
+ const deferredQuery=useDeferredValue(query);
+ const syncTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const loadSequence=useRef(0);
+ const localWriteUntil=useRef(0);
+ const reloadHistory=useCallback(async()=>{const sequence=++loadSequence.current;const rows=await loadSigoRows(branchScope);if(sequence===loadSequence.current)setHistory(rows);},[branchScope?.branch,branchScope?.force]);
+ useEffect(()=>{let active=true;setLoading(true);
+  void reloadHistory().catch(e=>{if(active)notify.error(errorMessage(e,'No se pudo cargar el histórico SIGO.'));}).finally(()=>{if(active)setLoading(false);});
+  return()=>{active=false;++loadSequence.current;};
+ },[reloadHistory]);
  useEffect(()=>{let active=true;void(async()=>{
   const {data,error}=branchScope
     ?await supabase.rpc('sigo_personnel_for_team',{p_branch:branchScope.branch,p_force:branchScope.force})
@@ -231,12 +237,18 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   if(active)setPersonnel(Array.isArray(people)?people as Person[]:[]);
  })();return()=>{active=false;};},[branchScope?.branch,branchScope?.force]);
  useEffect(()=>{
-  let live=true;
-  const channel=supabase.channel('sigo-daily-sync').on('postgres_changes',{event:'*',schema:'public',table:'category_sigo_daily'},()=>{
-   void loadSigoRows().then(rows=>{if(live)setHistory(rows);}).catch(e=>{if(live)notify.error(errorMessage(e,'No se pudieron sincronizar los cambios de horarios.'));});
+  const channel=supabase.channel('sigo-daily-sync-'+(branchScope?.branch??'all')+'-'+(branchScope?.force??'all'))
+  .on('postgres_changes',{event:'*',schema:'public',table:'category_sigo_daily'},()=>{
+   // Coalesce bursts and do not race the optimistic update from this tab.
+   if(syncTimer.current)clearTimeout(syncTimer.current);
+   syncTimer.current=setTimeout(()=>{
+    const remaining=localWriteUntil.current-Date.now();
+    if(remaining>0){syncTimer.current=setTimeout(()=>{void reloadHistory().catch(()=>{});},remaining+250);}
+    else void reloadHistory().catch(()=>{});
+   },900);
   }).subscribe();
-  return()=>{live=false;void supabase.removeChannel(channel);};
- },[]);
+  return()=>{if(syncTimer.current)clearTimeout(syncTimer.current);void supabase.removeChannel(channel);};
+ },[reloadHistory,branchScope?.branch,branchScope?.force]);
  const sellerDetails=useMemo(()=>{
   const map=new Map<string,{code:string;supervisor:string}>();
   for(const seller of personnel.filter(p=>norm(p.role)==='VENDEDOR'&&norm(p.branch)===norm(selectedBranch)&&(selectedForce==='all'||p.force===selectedForce))){
@@ -314,7 +326,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
    const {error}=await supabase.rpc('replace_category_sigo_days',{p_rows:preview,p_confirm_replace:confirmed});
    if(error)throw error;
    // Read the persisted rows back: the RPC preserves manual corrections during re-imports.
-   try{setHistory(await loadSigoRows());}
+   try{await reloadHistory();}
    catch(e){notify.error('Se guardaron los horarios, pero no se pudo refrescar la tabla. Recargá la página para ver las correcciones conservadas.');}
    setPreview(null);setFiles([]);setDuplicateScopes([]);setConfirmReplace(false);
    notify.success('Histórico SIGO guardado. Los demás días y equipos se conservaron.');
@@ -331,6 +343,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   if(preview){notify.error('Guardá o descartá el Excel pendiente antes de editar correcciones.');return;}
   const key=correctionKey(row);
   const next={...row,...patch};
+  localWriteUntil.current=Date.now()+2200;
   setSavingCorrection(key);
   const field=Object.keys(patch)[0] as CorrectionField;
   const {data,error}=await supabase.rpc('sigo_update_correction',{
@@ -364,10 +377,10 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   setSavingCorrection(null);
  };
  const dataset=preview??history;
- const branchData=dataset.filter(item=>item.branch===selectedBranch);
- const forces=[...new Set(personnel.filter(person=>norm(person.branch)===norm(selectedBranch)&&person.force).map(person=>person.force!))].sort((a,b)=>a.localeCompare(b,'es'));
- const scopedData=branchData.filter(item=>selectedForce==='all'||item.sales_force===selectedForce);
- const days=[...new Set(scopedData.map(item=>item.visit_date))].sort((a,b)=>a.localeCompare(b));
+ const branchData=useMemo(()=>dataset.filter(item=>item.branch===selectedBranch),[dataset,selectedBranch]);
+ const forces=useMemo(()=>[...new Set(personnel.filter(person=>norm(person.branch)===norm(selectedBranch)&&person.force).map(person=>person.force!))].sort((a,b)=>a.localeCompare(b,'es')),[personnel,selectedBranch]);
+ const scopedData=useMemo(()=>branchData.filter(item=>selectedForce==='all'||item.sales_force===selectedForce),[branchData,selectedForce]);
+ const days=useMemo(()=>[...new Set(scopedData.map(item=>item.visit_date))].sort((a,b)=>a.localeCompare(b)),[scopedData]);
  const columns=[
   {key:'month',label:'Mes'},
   {key:'date',label:'Fecha'},
@@ -402,7 +415,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
    default:return '';
   }
  };
- const baseRows=scopedData.filter(item=>(date==='all'||item.visit_date===date)&&(!query||norm(item.seller_name).includes(norm(query))));
+ const baseRows=useMemo(()=>scopedData.filter(item=>(date==='all'||item.visit_date===date)&&(!deferredQuery||norm(item.seller_name).includes(norm(deferredQuery)))),[scopedData,date,deferredQuery]);
  const matches=(item:Daily,key:string)=>!columnFilters[key]?.length||columnFilters[key].includes(cellValue(item,key));
  const shown=baseRows.filter(item=>columns.every(col=>matches(item,col.key))).sort((a,b)=>{
   if(sortColumn){
