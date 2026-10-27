@@ -28,6 +28,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import CardSucursales from "@/components/CardSucursales";
 import Container from "@/components/Container";
 import { RedcomSelect } from "@/components/ui/redcom-select";
+import { useModulePermissions } from "@/components/permissions/ModulePermissionsProvider";
+import { canViewBranchResource } from "@/lib/branch-resource-access";
 import { useMe } from "@/hooks/useMe";
 import {
   createBranchResource,
@@ -119,6 +121,7 @@ export default function BranchResourcesSection({
   searchPlaceholder = "Buscar una herramienta...",
 }: BranchResourcesSectionProps) {
   const { me } = useMe();
+  const { canAccessModule } = useModulePermissions();
 
   const [resources, setResources] = useState<BranchResource[]>([]);
   const [roleOptions, setRoleOptions] = useState<Array<{code:string;name:string}>>([]);
@@ -168,9 +171,9 @@ export default function BranchResourcesSection({
     () =>
       resources.filter(
         (resource) =>
-          isAdmin || !resource.allowed_roles || resource.allowed_roles.includes(me?.role ?? ""),
+          canViewBranchResource(resource, me?.role, canAccessModule),
       ),
-    [resources, isAdmin, me?.role],
+    [resources, me?.role, canAccessModule],
   );
 
   const visibleFilters = useMemo(() => {
@@ -253,7 +256,7 @@ export default function BranchResourcesSection({
       icon: resource.icon,
       accent: resource.accent,
       action_label: resource.action_label,
-      permission_key: null,
+      permission_key: resource.permission_key,
       allowed_roles: resource.allowed_roles ?? null,
     });
     setEditorOpen(true);
@@ -697,7 +700,7 @@ export default function BranchResourcesSection({
                           checked={form.allowed_roles === null}
                           onChange={(e) => setForm((current) => ({...current, permission_key: null, allowed_roles:e.target.checked ? null : []}))}
                         />
-                        Todos los roles
+                        Todos los roles (si no hay permiso heredado)
                       </label>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {roleOptions.map((role) => (
@@ -719,6 +722,7 @@ export default function BranchResourcesSection({
                         ))}
                       </div>
                       {rolesLoading && <p className="mt-2 text-xs text-slate-500">Cargando roles…</p>}
+                      {form.permission_key && form.allowed_roles == null && <p className="mt-3 rounded-lg bg-blue-50 p-2 text-xs text-blue-700">Este recurso conserva el permiso heredado del panel de administración. Al marcar roles, la selección reemplaza ese permiso solamente para este recurso.</p>}
                       <p className="mt-3 text-xs text-slate-500">
                         Seleccioná uno o varios roles. Si elegís todos, el recurso estará visible para todos.
                         Los administradores pueden gestionar los recursos independientemente de esta selección.
