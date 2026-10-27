@@ -10,10 +10,14 @@ import {errorMessage,notify} from '@/lib/notifications';
 type Daily={visit_date:string;seller_name:string;seller_id:number|null;corrected_start:string|null;corrected_end:string|null;reason:string|null;comments:string|null;branch:string;sales_force:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
 type Person={id:number;name:string;branch:string;role:string;superior:string;force?:string};
 type CorrectionField='corrected_start'|'corrected_end'|'reason'|'comments';
-async function loadSigoRows(branchScope?:{branch:string;force:string}):Promise<Daily[]>{
+const nextMonth=(month:string)=>{const [year,m]=month.split('-').map(Number);const d=new Date(year,m,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
+const currentMonth=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
+const monthLabelFor=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric'}).format(new Date(month+'-01T12:00:00'));
+async function loadSigoRows(month:string,branchScope?:{branch:string;force:string}):Promise<Daily[]>{
  const rows:Daily[]=[];let offset=0;
  while(true){
   let request=supabase.from('category_sigo_daily').select('visit_date,seller_name,seller_id,corrected_start,corrected_end,reason,comments,branch,sales_force,total_clients,visited_clients,unvisited_clients,first_visit,last_visit');
+  request=request.gte('visit_date',month+'-01').lt('visit_date',nextMonth(month)+'-01');
   if(branchScope){request=request.eq('branch',branchScope.branch);if(branchScope.force!=='all')request=request.eq('sales_force',branchScope.force);}
   const {data,error}=await request.order('visit_date',{ascending:false}).order('seller_name',{ascending:true}).range(offset,offset+999);
   if(error)throw error;
@@ -201,6 +205,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  const [missingNames,setMissingNames]=useState<string[]>([]);
  const [duplicateScopes,setDuplicateScopes]=useState<{visit_date:string;branch:string;sales_force:string}[]>([]);
  const [confirmReplace,setConfirmReplace]=useState(false);
+ const [selectedMonth,setSelectedMonth]=useState(currentMonth);
  const [date,setDate]=useState('all');
  const [averageMonth,setAverageMonth]=useState('');
  const [view,setView]=useState<'daily'|'averages'|'id-history'>('daily');
@@ -224,7 +229,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  const syncTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const loadSequence=useRef(0);
  const localWriteUntil=useRef(0);
- const reloadHistory=useCallback(async()=>{const sequence=++loadSequence.current;const rows=await loadSigoRows(branchScope);if(sequence===loadSequence.current)setHistory(rows);},[branchScope?.branch,branchScope?.force]);
+ const reloadHistory=useCallback(async()=>{const sequence=++loadSequence.current;const rows=await loadSigoRows(selectedMonth,branchScope);if(sequence===loadSequence.current)setHistory(rows);},[selectedMonth,branchScope?.branch,branchScope?.force]);
  useEffect(()=>{let active=true;setLoading(true);
   void reloadHistory().catch(e=>{if(active)notify.error(errorMessage(e,'No se pudo cargar el histórico SIGO.'));}).finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;++loadSequence.current;};
@@ -327,7 +332,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
    const {error}=await supabase.rpc('replace_category_sigo_days',{p_rows:preview,p_confirm_replace:confirmed});
    if(error)throw error;
    // Read the persisted rows back: the RPC preserves manual corrections during re-imports.
-   try{await reloadHistory();}
+   try{if(preview[0]?.visit_date.slice(0,7)!==selectedMonth)setSelectedMonth(preview[0].visit_date.slice(0,7));else await reloadHistory();}
    catch(e){notify.error('Se guardaron los horarios, pero no se pudo refrescar la tabla. Recargá la página para ver las correcciones conservadas.');}
    setPreview(null);setFiles([]);setDuplicateScopes([]);setConfirmReplace(false);
    notify.success('Histórico SIGO guardado. Los demás días y equipos se conservaron.');
@@ -380,7 +385,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  const dataset=preview??history;
  const branchData=useMemo(()=>dataset.filter(item=>item.branch===selectedBranch),[dataset,selectedBranch]);
  const forces=useMemo(()=>[...new Set(personnel.filter(person=>norm(person.branch)===norm(selectedBranch)&&person.force).map(person=>person.force!))].sort((a,b)=>a.localeCompare(b,'es')),[personnel,selectedBranch]);
- const scopedData=useMemo(()=>branchData.filter(item=>selectedForce==='all'||item.sales_force===selectedForce),[branchData,selectedForce]);
+ const scopedData=useMemo(()=>branchData.filter(item=>(selectedForce==='all'||item.sales_force===selectedForce) && (preview!==null || item.visit_date.startsWith(selectedMonth))),[branchData,selectedForce,preview,selectedMonth]);
  const days=useMemo(()=>[...new Set(scopedData.map(item=>item.visit_date))].sort((a,b)=>a.localeCompare(b)),[scopedData]);
  const columns=[
   {key:'month',label:'Mes'},
@@ -457,7 +462,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  const clearFilters=()=>{setColumnFilters({});closeFilter();};
 
  const totals=useMemo(()=>shown.reduce((a,r)=>({assigned:a.assigned+r.total_clients,visited:a.visited+r.visited_clients,missing:a.missing+r.unvisited_clients}),{assigned:0,visited:0,missing:0}),[shown]);
- const months=useMemo(()=>[...new Set(scopedData.map(item=>item.visit_date.slice(0,7)))].sort((a,b)=>b.localeCompare(a)),[scopedData]);
+ const months=useMemo(()=>[...new Set([selectedMonth,...scopedData.map(item=>item.visit_date.slice(0,7))])].sort((a,b)=>b.localeCompare(a)),[scopedData,selectedMonth]);
  const effectiveMonth=months.includes(averageMonth)?averageMonth:months[0]??'';
  const monthlyAverages=useMemo(()=>{
   const currentSellers=personnel.filter(person=>norm(person.role)==='VENDEDOR'&&person.branch===selectedBranch&&(selectedForce==='all'||person.force===selectedForce));
@@ -568,7 +573,8 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4">
    {!branchScope&&<RedcomSelect aria-label="Fuerza de venta" value={selectedForce} onValueChange={value=>{setSelectedForce(value);setDate('all');setAverageMonth('');setColumnFilters({});}} options={[{value:'all',label:'Todas las fuerzas de venta'},...forces.map(force=>({value:force,label:force}))]} className="h-10 min-w-[205px] w-auto rounded-xl text-xs"/>}
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
-   <div className="min-w-[170px]"><RedcomSelect aria-label="Fecha" value={date} onValueChange={setDate} options={[{value:'all',label:'Todas las fechas'},...days.map(day=>({value:day,label:displayDate(day)}))]} className="h-10 rounded-xl text-xs"/></div>
+   <label className="flex items-center gap-2 text-xs text-slate-600">Mes <input aria-label="Mes del histórico" type="month" value={selectedMonth} onChange={event=>{if(/^\\d{4}-\\d{2}$/.test(event.target.value)){setSelectedMonth(event.target.value);setDate('all');setAverageMonth('');setColumnFilters({});}}} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800"/></label>
+   <div className="min-w-[170px]"><RedcomSelect aria-label="Día" value={date} onValueChange={setDate} options={[{value:'all',label:'Todos los días del mes'},...days.map(day=>({value:day,label:displayDate(day)}))]} className="h-10 rounded-xl text-xs"/></div>
   </div>
   {Object.values(columnFilters).some(values=>values.length>0)&&<div className="flex items-center justify-between border-b border-blue-100 bg-blue-50 px-5 py-2 text-[11px] font-medium text-blue-700"><span><Filter className="mr-1 inline h-3.5 w-3.5"/>Filtros activos · {shown.length} filas</span><button type="button" onClick={clearFilters} className="rounded-lg px-2 py-1 hover:bg-blue-100">Limpiar todos</button></div>}
   {activeColumn&&<>
