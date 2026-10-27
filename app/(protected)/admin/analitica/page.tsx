@@ -257,7 +257,7 @@ export default function AdminAnalyticsSettingsPage() {
             <Link2 className="mr-1.5 h-3.5 w-3.5" />
             Enlaces embebidos
           </Badge>
-          <h1 className="text-3xl font-black tracking-tight text-slate-950">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
             Configuración de analítica
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
@@ -309,22 +309,22 @@ export default function AdminAnalyticsSettingsPage() {
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-slate-100 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
           <CardContent className="flex items-center justify-between p-5">
             <div>
               <p className="text-sm font-semibold text-slate-500">URLs configuradas</p>
-              <p className="mt-1 text-3xl font-black text-slate-950">{configuredEntries}</p>
+              <p className="mt-1 text-3xl font-semibold text-slate-950">{configuredEntries}</p>
             </div>
             <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
               <CheckCircle2 className="h-6 w-6" />
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-slate-100 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
           <CardContent className="flex items-center justify-between p-5">
             <div>
               <p className="text-sm font-semibold text-slate-500">Sin URL</p>
-              <p className="mt-1 text-3xl font-black text-slate-950">
+              <p className="mt-1 text-3xl font-semibold text-slate-950">
                 {totalEntries - configuredEntries}
               </p>
             </div>
@@ -333,11 +333,11 @@ export default function AdminAnalyticsSettingsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-slate-100 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
           <CardContent className="flex items-center justify-between p-5">
             <div>
               <p className="text-sm font-semibold text-slate-500">Cambios pendientes</p>
-              <p className="mt-1 text-3xl font-black text-slate-950">{dirtyKeys.size}</p>
+              <p className="mt-1 text-3xl font-semibold text-slate-950">{dirtyKeys.size}</p>
             </div>
             <div className="rounded-2xl bg-sky-50 p-3 text-sky-600">
               <Save className="h-6 w-6" />
@@ -346,7 +346,7 @@ export default function AdminAnalyticsSettingsPage() {
         </Card>
       </div>
 
-      <Card className="overflow-hidden border-slate-200 shadow-sm">
+      <Card className="overflow-hidden border-slate-100 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
         <CardHeader className="border-b border-slate-200 bg-slate-50/70">
           <CardTitle className="text-lg">Enlaces activos</CardTitle>
           <CardDescription>
@@ -388,7 +388,7 @@ export default function AdminAnalyticsSettingsPage() {
                   <div className="mb-5">
                     <div className="flex items-center gap-2">
                       <SectionIcon className="h-5 w-5 text-slate-700" />
-                      <h2 className="text-lg font-black text-slate-950">{section.label}</h2>
+                      <h2 className="text-lg font-semibold text-slate-950">{section.label}</h2>
                     </div>
                     <p className="mt-1 text-sm text-slate-500">{section.description}</p>
                   </div>
@@ -414,7 +414,7 @@ export default function AdminAnalyticsSettingsPage() {
                           <div className="grid gap-4 xl:grid-cols-[240px_minmax(0,1fr)_auto] xl:items-start">
                             <div>
                               <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="font-black text-slate-950">{scope.label}</h3>
+                                <h3 className="font-semibold text-slate-950">{scope.label}</h3>
                                 <Badge
                                   variant="outline"
                                   className={cn(
@@ -443,7 +443,7 @@ export default function AdminAnalyticsSettingsPage() {
                             </div>
 
                             <div className="min-w-0 space-y-2">
-                              <Label htmlFor={key} className="text-xs font-bold text-slate-600">
+                              <Label htmlFor={key} className="text-xs font-semibold text-slate-600">
                                 URL embebida
                               </Label>
                               <Input
