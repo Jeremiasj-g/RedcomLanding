@@ -712,7 +712,7 @@ export default function AdminModulePermissionsPage() {
           <CardContent className="flex items-start gap-3 p-4 text-sm text-red-800">
             <KeyRound className="mt-0.5 h-5 w-5 shrink-0" />
             <div>
-              <p className="font-bold">No se pudo cargar el módulo de permisos.</p>
+              <p className="font-semibold">No se pudo cargar el módulo de permisos.</p>
               <p className="mt-1">{loadError}</p>
             </div>
           </CardContent>
@@ -747,36 +747,10 @@ export default function AdminModulePermissionsPage() {
         </TabsContent>
 
         <TabsContent value="users" className="mt-0 space-y-5">
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Metric
-              title="Usuarios"
-              value={users.length}
-              icon={<Users className="h-5 w-5 text-slate-700" />}
-            />
-            <Metric
-              title="Activos"
-              value={users.filter((user) => user.is_active).length}
-              icon={<CheckCircle2 className="h-5 w-5 text-emerald-700" />}
-              tone="emerald"
-            />
-            <Metric
-              title="Con permisos personalizados"
-              value={configuredUsers}
-              icon={<KeyRound className="h-5 w-5 text-violet-700" />}
-              tone="violet"
-            />
-            <Metric
-              title="Módulos administrables"
-              value={MODULE_PERMISSION_DEFINITIONS.length}
-              icon={<Gauge className="h-5 w-5 text-blue-700" />}
-              tone="blue"
-            />
-          </section>
-
-          <section className="grid min-h-[640px] gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <section className="grid min-h-[480px] gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
             <Card className="overflow-hidden rounded-3xl border-slate-100 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
               <CardHeader className="border-b border-slate-100 bg-slate-50/70 p-5">
-                <CardTitle className="text-base font-black text-slate-950">
+                <CardTitle className="text-base font-semibold text-slate-950">
                   Seleccionar usuario
                 </CardTitle>
                 <CardDescription>Buscá por nombre, correo, rol o sucursal.</CardDescription>
@@ -846,7 +820,7 @@ export default function AdminModulePermissionsPage() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-black">
+                            <p className="truncate text-sm font-semibold">
                               {user.full_name || 'Sin nombre'}
                             </p>
                             <p
@@ -925,7 +899,7 @@ export default function AdminModulePermissionsPage() {
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <CardTitle className="truncate text-xl font-black text-slate-950">
+                          <CardTitle className="truncate text-xl font-semibold text-slate-950">
                             {selectedUser.full_name || selectedUser.email}
                           </CardTitle>
                           <Badge
@@ -1085,7 +1059,7 @@ export default function AdminModulePermissionsPage() {
               <CardContent className="flex items-start gap-3 p-4 text-sm text-amber-900">
                 <KeyRound className="mt-0.5 h-5 w-5 shrink-0" />
                 <div>
-                  <p className="font-bold">
+                  <p className="font-semibold">
                     Falta habilitar los permisos predeterminados por rol.
                   </p>
                   <p className="mt-1">{roleLoadError}</p>
@@ -1094,72 +1068,10 @@ export default function AdminModulePermissionsPage() {
             </Card>
           )}
 
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Metric
-              title="Roles configurables"
-              value={configurableRoles.length}
-              icon={<ShieldCheck className="h-5 w-5 text-slate-700" />}
-            />
-            <Metric
-              title="Roles personalizados"
-              value={configuredRoles}
-              icon={<KeyRound className="h-5 w-5 text-violet-700" />}
-              tone="violet"
-            />
-            <Metric
-              title="Usuarios que heredan"
-              value={users.length - configuredUsers}
-              icon={<Users className="h-5 w-5 text-emerald-700" />}
-              tone="emerald"
-            />
-            <Metric
-              title="Módulos administrables"
-              value={MODULE_PERMISSION_DEFINITIONS.length}
-              icon={<Gauge className="h-5 w-5 text-blue-700" />}
-              tone="blue"
-            />
-          </section>
-
-          <Card className="rounded-2xl border-blue-100 bg-blue-50/70 shadow-sm">
-            <CardContent className="flex items-start gap-3 p-4 text-sm text-blue-900">
-              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
-              <div>
-                <p className="font-bold">Estos accesos se aplican automáticamente.</p>
-                <p className="mt-1 leading-6 text-blue-800">
-                  Todo usuario nuevo hereda la configuración de su rol desde su primer
-                  ingreso. Los usuarios existentes sin excepciones también se actualizan;
-                  las excepciones individuales permanecen y siguen teniendo prioridad.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {selectedRoleUsersWithExceptions > 0 && (
-            <Card className="rounded-2xl border-amber-200 bg-amber-50/80 shadow-sm">
-              <CardContent className="flex items-start gap-3 p-4 text-sm text-amber-950">
-                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                <div className="min-w-0">
-                  <p className="font-bold">
-                    {selectedRoleUsersWithExceptions} usuario
-                    {selectedRoleUsersWithExceptions === 1 ? '' : 's'} de{' '}
-                    {roleLabel(selectedRole, roleCatalog)} conserva
-                    {selectedRoleUsersWithExceptions === 1 ? '' : 'n'} excepciones individuales.
-                  </p>
-                  <p className="mt-1 leading-6 text-amber-800">
-                    Esas excepciones tienen prioridad sobre el rol. Por eso un módulo
-                    deshabilitado aquí puede seguir disponible para una persona concreta.
-                    Usá “Alinear usuarios al rol” si querés que todos hereden exactamente
-                    esta configuración.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <section className="grid min-h-[640px] gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <section className="grid min-h-[480px] gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
             <Card className="overflow-hidden rounded-2xl border-slate-200 shadow-sm">
               <CardHeader className="border-b border-slate-100 bg-slate-50/70 p-5">
-                <CardTitle className="text-base font-black text-slate-950">
+                <CardTitle className="text-base font-semibold text-slate-950">
                   Seleccionar rol
                 </CardTitle>
                 <CardDescription>
@@ -1203,7 +1115,7 @@ export default function AdminModulePermissionsPage() {
                           <ShieldCheck className="h-5 w-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-black">{roleLabel(role, roleCatalog)}</p>
+                          <p className="text-sm font-semibold">{roleLabel(role, roleCatalog)}</p>
                           <p
                             className={cn(
                               'mt-1 line-clamp-2 text-xs leading-5',
@@ -1263,7 +1175,7 @@ export default function AdminModulePermissionsPage() {
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <CardTitle className="text-xl font-black text-slate-950">
+                          <CardTitle className="text-xl font-semibold text-slate-950">
                             {roleLabel(selectedRole, roleCatalog)}
                           </CardTitle>
                           <Badge
@@ -1465,22 +1377,22 @@ function PermissionGroup({
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-black uppercase tracking-[0.12em] text-slate-700">
+          <h2 className="text-sm font-semibold text-slate-800">
             {group}
           </h2>
           {group === 'Sucursales' && (
             <p className="mt-1 text-xs text-slate-500">
-              Controla el ingreso general y respeta las sucursales asignadas en la pestaña Usuarios.
+              Acceso a las sucursales asignadas.
             </p>
           )}
           {group === 'Herramientas de sucursal' && (
             <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
-              Configurá de forma independiente las planillas, categorías y analítica que se muestran dentro de cada sucursal. Los permisos se combinan con las sucursales asignadas al usuario.
+              Accesos generales a herramientas de sucursal.
             </p>
           )}
         </div>
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-x-8 lg:grid-cols-2">
         {definitions.map((definition) => (
           <ModulePermissionCard
             key={definition.key}
@@ -1501,12 +1413,7 @@ function PermissionGroup({
 }
 
 function ModulePermissionCard({
-  definition,
-  checked,
-  baseline,
-  mode,
-  disabled,
-  onCheckedChange,
+  definition, checked, baseline, mode, disabled, onCheckedChange,
 }: {
   definition: ModulePermissionDefinition;
   checked: boolean;
@@ -1516,84 +1423,22 @@ function ModulePermissionCard({
   onCheckedChange: (checked: boolean) => void;
 }) {
   const Icon = MODULE_ICONS[definition.key];
-  const customized = checked !== baseline;
-
+  const changed = checked !== baseline;
   return (
-    <div
-      className={cn(
-        'rounded-2xl border p-4 transition',
-        checked
-          ? 'border-emerald-200 bg-emerald-50/45'
-          : 'border-slate-200 bg-slate-50/70',
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <div
-          className={cn(
-            'grid h-10 w-10 shrink-0 place-items-center rounded-xl border',
-            checked
-              ? 'border-emerald-200 bg-white text-emerald-700'
-              : 'border-slate-200 bg-white text-slate-500',
-          )}
-        >
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-black text-slate-900">{definition.label}</h3>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                {definition.description}
-              </p>
-            </div>
-            <Switch
-              checked={checked}
-              onCheckedChange={onCheckedChange}
-              disabled={disabled}
-              aria-label={`Permitir acceso a ${definition.label}`}
-              className="data-[state=checked]:bg-emerald-600"
-            />
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Badge
-              variant="outline"
-              className={cn(
-                'text-[10px]',
-                checked
-                  ? 'border-emerald-200 bg-white text-emerald-700'
-                  : 'border-slate-200 bg-white text-slate-500',
-              )}
-            >
-              {checked ? 'Acceso habilitado' : 'Sin acceso'}
-            </Badge>
-            <Badge
-              variant="outline"
-              className={cn(
-                'text-[10px]',
-                customized
-                  ? 'border-violet-200 bg-violet-50 text-violet-700'
-                  : 'border-slate-200 bg-white text-slate-500',
-              )}
-            >
-              {customized
-                ? mode === 'user'
-                  ? 'Excepción personalizada'
-                  : 'Ajustado por administrador'
-                : mode === 'user'
-                  ? `Según rol: ${baseline ? 'habilitado' : 'deshabilitado'}`
-                  : `Recomendado: ${baseline ? 'habilitado' : 'deshabilitado'}`}
-            </Badge>
-            {definition.branchAware && (
-              <Badge
-                variant="outline"
-                className="border-blue-100 bg-blue-50 text-[10px] text-blue-700"
-              >
-                Respeta sucursales
-              </Badge>
-            )}
-          </div>
-        </div>
+    <div className="flex items-center gap-3 border-b border-slate-100 px-1 py-4 last:border-0">
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100/80 text-slate-500">
+        <Icon className="h-4 w-4" />
       </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-sm font-medium text-slate-900">{definition.label}</h3>
+        <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{definition.description}</p>
+        {changed && <span className="mt-1 block text-[11px] font-medium text-blue-600">
+          {mode === 'user' ? 'Permiso personalizado' : 'Cambio respecto del recomendado'}
+        </span>}
+      </div>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled}
+        aria-label={`Permitir acceso a ${definition.label}`}
+        className="shrink-0 data-[state=checked]:bg-emerald-600" />
     </div>
   );
 }
@@ -1659,7 +1504,7 @@ function AdminAccessNotice() {
     <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
       <div>
-        <p className="font-bold">Los administradores siempre tienen acceso completo.</p>
+        <p className="font-semibold">Los administradores siempre tienen acceso completo.</p>
         <p className="mt-1 text-amber-800">
           Esta protección evita que el sistema quede sin una cuenta capaz de administrar
           usuarios y permisos.
@@ -1671,10 +1516,10 @@ function AdminAccessNotice() {
 
 function EmptySelection({ text }: { text: string }) {
   return (
-    <div className="grid min-h-[640px] place-items-center p-8 text-center">
+    <div className="grid min-h-[480px] place-items-center p-8 text-center">
       <div>
         <ShieldCheck className="mx-auto h-12 w-12 text-slate-300" />
-        <p className="mt-4 font-bold text-slate-700">{text}</p>
+        <p className="mt-4 font-semibold text-slate-700">{text}</p>
       </div>
     </div>
   );
@@ -1702,7 +1547,7 @@ function Metric({
       <CardContent className="flex items-center justify-between p-5">
         <div>
           <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="mt-2 text-3xl font-black text-slate-950">{value}</p>
+          <p className="mt-2 text-3xl font-semibold text-slate-950">{value}</p>
         </div>
         <div className="grid h-11 w-11 place-items-center rounded-full bg-slate-100">
           {icon}
@@ -1715,10 +1560,10 @@ function Metric({
 function SummaryChip({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
-      <p className="mt-1 text-sm font-black text-slate-900">{value}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
