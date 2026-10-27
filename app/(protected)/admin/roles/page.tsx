@@ -371,10 +371,10 @@ export default function AdminRolesPage() {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-blue-700">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">
             <UserCog className="h-3.5 w-3.5" /> Catálogo de accesos
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-950">Roles del sistema</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Roles del sistema</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
             Creá y administrá los roles disponibles al dar de alta usuarios. Cada rol puede
             heredar una plantilla de permisos y luego configurarse desde la pestaña Permisos.
@@ -415,11 +415,11 @@ export default function AdminRolesPage() {
         <MetricCard icon={Users} label="Roles en uso" value={metrics.assigned} tone="blue" />
       </section>
 
-      <Card className="overflow-hidden rounded-2xl border-slate-200 shadow-sm">
+      <Card className="overflow-hidden rounded-3xl border-slate-100 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
         <CardHeader className="border-b border-slate-100 bg-slate-50/60 p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <CardTitle className="text-lg font-black text-slate-950">Catálogo de roles</CardTitle>
+              <CardTitle className="text-lg font-semibold text-slate-950">Catálogo de roles</CardTitle>
               <CardDescription className="mt-1">
                 Los roles base están protegidos para no romper reglas internas del sistema.
               </CardDescription>
@@ -472,7 +472,7 @@ export default function AdminRolesPage() {
                         </div>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="truncate font-black text-slate-950">{role.name}</h2>
+                            <h2 className="truncate font-semibold text-slate-950">{role.name}</h2>
                             <Badge variant="outline" className="font-mono text-[10px] text-slate-600">
                               {role.code}
                             </Badge>
@@ -775,11 +775,11 @@ function MetricCard({
     blue: 'bg-blue-50 text-blue-700',
   };
   return (
-    <Card className="rounded-2xl border-slate-200 shadow-sm">
+    <Card className="rounded-3xl border-slate-100 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
       <CardContent className="flex items-center justify-between p-5">
         <div>
           <p className="text-sm font-medium text-slate-500">{label}</p>
-          <p className="mt-1 text-3xl font-black text-slate-950">{value}</p>
+          <p className="mt-1 text-3xl font-semibold text-slate-950">{value}</p>
         </div>
         <div className={cn('grid h-11 w-11 place-items-center rounded-2xl', tones[tone])}>
           <Icon className="h-5 w-5" />
@@ -802,7 +802,7 @@ function SmallStat({
 }) {
   return (
     <div className={cn('rounded-xl border border-slate-200 bg-white px-3 py-2', className)}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{label}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
       <div className="mt-0.5 flex items-baseline gap-1">
         <strong className="text-base text-slate-900">{value}</strong>
         <span className="text-[10px] text-slate-400">{helper}</span>
