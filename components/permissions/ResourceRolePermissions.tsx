@@ -28,7 +28,7 @@ export default function ResourceRolePermissions() {
  const resource=resources.find(r=>r.id===selected);
  useEffect(()=>{setDraft(resource?.allowed_roles??null)},[resource?.id,resource?.allowed_roles]);
  const visible=useMemo(()=>resources.filter(r=>[r.title,r.branch_key,r.section_key].join(' ').toLowerCase().includes(query.toLowerCase())),[query,resources]);
- const dirty=resource?JSON.stringify([...(draft||[])].sort())!==JSON.stringify([...(resource.allowed_roles||[])].sort())||((draft===null)!==(resource.allowed_roles===null)):false;
+ const dirty=resource ? (JSON.stringify([...(draft||[])].sort())!==JSON.stringify([...(resource.allowed_roles||[])].sort()) || ((draft===null)!==(resource.allowed_roles===null))) : false;
  const save=async()=>{if(!resource||!dirty)return;setSaving(true);
  const {error}=await supabase.from('branch_resources').update({allowed_roles:draft,permission_key:null}).eq('id',resource.id);
  setSaving(false);
