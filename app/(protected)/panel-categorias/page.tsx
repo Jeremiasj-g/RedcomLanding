@@ -494,7 +494,6 @@ export default function CategoryPanelPage() {
               key={`pivot-${inputVersion}`}
               number="01"
               title="Reporte de visitas"
-              subtitle="PivotGrid.xlsx"
               description="Sector, vendedor, visitados, venta a distancia, venta en PDV y visitas planeadas."
               file={pivotFile}
               onFile={setPivotFile}
@@ -504,14 +503,13 @@ export default function CategoryPanelPage() {
               key={`tmp-${inputVersion}`}
               number="02"
               title="Reporte de facturación"
-              subtitle="TMP / Análisis de ventas"
               description="Se utilizan únicamente Importe Final Facturado y Cnt.Fac."
               file={tmpFile}
               onFile={setTmpFile}
               accept=".xlsx"
             />
             <motion.section initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:0.2,delay:0.08}} className="flex min-h-[210px] flex-col justify-between rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.05)]">
-              <div><div className="text-xs font-semibold text-emerald-600">03 · PROYECCIONES</div>
+              <div>
                 <h3 className="mt-2 text-base font-semibold text-slate-900">Categoría, POP y Exhibición</h3>
                 <p className="mt-2 text-xs leading-5 text-slate-500">Descargá la plantilla con todos los vendedores, completá las columnas que quieras e importá para revisar.</p>
               </div>
@@ -1066,7 +1064,6 @@ function HeroStat({
 function UploadCard({
   number,
   title,
-  subtitle,
   description,
   file,
   onFile,
@@ -1074,7 +1071,6 @@ function UploadCard({
 }: {
   number: string;
   title: string;
-  subtitle: string;
   description: string;
   file: File | null;
   onFile: (file: File | null) => void;
@@ -1141,9 +1137,6 @@ function UploadCard({
           </span>
 
           <div className="min-w-0">
-            <div className="text-[10px] font-medium text-slate-400">
-              {subtitle}
-            </div>
             <h3 className="mt-1 text-lg font-semibold tracking-[-0.02em] text-slate-950">
               {title}
             </h3>
