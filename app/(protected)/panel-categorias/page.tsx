@@ -409,10 +409,6 @@ export default function CategoryPanelPage() {
           <section className="px-1 pb-2 pt-4 sm:px-2 sm:pt-6">
             <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
               <div className="max-w-3xl">
-                <div className="inline-flex items-center gap-2 text-[10px] font-medium text-blue-600">
-                  <Database className="h-4 w-4" />
-                  Datos operativos
-                </div>
 
                 <h1 className="mt-2 text-4xl font-semibold tracking-[-0.05em] text-[#111214] sm:text-[46px]">
                   Panel de categorías
