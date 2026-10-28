@@ -409,7 +409,7 @@ export default function CategoryPanelPage() {
           <section className="px-1 pb-2 pt-4 sm:px-2 sm:pt-6">
             <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
               <div className="max-w-3xl">
-                <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-600">
+                <div className="inline-flex items-center gap-2 text-[10px] font-medium text-blue-600">
                   <Database className="h-4 w-4" />
                   Datos operativos
                 </div>
@@ -510,7 +510,7 @@ export default function CategoryPanelPage() {
               onFile={setTmpFile}
               accept=".xlsx"
             />
-            <section className="flex min-h-[210px] flex-col justify-between rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.05)]">
+            <motion.section initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:0.2,delay:0.08}} className="flex min-h-[210px] flex-col justify-between rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.05)]">
               <div><div className="text-xs font-semibold text-emerald-600">03 · PROYECCIONES</div>
                 <h3 className="mt-2 text-base font-semibold text-slate-900">Categoría, POP y Exhibición</h3>
                 <p className="mt-2 text-xs leading-5 text-slate-500">Descargá la plantilla con todos los vendedores, completá las columnas que quieras e importá para revisar.</p>
@@ -520,10 +520,10 @@ export default function CategoryPanelPage() {
                 <input ref={kpiImportRef} type="file" accept=".xlsx" className="hidden" onChange={event=>{const file=event.target.files?.[0];if(file)void importKpi(file);}}/>
                 <button type="button" disabled={importingKpi||!savedRows.length||Boolean(preview)} onClick={()=>kpiImportRef.current?.click()} className="rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">{importingKpi?'Procesando…':'Seleccionar archivo'}</button>
               </div>
-            </section>
+            </motion.section>
           </section>
 
-          {kpiDraft && <section className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50/60 p-5">
+          {kpiDraft && <motion.section initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:0.2}} className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50/60 p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div><h3 className="text-base font-semibold text-slate-900">Vista previa · Proyecciones sin guardar</h3>
                 <p className="mt-1 text-xs text-slate-600">{kpiDraft.length} vendedores en la planilla. Las celdas vacías quedarán sin valor y los vendedores no incluidos no se modificarán.</p>
@@ -544,7 +544,7 @@ export default function CategoryPanelPage() {
                 <td className="p-3">{row.exhibition_percentage===null?'—':row.exhibition_percentage+'%'}</td>
               </tr>)}</tbody>
             </table></div>
-          </section>}
+          </motion.section>}
 
           <section className="mt-4 flex flex-col gap-3 rounded-[22px] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_12px_36px_rgba(15,23,42,.035)] sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex items-start gap-3">
@@ -595,7 +595,7 @@ export default function CategoryPanelPage() {
               <div><h3 className="text-sm font-semibold text-slate-900">Actualización individual de vendedor</h3><p className="mt-1 text-xs text-slate-500">Activá para importar Pivot o TMP de un solo vendedor.</p></div>
               <input type="checkbox" role="switch" checked={individualEnabled} onChange={e=>setIndividualEnabled(e.target.checked)} className="h-5 w-5 accent-emerald-600"/>
             </label>
-            {individualEnabled && <div className="mt-4 grid gap-4 border-t border-slate-100 pt-4 lg:grid-cols-2">
+            <AnimatePresence initial={false}>{individualEnabled && <motion.div initial={{opacity:0,y:-6,height:0}} animate={{opacity:1,y:0,height:"auto"}} exit={{opacity:0,y:-6,height:0}} transition={{duration:0.2}} className="mt-4 grid gap-4 overflow-hidden border-t border-slate-100 pt-4 lg:grid-cols-2">
             <SingleSellerPivotUpdate
             savedRows={savedRows}
             onUpdated={(updated) =>
@@ -622,7 +622,7 @@ export default function CategoryPanelPage() {
             }
           />
 
-            </div>}
+            </motion.div>}</AnimatePresence>
           </section>
 
           {preview ? <ValidationSummary result={preview} /> : null}
@@ -632,7 +632,7 @@ export default function CategoryPanelPage() {
               <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                 <div>
                   <div
-                    className={`inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] ${
+                    className={`inline-flex items-center gap-2 text-[10px] font-medium ${
                       displayMode === 'preview'
                         ? 'text-blue-600'
                         : 'text-slate-400'
@@ -796,7 +796,7 @@ export default function CategoryPanelPage() {
                 <X className="h-4 w-4" />
               </button>
 
-              <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-blue-600">
+              <div className="text-[10px] font-medium text-blue-600">
                 Ajuste manual
               </div>
               <h3 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
@@ -1052,7 +1052,7 @@ function HeroStat({
 }) {
   return (
     <div className="px-2 py-4 sm:px-5">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+      <div className="text-[9px] font-medium text-slate-400">
         {label}
       </div>
       <div className="mt-1 text-[22px] font-semibold tracking-[-0.035em] text-slate-950">
@@ -1093,7 +1093,8 @@ function UploadCard({
   };
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
       onDragEnter={(event) => {
         event.preventDefault();
         setDragging(true);
@@ -1111,7 +1112,7 @@ function UploadCard({
         setDragging(false);
         takeFile(event.dataTransfer.files?.[0]);
       }}
-      className={`relative overflow-hidden rounded-[24px] border bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,.035)] transition ${
+      className={`relative overflow-hidden rounded-[24px] border bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)] transition-all duration-200 ${
         dragging
           ? 'border-blue-300 ring-4 ring-blue-100'
           : file
@@ -1140,7 +1141,7 @@ function UploadCard({
           </span>
 
           <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+            <div className="text-[10px] font-medium text-slate-400">
               {subtitle}
             </div>
             <h3 className="mt-1 text-lg font-semibold tracking-[-0.02em] text-slate-950">
@@ -1165,10 +1166,10 @@ function UploadCard({
       </div>
 
       <div
-        className={`mt-5 flex min-h-[72px] items-center justify-between gap-4 rounded-[16px] border border-dashed px-4 py-3 ${
+        className={`mt-5 flex min-h-[58px] items-center justify-between gap-4 border-t border-slate-100 pt-3 ${
           file
-            ? 'border-emerald-200 bg-emerald-50/50'
-            : 'border-slate-200 bg-[#fafbfc]'
+            ? 'border-emerald-100'
+            : 'border-slate-100'
         }`}
       >
         {file ? (
@@ -1200,7 +1201,7 @@ function UploadCard({
           {file ? 'Cambiar' : 'Seleccionar'}
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1306,7 +1307,7 @@ function ValidationMetric({
 }) {
   return (
     <div>
-      <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+      <div className="text-[9px] font-medium text-slate-400">
         {label}
       </div>
       <div
@@ -1331,7 +1332,7 @@ function TableStat({
 }) {
   return (
     <div className="px-1 py-3.5 sm:px-5">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-slate-400">
+      <div className="text-[9px] font-medium text-slate-400">
         {label}
       </div>
       <div
@@ -1470,7 +1471,7 @@ function EditorField({
 }) {
   return (
     <label>
-      <span className="mb-1.5 block text-[9px] font-semibold uppercase tracking-[0.09em] text-slate-400">
+      <span className="mb-1.5 block text-[9px] font-medium text-slate-400">
         {label}
       </span>
       {children}
@@ -1716,7 +1717,7 @@ function CategoryScaleTab() {
         <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600">
+              <div className="text-[10px] font-medium text-blue-600">
                 Configuración de categorización
               </div>
               <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
@@ -1729,7 +1730,7 @@ function CategoryScaleTab() {
 
             <div className="flex flex-wrap items-end gap-2">
               <label>
-                <span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                <span className="mb-1 block text-[9px] font-medium text-slate-400">
                   Año
                 </span>
                 <input
@@ -1745,7 +1746,7 @@ function CategoryScaleTab() {
                 />
               </label>
               <label className="w-[250px]">
-                <span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                <span className="mb-1 block text-[9px] font-medium text-slate-400">
                   Título
                 </span>
                 <input
@@ -1803,7 +1804,7 @@ function CategoryScaleTab() {
         <div className="px-5 py-5 sm:px-6">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.09em] text-slate-400">
+              <div className="text-[10px] font-medium text-slate-400">
                 Cuadro preventa
               </div>
               <div className="mt-1 text-[11px] text-slate-500">
@@ -1866,7 +1867,7 @@ function CategoryScaleTab() {
                       key={metric.id}
                       className="border-t border-slate-100 text-[11px] text-slate-600"
                     >
-                      <td className="px-4 py-3.5 text-[10px] font-semibold uppercase tracking-[0.05em] text-slate-400">
+                      <td className="px-4 py-3.5 text-[10px] font-medium text-slate-400">
                         {metric.sectionName}
                       </td>
                       <td className="px-4 py-3.5 font-semibold text-slate-800">
@@ -1939,7 +1940,7 @@ function CategoryScaleTab() {
       <section className="rounded-[24px] border border-slate-200/80 bg-white px-5 py-5 shadow-[0_14px_40px_rgba(15,23,42,.035)] sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-violet-600">
+            <div className="text-[10px] font-medium text-violet-600">
               Puertas de apertura
             </div>
             <h3 className="mt-1 text-lg font-semibold tracking-[-0.025em] text-slate-950">
@@ -1983,7 +1984,7 @@ function CategoryScaleTab() {
                 className="flex items-center justify-between gap-4 rounded-[18px] border border-slate-200 bg-[#fafbfc] px-4 py-4"
               >
                 <div>
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  <div className="text-[9px] font-medium text-slate-400">
                     {gate.label}
                   </div>
                   <div className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
@@ -2042,7 +2043,7 @@ function ScaleSummary({
 }) {
   return (
     <div className="px-2 py-3.5 sm:px-5">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+      <div className="text-[9px] font-medium text-slate-400">
         {label}
       </div>
       <div
