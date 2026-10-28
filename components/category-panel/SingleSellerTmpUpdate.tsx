@@ -49,7 +49,7 @@ export default function SingleSellerTmpUpdate({
   }catch(e){notify.error(errorMessage(e,'No se pudo actualizar la facturación.'));}
   finally{setSaving(false);}
  }
- return <section className="mt-4 rounded-[24px] border border-slate-200/80 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,.035)] sm:p-6">
+ return <section className="h-full rounded-[20px] border border-slate-200 bg-slate-50/50 p-5">
    <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
     <div>
      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600">Actualización parcial · TMP</div>
@@ -62,7 +62,7 @@ export default function SingleSellerTmpUpdate({
       <input type="file" className="hidden" accept=".xlsx" onChange={e=>{setFile(e.target.files?.[0]??null);setList([]);setChosen('');e.target.value='';}}/>
      </label>
      {file&&<button type="button" onClick={()=>void inspect()} disabled={reading||saving}
-       className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-semibold text-white disabled:opacity-50">
+       className="inline-flex h-10 items-center gap-2 rounded-xl bg-sky-600 px-4 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-50">
        {reading?<Loader2 className="h-4 w-4 animate-spin"/>:<FileSpreadsheet className="h-4 w-4"/>}Previsualizar
      </button>}
      {file&&<button type="button" title="Limpiar" onClick={clear} disabled={saving||reading} className="grid h-10 w-10 place-items-center rounded-xl text-slate-400 hover:bg-slate-100"><X className="h-4 w-4"/></button>}
