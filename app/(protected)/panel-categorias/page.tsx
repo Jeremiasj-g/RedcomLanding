@@ -39,6 +39,8 @@ import {
   type CategoryPanelRow,
 } from '@/lib/categoryPanelExcel';
 import { errorMessage, notify } from '@/lib/notifications';
+import { supabase } from '@/lib/supabaseClient';
+import { exportKpiProjectionTemplate, parseKpiProjectionFile, type KpiProjection } from '@/lib/categoryKpiProjections';
 import SellerConsiderations from '@/components/category-panel/SellerConsiderations';
 import CommercialPersonnel from '@/components/category-panel/CommercialPersonnel';
 import CategorySigoHistory from '@/components/category-panel/CategorySigoHistory';
@@ -117,6 +119,30 @@ export default function CategoryPanelPage() {
   const { me, loading: meLoading } = useMe();
 
   const [savedRows, setSavedRows] = useState<CategoryPanelRow[]>([]);
+  const [kpiProjections,setKpiProjections] = useState<KpiProjection[]>([]);
+  const [importingKpi,setImportingKpi] = useState(false);
+  const kpiImportRef=useRef<HTMLInputElement>(null);
+  const reloadKpi=async()=>{
+    const {data,error}=await supabase.from('category_kpi_projections').select('branch_key,seller_id,projected_category,pop_percentage,exhibition_percentage');
+    if(error)throw error;
+    setKpiProjections((data??[]) as KpiProjection[]);
+  };
+  useEffect(()=>{if(!meLoading&&me?.role==='admin')void reloadKpi().catch(error=>notify.error(errorMessage(error,'No se pudieron cargar las proyecciones.')));},[meLoading,me?.role]);
+  const importKpi=async(file:File)=>{
+    if(preview){notify.error('Guardá o descartá la importación Pivot/TMP pendiente antes de cargar proyecciones.');return;}
+    setImportingKpi(true);
+    try{
+      const entries=await parseKpiProjectionFile(file,savedRows);
+      if(!entries.length)throw new Error('No hay vendedores reconocidos en la planilla.');
+      for(let index=0;index<entries.length;index+=100){
+        const {error}=await supabase.from('category_kpi_projections').upsert(entries.slice(index,index+100),{onConflict:'branch_key,seller_id'});
+        if(error)throw error;
+      }
+      await reloadKpi();
+      notify.success('Proyecciones actualizadas para '+entries.length+' vendedores.');
+    }catch(error){notify.error(errorMessage(error,'No se pudo importar la planilla de proyecciones.'));}
+    finally{setImportingKpi(false);if(kpiImportRef.current)kpiImportRef.current.value='';}
+  };
   const [savedState, setSavedState] = useState<CategoryPanelState>(emptyState);
   const [loadingSaved, setLoadingSaved] = useState(true);
 
@@ -451,6 +477,12 @@ export default function CategoryPanelPage() {
             />
           </div>
 
+          {activeTab === 'kpis' && <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+            <div className="mr-auto"><p className="text-sm font-semibold text-slate-900">Proyecciones de vendedores</p><p className="text-xs text-slate-500">Categoría, POP y Exhibición. Las celdas vacías quedan sin valor.</p></div>
+            <button type="button" disabled={!savedRows.length} onClick={()=>exportKpiProjectionTemplate(savedRows,kpiProjections)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">Exportar modelo Excel</button>
+            <input ref={kpiImportRef} type="file" accept=".xlsx" className="hidden" onChange={event=>{const file=event.target.files?.[0];if(file)void importKpi(file);}}/>
+            <button type="button" disabled={importingKpi||!savedRows.length||Boolean(preview)} onClick={()=>kpiImportRef.current?.click()} className="rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50">{importingKpi?'Importando…':'Importar proyecciones'}</button>
+          </div>}
           {activeTab === 'personnel' ? <CommercialPersonnel /> : activeTab === 'kpis' ? (
             <>
           <section className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -630,6 +662,7 @@ export default function CategoryPanelPage() {
               </div>
             ) : displayRows.length ? (
               <UnifiedTable
+                projections={kpiProjections}
                 rows={filteredRows}
                 editable={Boolean(preview)}
                 onEdit={openRowEditor}
@@ -1266,17 +1299,20 @@ function TableStat({
 }
 
 function UnifiedTable({
+  projections,
   rows,
   editable,
   onEdit,
 }: {
   rows: CategoryPanelRow[];
+  projections: KpiProjection[];
   editable: boolean;
   onEdit: (row: CategoryPanelRow) => void;
 }) {
+  const bySeller=new Map(projections.map(value=>[value.branch_key+':'+value.seller_id,value]));
   return (
     <div className="max-h-[680px] overflow-auto">
-      <table className="w-full min-w-[1280px] text-left">
+      <table className="w-full min-w-[1540px] text-left">
         <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl">
           <tr className="border-b border-slate-200 text-[9px] uppercase tracking-[0.08em] text-slate-400">
             <th className="px-5 py-3.5 font-semibold">Sucursal</th>
@@ -1291,6 +1327,9 @@ function UnifiedTable({
               Importe Final Facturado
             </th>
             <th className="px-4 py-3.5 text-right font-semibold">Cnt.Fac.</th>
+            <th className="px-4 py-3.5 font-semibold">Categoría proyectada</th>
+            <th className="px-4 py-3.5 text-right font-semibold">POP (%)</th>
+            <th className="px-4 py-3.5 text-right font-semibold">Exhibición (%)</th>
             <th className="sticky right-0 w-[72px] bg-white/95 px-4 py-3.5 text-center font-semibold">
               Acciones
             </th>
@@ -1339,6 +1378,9 @@ function UnifiedTable({
               <td className="px-4 py-3.5 text-right font-semibold text-slate-700">
                 {integerFormatter.format(row.cntFac)}
               </td>
+              <td className="px-4 py-3.5 font-medium text-slate-700">{bySeller.get(row.branchKey+':'+row.sellerId)?.projected_category??'—'}</td>
+              <td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.pop_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.pop_percentage+'%'}</td>
+              <td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.exhibition_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.exhibition_percentage+'%'}</td>
               <td className={`sticky right-0 px-4 py-3.5 text-center ${
                 row.partialUpdatedAt ? 'bg-emerald-50 group-hover:bg-emerald-100/70' : 'bg-white group-hover:bg-slate-50/95'
               }`}>
@@ -1361,7 +1403,7 @@ function UnifiedTable({
 
           {!rows.length ? (
             <tr>
-              <td colSpan={11} className="px-6 py-16 text-center text-sm text-slate-400">
+              <td colSpan={14} className="px-6 py-16 text-center text-sm text-slate-400">
                 No hay vendedores que coincidan con los filtros actuales.
               </td>
             </tr>
