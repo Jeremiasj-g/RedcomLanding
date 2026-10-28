@@ -951,7 +951,7 @@ export default function CategoryPanelPage() {
                 <button
                   type="button"
                   onClick={saveEditedRow}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-[11px] font-semibold text-white transition hover:bg-slate-800"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[11px] font-semibold text-white transition hover:bg-emerald-700"
                 >
                   <Save className="h-4 w-4" />
                   Aplicar cambios
@@ -1023,7 +1023,7 @@ export default function CategoryPanelPage() {
                   type="button"
                   onClick={() => void savePreview()}
                   disabled={saving}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-[11px] font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[11px] font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
                 >
                   {saving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1520,7 +1520,7 @@ function PanelTab({
       onClick={onClick}
       className={
         active
-          ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-[11px] font-semibold text-white shadow-sm'
+          ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[11px] font-semibold text-white shadow-sm'
           : 'inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900'
       }
     >
@@ -1777,7 +1777,7 @@ function CategoryScaleTab() {
                     }
                   })()
                 }
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-[11px] font-semibold text-white"
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[11px] font-semibold text-white"
               >
                 {savingSettings ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -2148,7 +2148,7 @@ function ScaleEditRow({
             type="button"
             disabled={saving}
             onClick={onSave}
-            className="grid h-8 w-8 place-items-center rounded-lg bg-slate-950 text-white"
+            className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-600 text-white"
           >
             {saving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -2250,7 +2250,7 @@ function GateEditCard({
           type="button"
           disabled={saving}
           onClick={onSave}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-slate-950 px-3 text-[10px] font-semibold text-white"
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-[10px] font-semibold text-white"
         >
           {saving ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
