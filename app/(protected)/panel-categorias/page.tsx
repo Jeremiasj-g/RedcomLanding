@@ -134,10 +134,8 @@ export default function CategoryPanelPage() {
     try{
       const entries=await parseKpiProjectionFile(file,savedRows);
       if(!entries.length)throw new Error('No hay vendedores reconocidos en la planilla.');
-      for(let index=0;index<entries.length;index+=100){
-        const {error}=await supabase.from('category_kpi_projections').upsert(entries.slice(index,index+100),{onConflict:'branch_key,seller_id'});
-        if(error)throw error;
-      }
+      const {error}=await supabase.from('category_kpi_projections').upsert(entries,{onConflict:'branch_key,seller_id'});
+      if(error)throw error;
       await reloadKpi();
       notify.success('Proyecciones actualizadas para '+entries.length+' vendedores.');
     }catch(error){notify.error(errorMessage(error,'No se pudo importar la planilla de proyecciones.'));}
@@ -478,7 +476,7 @@ export default function CategoryPanelPage() {
           </div>
 
           {activeTab === 'kpis' && <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-            <div className="mr-auto"><p className="text-sm font-semibold text-slate-900">Proyecciones de vendedores</p><p className="text-xs text-slate-500">Categoría, POP y Exhibición. Las celdas vacías quedan sin valor.</p></div>
+            <div className="mr-auto"><p className="text-sm font-semibold text-slate-900">Proyecciones de vendedores</p><p className="text-xs text-slate-500">Categoría, POP y Exhibición (0–100 %). Podés dejar celdas vacías.</p></div>
             <button type="button" disabled={!savedRows.length} onClick={()=>exportKpiProjectionTemplate(savedRows,kpiProjections)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">Exportar modelo Excel</button>
             <input ref={kpiImportRef} type="file" accept=".xlsx" className="hidden" onChange={event=>{const file=event.target.files?.[0];if(file)void importKpi(file);}}/>
             <button type="button" disabled={importingKpi||!savedRows.length||Boolean(preview)} onClick={()=>kpiImportRef.current?.click()} className="rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50">{importingKpi?'Importando…':'Importar proyecciones'}</button>
