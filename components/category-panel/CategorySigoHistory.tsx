@@ -530,7 +530,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   </div>}
   {!branchScope&&missingNames.length>0&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-missing-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
    <div className="w-full max-w-lg rounded-[24px] bg-white p-6 shadow-2xl">
-    <div className="text-[10px] font-bold uppercase tracking-[.12em] text-amber-600">Importación bloqueada</div>
+    
     <h3 id="sigo-missing-title" className="mt-2 text-xl font-semibold text-slate-950">Actualizá Personal comercial</h3>
     <p className="mt-2 text-sm leading-6 text-slate-600">Los siguientes nombres no tienen una coincidencia única de sucursal y fuerza de venta en el detalle de personal. Actualizá ese archivo en la pestaña <strong>Personal comercial</strong> y volvé a importar SIGO. No se guardó ningún dato.</p>
     <div className="mt-4 max-h-48 overflow-y-auto rounded-xl bg-amber-50 p-3 text-sm text-amber-950">{missingNames.map(name=><div key={name} className="border-b border-amber-100 py-1.5 last:border-0">{name}</div>)}</div>
@@ -539,7 +539,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   </div>}
   {!branchScope&&confirmReplace&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-duplicate-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
    <div className="w-full max-w-lg rounded-[24px] bg-white p-6 shadow-2xl">
-    <div className="text-[10px] font-bold uppercase tracking-[.12em] text-amber-600">Datos ya importados</div>
+    
     <h3 id="sigo-duplicate-title" className="mt-2 text-xl font-semibold text-slate-950">¿Reemplazar los horarios existentes?</h3>
     <p className="mt-2 text-sm leading-6 text-slate-600">Estos días y equipos ya tienen información guardada. Si continuás, <strong>se reemplazarán todos sus registros</strong> por los resultados del Excel actual. Los demás días y equipos no se modificarán.</p>
     <div className="mt-4 max-h-48 overflow-y-auto rounded-xl bg-amber-50 p-3 text-xs text-amber-950">{duplicateScopes.map(scope=><div key={scope.visit_date+'|'+scope.branch+'|'+scope.sales_force} className="border-b border-amber-100 py-2 last:border-0">{displayDate(scope.visit_date)} · {scope.branch} · {scope.sales_force}</div>)}</div>
@@ -551,7 +551,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   </div>}
   <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,.035)]">
   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-6">
-   <div><div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-600">Histórico diario · SIGO</div><h2 className="mt-1 text-2xl font-semibold tracking-tight">Horarios de vendedores</h2><p className="mt-1 text-xs text-slate-500">Cada archivo se procesa localmente: solo se guardan los resultados diarios, nunca el Excel.</p></div>
+   <div><h2 className="mt-1 text-2xl font-semibold tracking-tight">Horarios de vendedores</h2><p className="mt-1 text-xs text-slate-500">Cada archivo se procesa localmente: solo se guardan los resultados diarios, nunca el Excel.</p></div>
    <div className="flex items-center gap-2">
     {!branchScope&&<div className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700">
      <label className="inline-flex h-full cursor-pointer items-center gap-2 rounded-l-xl px-4 hover:bg-slate-50"><Upload className="h-4 w-4"/>{files.length?files.length+' Excel seleccionados':'Importar Excel SIGO'}<input type="file" multiple accept=".xlsx" className="sr-only" disabled={busy} onChange={e=>{const selected=Array.from(e.target.files??[]);e.target.value='';if(selected.length)void upload([...files,...selected]);}}/></label>
@@ -624,7 +624,7 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
   {view==='averages'&&<div className="bg-white">
     <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 px-6 py-6">
      <div>
-      <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-600">Resumen mensual</div>
+      
       <h3 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Promedio de horarios por vendedor</h3>
       <p className="mt-1 text-[11px] text-slate-500">Promedio de Horario ruta en los días con inicio y fin registrados. Los días sin horario válido no se incluyen.</p>
      </div>
