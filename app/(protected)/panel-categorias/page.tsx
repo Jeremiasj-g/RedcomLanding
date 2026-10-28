@@ -502,15 +502,18 @@ export default function CategoryPanelPage() {
               onFile={setTmpFile}
               accept=".xlsx"
             />
-            <motion.section initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:0.2,delay:0.08}} className="flex min-h-[210px] flex-col justify-between rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.05)]">
+            <motion.section initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:0.2,delay:0.08}} className="flex min-h-[210px] flex-col justify-between rounded-[24px] border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)]">
               <div>
-                <h3 className="mt-2 text-base font-semibold text-slate-900">Categoría, POP y Exhibición</h3>
-                <p className="mt-2 text-xs leading-5 text-slate-500">Descargá la plantilla con todos los vendedores, completá las columnas que quieras e importá para revisar.</p>
+                <h3 className="mt-1 text-lg font-semibold tracking-[-0.02em] text-slate-950">Categoría, POP y Exhibición</h3>
+                <p className="mt-1 max-w-xl text-[11px] leading-5 text-slate-400">Descargá la plantilla, completá los valores e importá para revisar.</p>
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" disabled={!savedRows.length} onClick={()=>exportKpiProjectionTemplate(savedRows,kpiProjections)} className="rounded-xl bg-sky-50 px-3 py-2.5 text-xs font-medium text-sky-700 hover:bg-sky-100 disabled:opacity-50">Exportar modelo</button>
-                <input ref={kpiImportRef} type="file" accept=".xlsx" className="hidden" onChange={event=>{const file=event.target.files?.[0];if(file)void importKpi(file);}}/>
-                <button type="button" disabled={importingKpi||!savedRows.length||Boolean(preview)} onClick={()=>kpiImportRef.current?.click()} className="rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">{importingKpi?'Procesando…':'Seleccionar archivo'}</button>
+              <div className="mt-5 flex min-h-[58px] flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                <span className="text-[11px] font-medium text-slate-500">Plantilla de proyecciones XLSX</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" disabled={!savedRows.length} onClick={()=>exportKpiProjectionTemplate(savedRows,kpiProjections)} className="inline-flex h-9 items-center rounded-xl border border-sky-200 bg-sky-50 px-3 text-[10px] font-semibold text-sky-700 transition hover:bg-sky-100 disabled:opacity-50">Exportar</button>
+                  <input ref={kpiImportRef} type="file" accept=".xlsx" className="hidden" onChange={event=>{const file=event.target.files?.[0];if(file)void importKpi(file);}}/>
+                  <button type="button" disabled={importingKpi||!savedRows.length||Boolean(preview)} onClick={()=>kpiImportRef.current?.click()} className="inline-flex h-9 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"><Upload className="h-3.5 w-3.5"/>{importingKpi?'Procesando…':'Seleccionar'}</button>
+                </div>
               </div>
             </motion.section>
           </section>
@@ -1079,7 +1082,7 @@ function UploadCard({
         setDragging(false);
         takeFile(event.dataTransfer.files?.[0]);
       }}
-      className={`relative overflow-hidden rounded-[24px] border bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)] transition-all duration-200 ${
+      className={`relative flex min-h-[210px] flex-col justify-between overflow-hidden rounded-[24px] border bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)] transition-all duration-200 ${
         dragging
           ? 'border-blue-300 ring-4 ring-blue-100'
           : file
