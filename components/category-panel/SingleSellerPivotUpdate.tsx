@@ -54,10 +54,10 @@ export default function SingleSellerPivotUpdate({ savedRows, onUpdated }: {
     ['Venta PDV',current.ventaPdv,parsed.ventaPdv],
     ['Visitas planeadas',current.visitasPlaneadas,parsed.visitasPlaneadas],
   ] as const : [];
-  return <section className="h-full rounded-[20px] border border-slate-200 bg-slate-50/50 p-5">
-    <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+  return <section className="h-full rounded-[20px] bg-white p-5 shadow-[0_6px_22px_rgba(15,23,42,.05)]">
+    <div className="flex flex-col justify-between gap-3">
       <div>
-        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600">Actualización parcial</div>
+        <div className="text-[10px] font-medium text-blue-600">Actualización parcial</div>
         <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">Actualizar un vendedor</h2>
         <p className="mt-1 text-xs leading-5 text-slate-500">Subí un PivotGrid individual. Solo cambiarán sus datos de visitas y ventas PDV/distancia; facturación y Cnt.Fac. se conservan.</p>
       </div>
