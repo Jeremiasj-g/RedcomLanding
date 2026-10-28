@@ -488,7 +488,6 @@ export default function CategoryPanelPage() {
           <section className="mt-6 grid gap-4 lg:grid-cols-3">
             <UploadCard
               key={`pivot-${inputVersion}`}
-              number="01"
               title="Reporte de visitas"
               description="Sector, vendedor, visitados, venta a distancia, venta en PDV y visitas planeadas."
               file={pivotFile}
@@ -497,7 +496,6 @@ export default function CategoryPanelPage() {
             />
             <UploadCard
               key={`tmp-${inputVersion}`}
-              number="02"
               title="Reporte de facturación"
               description="Se utilizan únicamente Importe Final Facturado y Cnt.Fac."
               file={tmpFile}
@@ -1037,14 +1035,12 @@ function HeroStat({
 }
 
 function UploadCard({
-  number,
   title,
   description,
   file,
   onFile,
   accept,
 }: {
-  number: string;
   title: string;
   description: string;
   file: File | null;
@@ -1108,7 +1104,7 @@ function UploadCard({
                 : 'bg-slate-100 text-slate-500'
             }`}
           >
-            {file ? <CheckCircle2 className="h-4 w-4" /> : number}
+            <CheckCircle2 className="h-4 w-4" />
           </span>
 
           <div className="min-w-0">
