@@ -49,10 +49,10 @@ export default function SingleSellerTmpUpdate({
   }catch(e){notify.error(errorMessage(e,'No se pudo actualizar la facturación.'));}
   finally{setSaving(false);}
  }
- return <section className="h-full rounded-[20px] border border-slate-200 bg-slate-50/50 p-5">
-   <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+ return <section className="h-full rounded-[20px] bg-white p-5 shadow-[0_6px_22px_rgba(15,23,42,.05)]">
+   <div className="flex flex-col justify-between gap-3">
     <div>
-     <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-600">Actualización parcial · TMP</div>
+     <div className="text-[10px] font-medium text-blue-600">Actualización parcial · TMP</div>
      <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">Actualizar facturación de un vendedor</h2>
      <p className="mt-1 text-xs leading-5 text-slate-500">Suma todos sus períodos y actualiza solo Importe Final Facturado y Cnt.Fac., sin tocar visitas ni otros vendedores.</p>
     </div>
