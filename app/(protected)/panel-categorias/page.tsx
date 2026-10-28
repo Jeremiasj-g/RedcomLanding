@@ -44,6 +44,7 @@ import { exportKpiProjectionTemplate, parseKpiProjectionFile, type KpiProjection
 import SellerConsiderations from '@/components/category-panel/SellerConsiderations';
 import CommercialPersonnel from '@/components/category-panel/CommercialPersonnel';
 import CategorySigoHistory from '@/components/category-panel/CategorySigoHistory';
+import CategoryUnifiedOverview from '@/components/category-panel/CategoryUnifiedOverview';
 import SingleSellerPivotUpdate from '@/components/category-panel/SingleSellerPivotUpdate';
 import SingleSellerTmpUpdate from '@/components/category-panel/SingleSellerTmpUpdate';
 import {
@@ -169,7 +170,7 @@ export default function CategoryPanelPage() {
 
   const [search, setSearch] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState<'kpis' | 'sigo' | 'scales' | 'personnel'>('kpis');
+  const [activeTab, setActiveTab] = useState<'kpis' | 'sigo' | 'scales' | 'personnel' | 'categories'>('kpis');
 
   useEffect(() => {
     if (meLoading) return;
@@ -463,6 +464,7 @@ export default function CategoryPanelPage() {
               icon={<Database className="h-4 w-4" />}
               label="KPIs"
             />
+            <PanelTab active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} icon={<FileSpreadsheet className="h-4 w-4" />} label="Categorías" />
             <PanelTab
               active={activeTab === 'sigo'}
               onClick={() => setActiveTab('sigo')}
@@ -483,7 +485,7 @@ export default function CategoryPanelPage() {
             />
           </div>
 
-          {activeTab === 'personnel' ? <CommercialPersonnel /> : activeTab === 'kpis' ? (
+          {activeTab === 'personnel' ? <CommercialPersonnel /> : activeTab === 'categories' ? <CategoryUnifiedOverview rows={savedRows} projections={kpiProjections} /> : activeTab === 'kpis' ? (
             <>
           <section className="mt-6 grid gap-4 lg:grid-cols-3">
             <UploadCard
