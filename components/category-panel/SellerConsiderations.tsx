@@ -138,7 +138,7 @@ export default function SellerConsiderations({
     <section className="rounded-[26px] border border-slate-200/80 bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,.035)] sm:p-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.11em] text-blue-600">Excepciones individuales</div>
+          
           <h3 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">Consideraciones por vendedor</h3>
           <p className="mt-1 text-xs leading-5 text-slate-500">Ajustá requisitos o marcá exenciones sin alterar la escala general. Cada vendedor se identifica por sucursal e ID.</p>
         </div>
@@ -209,7 +209,6 @@ export default function SellerConsiderations({
             </div>
           )}
           <div className="mt-6 border-t border-slate-100 pt-4">
-            <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Vendedores con consideraciones · {entries.length}</div>
             {!entries.length?<p className="py-5 text-center text-xs text-slate-400">Todavía no se configuraron excepciones individuales.</p>:
             <div className="grid gap-2 md:grid-cols-2">
               {entries.map(entry=>{
