@@ -144,7 +144,7 @@ export default function CommercialPersonnel(){
  };
  return <motion.section initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:0.3,ease:'easeOut'}} className="mt-6 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,.035)]">
   <div className="flex flex-wrap items-start justify-between gap-5 border-b border-slate-200 p-6">
-   <div><div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-600">Estructura comercial</div>
+   <div>
     <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">Personal comercial</h2>
     <p className="mt-2 text-xs text-slate-500">Importá DetallePersonal.xlsx y consultá gerentes, supervisores y vendedores por sucursal.</p>
     <p className="mt-2 text-[11px] text-slate-400">{updatedAt?'Guardado: '+new Date(updatedAt).toLocaleString('es-AR'):'Sin importaciones guardadas'}</p>
