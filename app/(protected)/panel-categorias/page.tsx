@@ -1097,16 +1097,6 @@ function UploadCard({
 
       <div className="flex items-start justify-between gap-5">
         <div className="flex min-w-0 items-start gap-4">
-          <span
-            className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-[11px] font-semibold ${
-              file
-                ? 'bg-emerald-50 text-emerald-600'
-                : 'bg-slate-100 text-slate-500'
-            }`}
-          >
-            <CheckCircle2 className="h-4 w-4" />
-          </span>
-
           <div className="min-w-0">
             <h3 className="mt-1 text-lg font-semibold tracking-[-0.02em] text-slate-950">
               {title}
