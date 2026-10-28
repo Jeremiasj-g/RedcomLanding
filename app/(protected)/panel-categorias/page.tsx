@@ -121,6 +121,8 @@ export default function CategoryPanelPage() {
   const [savedRows, setSavedRows] = useState<CategoryPanelRow[]>([]);
   const [kpiProjections,setKpiProjections] = useState<KpiProjection[]>([]);
   const [importingKpi,setImportingKpi] = useState(false);
+  const [kpiDraft,setKpiDraft] = useState<KpiProjection[] | null>(null);
+  const [individualEnabled,setIndividualEnabled] = useState(false);
   const kpiImportRef=useRef<HTMLInputElement>(null);
   const reloadKpi=async()=>{
     const {data,error}=await supabase.from('category_kpi_projections').select('branch_key,seller_id,projected_category,pop_percentage,exhibition_percentage');
@@ -134,12 +136,22 @@ export default function CategoryPanelPage() {
     try{
       const entries=await parseKpiProjectionFile(file,savedRows);
       if(!entries.length)throw new Error('No hay vendedores reconocidos en la planilla.');
-      const {error}=await supabase.from('category_kpi_projections').upsert(entries,{onConflict:'branch_key,seller_id'});
+      setKpiDraft(entries);
+      notify.success('Archivo leído. Revisá las proyecciones antes de confirmar.');
+    }catch(error){setKpiDraft(null);notify.error(errorMessage(error,'No se pudo interpretar la planilla de proyecciones.'));}
+    finally{setImportingKpi(false);if(kpiImportRef.current)kpiImportRef.current.value='';}
+  };
+  const saveKpiDraft=async()=>{
+    if(!kpiDraft||importingKpi)return;
+    setImportingKpi(true);
+    try{
+      const {error}=await supabase.from('category_kpi_projections').upsert(kpiDraft,{onConflict:'branch_key,seller_id'});
       if(error)throw error;
       await reloadKpi();
-      notify.success('Proyecciones actualizadas para '+entries.length+' vendedores.');
-    }catch(error){notify.error(errorMessage(error,'No se pudo importar la planilla de proyecciones.'));}
-    finally{setImportingKpi(false);if(kpiImportRef.current)kpiImportRef.current.value='';}
+      notify.success('Proyecciones guardadas para '+kpiDraft.length+' vendedores.');
+      setKpiDraft(null);
+    }catch(error){notify.error(errorMessage(error,'No se pudieron guardar las proyecciones.'));}
+    finally{setImportingKpi(false);}
   };
   const [savedState, setSavedState] = useState<CategoryPanelState>(emptyState);
   const [loadingSaved, setLoadingSaved] = useState(true);
@@ -475,15 +487,9 @@ export default function CategoryPanelPage() {
             />
           </div>
 
-          {activeTab === 'kpis' && <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-            <div className="mr-auto"><p className="text-sm font-semibold text-slate-900">Proyecciones de vendedores</p><p className="text-xs text-slate-500">Categoría, POP y Exhibición (0–100 %). Podés dejar celdas vacías.</p></div>
-            <button type="button" disabled={!savedRows.length} onClick={()=>exportKpiProjectionTemplate(savedRows,kpiProjections)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">Exportar modelo Excel</button>
-            <input ref={kpiImportRef} type="file" accept=".xlsx" className="hidden" onChange={event=>{const file=event.target.files?.[0];if(file)void importKpi(file);}}/>
-            <button type="button" disabled={importingKpi||!savedRows.length||Boolean(preview)} onClick={()=>kpiImportRef.current?.click()} className="rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50">{importingKpi?'Importando…':'Importar proyecciones'}</button>
-          </div>}
           {activeTab === 'personnel' ? <CommercialPersonnel /> : activeTab === 'kpis' ? (
             <>
-          <section className="mt-6 grid gap-4 lg:grid-cols-2">
+          <section className="mt-6 grid gap-4 lg:grid-cols-3">
             <UploadCard
               key={`pivot-${inputVersion}`}
               number="01"
@@ -504,7 +510,41 @@ export default function CategoryPanelPage() {
               onFile={setTmpFile}
               accept=".xlsx"
             />
+            <section className="flex min-h-[210px] flex-col justify-between rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.05)]">
+              <div><div className="text-xs font-semibold text-emerald-600">03 · PROYECCIONES</div>
+                <h3 className="mt-2 text-base font-semibold text-slate-900">Categoría, POP y Exhibición</h3>
+                <p className="mt-2 text-xs leading-5 text-slate-500">Descargá la plantilla con todos los vendedores, completá las columnas que quieras e importá para revisar.</p>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" disabled={!savedRows.length} onClick={()=>exportKpiProjectionTemplate(savedRows,kpiProjections)} className="rounded-xl bg-sky-50 px-3 py-2.5 text-xs font-medium text-sky-700 hover:bg-sky-100 disabled:opacity-50">Exportar modelo</button>
+                <input ref={kpiImportRef} type="file" accept=".xlsx" className="hidden" onChange={event=>{const file=event.target.files?.[0];if(file)void importKpi(file);}}/>
+                <button type="button" disabled={importingKpi||!savedRows.length||Boolean(preview)} onClick={()=>kpiImportRef.current?.click()} className="rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">{importingKpi?'Procesando…':'Seleccionar archivo'}</button>
+              </div>
+            </section>
           </section>
+
+          {kpiDraft && <section className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50/60 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><h3 className="text-base font-semibold text-slate-900">Vista previa · Proyecciones sin guardar</h3>
+                <p className="mt-1 text-xs text-slate-600">{kpiDraft.length} vendedores en la planilla. Las celdas vacías quedarán sin valor y los vendedores no incluidos no se modificarán.</p>
+                <p className="mt-1 text-xs text-slate-600">{kpiDraft.filter(r=>r.projected_category!==null).length} categorías · {kpiDraft.filter(r=>r.pop_percentage!==null).length} POP · {kpiDraft.filter(r=>r.exhibition_percentage!==null).length} Exhibición</p>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" disabled={importingKpi} onClick={()=>setKpiDraft(null)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-medium text-slate-700">Cancelar</button>
+                <button type="button" disabled={importingKpi} onClick={()=>void saveKpiDraft()} className="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">{importingKpi?'Guardando…':'Confirmar y guardar'}</button>
+              </div>
+            </div>
+            <div className="mt-4 max-h-64 overflow-auto rounded-xl bg-white"><table className="w-full text-left text-xs">
+              <thead className="sticky top-0 bg-slate-50"><tr><th className="p-3">Sucursal</th><th className="p-3">Vendedor</th><th className="p-3">Categoría</th><th className="p-3">POP</th><th className="p-3">Exhibición</th></tr></thead>
+              <tbody>{kpiDraft.map(row=><tr key={row.branch_key+':'+row.seller_id} className="border-t border-slate-100">
+                <td className="p-3">{row.branch_key.replaceAll('_',' ')}</td>
+                <td className="p-3">{savedRows.find(s=>s.branchKey===row.branch_key&&s.sellerId===row.seller_id)?.sellerName??row.seller_id}</td>
+                <td className="p-3">{row.projected_category??'—'}</td>
+                <td className="p-3">{row.pop_percentage===null?'—':row.pop_percentage+'%'}</td>
+                <td className="p-3">{row.exhibition_percentage===null?'—':row.exhibition_percentage+'%'}</td>
+              </tr>)}</tbody>
+            </table></div>
+          </section>}
 
           <section className="mt-4 flex flex-col gap-3 rounded-[22px] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_12px_36px_rgba(15,23,42,.035)] sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex items-start gap-3">
@@ -538,7 +578,7 @@ export default function CategoryPanelPage() {
                 type="button"
                 onClick={() => void processFiles()}
                 disabled={!pivotFile || !tmpFile || parsing || saving}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-[11px] font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-35"
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-[11px] font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-35"
               >
                 {parsing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -550,7 +590,13 @@ export default function CategoryPanelPage() {
             </div>
           </section>
 
-          <SingleSellerPivotUpdate
+          <section className="mt-5 rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.05)]">
+            <label className="flex cursor-pointer items-center justify-between gap-4">
+              <div><h3 className="text-sm font-semibold text-slate-900">Actualización individual de vendedor</h3><p className="mt-1 text-xs text-slate-500">Activá para importar Pivot o TMP de un solo vendedor.</p></div>
+              <input type="checkbox" role="switch" checked={individualEnabled} onChange={e=>setIndividualEnabled(e.target.checked)} className="h-5 w-5 accent-emerald-600"/>
+            </label>
+            {individualEnabled && <div className="mt-4 grid gap-4 border-t border-slate-100 pt-4 lg:grid-cols-2">
+            <SingleSellerPivotUpdate
             savedRows={savedRows}
             onUpdated={(updated) =>
               setSavedRows((current) =>
@@ -563,7 +609,7 @@ export default function CategoryPanelPage() {
             }
           />
 
-          <SingleSellerTmpUpdate
+            <SingleSellerTmpUpdate
             savedRows={savedRows}
             onUpdated={(updated) =>
               setSavedRows((current) =>
@@ -575,6 +621,9 @@ export default function CategoryPanelPage() {
               )
             }
           />
+
+            </div>}
+          </section>
 
           {preview ? <ValidationSummary result={preview} /> : null}
 
