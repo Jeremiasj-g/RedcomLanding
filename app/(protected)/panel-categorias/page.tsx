@@ -624,24 +624,7 @@ export default function CategoryPanelPage() {
           <section className="mt-5 overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,.045)]">
             <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-                <div>
-                  <div
-                    className={`inline-flex items-center gap-2 text-[10px] font-medium ${
-                      displayMode === 'preview'
-                        ? 'text-blue-600'
-                        : 'text-slate-400'
-                    }`}
-                  >
-                    {displayMode === 'preview' ? (
-                      <Upload className="h-3.5 w-3.5" />
-                    ) : (
-                      <Database className="h-3.5 w-3.5" />
-                    )}
-                    {displayMode === 'preview'
-                      ? 'Vista previa · sin guardar'
-                      : 'Datos actuales guardados'}
-                  </div>
-                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.025em] text-slate-950">
+                <div><h2 className="mt-1 text-xl font-semibold tracking-[-0.025em] text-slate-950">
                     {displayRows.length
                       ? `${integerFormatter.format(displayRows.length)} vendedores unificados`
                       : 'Todavía no hay datos guardados'}
@@ -789,10 +772,6 @@ export default function CategoryPanelPage() {
               >
                 <X className="h-4 w-4" />
               </button>
-
-              <div className="text-[10px] font-medium text-blue-600">
-                Ajuste manual
-              </div>
               <h3 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
                 Editar vendedor
               </h3>
@@ -1706,9 +1685,6 @@ function CategoryScaleTab() {
         <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <div className="text-[10px] font-medium text-blue-600">
-                Configuración de categorización
-              </div>
               <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
                 {settings.title}
               </h2>
@@ -1793,9 +1769,6 @@ function CategoryScaleTab() {
         <div className="px-5 py-5 sm:px-6">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <div className="text-[10px] font-medium text-slate-400">
-                Cuadro preventa
-              </div>
               <div className="mt-1 text-[11px] text-slate-500">
                 Senior · Semi Senior · Junior · Plan de Mejora
               </div>
@@ -1929,9 +1902,6 @@ function CategoryScaleTab() {
       <section className="rounded-[24px] border border-slate-200/80 bg-white px-5 py-5 shadow-[0_14px_40px_rgba(15,23,42,.035)] sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[10px] font-medium text-violet-600">
-              Puertas de apertura
-            </div>
             <h3 className="mt-1 text-lg font-semibold tracking-[-0.025em] text-slate-950">
               Parámetros necesarios para categorizar
             </h3>
