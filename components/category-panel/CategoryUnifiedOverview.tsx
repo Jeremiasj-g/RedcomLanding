@@ -5,6 +5,8 @@ import {notify,errorMessage} from '@/lib/notifications';
 import type {CategoryPanelRow} from '@/lib/categoryPanelExcel';
 import type {KpiProjection} from '@/lib/categoryKpiProjections';
 import WorkCalendar,{useWorkCalendar} from '@/components/category-panel/WorkCalendar';
+import {Popover,PopoverContent,PopoverTrigger} from '@/components/ui/popover';
+import {CalendarDays} from 'lucide-react';
 type Daily={visit_date:string;branch:string;sales_force:string;seller_id:number|null;seller_name:string;first_visit:string|null;last_visit:string|null;corrected_start:string|null;corrected_end:string|null;reason:string|null};
 const branches=[
  {key:'corrientes_masivos',name:'Corrientes',branch:'CASA CENTRAL',force:'ESQUEMA 1'},
@@ -72,7 +74,10 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
    <div className="flex flex-wrap items-center gap-5 border-b border-slate-100 px-5 py-3">
      <div><div className="text-xs text-slate-500">Días laborales transcurridos</div><div className="text-2xl font-semibold">{calendarLoading?'—':counts.elapsed}</div></div>
      <div><div className="text-xs text-slate-500">Días laborales del mes</div><div className="text-2xl font-semibold">{calendarLoading?'—':counts.total}</div></div>
-     <details className="ml-auto"><summary className="cursor-pointer text-sm font-medium text-blue-700">Configurar calendario</summary><div className="absolute z-30 mt-2 bg-white shadow-xl"><WorkCalendar month={month} excluded={excluded} onToggle={d=>void toggle(d)}/></div></details>
+     <Popover>
+      <PopoverTrigger asChild><button type="button" className="ml-auto inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50"><CalendarDays className="h-4 w-4"/>Configurar calendario</button></PopoverTrigger>
+      <PopoverContent align="end" sideOffset={8} className="z-[80] w-auto rounded-2xl border border-slate-200 bg-white p-0 shadow-[0_18px_55px_rgba(15,23,42,.13)]"><WorkCalendar month={month} excluded={excluded} onToggle={d=>void toggle(d)}/></PopoverContent>
+    </Popover>
    </div>
    <div className="border-b border-slate-100 px-5 py-3"><input aria-label="Buscar vendedor" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar vendedor, ID o sucursal" className="h-10 w-full max-w-sm rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-300"/></div>
    <div className="max-h-[650px] overflow-auto">
