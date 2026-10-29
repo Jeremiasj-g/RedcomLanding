@@ -126,7 +126,7 @@ export default function CategoryPanelPage() {
   const [individualEnabled,setIndividualEnabled] = useState(false);
   const kpiImportRef=useRef<HTMLInputElement>(null);
   const reloadKpi=async()=>{
-    const {data,error}=await supabase.from('category_kpi_projections').select('branch_key,seller_id,projected_category,pop_percentage,exhibition_percentage');
+    const {data,error}=await supabase.from('category_kpi_projections').select('branch_key,seller_id,projected_category,pop_percentage,exhibition_percentage,coverage_percentage,volume_percentage');
     if(error)throw error;
     setKpiProjections((data??[]) as KpiProjection[]);
   };
