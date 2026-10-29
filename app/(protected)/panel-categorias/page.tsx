@@ -524,7 +524,7 @@ export default function CategoryPanelPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div><h3 className="text-base font-semibold text-slate-900">Vista previa · Proyecciones sin guardar</h3>
                 <p className="mt-1 text-xs text-slate-600">{kpiDraft.length} vendedores en la planilla. Las celdas vacías quedarán sin valor y los vendedores no incluidos no se modificarán.</p>
-                <p className="mt-1 text-xs text-slate-600">{kpiDraft.filter(r=>r.projected_category!==null).length} categorías · {kpiDraft.filter(r=>r.pop_percentage!==null).length} POP · {kpiDraft.filter(r=>r.exhibition_percentage!==null).length} Exhibición</p>
+                <p className="mt-1 text-xs text-slate-600">{kpiDraft.filter(r=>r.projected_category!==null).length} categorías · {kpiDraft.filter(r=>r.pop_percentage!==null).length} POP · {kpiDraft.filter(r=>r.exhibition_percentage!==null).length} Exhibición · {kpiDraft.filter(r=>r.coverage_percentage!==null).length} Cobertura · {kpiDraft.filter(r=>r.volume_percentage!==null).length} Volumen</p>
               </div>
               <div className="flex gap-2">
                 <button type="button" disabled={importingKpi} onClick={()=>setKpiDraft(null)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-medium text-slate-700">Cancelar</button>
@@ -532,13 +532,13 @@ export default function CategoryPanelPage() {
               </div>
             </div>
             <div className="mt-4 max-h-64 overflow-auto rounded-xl bg-white"><table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-slate-50"><tr><th className="p-3">Sucursal</th><th className="p-3">Vendedor</th><th className="p-3">Categoría</th><th className="p-3">POP</th><th className="p-3">Exhibición</th></tr></thead>
+              <thead className="sticky top-0 bg-slate-50"><tr><th className="p-3">Sucursal</th><th className="p-3">Vendedor</th><th className="p-3">Categoría</th><th className="p-3">POP</th><th className="p-3">Exhibición</th><th className="p-3">Cobertura</th><th className="p-3">Volumen</th></tr></thead>
               <tbody>{kpiDraft.map(row=><tr key={row.branch_key+':'+row.seller_id} className="border-t border-slate-100">
                 <td className="p-3">{row.branch_key.replaceAll('_',' ')}</td>
                 <td className="p-3">{savedRows.find(s=>s.branchKey===row.branch_key&&s.sellerId===row.seller_id)?.sellerName??row.seller_id}</td>
                 <td className="p-3">{row.projected_category??'—'}</td>
                 <td className="p-3">{row.pop_percentage===null?'—':row.pop_percentage+'%'}</td>
-                <td className="p-3">{row.exhibition_percentage===null?'—':row.exhibition_percentage+'%'}</td>
+                <td className="p-3">{row.exhibition_percentage===null?'—':row.exhibition_percentage+'%'}</td><td className="p-3">{row.coverage_percentage===null?'—':row.coverage_percentage+'%'}</td><td className="p-3">{row.volume_percentage===null?'—':row.volume_percentage+'%'}</td>
               </tr>)}</tbody>
             </table></div>
           </motion.section>}
@@ -1319,7 +1319,7 @@ function UnifiedTable({
   const bySeller=new Map(projections.map(value=>[value.branch_key+':'+value.seller_id,value]));
   return (
     <div className="max-h-[680px] overflow-auto">
-      <table className="w-full min-w-[1540px] text-left">
+      <table className="w-full min-w-[1800px] text-left">
         <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl">
           <tr className="border-b border-slate-200 text-[9px] uppercase tracking-[0.08em] text-slate-400">
             <th className="px-5 py-3.5 font-semibold">Sucursal</th>
@@ -1336,7 +1336,7 @@ function UnifiedTable({
             <th className="px-4 py-3.5 text-right font-semibold">Cnt.Fac.</th>
             <th className="px-4 py-3.5 font-semibold">Categoría proyectada</th>
             <th className="px-4 py-3.5 text-right font-semibold">POP (%)</th>
-            <th className="px-4 py-3.5 text-right font-semibold">Exhibición (%)</th>
+            <th className="px-4 py-3.5 text-right font-semibold">Exhibición (%)</th><th className="px-4 py-3.5 text-right font-semibold">Cobertura (%)</th><th className="px-4 py-3.5 text-right font-semibold">Volumen (%)</th>
             <th className="sticky right-0 w-[72px] bg-white/95 px-4 py-3.5 text-center font-semibold">
               Acciones
             </th>
@@ -1387,7 +1387,7 @@ function UnifiedTable({
               </td>
               <td className="px-4 py-3.5 font-medium text-slate-700">{bySeller.get(row.branchKey+':'+row.sellerId)?.projected_category??'—'}</td>
               <td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.pop_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.pop_percentage+'%'}</td>
-              <td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.exhibition_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.exhibition_percentage+'%'}</td>
+              <td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.exhibition_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.exhibition_percentage+'%'}</td><td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.coverage_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.coverage_percentage+'%'}</td><td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.volume_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.volume_percentage+'%'}</td>
               <td className={`sticky right-0 px-4 py-3.5 text-center ${
                 row.partialUpdatedAt ? 'bg-emerald-50 group-hover:bg-emerald-100/70' : 'bg-white group-hover:bg-slate-50/95'
               }`}>
@@ -1410,7 +1410,7 @@ function UnifiedTable({
 
           {!rows.length ? (
             <tr>
-              <td colSpan={14} className="px-6 py-16 text-center text-sm text-slate-400">
+              <td colSpan={16} className="px-6 py-16 text-center text-sm text-slate-400">
                 No hay vendedores que coincidan con los filtros actuales.
               </td>
             </tr>
