@@ -33,12 +33,12 @@ export function exportKpiProjectionTemplate(rows:CategoryPanelRow[],existing:Kpi
  let xmlRows:string[]=[];
  for(let ri=1;ri<=max+2;ri++){
   cells.length=0;
-  if(ri===1)byBranch.forEach((b,i)=>{put(ri,i*6,b.label,1);merge.push(`${col(i*4)}1:${col(i*6+5)}1`);});
-  else if(ri===2)byBranch.forEach((b,i)=>['Vendedor (ID · nombre)','Categoría proyectada','POP (%)','Exhibición (%)','Cobertura (%)','Volumen (%)'].forEach((t,j)=>put(ri,i*4+j,t,2)));
-  else byBranch.forEach((b,i)=>{const person=b.rows[ri-3];if(!person)return;const savedRow=saved.get(b.key+':'+person.sellerId);put(ri,i*4,`${person.sellerId} · ${person.sellerName}`,3);put(ri,i*6+1,savedRow?.projected_category,3);put(ri,i*6+2,savedRow?.pop_percentage,4);put(ri,i*4+3,savedRow?.exhibition_percentage,4);});
+  if(ri===1)byBranch.forEach((b,i)=>{put(ri,i*6,b.label,1);merge.push(`${col(i*6)}1:${col(i*6+5)}1`);});
+  else if(ri===2)byBranch.forEach((b,i)=>['Vendedor (ID · nombre)','Categoría proyectada','POP (%)','Exhibición (%)','Cobertura (%)','Volumen (%)'].forEach((t,j)=>put(ri,i*6+j,t,2)));
+  else byBranch.forEach((b,i)=>{const person=b.rows[ri-3];if(!person)return;const savedRow=saved.get(b.key+':'+person.sellerId);put(ri,i*6,`${person.sellerId} · ${person.sellerName}`,3);put(ri,i*6+1,savedRow?.projected_category,3);put(ri,i*6+2,savedRow?.pop_percentage,4);put(ri,i*6+3,savedRow?.exhibition_percentage,4);});
   xmlRows.push(`<row r="${ri}">${cells.join('')}</row>`);
  }
- const widths=byBranch.map((_,i)=>`<col min="${i*4+1}" max="${i*4+1}" width="30" customWidth="1"/><col min="${i*4+2}" max="${i*4+2}" width="24" customWidth="1"/><col min="${i*4+3}" max="${i*6+4}" width="17" customWidth="1"/>`).join('');
+ const widths=byBranch.map((_,i)=>`<col min="${i*6+1}" max="${i*6+1}" width="30" customWidth="1"/><col min="${i*6+2}" max="${i*6+2}" width="24" customWidth="1"/><col min="${i*6+3}" max="${i*6+6}" width="17" customWidth="1"/>`).join('');
  const worksheet=`<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths}</cols><sheetData>${xmlRows.join('')}</sheetData><mergeCells count="${merge.length}">${merge.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells></worksheet>`;
  const styles=`<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Aptos"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="12"/></font><font><b/><color rgb="FF1E293B"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1D4ED8"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" applyFill="1" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" applyFont="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="2" fontId="0" fillId="0" borderId="0"/></cellXfs></styleSheet>`;
  const blob=zip([
@@ -62,7 +62,7 @@ export async function parseKpiProjectionFile(file:File,sellers:CategoryPanelRow[
  const matrix=await readFirstWorksheet(file);const result:KpiProjection[]=[];
  const valid=new Map(sellers.map(row=>[row.branchKey+':'+row.sellerId,row]));
  for(let i=0;i<branches.length;i++){
-  const [key,label]=branches[i],base=i*4;
+  const [key,label]=branches[i],base=i*6;
   if(String(matrix[0]?.[base]??'').trim()!==label||String(matrix[1]?.[base+1]??'')!=='Categoría proyectada')throw new Error('Plantilla no reconocida. Descargá una nueva desde KPIs.');
   for(let ri=2;ri<matrix.length;ri++){
    const name=String(matrix[ri]?.[base]??'').trim();if(!name)continue;
