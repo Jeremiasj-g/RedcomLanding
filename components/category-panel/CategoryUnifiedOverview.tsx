@@ -7,6 +7,8 @@ import type {KpiProjection} from '@/lib/categoryKpiProjections';
 import WorkCalendar,{useWorkCalendar} from '@/components/category-panel/WorkCalendar';
 import {Popover,PopoverContent,PopoverTrigger} from '@/components/ui/popover';
 import {CalendarDays} from 'lucide-react';
+import {fetchCategoryScaleConfig,type CategoryScaleMetric,type CategoryScaleGate} from '@/lib/categoryScale';
+import {assessSellerCategory} from '@/lib/categoryReached';
 type Daily={visit_date:string;branch:string;sales_force:string;seller_id:number|null;seller_name:string;first_visit:string|null;last_visit:string|null;corrected_start:string|null;corrected_end:string|null;reason:string|null};
 const branches=[
  {key:'corrientes_masivos',name:'Corrientes',branch:'CASA CENTRAL',force:'ESQUEMA 1'},
@@ -32,6 +34,10 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
  const [loading,setLoading]=useState(true);
  const [branchTab,setBranchTab]=useState<string>('corrientes_masivos');
  const [search,setSearch]=useState('');
+ const [scaleMetrics,setScaleMetrics]=useState<CategoryScaleMetric[]>([]);
+ const [scaleGates,setScaleGates]=useState<CategoryScaleGate[]>([]);
+ const [scaleLoaded,setScaleLoaded]=useState(false);
+ useEffect(()=>{let active=true;void fetchCategoryScaleConfig().then(config=>{if(active){setScaleMetrics(config.metrics);setScaleGates(config.gates);setScaleLoaded(true);}}).catch(error=>notify.error(errorMessage(error,'No se pudieron cargar las escalas.')));return()=>{active=false;};},[]);
  const {counts,excluded,loading:calendarLoading,toggle}=useWorkCalendar(month);
  const [personnel,setPersonnel]=useState<Array<{id:number;name:string;branch:string;role:string;superior:string;force:string}>>([]);
  useEffect(()=>{void supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle().then(({data,error})=>{if(error)notify.error(errorMessage(error,'No se pudo cargar Personal comercial.'));else setPersonnel(Array.isArray(data?.people)?data.people:[]);});},[]);
@@ -104,9 +110,10 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
    <div role="tablist" aria-label="Sucursales" className="mt-4 flex flex-wrap gap-2 border-b border-slate-100 pb-4">
     {branches.map(b=><button key={b.key} type="button" role="tab" aria-selected={branchTab===b.key} onClick={()=>setBranchTab(b.key)} className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-colors duration-200 ${branchTab===b.key?'bg-emerald-600 text-white':'text-slate-600 hover:bg-slate-100'}`}>{b.name}</button>)}
    </div>
+   <p className="mt-3 text-xs text-slate-500">Categoría alcanzada: estimación ponderada a partir de las escalas configuradas. No es una categoría oficial mientras falten umbrales o se valide la regla final de clasificación.</p>
    <div role="tabpanel" className="mt-4 overflow-x-auto">
      <table className="w-full min-w-[1260px] text-left text-xs">
-       <thead className="border-b border-slate-100 bg-slate-50 text-slate-600"><tr>{['Supervisor','N° vendedor · Vendedor','Horario promedio','Obj. Volumen alcanzado','Obj. Cobertura alcanzado','% Efectividad','% Eficiencia','% POP','% Exhibición','Categoría proyectada'].map(h=><th key={h} className="whitespace-nowrap px-3 py-3 font-medium">{h}</th>)}</tr></thead>
+       <thead className="border-b border-slate-100 bg-slate-50 text-slate-600"><tr>{['Supervisor','N° vendedor · Vendedor','Horario promedio','Obj. Volumen alcanzado','Obj. Cobertura alcanzado','% Efectividad','% Eficiencia','% POP','% Exhibición','Categoría proyectada','Categoría alcanzada'].map(h=><th key={h} className="whitespace-nowrap px-3 py-3 font-medium">{h}</th>)}</tr></thead>
        <tbody>{sellers.filter(p=>{
          const branch=branches.find(b=>b.key===branchTab);
          return branch&&p.branch===branch.branch&&(branch.force==='all'||p.force===branch.force);
@@ -116,6 +123,13 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
          const extra=byProjection.get(branchTab+':'+p.id),avg=stats.get(branchTab+':'+p.id);
          const effective=row&&row.visitasPlaneadas>0?row.visitados/row.visitasPlaneadas*100:null;
          const efficient=row&&row.visitados>0?row.cntFac/row.visitados*100:null;
+         const assessment=assessSellerCategory({
+           dailyBilling:row&&counts.elapsed>0?row.importeFinalFacturado/counts.elapsed:null,
+           efficiency:efficient,effectiveness:effective,
+           pop:extra?.pop_percentage??null,exhibition:extra?.exhibition_percentage??null,
+           volume:extra?.volume_percentage??null,coverage:extra?.coverage_percentage??null,
+           routeHours:avg?avg.sum/avg.days/3600:null
+         },scaleMetrics,scaleGates);
          const percent=(n:number|null|undefined)=>n==null?'—':n.toLocaleString('es-AR',{maximumFractionDigits:2})+'%';
          const quantity=(n:number|null|undefined)=>n==null?'—':fmt.format(n);
          return <tr key={p.branch+':'+p.force+':'+p.id} className="border-b border-slate-100 text-slate-700 hover:bg-slate-50">
@@ -123,7 +137,7 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
           <td className="px-3 py-3">{loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos'}</td>
           <td className="px-3 py-3">{quantity(extra?.volume_percentage)}</td><td className="px-3 py-3">{quantity(extra?.coverage_percentage)}</td>
           <td className="px-3 py-3">{effective==null?'—':percent(effective)}</td><td className="px-3 py-3">{efficient==null?'—':percent(efficient)}</td>
-          <td className="px-3 py-3">{percent(extra?.pop_percentage)}</td><td className="px-3 py-3">{percent(extra?.exhibition_percentage)}</td><td className="px-3 py-3">{extra?.projected_category??'—'}</td>
+          <td className="px-3 py-3">{percent(extra?.pop_percentage)}</td><td className="px-3 py-3">{percent(extra?.exhibition_percentage)}</td><td className="px-3 py-3">{extra?.projected_category??'—'}</td><td className="px-3 py-3"><span title={scaleLoaded?assessment.details:'Cargando cuadro de escalas'} className={`inline-flex whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium ${!scaleLoaded||assessment.status==='pending'?'bg-slate-100 text-slate-500':assessment.label==='SENIOR'?'bg-emerald-100 text-emerald-800':assessment.label==='SEMI SENIOR'?'bg-green-50 text-green-700':assessment.label==='JUNIOR'?'bg-amber-100 text-amber-800':'bg-rose-100 text-rose-700'}`}>{scaleLoaded?assessment.label:'Cargando…'}{scaleLoaded&&assessment.status==='preliminary'?' · preliminar':''}</span></td>
          </tr>;
        })}</tbody>
      </table>
