@@ -34,8 +34,8 @@ export function exportKpiProjectionTemplate(rows:CategoryPanelRow[],existing:Kpi
  for(let ri=1;ri<=max+2;ri++){
   cells.length=0;
   if(ri===1)byBranch.forEach((b,i)=>{put(ri,i*6,b.label,1);merge.push(`${col(i*6)}1:${col(i*6+5)}1`);});
-  else if(ri===2)byBranch.forEach((b,i)=>['Vendedor (ID · nombre)','Categoría proyectada','POP (%)','Exhibición (%)','Cobertura (%)','Volumen (%)'].forEach((t,j)=>put(ri,i*6+j,t,2)));
-  else byBranch.forEach((b,i)=>{const person=b.rows[ri-3];if(!person)return;const savedRow=saved.get(b.key+':'+person.sellerId);put(ri,i*6,`${person.sellerId} · ${person.sellerName}`,3);put(ri,i*6+1,savedRow?.projected_category,3);put(ri,i*6+2,savedRow?.pop_percentage,4);put(ri,i*6+3,savedRow?.exhibition_percentage,4);put(ri,i*6+4,savedRow?.coverage_percentage,4);put(ri,i*6+5,savedRow?.volume_percentage,4);});
+  else if(ri===2)byBranch.forEach((b,i)=>['Vendedor (ID · nombre)','Categoría proyectada','POP (%)','Exhibición (%)','Cobertura','Volumen'].forEach((t,j)=>put(ri,i*6+j,t,2)));
+  else byBranch.forEach((b,i)=>{const person=b.rows[ri-3];if(!person)return;const savedRow=saved.get(b.key+':'+person.sellerId);put(ri,i*6,`${person.sellerId} · ${person.sellerName}`,3);put(ri,i*6+1,savedRow?.projected_category,3);put(ri,i*6+2,savedRow?.pop_percentage,4);put(ri,i*6+3,savedRow?.exhibition_percentage,4);put(ri,i*6+4,savedRow?.coverage_percentage,3);put(ri,i*6+5,savedRow?.volume_percentage,3);});
   xmlRows.push(`<row r="${ri}">${cells.join('')}</row>`);
  }
  const widths=byBranch.map((_,i)=>`<col min="${i*6+1}" max="${i*6+1}" width="30" customWidth="1"/><col min="${i*6+2}" max="${i*6+2}" width="24" customWidth="1"/><col min="${i*6+3}" max="${i*6+6}" width="17" customWidth="1"/>`).join('');
@@ -58,6 +58,13 @@ const parsePct=(v:unknown):number|null=>{
  if(pct<0||pct>100)throw new Error('Los porcentajes deben estar entre 0 y 100.');
  return Math.round(pct*1000)/1000;
 };
+const parseQuantity=(value:unknown):number|null=>{
+ if(value===null||value===undefined||String(value).trim()==='')return null;
+ const normalized=String(value).trim().replace(/\s/g,'');
+ const n=Number(normalized);
+ if(!Number.isSafeInteger(n)||n<0)throw new Error('Cobertura y Volumen requieren números enteros no negativos: '+value);
+ return n;
+};
 export async function parseKpiProjectionFile(file:File,sellers:CategoryPanelRow[]):Promise<KpiProjection[]>{
  const matrix=await readFirstWorksheet(file);const result:KpiProjection[]=[];
  const valid=new Map(sellers.map(row=>[row.branchKey+':'+row.sellerId,row]));
@@ -69,7 +76,7 @@ export async function parseKpiProjectionFile(file:File,sellers:CategoryPanelRow[
    const id=Number(/^\s*(\d+)\s*[·–-]/.exec(name)?.[1]);
    if(!Number.isInteger(id)||!valid.has(key+':'+id))throw new Error('Vendedor no reconocido en '+label+': '+name);
    const cat=String(matrix[ri]?.[base+1]??'').trim()||null;
-   result.push({branch_key:key,seller_id:id,projected_category:cat,pop_percentage:parsePct(matrix[ri]?.[base+2]),exhibition_percentage:parsePct(matrix[ri]?.[base+3]),coverage_percentage:parsePct(matrix[ri]?.[base+4]),volume_percentage:parsePct(matrix[ri]?.[base+5])});
+   result.push({branch_key:key,seller_id:id,projected_category:cat,pop_percentage:parsePct(matrix[ri]?.[base+2]),exhibition_percentage:parsePct(matrix[ri]?.[base+3]),coverage_percentage:parseQuantity(matrix[ri]?.[base+4]),volume_percentage:parseQuantity(matrix[ri]?.[base+5])});
   }
  }
  const keys=new Set<string>();for(const row of result){const key=row.branch_key+':'+row.seller_id;if(keys.has(key))throw new Error('Vendedor duplicado en la plantilla: '+key);keys.add(key);}
