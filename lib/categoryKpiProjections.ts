@@ -1,6 +1,6 @@
 import type {CategoryPanelRow,CategoryPanelBranchKey} from '@/lib/categoryPanelExcel';
 import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
-export type KpiProjection={branch_key:string;seller_id:number;projected_category:string|null;pop_percentage:number|null;exhibition_percentage:number|null};
+export type KpiProjection={branch_key:string;seller_id:number;projected_category:string|null;pop_percentage:number|null;exhibition_percentage:number|null;coverage_percentage:number|null;volume_percentage:number|null};
 const branches:[CategoryPanelBranchKey,string][]=[['corrientes_masivos','Corrientes'],['corrientes_refrigerados','Refrigerados'],['chaco','Chaco'],['misiones','Misiones'],['obera','Oberá']];
 const escapeXml=(s:unknown)=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 const col=(n:number)=>{let s='';for(let i=n+1;i;i=Math.floor((i-1)/26))s=String.fromCharCode(65+(i-1)%26)+s;return s;};
@@ -33,12 +33,12 @@ export function exportKpiProjectionTemplate(rows:CategoryPanelRow[],existing:Kpi
  let xmlRows:string[]=[];
  for(let ri=1;ri<=max+2;ri++){
   cells.length=0;
-  if(ri===1)byBranch.forEach((b,i)=>{put(ri,i*4,b.label,1);merge.push(`${col(i*4)}1:${col(i*4+3)}1`);});
-  else if(ri===2)byBranch.forEach((b,i)=>['Vendedor (ID · nombre)','Categoría proyectada','POP (%)','Exhibición (%)'].forEach((t,j)=>put(ri,i*4+j,t,2)));
-  else byBranch.forEach((b,i)=>{const person=b.rows[ri-3];if(!person)return;const savedRow=saved.get(b.key+':'+person.sellerId);put(ri,i*4,`${person.sellerId} · ${person.sellerName}`,3);put(ri,i*4+1,savedRow?.projected_category,3);put(ri,i*4+2,savedRow?.pop_percentage,4);put(ri,i*4+3,savedRow?.exhibition_percentage,4);});
+  if(ri===1)byBranch.forEach((b,i)=>{put(ri,i*6,b.label,1);merge.push(`${col(i*4)}1:${col(i*6+5)}1`);});
+  else if(ri===2)byBranch.forEach((b,i)=>['Vendedor (ID · nombre)','Categoría proyectada','POP (%)','Exhibición (%)','Cobertura (%)','Volumen (%)'].forEach((t,j)=>put(ri,i*4+j,t,2)));
+  else byBranch.forEach((b,i)=>{const person=b.rows[ri-3];if(!person)return;const savedRow=saved.get(b.key+':'+person.sellerId);put(ri,i*4,`${person.sellerId} · ${person.sellerName}`,3);put(ri,i*6+1,savedRow?.projected_category,3);put(ri,i*6+2,savedRow?.pop_percentage,4);put(ri,i*4+3,savedRow?.exhibition_percentage,4);});
   xmlRows.push(`<row r="${ri}">${cells.join('')}</row>`);
  }
- const widths=byBranch.map((_,i)=>`<col min="${i*4+1}" max="${i*4+1}" width="30" customWidth="1"/><col min="${i*4+2}" max="${i*4+2}" width="24" customWidth="1"/><col min="${i*4+3}" max="${i*4+4}" width="17" customWidth="1"/>`).join('');
+ const widths=byBranch.map((_,i)=>`<col min="${i*4+1}" max="${i*4+1}" width="30" customWidth="1"/><col min="${i*4+2}" max="${i*4+2}" width="24" customWidth="1"/><col min="${i*4+3}" max="${i*6+4}" width="17" customWidth="1"/>`).join('');
  const worksheet=`<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths}</cols><sheetData>${xmlRows.join('')}</sheetData><mergeCells count="${merge.length}">${merge.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells></worksheet>`;
  const styles=`<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Aptos"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="12"/></font><font><b/><color rgb="FF1E293B"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1D4ED8"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" applyFill="1" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" applyFont="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="2" fontId="0" fillId="0" borderId="0"/></cellXfs></styleSheet>`;
  const blob=zip([
@@ -69,7 +69,7 @@ export async function parseKpiProjectionFile(file:File,sellers:CategoryPanelRow[
    const id=Number(/^\s*(\d+)\s*[·–-]/.exec(name)?.[1]);
    if(!Number.isInteger(id)||!valid.has(key+':'+id))throw new Error('Vendedor no reconocido en '+label+': '+name);
    const cat=String(matrix[ri]?.[base+1]??'').trim()||null;
-   result.push({branch_key:key,seller_id:id,projected_category:cat,pop_percentage:parsePct(matrix[ri]?.[base+2]),exhibition_percentage:parsePct(matrix[ri]?.[base+3])});
+   result.push({branch_key:key,seller_id:id,projected_category:cat,pop_percentage:parsePct(matrix[ri]?.[base+2]),exhibition_percentage:parsePct(matrix[ri]?.[base+3]),coverage_percentage:parsePct(matrix[ri]?.[base+4]),volume_percentage:parsePct(matrix[ri]?.[base+5])});
   }
  }
  const keys=new Set<string>();for(const row of result){const key=row.branch_key+':'+row.seller_id;if(keys.has(key))throw new Error('Vendedor duplicado en la plantilla: '+key);keys.add(key);}
