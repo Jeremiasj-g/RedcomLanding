@@ -87,7 +87,7 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
       <td className="whitespace-nowrap px-3 py-3">{money.format(row.importeFinalFacturado)}</td><td className="px-3 py-3">{fmt.format(row.cntFac)}</td>
       <td className="whitespace-nowrap px-3 py-3">{counts.elapsed>0?money.format(row.importeFinalFacturado/counts.elapsed):'—'}</td>
       <td className="px-3 py-3">{proj?.projected_category??'—'}</td><td className="px-3 py-3">{proj?.pop_percentage==null?'—':proj.pop_percentage+'%'}</td><td className="px-3 py-3">{proj?.exhibition_percentage==null?'—':proj.exhibition_percentage+'%'}</td>
-      <td className="px-3 py-3">{proj?.coverage_percentage==null?'—':proj.coverage_percentage+'%'}</td><td className="px-3 py-3">{proj?.volume_percentage==null?'—':proj.volume_percentage+'%'}</td>
+      <td className="px-3 py-3">{proj?.coverage_percentage==null?'—':fmt.format(proj.coverage_percentage)}</td><td className="px-3 py-3">{proj?.volume_percentage==null?'—':fmt.format(proj.volume_percentage)}</td>
       <td className="px-3 py-3 font-medium">{loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos'}</td><td className="px-3 py-3">{loading?'—':avg?.days??0}</td>
      </tr>})}</tbody></table>
     {!filtered.length&&<p className="px-5 py-8 text-center text-sm text-slate-500">No hay vendedores para mostrar.</p>}
@@ -112,10 +112,11 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
          const effective=row&&row.visitasPlaneadas>0?row.visitados/row.visitasPlaneadas*100:null;
          const efficient=row&&row.visitados>0?row.cntFac/row.visitados*100:null;
          const percent=(n:number|null|undefined)=>n==null?'—':n.toLocaleString('es-AR',{maximumFractionDigits:2})+'%';
+         const quantity=(n:number|null|undefined)=>n==null?'—':fmt.format(n);
          return <tr key={p.branch+':'+p.force+':'+p.id} className="border-b border-slate-100 text-slate-700 hover:bg-slate-50">
           <td className="px-3 py-3">{p.superior||'Sin supervisor'}</td><td className="whitespace-nowrap px-3 py-3 font-medium">{p.id} · {p.name}</td>
           <td className="px-3 py-3">{loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos'}</td>
-          <td className="px-3 py-3">{percent(extra?.volume_percentage)}</td><td className="px-3 py-3">{percent(extra?.coverage_percentage)}</td>
+          <td className="px-3 py-3">{quantity(extra?.volume_percentage)}</td><td className="px-3 py-3">{quantity(extra?.coverage_percentage)}</td>
           <td className="px-3 py-3">{effective==null?'—':percent(effective)}</td><td className="px-3 py-3">{efficient==null?'—':percent(efficient)}</td>
           <td className="px-3 py-3">{percent(extra?.pop_percentage)}</td><td className="px-3 py-3">{percent(extra?.exhibition_percentage)}</td><td className="px-3 py-3">{extra?.projected_category??'—'}</td>
          </tr>;
