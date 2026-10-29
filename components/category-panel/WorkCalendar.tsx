@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
-import {DayPicker} from 'react-day-picker';
+import {Calendar} from '@/components/ui/calendar';
 import {es} from 'date-fns/locale';
 import {supabase} from '@/lib/supabaseClient';
 import {notify,errorMessage} from '@/lib/notifications';
@@ -33,9 +33,9 @@ export function useWorkCalendar(month:string){
 }
 export default function WorkCalendar({month,excluded,onToggle}:{month:string;excluded:string[];onToggle:(d:Date)=>void}){
  const [year,m]=month.split('-').map(Number);
- return <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+ return <div className="w-[330px] rounded-2xl bg-white p-4">
   <h3 className="text-sm font-semibold text-slate-900">Días no laborables</h3>
   <p className="mt-1 text-xs text-slate-500">Seleccioná feriados o cierres. Los domingos ya están excluidos.</p>
-  <DayPicker mode="multiple" month={new Date(year,m-1,1)} selected={excluded.map(x=>new Date(Number(x.slice(0,4)),Number(x.slice(5,7))-1,Number(x.slice(8,10))))} onDayClick={d=>{if(d.getDay()!==0&&d.getMonth()===m-1&&d.getFullYear()===year)onToggle(d)}} locale={es} weekStartsOn={1} hideNavigation disabled={[{dayOfWeek:[0]}]} className="mt-3 text-sm"/>
+  <Calendar mode="multiple" month={new Date(year,m-1,1)} selected={excluded.map(x=>new Date(Number(x.slice(0,4)),Number(x.slice(5,7))-1,Number(x.slice(8,10))))} onDayClick={d=>{if(d.getDay()!==0&&d.getMonth()===m-1&&d.getFullYear()===year)onToggle(d)}} locale={es} weekStartsOn={1} hideNavigation disabled={[{dayOfWeek:[0]}]} className="mx-auto mt-3"/>
  </div>;
 }
