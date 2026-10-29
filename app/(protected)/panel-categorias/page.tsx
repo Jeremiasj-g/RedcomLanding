@@ -538,7 +538,7 @@ export default function CategoryPanelPage() {
                 <td className="p-3">{savedRows.find(s=>s.branchKey===row.branch_key&&s.sellerId===row.seller_id)?.sellerName??row.seller_id}</td>
                 <td className="p-3">{row.projected_category??'—'}</td>
                 <td className="p-3">{row.pop_percentage===null?'—':row.pop_percentage+'%'}</td>
-                <td className="p-3">{row.exhibition_percentage===null?'—':row.exhibition_percentage+'%'}</td><td className="p-3">{row.coverage_percentage===null?'—':row.coverage_percentage+'%'}</td><td className="p-3">{row.volume_percentage===null?'—':row.volume_percentage+'%'}</td>
+                <td className="p-3">{row.exhibition_percentage===null?'—':row.exhibition_percentage+'%'}</td><td className="p-3">{row.coverage_percentage===null?'—':Number(row.coverage_percentage).toLocaleString('es-AR')}</td><td className="p-3">{row.volume_percentage===null?'—':Number(row.volume_percentage).toLocaleString('es-AR')}</td>
               </tr>)}</tbody>
             </table></div>
           </motion.section>}
@@ -1336,7 +1336,7 @@ function UnifiedTable({
             <th className="px-4 py-3.5 text-right font-semibold">Cnt.Fac.</th>
             <th className="px-4 py-3.5 font-semibold">Categoría proyectada</th>
             <th className="px-4 py-3.5 text-right font-semibold">POP (%)</th>
-            <th className="px-4 py-3.5 text-right font-semibold">Exhibición (%)</th><th className="px-4 py-3.5 text-right font-semibold">Cobertura (%)</th><th className="px-4 py-3.5 text-right font-semibold">Volumen (%)</th>
+            <th className="px-4 py-3.5 text-right font-semibold">Exhibición (%)</th><th className="px-4 py-3.5 text-right font-semibold">Cobertura</th><th className="px-4 py-3.5 text-right font-semibold">Volumen</th>
             <th className="sticky right-0 w-[72px] bg-white/95 px-4 py-3.5 text-center font-semibold">
               Acciones
             </th>
@@ -1387,7 +1387,7 @@ function UnifiedTable({
               </td>
               <td className="px-4 py-3.5 font-medium text-slate-700">{bySeller.get(row.branchKey+':'+row.sellerId)?.projected_category??'—'}</td>
               <td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.pop_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.pop_percentage+'%'}</td>
-              <td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.exhibition_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.exhibition_percentage+'%'}</td><td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.coverage_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.coverage_percentage+'%'}</td><td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.volume_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.volume_percentage+'%'}</td>
+              <td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.exhibition_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.exhibition_percentage+'%'}</td><td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.coverage_percentage==null?'—':Number(bySeller.get(row.branchKey+':'+row.sellerId)?.coverage_percentage).toLocaleString('es-AR')}</td><td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.volume_percentage==null?'—':Number(bySeller.get(row.branchKey+':'+row.sellerId)?.volume_percentage).toLocaleString('es-AR')}</td>
               <td className={`sticky right-0 px-4 py-3.5 text-center ${
                 row.partialUpdatedAt ? 'bg-emerald-50 group-hover:bg-emerald-100/70' : 'bg-white group-hover:bg-slate-50/95'
               }`}>
