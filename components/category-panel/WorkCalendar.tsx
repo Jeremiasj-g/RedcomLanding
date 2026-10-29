@@ -8,6 +8,8 @@ const fmt=(d:Date)=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),Stri
 export function useWorkCalendar(month:string){
  const [excluded,setExcluded]=useState<string[]>([]);
  const [loading,setLoading]=useState(true);
+ const [todayTick,setTodayTick]=useState(0);
+ useEffect(()=>{const id=setInterval(()=>setTodayTick(x=>x+1),60000);return()=>clearInterval(id)},[]);
  useEffect(()=>{let live=true;setLoading(true);
   void supabase.from('category_nonworking_days').select('day').gte('day',month+'-01').lt('day',fmt(new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),1))).then(({data,error})=>{
    if(!live)return;if(error)notify.error(errorMessage(error,'Error al cargar días no laborables.'));else setExcluded((data??[]).map(x=>x.day));setLoading(false);
@@ -20,7 +22,7 @@ export function useWorkCalendar(month:string){
   let total=0,elapsed=0;
   for(let d=1;d<=end;d++){const dt=new Date(year,m-1,d);if(dt.getDay()===0||excluded.includes(fmt(dt)))continue;total++;if(past||(!future&&d<=now.getDate()))elapsed++;}
   return {total,elapsed};
- },[month,excluded]);
+ },[month,excluded,todayTick]);
  const toggle=async(day:Date)=>{
   const key=fmt(day),exists=excluded.includes(key);
   const {error}=exists?await supabase.from('category_nonworking_days').delete().eq('day',key):await supabase.from('category_nonworking_days').upsert({day:key});
