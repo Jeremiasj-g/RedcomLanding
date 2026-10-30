@@ -156,6 +156,21 @@ function SellerScoreDialog({name,branch,input,projectedCategory,metrics,gates,on
  const points=items.reduce((n,m)=>n+(m.points??0),0);
  const max=items.reduce((n,m)=>n+(m.points===null?0:m.maximumPoints),0);
  const score=max?points/max*3:null;
+ const categoryRank=(value:string|null)=>{
+  const normalized=(value??'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').trim().toUpperCase();
+  return normalized==='SENIOR'?3:normalized==='SEMI SENIOR'?2:normalized==='JUNIOR'?1:normalized==='PLAN DE MEJORA'?0:null;
+ };
+ const buckets=[{rank:0,label:'Plan de mejora',style:'bg-rose-100 text-rose-800',bar:'bg-rose-500'},
+ {rank:1,label:'Junior',style:'bg-amber-100 text-amber-800',bar:'bg-amber-500'},
+ {rank:2,label:'Semi Senior',style:'bg-emerald-100 text-emerald-800',bar:'bg-emerald-400'},
+ {rank:3,label:'Senior',style:'bg-emerald-100 text-emerald-900',bar:'bg-emerald-700'}];
+ const scores=items.map(item=>({
+  ...item,
+  earnedRank:item.name.toLocaleLowerCase('es').includes('facturac')?categoryRank(projectedCategory):item.rank,
+ }));
+ const totalWeight=items.reduce((sum,item)=>sum+item.weight,0);
+ const allocatedWeight=scores.reduce((sum,item)=>sum+(item.earnedRank===null?0:item.weight),0);
+ const shares=buckets.map(bucket=>({...bucket,weight:scores.reduce((sum,item)=>sum+(item.earnedRank===bucket.rank?item.weight:0),0)}));
  const fmtScore=(n:number|null)=>n===null?'—':n.toLocaleString('es-AR',{maximumFractionDigits:2});
  const show=(n:number|null,unit:string)=>n===null?'—':(unit==='currency'?new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(n):fmtScore(n)+(unit==='percent'?'%':''));
  return <div role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}} className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-sm">
@@ -168,6 +183,18 @@ function SellerScoreDialog({name,branch,input,projectedCategory,metrics,gates,on
    <div><p className="text-xs text-slate-500">Puntaje ponderado provisional</p><p className="text-2xl font-semibold">{fmtScore(score)} / 3</p></div>
    <div><p className="text-xs text-slate-500">Puntos de indicadores evaluables</p><p className="text-2xl font-semibold">{fmtScore(points)} / {fmtScore(max)}</p></div>
    <div><p className="text-xs text-slate-500">Indicadores pendientes</p><p className="text-2xl font-semibold">{items.filter(x=>x.points===null).length}</p></div>
+  </div>
+  <div className="mt-5">
+   <h3 className="text-sm font-semibold text-slate-900">Puntaje por categoría</h3>
+   <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    {shares.map(group=><div key={group.rank} className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+     <p className="text-xs font-medium text-slate-600">{group.label}</p>
+     <p className="mt-1 text-2xl font-semibold text-slate-900">{totalWeight?fmtScore(group.weight/totalWeight*100):'—'}%</p>
+     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200"><div className={`h-full rounded-full transition-all duration-200 ${group.bar}`} style={{width:`${totalWeight?group.weight/totalWeight*100:0}%`}}/></div>
+     <p className="mt-2 text-xs text-slate-500">{fmtScore(group.weight)} de {fmtScore(totalWeight)} puntos de peso</p>
+    </div>)}
+   </div>
+   <p className="mt-3 text-xs text-slate-500">Cada KPI asigna su peso a un único nivel alcanzado. Los porcentajes usan el peso total configurado; el {totalWeight?fmtScore(Math.max(0,totalWeight-allocatedWeight)/totalWeight*100):'—'}% restante corresponde a indicadores sin evaluación. La categoría proyectada importada aporta su peso de Facturación.</p>
   </div>
   <p className="mt-4 text-xs text-slate-500">Modelo provisional: Plan de mejora = 0, Junior = 1, Semi Senior = 2 y Senior = 3 puntos por peso. La fórmula definitiva aún debe validarse; los datos faltantes no cuentan como cero.</p>
   <div className="mt-4 overflow-x-auto">
