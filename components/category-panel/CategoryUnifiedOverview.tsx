@@ -157,7 +157,7 @@ function SellerScoreDialog({name,branch,input,projectedCategory,metrics,gates,on
  const max=items.reduce((n,m)=>n+(m.points===null?0:m.maximumPoints),0);
  const score=max?points/max*3:null;
  const categoryRank=(value:string|null)=>{
-  const normalized=(value??'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').trim().toUpperCase();
+  const normalized=(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
   return normalized==='SENIOR'?3:normalized==='SEMI SENIOR'?2:normalized==='JUNIOR'?1:normalized==='PLAN DE MEJORA'?0:null;
  };
  const buckets=[{rank:0,label:'Plan de mejora',style:'bg-rose-100 text-rose-800',bar:'bg-rose-500'},
