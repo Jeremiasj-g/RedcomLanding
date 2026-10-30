@@ -8,7 +8,7 @@ import WorkCalendar,{useWorkCalendar} from '@/components/category-panel/WorkCale
 import {Popover,PopoverContent,PopoverTrigger} from '@/components/ui/popover';
 import {CalendarDays} from 'lucide-react';
 import {fetchCategoryScaleConfig,type CategoryScaleMetric,type CategoryScaleGate} from '@/lib/categoryScale';
-import {assessSellerCategory} from '@/lib/categoryReached';
+import {assessSellerCategory,scoreBreakdown,gateBreakdown,type SellerCategoryInput} from '@/lib/categoryReached';
 type Daily={visit_date:string;branch:string;sales_force:string;seller_id:number|null;seller_name:string;first_visit:string|null;last_visit:string|null;corrected_start:string|null;corrected_end:string|null;reason:string|null};
 const branches=[
  {key:'corrientes_masivos',name:'Corrientes',branch:'CASA CENTRAL',force:'ESQUEMA 1'},
@@ -34,6 +34,7 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
  const [loading,setLoading]=useState(true);
  const [branchTab,setBranchTab]=useState<string>('corrientes_masivos');
  const [search,setSearch]=useState('');
+ const [detail,setDetail]=useState<{name:string;branch:string;input:SellerCategoryInput}|null>(null);
  const [scaleMetrics,setScaleMetrics]=useState<CategoryScaleMetric[]>([]);
  const [scaleGates,setScaleGates]=useState<CategoryScaleGate[]>([]);
  const [scaleLoaded,setScaleLoaded]=useState(false);
@@ -113,7 +114,7 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
    <p className="mt-3 text-xs text-slate-500">Categoría alcanzada: estimación ponderada a partir de las escalas configuradas. No es una categoría oficial mientras falten umbrales o se valide la regla final de clasificación.</p>
    <div role="tabpanel" className="mt-4 overflow-x-auto">
      <table className="w-full min-w-[1260px] text-left text-xs">
-       <thead className="border-b border-slate-100 bg-slate-50 text-slate-600"><tr>{['Supervisor','N° vendedor · Vendedor','Horario promedio','Obj. Volumen alcanzado','Obj. Cobertura alcanzado','% Efectividad','% Eficiencia','% POP','% Exhibición','Categoría proyectada','Categoría alcanzada'].map(h=><th key={h} className="whitespace-nowrap px-3 py-3 font-medium">{h}</th>)}</tr></thead>
+       <thead className="border-b border-slate-100 bg-slate-50 text-slate-600"><tr>{['Supervisor','N° vendedor · Vendedor','Horario promedio','Obj. Volumen alcanzado','Obj. Cobertura alcanzado','% Efectividad','% Eficiencia','% POP','% Exhibición','Categoría proyectada','Categoría alcanzada','Desglose'].map(h=><th key={h} className="whitespace-nowrap px-3 py-3 font-medium">{h}</th>)}</tr></thead>
        <tbody>{sellers.filter(p=>{
          const branch=branches.find(b=>b.key===branchTab);
          return branch&&p.branch===branch.branch&&(branch.force==='all'||p.force===branch.force);
@@ -123,13 +124,14 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
          const extra=byProjection.get(branchTab+':'+p.id),avg=stats.get(branchTab+':'+p.id);
          const effective=row&&row.visitasPlaneadas>0?row.visitados/row.visitasPlaneadas*100:null;
          const efficient=row&&row.visitados>0?row.cntFac/row.visitados*100:null;
-         const assessment=assessSellerCategory({
+         const input:SellerCategoryInput={
            dailyBilling:row&&counts.elapsed>0?row.importeFinalFacturado/counts.elapsed:null,
            efficiency:efficient,effectiveness:effective,
            pop:extra?.pop_percentage??null,exhibition:extra?.exhibition_percentage??null,
            volume:extra?.volume_percentage??null,coverage:extra?.coverage_percentage??null,
            routeHours:avg?avg.sum/avg.days/3600:null
-         },scaleMetrics,scaleGates);
+         };
+         const assessment=assessSellerCategory(input,scaleMetrics,scaleGates);
          const percent=(n:number|null|undefined)=>n==null?'—':n.toLocaleString('es-AR',{maximumFractionDigits:2})+'%';
          const quantity=(n:number|null|undefined)=>n==null?'—':fmt.format(n);
          return <tr key={p.branch+':'+p.force+':'+p.id} className="border-b border-slate-100 text-slate-700 hover:bg-slate-50">
@@ -137,11 +139,49 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
           <td className="px-3 py-3">{loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos'}</td>
           <td className="px-3 py-3">{quantity(extra?.volume_percentage)}</td><td className="px-3 py-3">{quantity(extra?.coverage_percentage)}</td>
           <td className="px-3 py-3">{effective==null?'—':percent(effective)}</td><td className="px-3 py-3">{efficient==null?'—':percent(efficient)}</td>
-          <td className="px-3 py-3">{percent(extra?.pop_percentage)}</td><td className="px-3 py-3">{percent(extra?.exhibition_percentage)}</td><td className="px-3 py-3">{extra?.projected_category??'—'}</td><td className="px-3 py-3"><span title={scaleLoaded?assessment.details:'Cargando cuadro de escalas'} className={`inline-flex whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium ${!scaleLoaded||assessment.status==='pending'?'bg-slate-100 text-slate-500':assessment.label==='SENIOR'?'bg-emerald-100 text-emerald-800':assessment.label==='SEMI SENIOR'?'bg-green-50 text-green-700':assessment.label==='JUNIOR'?'bg-amber-100 text-amber-800':'bg-rose-100 text-rose-700'}`}>{scaleLoaded?assessment.label:'Cargando…'}{scaleLoaded&&assessment.status==='preliminary'?' · preliminar':''}</span></td>
+          <td className="px-3 py-3">{percent(extra?.pop_percentage)}</td><td className="px-3 py-3">{percent(extra?.exhibition_percentage)}</td><td className="px-3 py-3">{extra?.projected_category??'—'}</td><td className="px-3 py-3"><span title={scaleLoaded?assessment.details:'Cargando cuadro de escalas'} className={`inline-flex whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium ${!scaleLoaded||assessment.status==='pending'?'bg-slate-100 text-slate-500':assessment.label==='SENIOR'?'bg-emerald-100 text-emerald-800':assessment.label==='SEMI SENIOR'?'bg-green-50 text-green-700':assessment.label==='JUNIOR'?'bg-amber-100 text-amber-800':'bg-rose-100 text-rose-700'}`}>{scaleLoaded?assessment.label:'Cargando…'}{scaleLoaded&&assessment.status==='preliminary'?' · preliminar':''}</span></td><td className="px-3 py-3"><button type="button" disabled={!scaleLoaded} onClick={()=>setDetail({name:p.name,branch:branch.name,input})} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 transition hover:bg-blue-50 disabled:opacity-40">Ver puntaje</button></td>
          </tr>;
        })}</tbody>
      </table>
     </div>
   </section>
+  {detail&&<SellerScoreDialog name={detail.name} branch={detail.branch} input={detail.input} metrics={scaleMetrics} gates={scaleGates} onClose={()=>setDetail(null)}/>}
  </div>;
+}
+
+
+function SellerScoreDialog({name,branch,input,metrics,gates,onClose}:{name:string;branch:string;input:SellerCategoryInput;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];onClose:()=>void}){
+ const items=scoreBreakdown(input,metrics);
+ const rules=gateBreakdown(input,gates);
+ const points=items.reduce((n,m)=>n+(m.points??0),0);
+ const max=items.reduce((n,m)=>n+(m.points===null?0:m.maximumPoints),0);
+ const score=max?points/max*3:null;
+ const fmtScore=(n:number|null)=>n===null?'—':n.toLocaleString('es-AR',{maximumFractionDigits:2});
+ const show=(n:number|null,unit:string)=>n===null?'—':(unit==='currency'?new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(n):fmtScore(n)+(unit==='percent'?'%':''));
+ return <div role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}} className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-sm">
+ <section role="dialog" aria-modal="true" aria-labelledby="seller-score-title" className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-[26px] bg-white p-5 shadow-2xl sm:p-7">
+  <div className="flex items-start justify-between gap-4">
+   <div><h2 id="seller-score-title" className="text-xl font-semibold text-slate-900">Detalle de puntaje · {name}</h2><p className="mt-1 text-sm text-slate-500">{branch} · comparación con el Cuadro de escalas</p></div>
+   <button type="button" onClick={onClose} aria-label="Cerrar detalle" className="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600">Cerrar</button>
+  </div>
+  <div className="mt-5 flex flex-wrap gap-7 border-y border-slate-100 py-4">
+   <div><p className="text-xs text-slate-500">Puntaje ponderado provisional</p><p className="text-2xl font-semibold">{fmtScore(score)} / 3</p></div>
+   <div><p className="text-xs text-slate-500">Puntos de indicadores evaluables</p><p className="text-2xl font-semibold">{fmtScore(points)} / {fmtScore(max)}</p></div>
+   <div><p className="text-xs text-slate-500">Indicadores pendientes</p><p className="text-2xl font-semibold">{items.filter(x=>x.points===null).length}</p></div>
+  </div>
+  <p className="mt-4 text-xs text-slate-500">Modelo provisional: Plan de mejora = 0, Junior = 1, Semi Senior = 2 y Senior = 3 puntos por peso. La fórmula definitiva aún debe validarse; los datos faltantes no cuentan como cero.</p>
+  <div className="mt-4 overflow-x-auto">
+   <table className="w-full min-w-[880px] text-left text-xs">
+    <thead className="bg-slate-50 text-slate-600"><tr>{['Indicador','KPI real','Junior exige','Semi Senior exige','Senior exige','Nivel obtenido','Peso','Puntos'].map(x=><th key={x} className="whitespace-nowrap px-3 py-3 font-medium">{x}</th>)}</tr></thead>
+    <tbody>{items.map(x=><tr key={x.id} className="border-b border-slate-100">
+     <td className="px-3 py-3"><span className="font-medium text-slate-900">{x.name}</span>{x.note&&<p className="mt-1 text-amber-700">{x.note}</p>}</td>
+     <td className="px-3 py-3">{show(x.actual,x.unit)}</td><td className="px-3 py-3">{show(x.thresholds.junior,x.unit)}</td><td className="px-3 py-3">{show(x.thresholds.semiSenior,x.unit)}</td><td className="px-3 py-3">{show(x.thresholds.senior,x.unit)}</td>
+     <td className="whitespace-nowrap px-3 py-3">{x.matchedCategory??'Pendiente'}</td><td className="px-3 py-3">{fmtScore(x.weight)}%</td>
+     <td className="whitespace-nowrap px-3 py-3 font-medium">{x.points===null?'—':fmtScore(x.points)+' / '+fmtScore(x.maximumPoints)}</td>
+    </tr>)}</tbody>
+   </table>
+  </div>
+  <h3 className="mt-7 text-sm font-semibold text-slate-900">Condiciones de acceso a categoría</h3>
+  <div className="mt-3 divide-y divide-slate-100">{rules.map(rule=><div key={rule.label} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"><span>{rule.label}</span><span className="text-slate-500">Real: {fmtScore(rule.actual)} {rule.unit} · mínimo: {fmtScore(rule.required)} {rule.unit}</span><span className={rule.passed===null?'text-slate-500':rule.passed?'text-emerald-600':'text-rose-600'}>{rule.passed===null?'Sin evaluar':rule.passed?'Cumple':'No cumple'}</span></div>)}</div>
+ </section></div>;
 }
