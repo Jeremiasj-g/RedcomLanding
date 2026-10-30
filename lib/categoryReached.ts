@@ -39,3 +39,33 @@ export function assessSellerCategory(x:SellerCategoryInput,metrics:CategoryScale
  if(gateFailures.length)return {label:'PLAN DE MEJORA',status:'blocked',score,details:'No cumple: '+gateFailures.join(', ')};
  return {label,status:'preliminary',score,details:issues.length?issues.join(' · '):'Clasificación preliminar ponderada; pendiente de validar la regla final de agregación'};
 }
+
+export type MetricScoreDetail={
+ id:number;section:string;name:string;unit:string;actual:number|null;
+ thresholds:{senior:number|null;semiSenior:number|null;junior:number|null;improvement:number|null};
+ weight:number;rank:number|null;points:number|null;maximumPoints:number;
+ matchedCategory:string|null;note:string;
+};
+export function scoreBreakdown(input:SellerCategoryInput,metrics:CategoryScaleMetric[]):MetricScoreDetail[]{
+ return metrics.filter(m=>m.weightPercent>0).map(m=>{
+  const actual=measure(m.metricName,input);
+  const complete=tiers.slice(0,3).every(t=>m[t.value]!==null);
+  const rank=actual!==null&&Number.isFinite(actual)&&complete?threshold(actual,m):null;
+  return {id:m.id,section:m.sectionName,name:m.metricName,unit:m.valueType,
+   actual,thresholds:{senior:m.seniorValue,semiSenior:m.semiSeniorValue,junior:m.juniorValue,improvement:m.improvementValue},
+   weight:m.weightPercent,rank,points:rank===null?null:rank*m.weightPercent,
+   maximumPoints:3*m.weightPercent,matchedCategory:rank===null?null:tiers.find(t=>t.rank===rank)?.label??null,
+   note:!complete?'Faltan umbrales en el cuadro de escalas':actual===null?'KPI sin datos':''
+  };
+ });
+}
+export function gateBreakdown(input:SellerCategoryInput,gates:CategoryScaleGate[]){
+ return gates.map(g=>{
+  const label=normalized(g.label);
+  const actual=label.includes('hora')?input.routeHours:label.includes('efectividad')?input.effectiveness:null;
+  const required=Number(g.valueText.replace(',','.').match(/\\d+(?:\\.\\d+)?/)?.[0]);
+  return {label:g.label,actual,required:Number.isFinite(required)?required:null,
+   unit:label.includes('hora')?'h':label.includes('efectividad')?'%':'',
+   passed:actual===null||!Number.isFinite(required)?null:actual>=required};
+ });
+}
