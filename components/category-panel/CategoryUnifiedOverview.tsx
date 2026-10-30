@@ -34,7 +34,7 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
  const [loading,setLoading]=useState(true);
  const [branchTab,setBranchTab]=useState<string>('corrientes_masivos');
  const [search,setSearch]=useState('');
- const [detail,setDetail]=useState<{name:string;branch:string;input:SellerCategoryInput}|null>(null);
+ const [detail,setDetail]=useState<{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null}|null>(null);
  const [scaleMetrics,setScaleMetrics]=useState<CategoryScaleMetric[]>([]);
  const [scaleGates,setScaleGates]=useState<CategoryScaleGate[]>([]);
  const [scaleLoaded,setScaleLoaded]=useState(false);
@@ -139,18 +139,18 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
           <td className="px-3 py-3">{loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos'}</td>
           <td className="px-3 py-3">{quantity(extra?.volume_percentage)}</td><td className="px-3 py-3">{quantity(extra?.coverage_percentage)}</td>
           <td className="px-3 py-3">{effective==null?'—':percent(effective)}</td><td className="px-3 py-3">{efficient==null?'—':percent(efficient)}</td>
-          <td className="px-3 py-3">{percent(extra?.pop_percentage)}</td><td className="px-3 py-3">{percent(extra?.exhibition_percentage)}</td><td className="px-3 py-3">{extra?.projected_category??'—'}</td><td className="px-3 py-3"><span title={scaleLoaded?assessment.details:'Cargando cuadro de escalas'} className={`inline-flex whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium ${!scaleLoaded||assessment.status==='pending'?'bg-slate-100 text-slate-500':assessment.label==='SENIOR'?'bg-emerald-100 text-emerald-800':assessment.label==='SEMI SENIOR'?'bg-green-50 text-green-700':assessment.label==='JUNIOR'?'bg-amber-100 text-amber-800':'bg-rose-100 text-rose-700'}`}>{scaleLoaded?assessment.label:'Cargando…'}{scaleLoaded&&assessment.status==='preliminary'?' · preliminar':''}</span></td><td className="px-3 py-3"><button type="button" disabled={!scaleLoaded} onClick={()=>setDetail({name:p.name,branch:branch.name,input})} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 transition hover:bg-blue-50 disabled:opacity-40">Ver puntaje</button></td>
+          <td className="px-3 py-3">{percent(extra?.pop_percentage)}</td><td className="px-3 py-3">{percent(extra?.exhibition_percentage)}</td><td className="px-3 py-3">{extra?.projected_category??'—'}</td><td className="px-3 py-3"><span title={scaleLoaded?assessment.details:'Cargando cuadro de escalas'} className={`inline-flex whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium ${!scaleLoaded||assessment.status==='pending'?'bg-slate-100 text-slate-500':assessment.label==='SENIOR'?'bg-emerald-100 text-emerald-800':assessment.label==='SEMI SENIOR'?'bg-green-50 text-green-700':assessment.label==='JUNIOR'?'bg-amber-100 text-amber-800':'bg-rose-100 text-rose-700'}`}>{scaleLoaded?assessment.label:'Cargando…'}{scaleLoaded&&assessment.status==='preliminary'?' · preliminar':''}</span></td><td className="px-3 py-3"><button type="button" disabled={!scaleLoaded} onClick={()=>setDetail({name:p.name,branch:branch.name,input,projectedCategory:extra?.projected_category??null})} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 transition hover:bg-blue-50 disabled:opacity-40">Ver puntaje</button></td>
          </tr>;
        })}</tbody>
      </table>
     </div>
   </section>
-  {detail&&<SellerScoreDialog name={detail.name} branch={detail.branch} input={detail.input} metrics={scaleMetrics} gates={scaleGates} onClose={()=>setDetail(null)}/>}
+  {detail&&<SellerScoreDialog name={detail.name} branch={detail.branch} input={detail.input} projectedCategory={detail.projectedCategory} metrics={scaleMetrics} gates={scaleGates} onClose={()=>setDetail(null)}/>}
  </div>;
 }
 
 
-function SellerScoreDialog({name,branch,input,metrics,gates,onClose}:{name:string;branch:string;input:SellerCategoryInput;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];onClose:()=>void}){
+function SellerScoreDialog({name,branch,input,projectedCategory,metrics,gates,onClose}:{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];onClose:()=>void}){
  const items=scoreBreakdown(input,metrics);
  const rules=gateBreakdown(input,gates);
  const points=items.reduce((n,m)=>n+(m.points??0),0);
@@ -174,8 +174,8 @@ function SellerScoreDialog({name,branch,input,metrics,gates,onClose}:{name:strin
    <table className="w-full min-w-[880px] text-left text-xs">
     <thead className="bg-slate-50 text-slate-600"><tr>{['Indicador','KPI real','Junior exige','Semi Senior exige','Senior exige','Nivel obtenido','Peso','Puntos'].map(x=><th key={x} className="whitespace-nowrap px-3 py-3 font-medium">{x}</th>)}</tr></thead>
     <tbody>{items.map(x=><tr key={x.id} className="border-b border-slate-100">
-     <td className="px-3 py-3"><span className="font-medium text-slate-900">{x.name}</span>{x.note&&<p className="mt-1 text-amber-700">{x.note}</p>}</td>
-     <td className="px-3 py-3">{show(x.actual,x.unit)}</td><td className="px-3 py-3">{show(x.thresholds.junior,x.unit)}</td><td className="px-3 py-3">{show(x.thresholds.semiSenior,x.unit)}</td><td className="px-3 py-3">{show(x.thresholds.senior,x.unit)}</td>
+     <td className="px-3 py-3"><span className="font-medium text-slate-900">{x.name.toLocaleLowerCase("es").includes("facturac")?"Categoría proyectada":x.name}</span>{x.note&&<p className="mt-1 text-amber-700">{x.name.toLocaleLowerCase('es').includes('facturac')?'Comparación de categoría importada; sin puntaje hasta definir la regla de facturación.':x.note}</p>}</td>
+     <td className="px-3 py-3">{x.name.toLocaleLowerCase('es').includes('facturac')?(projectedCategory??'Sin cargar'):show(x.actual,x.unit)}</td><td className="px-3 py-3">{x.name.toLocaleLowerCase('es').includes('facturac')?'JUNIOR':show(x.thresholds.junior,x.unit)}</td><td className="px-3 py-3">{x.name.toLocaleLowerCase('es').includes('facturac')?'SEMI SENIOR':show(x.thresholds.semiSenior,x.unit)}</td><td className="px-3 py-3">{x.name.toLocaleLowerCase('es').includes('facturac')?'SENIOR':show(x.thresholds.senior,x.unit)}</td>
      <td className="whitespace-nowrap px-3 py-3">{x.matchedCategory??'Pendiente'}</td><td className="px-3 py-3">{fmtScore(x.weight)}%</td>
      <td className="whitespace-nowrap px-3 py-3 font-medium">{x.points===null?'—':fmtScore(x.points)+' / '+fmtScore(x.maximumPoints)}</td>
     </tr>)}</tbody>
