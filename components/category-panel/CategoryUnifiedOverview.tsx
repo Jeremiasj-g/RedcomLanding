@@ -171,6 +171,23 @@ function SellerScoreDialog({name,branch,input,projectedCategory,metrics,gates,on
  const totalWeight=items.reduce((sum,item)=>sum+item.weight,0);
  const allocatedWeight=scores.reduce((sum,item)=>sum+(item.earnedRank===null?0:item.weight),0);
  const shares=buckets.map(bucket=>({...bucket,weight:scores.reduce((sum,item)=>sum+(item.earnedRank===bucket.rank?item.weight:0),0)}));
+ const tiers=[
+ {label:'Senior',key:'senior' as const,rank:3,style:'bg-emerald-700 text-white'},
+ {label:'Semi Senior',key:'semiSenior' as const,rank:2,style:'bg-emerald-500 text-white'},
+ {label:'Junior',key:'junior' as const,rank:1,style:'bg-amber-400 text-slate-900'}
+ ];
+ const comparison=tiers.map(tier=>({
+  ...tier,
+  lines:scores.map(item=>{
+   const projected=item.name.toLowerCase().includes('facturac');
+   const required=projected?tier.label.toUpperCase():item.thresholds[tier.key];
+   const actualRank=projected?categoryRank(projectedCategory):item.rank;
+   const known=projected?actualRank!==null:item.actual!==null&&required!==null;
+   const pass=known?(projected?(actualRank as number)>=tier.rank:(item.actual as number)>=(required as number)):null;
+   return {...item,projected,required,pass};
+  })
+ }));
+ const [detailView,setDetailView]=useState<'comparison'|'data'>('comparison');
  const fmtScore=(n:number|null)=>n===null?'—':n.toLocaleString('es-AR',{maximumFractionDigits:2});
  const show=(n:number|null,unit:string)=>n===null?'—':(unit==='currency'?new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(n):fmtScore(n)+(unit==='percent'?'%':''));
  return <div role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}} className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-sm">
