@@ -201,30 +201,36 @@ function SellerScoreDialog({name,branch,input,projectedCategory,metrics,gates,on
    <div><p className="text-xs text-slate-500">Puntos de indicadores evaluables</p><p className="text-2xl font-semibold">{fmtScore(points)} / {fmtScore(max)}</p></div>
    <div><p className="text-xs text-slate-500">Indicadores pendientes</p><p className="text-2xl font-semibold">{items.filter(x=>x.points===null).length}</p></div>
   </div>
-  <div className="mt-5">
-   <h3 className="text-sm font-semibold text-slate-900">Puntaje por categoría</h3>
-   <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-    {shares.map(group=><div key={group.rank} className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-     <p className="text-xs font-medium text-slate-600">{group.label}</p>
-     <p className="mt-1 text-2xl font-semibold text-slate-900">{totalWeight?fmtScore(group.weight/totalWeight*100):'—'}%</p>
-     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200"><div className={`h-full rounded-full transition-all duration-200 ${group.bar}`} style={{width:`${totalWeight?group.weight/totalWeight*100:0}%`}}/></div>
-     <p className="mt-2 text-xs text-slate-500">{fmtScore(group.weight)} de {fmtScore(totalWeight)} puntos de peso</p>
-    </div>)}
+  <div className="mt-6 flex justify-center"><div className="inline-flex rounded-xl bg-slate-100 p-1">
+   <button type="button" onClick={()=>setDetailView('comparison')} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${detailView==='comparison'?'bg-white text-slate-900 shadow-sm':'text-slate-500'}`}>Comparación</button>
+   <button type="button" onClick={()=>setDetailView('data')} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${detailView==='data'?'bg-white text-slate-900 shadow-sm':'text-slate-500'}`}>Datos + cálculos</button>
+  </div></div>
+  {detailView==='comparison'?<div className="mt-5 grid gap-4 lg:grid-cols-3">
+   {comparison.map(tier=>{
+    const total=tier.lines.reduce((n,item)=>n+(item.pass?item.weight:0),0);
+    const maximum=tier.lines.reduce((n,item)=>n+item.weight,0);
+    return <div key={tier.label} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_5px_24px_rgba(15,23,42,.04)]">
+     <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-4"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${tier.style}`}>{tier.label}</span><span className="text-xs text-slate-500">Puntos <strong className="font-semibold text-slate-900">{fmtScore(total)}/{fmtScore(maximum)}</strong></span></div>
+     <div className="divide-y divide-slate-100 px-4">
+      {tier.lines.map(item=><div key={item.id} className="py-3">
+       <div className="flex items-start justify-between gap-3"><span className="text-sm font-medium text-slate-900">{item.projected?'Categoría proyectada':item.name}</span><span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${item.pass===true?'bg-blue-50 text-blue-700':item.pass===false?'bg-slate-100 text-slate-500':'bg-amber-50 text-amber-700'}`}>{item.pass===null?'—':item.pass?'+'+fmtScore(item.weight):'0'}</span></div>
+       <p className="mt-1 text-xs text-slate-500">Requerido: {item.projected?tier.label.toUpperCase():show(item.required as number|null,item.unit)}</p>
+       <p className={`mt-0.5 text-xs ${item.pass===true?'text-emerald-700':item.pass===false?'text-rose-600':'text-slate-500'}`}>Alcanzado: {item.projected?projectedCategory??'Sin cargar':show(item.actual,item.unit)}</p>
+      </div>)}
+     </div>
+    </div>;
+   })}
+  </div>:<div className="mt-5 space-y-4">
+   <div className="grid grid-cols-2 gap-4 border-y border-slate-100 py-4 sm:grid-cols-3">
+    <div><p className="text-xs text-slate-500">Puntaje ponderado provisional</p><p className="text-xl font-semibold">{fmtScore(score)} / 3</p></div>
+    <div><p className="text-xs text-slate-500">Puntos evaluables</p><p className="text-xl font-semibold">{fmtScore(points)} / {fmtScore(max)}</p></div>
+    <div><p className="text-xs text-slate-500">Indicadores pendientes</p><p className="text-xl font-semibold">{items.filter(x=>x.points===null).length}</p></div>
    </div>
-   <p className="mt-3 text-xs text-slate-500">Cada KPI asigna su peso a un único nivel alcanzado. Los porcentajes usan el peso total configurado; el {totalWeight?fmtScore(Math.max(0,totalWeight-allocatedWeight)/totalWeight*100):'—'}% restante corresponde a indicadores sin evaluación. La categoría proyectada importada aporta su peso de Facturación.</p>
-  </div>
-  <p className="mt-4 text-xs text-slate-500">Modelo provisional: Plan de mejora = 0, Junior = 1, Semi Senior = 2 y Senior = 3 puntos por peso. La fórmula definitiva aún debe validarse; los datos faltantes no cuentan como cero.</p>
-  <div className="mt-4 overflow-x-auto">
-   <table className="w-full min-w-[880px] text-left text-xs">
-    <thead className="bg-slate-50 text-slate-600"><tr>{['Indicador','KPI real','Junior exige','Semi Senior exige','Senior exige','Nivel obtenido','Peso','Puntos'].map(x=><th key={x} className="whitespace-nowrap px-3 py-3 font-medium">{x}</th>)}</tr></thead>
-    <tbody>{items.map(x=><tr key={x.id} className="border-b border-slate-100">
-     <td className="px-3 py-3"><span className="font-medium text-slate-900">{x.name.toLocaleLowerCase("es").includes("facturac")?"Categoría proyectada":x.name}</span>{x.note&&<p className="mt-1 text-amber-700">{x.name.toLocaleLowerCase('es').includes('facturac')?'Comparación de categoría importada; sin puntaje hasta definir la regla de facturación.':x.note}</p>}</td>
-     <td className="px-3 py-3">{x.name.toLocaleLowerCase('es').includes('facturac')?(projectedCategory??'Sin cargar'):show(x.actual,x.unit)}</td><td className="px-3 py-3">{x.name.toLocaleLowerCase('es').includes('facturac')?'JUNIOR':show(x.thresholds.junior,x.unit)}</td><td className="px-3 py-3">{x.name.toLocaleLowerCase('es').includes('facturac')?'SEMI SENIOR':show(x.thresholds.semiSenior,x.unit)}</td><td className="px-3 py-3">{x.name.toLocaleLowerCase('es').includes('facturac')?'SENIOR':show(x.thresholds.senior,x.unit)}</td>
-     <td className="whitespace-nowrap px-3 py-3">{x.matchedCategory??'Pendiente'}</td><td className="px-3 py-3">{fmtScore(x.weight)}%</td>
-     <td className="whitespace-nowrap px-3 py-3 font-medium">{x.points===null?'—':fmtScore(x.points)+' / '+fmtScore(x.maximumPoints)}</td>
-    </tr>)}</tbody>
-   </table>
-  </div>
+   <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead className="bg-slate-50"><tr>{['Indicador','KPI real','Junior','Semi Senior','Senior','Peso'].map(label=><th key={label} className="px-3 py-3 font-medium">{label}</th>)}</tr></thead><tbody>{items.map(item=><tr key={item.id} className="border-b border-slate-100">
+    <td className="px-3 py-3">{item.name}</td><td className="px-3 py-3">{item.name.toLowerCase().includes('facturac')?projectedCategory??'—':show(item.actual,item.unit)}</td>
+    <td className="px-3 py-3">{item.thresholds.junior===null?'—':show(item.thresholds.junior,item.unit)}</td><td className="px-3 py-3">{item.thresholds.semiSenior===null?'—':show(item.thresholds.semiSenior,item.unit)}</td><td className="px-3 py-3">{item.thresholds.senior===null?'—':show(item.thresholds.senior,item.unit)}</td><td className="px-3 py-3">{fmtScore(item.weight)}%</td>
+   </tr>)}</tbody></table></div>
+  </div>}
   <h3 className="mt-7 text-sm font-semibold text-slate-900">Condiciones de acceso a categoría</h3>
   <div className="mt-3 divide-y divide-slate-100">{rules.map(rule=><div key={rule.label} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"><span>{rule.label}</span><span className="text-slate-500">Real: {fmtScore(rule.actual)} {rule.unit} · mínimo: {fmtScore(rule.required)} {rule.unit}</span><span className={rule.passed===null?'text-slate-500':rule.passed?'text-emerald-600':'text-rose-600'}>{rule.passed===null?'Sin evaluar':rule.passed?'Cumple':'No cumple'}</span></div>)}</div>
  </section></div>;
