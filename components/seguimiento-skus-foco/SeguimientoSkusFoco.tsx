@@ -262,7 +262,7 @@ export default function SeguimientoSkusFoco() {
         personal_storage_path:personalPath,personal_file_name:personalFile?.name??state.personal_file_name,
         objetivo_volumen_file_name:objectiveVolumeFile?.name??state.objetivo_volumen_file_name,
         objetivo_cobertura_file_name:objectiveCoverageFile?.name??state.objetivo_cobertura_file_name,
-        focus_config:parsedFocus,
+        ...(canEditFocus ? {focus_config:parsedFocus} : {}),
         file_lineas_name:lineFile?.name??state.file_lineas_name,
         file_articulos_name:articleFile?.name??state.file_articulos_name,
         updated_at:timestamp,updated_by:me?.id,
