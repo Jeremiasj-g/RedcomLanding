@@ -110,6 +110,7 @@ function MetricCells({data, goalVol, goalCov}:{
 export default function SeguimientoSkusFoco() {
   const {me} = useMe();
   const admin = me?.role === 'admin';
+  const canUploadReports = admin || me?.role === 'jdv' || me?.role === 'supervisor';
   const canEditFocus = admin || me?.role === 'supervisor';
   const [tab,setTab] = useState<'foco'|'datos'|'dashboard'>('foco');
   const [state,setState] = useState<Shared>(emptyShared);
@@ -218,7 +219,7 @@ export default function SeguimientoSkusFoco() {
     }
   }
   async function saveSnapshot() {
-    if(!admin)return;
+    if(!canUploadReports)return;
     if(!parsedFocus.length){notify.error('Definí al menos una línea de foco.');setTab('foco');return;}
     if(!lineFile&&!storedPaths.lineas&&!state.lineas.length){notify.error('Falta el reporte por línea.');return;}
     if(!articleFile&&!storedPaths.articulos&&!state.articulos.length){notify.error('Falta el reporte por artículo.');return;}
@@ -330,7 +331,7 @@ export default function SeguimientoSkusFoco() {
                   <h3 className="mt-3 text-sm font-semibold text-slate-800">{item.title}</h3>
                   <p className="mt-2 text-xs text-slate-500">{item.name?`Guardado: ${item.name} · ${int.format(item.rows)} filas`:'Aún sin datos guardados'}</p>
                   {item.file&&<p className="mt-2 text-xs font-semibold text-blue-700">Nuevo archivo: {item.file.name}</p>}
-                  {admin&&<input aria-label={item.title} type="file" accept=".xlsx,.xls" disabled={!xlsxReady} onChange={e=>item.set(e.target.files?.[0]??null)} className="mt-4 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:font-semibold file:text-emerald-700 disabled:opacity-50"/>}
+                  {canUploadReports&&<input aria-label={item.title} type="file" accept=".xlsx,.xls" disabled={!xlsxReady} onChange={e=>item.set(e.target.files?.[0]??null)} className="mt-4 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:font-semibold file:text-emerald-700 disabled:opacity-50"/>}
                 </div>
               )}
             </div>
@@ -349,7 +350,7 @@ export default function SeguimientoSkusFoco() {
                   : 'Aún sin datos guardados'}</p>
                 {item.file&&<p className="mt-2 text-xs font-semibold text-blue-700">
                   Nuevo archivo: {item.file.name}</p>}
-                {admin&&<input aria-label={item.title} type="file" accept=".xlsx,.xls"
+                {canUploadReports&&<input aria-label={item.title} type="file" accept=".xlsx,.xls"
                   disabled={!xlsxReady} onChange={e=>item.set(e.target.files?.[0]??null)}
                   className="mt-4 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-semibold file:text-blue-700 disabled:opacity-50"/>}
               </div>)}
@@ -363,14 +364,14 @@ export default function SeguimientoSkusFoco() {
                 ? 'Guardado: '+(state.personal_file_name??'DetallePersonal.xlsx')+' · '+personalRows.length+' personas'
                 : 'Todavía no hay un organigrama guardado'}</p>
               {personalFile&&<p className="mt-2 text-xs font-semibold text-blue-700">Nuevo archivo: {personalFile.name}</p>}
-              {admin&&<input aria-label="Detalle de Personal Comercial" type="file" accept=".xlsx,.xls"
+              {canUploadReports&&<input aria-label="Detalle de Personal Comercial" type="file" accept=".xlsx,.xls"
                 disabled={!xlsxReady} onChange={e=>setPersonalFile(e.target.files?.[0]??null)}
                 className="mt-4 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-50 file:px-3 file:py-2 file:font-semibold file:text-violet-700 disabled:opacity-50"/>}
             </div>
             <p className="mt-3 text-xs text-slate-500">Los objetivos se cruzan por ID de vendedor y línea comercial. Las planillas corresponden a Casa Central.</p>
             <div className="mt-6 flex justify-between border-t border-slate-100 pt-5">
               <button onClick={()=>setTab('foco')} className="h-10 px-3 text-xs font-semibold text-slate-500">Volver</button>
-              {admin?<button disabled={busy||!xlsxReady} onClick={()=>void saveSnapshot()} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-5 text-xs font-semibold text-white disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar y generar reporte</button>:<button onClick={()=>setTab('dashboard')} className="rounded-xl bg-slate-950 px-4 text-xs font-semibold text-white">Ver dashboard</button>}
+              {canUploadReports?<button disabled={busy||!xlsxReady} onClick={()=>void saveSnapshot()} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-5 text-xs font-semibold text-white disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar y generar reporte</button>:<button onClick={()=>setTab('dashboard')} className="rounded-xl bg-slate-950 px-4 text-xs font-semibold text-white">Ver dashboard</button>}
             </div>
           </section>}
 
