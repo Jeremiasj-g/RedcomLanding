@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Script from 'next/script';
-import { ArrowRight, BarChart3, CheckCircle2, FileSpreadsheet, Layers3, Loader2, Plus, RefreshCw, Save, Search, Target, Trash2, Upload, Users, X } from 'lucide-react';
+import { ArrowRight, BarChart3, CheckCircle2, Download, FileSpreadsheet, Layers3, Loader2, Plus, RefreshCw, Save, Search, Target, Trash2, Upload, Users, X } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
 import { notify, errorMessage } from '@/lib/notifications';
@@ -119,6 +119,7 @@ export default function SeguimientoSkusFoco() {
   const [vendorFilter,setVendorFilter] = useState('all');
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
+  const [downloadingPath,setDownloadingPath] = useState<string|null>(null);
   const [savingFocus,setSavingFocus] = useState(false);
   const [xlsxReady,setXlsxReady] = useState(false);
   const [lineFile,setLineFile] = useState<File|null>(null);
@@ -192,6 +193,24 @@ export default function SeguimientoSkusFoco() {
   const {globalData,descArt,vendors,vendorLabels}=useMemo(()=>buildDashboard(state),[state]);
   const visibleVendors = vendorFilter==='all'?vendors:[vendorFilter];
   const configured=Boolean(state.lineas.length && state.articulos.length && state.focus_config.length);
+
+  async function downloadImportedFile(path:string|null|undefined,filename:string|null|undefined) {
+    if(!path || downloadingPath)return;
+    setDownloadingPath(path);
+    try{
+      const {data,error}=await supabase.storage.from('sku-foco-reports').download(path);
+      if(error)throw error;
+      const url=URL.createObjectURL(data);
+      const link=document.createElement('a');
+      link.href=url;
+      link.download=filename?.trim() || path.split('/').pop() || 'reporte.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(url),60000);
+    }catch(e){notify.error(errorMessage(e,'No se pudo descargar el archivo guardado.'));}
+    finally{setDownloadingPath(null);}
+  }
 
   async function readFile(file:File): Promise<ExcelRow[]> {
     if(!window.XLSX)throw new Error('El lector de Excel todavía se está cargando. Intentá nuevamente.');
@@ -330,7 +349,9 @@ export default function SeguimientoSkusFoco() {
                   <FileSpreadsheet className="h-7 w-7 text-emerald-600"/>
                   <h3 className="mt-3 text-sm font-semibold text-slate-800">{item.title}</h3>
                   <p className="mt-2 text-xs text-slate-500">{item.name?`Guardado: ${item.name} · ${int.format(item.rows)} filas`:'Aún sin datos guardados'}</p>
-                  {item.file&&<p className="mt-2 text-xs font-semibold text-blue-700">Nuevo archivo: {item.file.name}</p>}
+                  {storedPaths[item.id]&&<button type="button" disabled={downloadingPath!==null} onClick={()=>void downloadImportedFile(storedPaths[item.id],item.name)} className="mt-3 inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50">{downloadingPath===storedPaths[item.id]?<Loader2 className="h-4 w-4 animate-spin"/>:<Download className="h-4 w-4"/>}{downloadingPath===storedPaths[item.id]?'Descargando…':'Descargar archivo'}</button>}
+                  {item.path&&<button type="button" disabled={downloadingPath!==null} onClick={()=>void downloadImportedFile(item.path,item.name)} className="mt-3 inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50">{downloadingPath===item.path?<Loader2 className="h-4 w-4 animate-spin"/>:<Download className="h-4 w-4"/>}{downloadingPath===item.path?'Descargando…':'Descargar archivo'}</button>}
+                {item.file&&<p className="mt-2 text-xs font-semibold text-blue-700">Nuevo archivo: {item.file.name}</p>}
                   {canUploadReports&&<input aria-label={item.title} type="file" accept=".xlsx,.xls" disabled={!xlsxReady} onChange={e=>item.set(e.target.files?.[0]??null)} className="mt-4 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:font-semibold file:text-emerald-700 disabled:opacity-50"/>}
                 </div>
               )}
@@ -363,6 +384,7 @@ export default function SeguimientoSkusFoco() {
               <p className="mt-3 text-xs text-slate-500">{storedPaths.personal
                 ? 'Guardado: '+(state.personal_file_name??'DetallePersonal.xlsx')+' · '+personalRows.length+' personas'
                 : 'Todavía no hay un organigrama guardado'}</p>
+              {storedPaths.personal&&<button type="button" disabled={downloadingPath!==null} onClick={()=>void downloadImportedFile(storedPaths.personal,state.personal_file_name)} className="mt-3 inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50">{downloadingPath===storedPaths.personal?<Loader2 className="h-4 w-4 animate-spin"/>:<Download className="h-4 w-4"/>}{downloadingPath===storedPaths.personal?'Descargando…':'Descargar archivo'}</button>}
               {personalFile&&<p className="mt-2 text-xs font-semibold text-blue-700">Nuevo archivo: {personalFile.name}</p>}
               {canUploadReports&&<input aria-label="Detalle de Personal Comercial" type="file" accept=".xlsx,.xls"
                 disabled={!xlsxReady} onChange={e=>setPersonalFile(e.target.files?.[0]??null)}
