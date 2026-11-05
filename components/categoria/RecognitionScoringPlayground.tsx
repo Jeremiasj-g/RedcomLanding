@@ -366,39 +366,30 @@ function BenefitList({ total }: { total: number }) {
   const next = RECOGNITION_BENEFITS.find((benefit) => total < benefit.points);
 
   return (
-    <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
-      <div className="flex items-center justify-between gap-3">
+    <section>
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Canjes disponibles</div>
-          <div className="mt-1 text-2xl font-semibold text-slate-950">{unlocked.length}</div>
+          <h4 className="text-lg font-semibold tracking-tight text-slate-900">Canjes disponibles</h4>
+          <p className="mt-1 text-sm text-slate-500">Beneficios que podrías conseguir con tus puntos.</p>
         </div>
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-slate-950 text-white">
-          <Gift className="h-5 w-5" />
-        </div>
+        <div className="text-sm text-slate-600"><strong className="text-2xl font-semibold text-slate-900">{unlocked.length}</strong> de {RECOGNITION_BENEFITS.length}</div>
       </div>
-
-      <div className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
+      <div className="mt-4 divide-y divide-slate-100">
         {RECOGNITION_BENEFITS.map((benefit) => {
-          const isUnlocked = total >= benefit.points;
-          return (
-            <div key={benefit.name} className={cn("grid grid-cols-[1fr_auto] gap-3 px-3 py-2 text-sm", isUnlocked ? "bg-emerald-50/80" : "bg-white")}>
-              <span className={cn("font-semibold", isUnlocked ? "text-slate-950" : "text-slate-500")}>{benefit.name}</span>
-              <span className={cn("font-semibold", isUnlocked ? "text-emerald-700" : "text-slate-500")}>{benefit.points} pts</span>
+          const isUnlocked=total>=benefit.points;
+          return <div key={benefit.name} className="flex items-center justify-between gap-3 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className={cn('h-2 w-2 shrink-0 rounded-full',isUnlocked?'bg-emerald-500':'bg-slate-200')}/>
+              <span className={cn('text-sm',isUnlocked?'font-medium text-slate-900':'text-slate-500')}>{benefit.name}</span>
             </div>
-          );
+            <span className={cn('shrink-0 text-sm font-medium tabular-nums',isUnlocked?'text-emerald-700':'text-slate-500')}>{benefit.points} pts</span>
+          </div>;
         })}
       </div>
-
-      <div className="mt-4 rounded-2xl bg-slate-950 p-3 text-xs font-semibold leading-5 text-white">
-        {next ? (
-          <>
-            Próximo canje: <strong>{next.name}</strong>. Faltan <strong>{next.points - total} pts</strong>.
-          </>
-        ) : (
-          "Ya alcanza todos los beneficios configurados."
-        )}
-      </div>
-    </div>
+      <p className="mt-4 text-sm leading-6 text-slate-500">
+        {next?<>Próximo canje: <strong className="font-medium text-slate-800">{next.name}</strong>. Te faltan <strong className="font-medium text-slate-800">{next.points-total} puntos</strong>.</>:'Ya alcanzaste los puntos de todos los beneficios configurados.'}
+      </p>
+    </section>
   );
 }
 
