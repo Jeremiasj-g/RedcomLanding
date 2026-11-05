@@ -590,7 +590,7 @@ export default function NovedadesPage() {
               exit={{ opacity: 0, y: 12 }}
               className="mt-8"
             >
-              <div className="mb-5 flex w-full flex-wrap rounded-[1.35rem] border border-slate-200 bg-white p-1 shadow-sm sm:w-fit">
+              <div className="mb-7 inline-flex w-full gap-1 border-b border-slate-200 pb-2 sm:w-auto">
                 {[
                   { key: 'guide' as const, label: 'Cómo funciona' },
                   { key: 'playground' as const, label: 'Playground' },
@@ -600,10 +600,10 @@ export default function NovedadesPage() {
                     type="button"
                     onClick={() => setPointsView(item.key)}
                     className={cn(
-                      'rounded-2xl px-5 py-3 text-sm font-black transition',
+                      'flex-1 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 sm:flex-none',
                       pointsView === item.key
-                        ? 'bg-slate-950 text-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
                     )}
                   >
                     {item.label}
@@ -611,11 +611,11 @@ export default function NovedadesPage() {
                 ))}
               </div>
 
-              {pointsView === 'guide' ? (
-                <PointsAndRewardsGuide />
-              ) : (
-                <RecognitionScoringPlayground />
-              )}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div key={pointsView} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-6}} transition={{duration:0.2}}>
+                  {pointsView === 'guide' ? <PointsAndRewardsGuide /> : <RecognitionScoringPlayground />}
+                </motion.div>
+              </AnimatePresence>
             </motion.section>
           )}
         </AnimatePresence>
