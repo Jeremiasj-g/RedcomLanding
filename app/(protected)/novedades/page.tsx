@@ -818,252 +818,83 @@ function categoryClasses(key: CategoriaKey) {
 
 function PointsAndRewardsGuide() {
   return (
-    <div className="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
-      <div className="grid gap-8 border-b border-slate-200 px-5 py-7 sm:px-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-10 pb-10">
+      <header className="grid gap-6 border-b border-slate-200 pb-8 md:grid-cols-[1fr_auto] md:items-end">
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="rounded-full border-red-200 bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-red-600">
-              Suma puntos
-            </Badge>
-            <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-              Reconocimiento comercial
-            </Badge>
-          </div>
-
-          <h2 className="mt-4 max-w-3xl text-3xl font-black tracking-[-0.04em] text-slate-950 sm:text-4xl">
-            Un programa simple: desempeño sostenido, puntos acumulados y beneficios concretos.
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            Esta guía resume cómo se suman puntos, cuándo se activan los bonos por permanencia y qué puede canjear cada vendedor con su saldo disponible.
-          </p>
+          <h2 className="max-w-xl text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Tu desempeño se transforma en puntos.</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">Cada cierre mensual suma puntos según la categoría alcanzada. Mantenerla durante varios meses agrega bonos, y el saldo permite acceder a beneficios.</p>
         </div>
+        <div className="flex items-center gap-3 text-sm text-slate-600 md:max-w-[240px]">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><Coins className="h-5 w-5" /></div>
+          <span>Los bonos de 3 y 6 meses son acumulables.</span>
+        </div>
+      </header>
 
-        <Card className="rounded-3xl border-slate-200 bg-slate-50/70 shadow-none">
-          <CardContent className="p-5">
-            <div className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
-              Criterio definido
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-4">
-              <div>
-                <div className="text-lg font-black tracking-tight text-slate-950">Bonos acumulables</div>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Al llegar a 6 meses, se conserva el bono de 3 meses y se agrega el de 6 meses.
-                </p>
-              </div>
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-red-600 shadow-sm">
-                <Coins className="h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <section>
+        <div className="mb-5">
+          <h3 className="text-xl font-semibold tracking-tight text-slate-900">Puntos por categoría</h3>
+          <p className="mt-1 text-sm text-slate-500">Tu categoría al cierre de cada mes determina los puntos base.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-4">
+          {categoryPoints.map((category) => {
+            const color=categoryClasses(category.key);
+            return <div key={category.key} className="border-b border-slate-200 pb-5">
+              <span className={cn('inline-flex rounded-lg border px-2.5 py-1 text-xs font-medium',color.bg,color.text,color.border)}>{category.name}</span>
+              <div className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{category.points}<span className="ml-1 text-sm font-normal text-slate-500">pts/mes</span></div>
+              <p className="mt-2 text-xs leading-5 text-slate-500">{category.description}</p>
+            </div>;
+          })}
+        </div>
+      </section>
 
-      <div className="grid border-b border-slate-200 lg:grid-cols-3">
-        {recognitionSteps.map((step, index) => (
-          <div
-            key={step.label}
-            className={cn(
-              'p-5 sm:p-6',
-              index !== recognitionSteps.length - 1 && 'border-b border-slate-200 lg:border-b-0 lg:border-r'
-            )}
-          >
-            <div className="text-[11px] font-black uppercase tracking-[0.22em] text-red-600">{step.label}</div>
-            <div className="mt-2 text-base font-black text-slate-950">{step.title}</div>
-            <p className="mt-1 text-sm leading-6 text-slate-600">{step.text}</p>
+      <section className="grid gap-6 border-b border-slate-200 pb-9 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+        <div>
+          <h3 className="text-xl font-semibold tracking-tight text-slate-900">Bonos por permanencia</h3>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">Al sostener una categoría tres meses, obtenés un bono. Al completar seis, se agrega el segundo sin perder el primero.</p>
+          <div className="mt-5 border-l-2 border-emerald-500 pl-4 text-sm text-slate-600">
+            <span className="font-semibold text-slate-900">Ejemplo: Senior durante 6 meses</span>
+            <p className="mt-1">120 puntos base + 20 de bono a los 3 meses + 40 a los 6 meses = <strong className="font-semibold text-slate-900">180 puntos</strong>.</p>
           </div>
-        ))}
-      </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[320px] text-left text-sm">
+            <thead className="border-b border-slate-200 text-xs text-slate-500"><tr><th className="py-3 font-medium">Categoría</th><th className="py-3 text-right font-medium">3 meses</th><th className="py-3 text-right font-medium">6 meses</th></tr></thead>
+            <tbody>{permanenceBonuses.map(bonus=>{const color=categoryClasses(bonus.key);return <tr key={bonus.key} className="border-b border-slate-100">
+              <td className="py-3"><span className={cn('inline-flex rounded-lg border px-2 py-1 text-xs font-medium',color.bg,color.text,color.border)}>{bonus.category}</span></td>
+              <td className="py-3 text-right font-semibold text-slate-900">+{bonus.three}</td>
+              <td className="py-3 text-right font-semibold text-slate-900">+{bonus.six}</td>
+            </tr>})}</tbody>
+          </table>
+        </div>
+      </section>
 
-      <div className="grid gap-6 p-5 sm:p-8 xl:grid-cols-[1.05fr_0.95fr]">
-        <section>
-          <SectionTitle
-            icon={<Trophy className="h-5 w-5" />}
-            eyebrow="Categoría mensual"
-            title="Puntos base por cierre"
-            description="Cada vendedor suma según la categoría alcanzada en el mes. Los colores respetan la identificación oficial de categorías."
-          />
+      <section>
+        <div className="mb-5">
+          <h3 className="text-xl font-semibold tracking-tight text-slate-900">Beneficios para canjear</h3>
+          <p className="mt-1 text-sm text-slate-500">El saldo de puntos puede utilizarse para estos beneficios.</p>
+        </div>
+        <div className="grid gap-x-8 sm:grid-cols-2">
+          {rewardCatalog.map(reward=><div key={reward.name} className="flex items-center justify-between gap-4 border-b border-slate-100 py-4">
+            <div className="flex min-w-0 items-center gap-3"><span className="text-slate-500">{reward.icon}</span><span className="text-sm font-medium text-slate-800">{reward.name}</span></div>
+            <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900">{reward.points} pts</span>
+          </div>)}
+        </div>
+      </section>
 
-          <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
-            {categoryPoints.map((category, index) => {
-              const color = categoryClasses(category.key);
-              return (
-                <div
-                  key={category.key}
-                  className={cn(
-                    'grid gap-4 bg-white p-4 sm:grid-cols-[1fr_auto] sm:items-center',
-                    index !== categoryPoints.length - 1 && 'border-b border-slate-200'
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <span className={cn('mt-1 h-3 w-3 rounded-full border', color.bg, color.border)} />
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-black text-slate-950">{category.name}</span>
-                        <span className={cn('rounded-full border px-2 py-0.5 text-[11px] font-black', color.bg, color.text, color.border)}>
-                          {category.points} pts/mes
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm leading-6 text-slate-600">{category.description}</p>
-                    </div>
-                  </div>
-
-                  <div className="text-left sm:text-right">
-                    <div className="text-3xl font-black tracking-tight text-slate-950">{category.points}</div>
-                    <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">puntos</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <section>
-          <SectionTitle
-            icon={<TrendingUp className="h-5 w-5" />}
-            eyebrow="Permanencia"
-            title="Bonos por sostener categoría"
-            description="Los bonos reconocen constancia. Para 6 meses consecutivos, se suma el bono de 3 meses y también el de 6 meses."
-          />
-
-          <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            <div className="grid grid-cols-[1fr_92px_92px] border-b border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
-              <span>Categoría</span>
-              <span className="text-right">3 meses</span>
-              <span className="text-right">6 meses</span>
-            </div>
-            {permanenceBonuses.map((bonus) => {
-              const color = categoryClasses(bonus.key);
-              return (
-                <div key={bonus.key} className="grid grid-cols-[1fr_92px_92px] items-center border-b border-slate-100 px-4 py-3 last:border-b-0">
-                  <span className={cn('w-fit rounded-full border px-2.5 py-1 text-xs font-black', color.bg, color.text, color.border)}>
-                    {bonus.category}
-                  </span>
-                  <span className="text-right text-sm font-black text-slate-900">+{bonus.three}</span>
-                  <span className="text-right text-sm font-black text-slate-900">+{bonus.six}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <div className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Ejemplo de cálculo</div>
-            <p className="mt-2 text-sm leading-6 text-slate-700">
-              Si un vendedor sostiene <strong>Senior durante 6 meses</strong>, acumula 120 pts base, más 20 pts por el hito de 3 meses y 40 pts por el hito de 6 meses: <strong>180 pts totales</strong>.
-            </p>
-          </div>
-        </section>
-
-        <section className="xl:col-span-2">
-          <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-            <div>
-              <SectionTitle
-                icon={<Gift className="h-5 w-5" />}
-                eyebrow="Canjes"
-                title="Beneficios disponibles"
-                description="El saldo acumulado se transforma en beneficios vinculados con la actividad diaria del vendedor."
-              />
-
-              <Card className="mt-5 rounded-3xl border-slate-200 bg-white shadow-none">
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-red-600">
-                      <Target className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-black text-slate-950">Regla de lectura</div>
-                      <p className="mt-1 text-sm leading-6 text-slate-600">
-                        Los puntos no reemplazan el análisis comercial: funcionan como reconocimiento visible y canjeable por constancia y categoría alcanzada.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-              {rewardCatalog.map((reward, index) => (
-                <div
-                  key={reward.name}
-                  className={cn(
-                    'grid gap-3 p-4 sm:grid-cols-[1fr_auto] sm:items-center',
-                    index !== rewardCatalog.length - 1 && 'border-b border-slate-100'
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700">
-                      {reward.icon}
-                    </div>
-                    <div className="text-sm font-bold text-slate-800">{reward.name}</div>
-                  </div>
-                  <div className="w-fit rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white sm:ml-auto">
-                    {reward.points} pts
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="xl:col-span-2">
-          <SectionTitle
-            icon={<CheckCircle2 className="h-5 w-5" />}
-            eyebrow="Seguimiento"
-            title="Plan de acción según rendimiento"
-            description="La lectura del sistema también ayuda a detectar cuándo conviene acompañar al vendedor con acciones concretas."
-          />
-
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
-            {[
-              {
-                title: 'Sin plan de acción',
-                text: 'Suma puntos con regularidad y sostiene su categoría sin señales relevantes de caída.',
-                line: 'bg-emerald-600',
-              },
-              {
-                title: 'Seguimiento recomendado',
-                text: 'Tiene pocos puntos, baja de categoría o presenta resultados irregulares en el período.',
-                line: 'bg-amber-500',
-              },
-              {
-                title: 'Aplicar plan de acción',
-                text: 'No suma puntos, cae a Plan de Mejora o acumula varios meses con bajo rendimiento.',
-                line: 'bg-red-600',
-              },
-            ].map((item) => (
-              <Card key={item.title} className="overflow-hidden rounded-2xl border-slate-200 shadow-none">
-                <div className={cn('h-1.5', item.line)} />
-                <CardContent className="p-4">
-                  <div className="text-sm font-black text-slate-950">{item.title}</div>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{item.text}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function SectionTitle({
-  icon,
-  eyebrow,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  eyebrow: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div>
-      <div className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-red-600">
-        {icon}
-        {eyebrow}
-      </div>
-      <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950">{title}</h3>
-      <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
-    </div>
+      <section className="border-t border-slate-200 pt-8">
+        <h3 className="text-xl font-semibold tracking-tight text-slate-900">Seguimiento del rendimiento</h3>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">El programa también permite identificar cuándo conviene acompañar al vendedor con un plan de acción.</p>
+        <div className="mt-6 grid gap-5 sm:grid-cols-3">
+          {[
+            {title:'Sin plan de acción',text:'Suma puntos con regularidad y sostiene su categoría.',tone:'bg-emerald-500'},
+            {title:'Seguimiento recomendado',text:'Baja de categoría o presenta resultados irregulares.',tone:'bg-amber-400'},
+            {title:'Aplicar plan de acción',text:'No suma puntos o acumula meses de bajo rendimiento.',tone:'bg-rose-500'},
+          ].map(item=><div key={item.title} className="border-t border-slate-200 pt-4">
+            <div className="flex items-center gap-2"><span className={cn('h-2 w-2 rounded-full',item.tone)}/><h4 className="text-sm font-semibold text-slate-900">{item.title}</h4></div>
+            <p className="mt-2 text-sm leading-6 text-slate-500">{item.text}</p>
+          </div>)}
+        </div>
+      </section>
+    </motion.div>
   );
 }
