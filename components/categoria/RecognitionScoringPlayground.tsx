@@ -456,7 +456,6 @@ export function RecognitionScoringPlayground({
         const categoryId = event.active.data.current?.categoryId;
         const category = getCategoryById(categoryId);
         const dropData = event.over?.data.current;
-
         if (category && dropData?.type === "month") {
           setAssignments((current) => {
             const next = [...current];
@@ -464,105 +463,68 @@ export function RecognitionScoringPlayground({
             return next;
           });
         }
-
         setActiveCategoryId(null);
       }}
       onDragCancel={() => setActiveCategoryId(null)}
     >
-      <section className={cn("rounded-[1.6rem] border border-slate-200 bg-white shadow-2xl", className)}>
-        <div className="grid gap-5 border-b border-slate-200 p-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-center">
+      <section className={cn("space-y-9 pb-10",className)}>
+        <header className="grid gap-6 border-b border-slate-200 pb-7 sm:grid-cols-[1fr_auto] sm:items-end">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-red-700">
-              <Wand2 className="h-3.5 w-3.5" />
-              Playground interactivo
+            <h3 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">{title}</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 font-normal text-slate-500">Seleccioná una categoría para cada mes y explorá los puntos, los bonos y los beneficios que podrías conseguir.</p>
+          </div>
+          <div className="sm:text-right">
+            <p className="text-xs font-medium text-slate-500">Puntos acumulados</p>
+            <div className="mt-1 text-4xl font-semibold tabular-nums tracking-tight text-slate-950">{total}<span className="ml-1 text-base font-normal text-slate-500">pts</span></div>
+            <p className="mt-1 text-xs text-slate-500">{progress}% de {max} puntos posibles al año</p>
+            <div className="mt-2 h-1.5 w-full max-w-[230px] overflow-hidden rounded-full bg-slate-100 sm:ml-auto"><div className="h-full rounded-full bg-emerald-500 transition-all duration-200" style={{width:`${progress}%`}}/></div>
+          </div>
+        </header>
+
+        <div className="space-y-5">
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div><h4 className="text-lg font-semibold tracking-tight text-slate-900">Armá tu año</h4>
+              <p className="mt-1 text-sm text-slate-500">En celular elegí desde cada mes; en escritorio también podés arrastrar las categorías.</p></div>
+              <button type="button" onClick={()=>setPreset(Array.from({length:RECOGNITION_MONTHS.length},():Assignment=>null))} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-50"><RotateCcw className="h-4 w-4"/>Limpiar</button>
             </div>
-            <h3 className="mt-3 text-2xl font-black tracking-[-0.04em] text-slate-950">{title}</h3>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">{description}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={()=>setPreset(Array.from({length:RECOGNITION_MONTHS.length},(_,i):Assignment=>i<6?'SENIOR':null))} className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200">Senior · 6 meses</button>
+              <button type="button" onClick={()=>setPreset(Array.from({length:RECOGNITION_MONTHS.length},():Assignment=>'SENIOR'))} className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200">Máximo anual</button>
+              <button type="button" onClick={()=>setPreset(['JUNIOR','JUNIOR','JUNIOR','SEMI_SENIOR','SEMI_SENIOR','SEMI_SENIOR','SENIOR','SENIOR','SENIOR','SENIOR','SENIOR','SENIOR'] as Assignment[])} className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200">Evolución gradual</button>
+            </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-2xl">
-            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Total simulado</div>
-            <div className="mt-1 text-4xl font-black leading-none text-slate-950">{total}<span className="text-lg text-slate-400"> pts</span></div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white ring-1 ring-slate-200">
-              <div className="h-full rounded-full bg-red-600" style={{ width: `${progress}%` }} />
-            </div>
-            <div className="mt-2 text-xs font-bold text-slate-500">{progress}% del máximo anual de {max} pts</div>
+          <div className="hidden grid-cols-2 gap-2 sm:grid lg:grid-cols-4">
+            {RECOGNITION_CATEGORIES.map(category=><DraggableCategory key={category.key} category={category}/>)}
           </div>
+
+          <div className="grid gap-2 sm:hidden">
+            {rows.map(row=><div key={row.month} className="flex items-center gap-3 border-b border-slate-100 py-2">
+              <span className="w-12 shrink-0 text-xs font-medium text-slate-500">{row.month}</span>
+              <select aria-label={`Categoría de ${row.month}`} value={assignments[row.index]??''} onChange={event=>setAssignments(current=>current.map((category,index)=>index===row.index?(event.target.value as Assignment||null):category))} className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-slate-400">
+                <option value="">Sin categoría</option>
+                {RECOGNITION_CATEGORIES.map(category=><option key={category.key} value={category.key}>{category.label} · +{category.monthlyPoints} pts</option>)}
+              </select>
+              <span className="w-16 text-right text-sm font-semibold tabular-nums text-slate-900">{row.monthTotal} pts</span>
+            </div>)}
+          </div>
+          <div className="hidden sm:block"><RecognitionScoringTable rows={rows} onClear={index=>setAssignments(current=>current.map((value,i)=>i===index?null:value))}/></div>
         </div>
 
-        <div className="grid gap-5 p-5">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
-            <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-2xl">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Categorías</div>
-                  <div className="mt-1 text-sm font-bold text-slate-950">Arrastrá una categoría a cada mes</div>
-                </div>
-                <Trophy className="h-5 w-5 text-red-600" />
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                {RECOGNITION_CATEGORIES.map((category) => (
-                  <DraggableCategory key={category.key} category={category} />
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[1.35rem] border border-slate-200 bg-slate-50 p-4 shadow-2xl">
-              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Regla confirmada</div>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                Cada 6 meses se reinicia el ciclo de permanencia: en el mes 3 se suma el bono de 3 meses y en el mes 6 el bono de 6 meses.
-              </p>
-              <div className="mt-3 rounded-2xl bg-white p-3 text-xs font-bold leading-5 text-slate-600 ring-1 ring-slate-200">
-                Senior anual: 20×12 + 20 + 40 + 20 + 40 = <strong className="text-slate-950">360 pts</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setPreset(Array.from({ length: RECOGNITION_MONTHS.length }, (_, index): Assignment => (index < 6 ? "SENIOR" : null)))} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50">
-              Senior 6 meses
-            </button>
-            <button type="button" onClick={() => setPreset(Array.from({ length: RECOGNITION_MONTHS.length }, (): Assignment => "SENIOR"))} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50">
-              Máximo 360
-            </button>
-            <button type="button" onClick={() => setPreset(["JUNIOR", "JUNIOR", "JUNIOR", "SEMI_SENIOR", "SEMI_SENIOR", "SEMI_SENIOR", "SENIOR", "SENIOR", "SENIOR", "SENIOR", "SENIOR", "SENIOR"] as Assignment[])} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50">
-              Ejemplo evolución
-            </button>
-            <button type="button" onClick={() => setPreset(Array.from({ length: RECOGNITION_MONTHS.length }, (): Assignment => null))} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white transition hover:bg-red-600">
-              <RotateCcw className="h-3.5 w-3.5" />
-              Limpiar
-            </button>
-          </div>
-
-          <RecognitionScoringTable rows={rows} onClear={(index) => setAssignments((current) => current.map((value, i) => (i === index ? null : value)))} />
-
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
-            <BenefitList total={total} />
-            <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-2xl">
-              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Lectura del resultado</div>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                La tabla muestra el detalle completo: puntos base del mes, bono por permanencia, total mensual y acumulado. Usala para simular escenarios antes de definir un canje o explicar el programa a un vendedor.
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Base</div>
-                  <div className="mt-1 text-lg font-black text-slate-950">Categoría mensual</div>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Bono</div>
-                  <div className="mt-1 text-lg font-black text-slate-950">3 y 6 meses</div>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Acumulado</div>
-                  <div className="mt-1 text-lg font-black text-slate-950">Saldo para canje</div>
-                </div>
-              </div>
+        <div className="grid gap-8 border-t border-slate-200 pt-8 lg:grid-cols-[1fr_0.8fr]">
+          <BenefitList total={total}/>
+          <div>
+            <h4 className="text-lg font-semibold tracking-tight text-slate-900">Cómo se calcula</h4>
+            <div className="mt-4 divide-y divide-slate-100">
+              <div className="py-3"><p className="text-sm font-medium text-slate-900">Puntos base</p><p className="mt-1 text-sm leading-6 text-slate-500">Los define la categoría de cada cierre mensual.</p></div>
+              <div className="py-3"><p className="text-sm font-medium text-slate-900">Bonos de permanencia</p><p className="mt-1 text-sm leading-6 text-slate-500">A los 3 meses se agrega el primer bono. A los 6, se suma el segundo y reinicia el ciclo.</p></div>
+              <div className="py-3"><p className="text-sm font-medium text-slate-900">Saldo acumulado</p><p className="mt-1 text-sm leading-6 text-slate-500">Puntos base más bonos, disponibles para comparar con los canjes.</p></div>
             </div>
           </div>
         </div>
       </section>
-
-      <DragOverlay dropAnimation={null}>{activeCategory ? <CategoryTile category={activeCategory} ghost /> : null}</DragOverlay>
+      <DragOverlay dropAnimation={null}>{activeCategory?<CategoryTile category={activeCategory} ghost/>:null}</DragOverlay>
     </DndContext>
   );
 }
