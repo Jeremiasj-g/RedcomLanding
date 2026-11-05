@@ -202,22 +202,22 @@ function CategoryTile({ category, compact = false, ghost = false }: { category: 
   return (
     <div
       className={cn(
-        "flex min-w-0 items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3 shadow-md transition hover:-translate-y-0.5 hover:shadow-xl",
+        "flex min-w-0 items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3 shadow-sm transition-all duration-200 hover:shadow-sm",
         compact && "rounded-xl px-3 py-2 shadow-none hover:translate-y-0 hover:shadow-none",
-        ghost && "w-[230px] rotate-[-2deg] shadow-2xl",
+        ghost && "w-[230px] rotate-[-2deg] shadow-[0_8px_30px_rgba(15,23,42,0.05)]",
       )}
       style={{ borderColor: `${category.accent}66` }}
     >
       <span
         className={cn(
-          "min-w-0 truncate rounded-full px-3 py-1.5 text-xs font-black leading-none text-white",
+          "min-w-0 truncate rounded-lg px-2.5 py-1.5 text-xs font-medium leading-none text-white",
           compact && "px-2.5 py-1 text-[11px]",
         )}
         style={{ backgroundColor: category.accent }}
       >
         {category.label}
       </span>
-      <span className="shrink-0 rounded-full bg-slate-950 px-2.5 py-1 text-[10px] font-black text-white">
+      <span className="shrink-0 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
         +{category.monthlyPoints}
       </span>
     </div>
@@ -260,7 +260,7 @@ function MonthDropCell({ row, onClear }: { row: RecognitionRow; onClear: (index:
       ref={setNodeRef}
       className={cn(
         "flex min-h-[56px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-2 py-2 transition",
-        isOver && "border-red-300 bg-red-50 ring-2 ring-red-100",
+        isOver && "border-emerald-400 bg-emerald-50",
       )}
     >
       {row.category ? (
@@ -269,7 +269,7 @@ function MonthDropCell({ row, onClear }: { row: RecognitionRow; onClear: (index:
           <button
             type="button"
             onClick={() => onClear(row.index)}
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-950 text-sm font-black text-white transition hover:bg-red-600"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600 transition-colors duration-200 hover:bg-rose-50 hover:text-rose-600"
             aria-label={`Quitar categoría de ${row.month}`}
             title={`Quitar categoría de ${row.month}`}
           >
@@ -277,7 +277,7 @@ function MonthDropCell({ row, onClear }: { row: RecognitionRow; onClear: (index:
           </button>
         </div>
       ) : (
-        <span className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Arrastrá acá</span>
+        <span className="text-xs font-medium text-slate-400">Arrastrá acá</span>
       )}
     </div>
   );
@@ -287,7 +287,7 @@ function ReadOnlyCategoryCell({ row }: { row: RecognitionRow }) {
   if (!row.category) {
     return (
       <div className="flex min-h-[56px] items-center rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2">
-        <span className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Sin categoría</span>
+        <span className="text-xs font-medium text-slate-400">Sin categoría</span>
       </div>
     );
   }
@@ -305,8 +305,8 @@ function ScoreTableRow({
   readOnly?: boolean;
 }) {
   return (
-    <div className="grid min-w-[920px] grid-cols-[92px_minmax(280px,1fr)_88px_100px_112px_112px] items-stretch border-b border-slate-200 last:border-b-0">
-      <div className="grid place-items-center bg-white px-3 py-2 text-xs font-black text-slate-950">{row.month}</div>
+    <div className="grid min-w-[840px] grid-cols-[72px_minmax(240px,1fr)_76px_88px_100px_100px] items-stretch border-b border-slate-100 last:border-b-0">
+      <div className="grid place-items-center bg-white px-3 py-2 text-xs font-semibold text-slate-950">{row.month}</div>
       <div className="border-l border-slate-200 px-2 py-2">
         {readOnly ? <ReadOnlyCategoryCell row={row} /> : <MonthDropCell row={row} onClear={onClear ?? (() => undefined)} />}
       </div>
@@ -332,10 +332,10 @@ export function RecognitionScoringTable({
   const total = rows[rows.length - 1]?.accumulated ?? 0;
 
   return (
-    <div className={cn("w-full overflow-x-auto rounded-2xl border border-slate-200 shadow-2xl", className)}>
-      <div className="grid min-w-[920px] grid-cols-[92px_minmax(280px,1fr)_88px_100px_112px_112px] bg-slate-950 text-[10px] font-black uppercase tracking-[0.16em] text-white">
+    <div className={cn("w-full overflow-x-auto rounded-2xl border border-slate-200", className)}>
+      <div className="grid min-w-[840px] grid-cols-[72px_minmax(240px,1fr)_76px_88px_100px_100px] bg-slate-50 text-xs font-medium text-slate-500">
         <div className="px-3 py-3">Mes</div>
-        <div className="border-l border-white/10 px-3 py-3">Categoría</div>
+        <div className="border-l border-slate-100 px-3 py-3">Categoría</div>
         <div className="border-l border-white/10 px-3 py-3 text-center">Base</div>
         <div className="border-l border-white/10 px-3 py-3 text-center">Bono</div>
         <div className="border-l border-white/10 px-3 py-3 text-center">Total mes</div>
@@ -344,9 +344,9 @@ export function RecognitionScoringTable({
       {rows.map((row) => (
         <ScoreTableRow key={`${row.month}-${row.index}`} row={row} readOnly={readOnly} onClear={onClear} />
       ))}
-      <div className="grid min-w-[920px] grid-cols-[1fr_224px] bg-slate-950 text-white">
-        <div className="px-4 py-4 text-xs font-black uppercase tracking-[0.16em]">Total puntos</div>
-        <div className="border-l border-white/10 px-4 py-4 text-center text-3xl font-black text-yellow-300">{total}</div>
+      <div className="grid min-w-[840px] grid-cols-[1fr_200px] bg-slate-50 text-slate-900">
+        <div className="px-4 py-4 text-xs font-medium">Total puntos</div>
+        <div className="border-l border-white/10 px-4 py-4 text-center text-2xl font-semibold text-slate-900">{total}</div>
       </div>
     </div>
   );
@@ -355,8 +355,8 @@ export function RecognitionScoringTable({
 function ScoreCell({ value, hint, active, strong, accent }: { value: React.ReactNode; hint?: string; active?: boolean; strong?: boolean; accent?: boolean }) {
   return (
     <div className={cn("grid place-items-center border-l border-slate-200 px-2 py-2 text-center", active && "bg-emerald-50", accent && "bg-red-50/60")}>
-      <div className={cn("text-sm font-black", strong ? "text-slate-950" : "text-slate-800", accent && "text-red-600")}>{value}</div>
-      {hint ? <div className="mt-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-700">{hint}</div> : null}
+      <div className={cn("text-sm font-semibold", strong ? "text-slate-950" : "text-slate-800", accent && "text-red-600")}>{value}</div>
+      {hint ? <div className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-emerald-700">{hint}</div> : null}
     </div>
   );
 }
@@ -366,11 +366,11 @@ function BenefitList({ total }: { total: number }) {
   const next = RECOGNITION_BENEFITS.find((benefit) => total < benefit.points);
 
   return (
-    <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-2xl">
+    <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Canjes disponibles</div>
-          <div className="mt-1 text-2xl font-black text-slate-950">{unlocked.length}</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Canjes disponibles</div>
+          <div className="mt-1 text-2xl font-semibold text-slate-950">{unlocked.length}</div>
         </div>
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-slate-950 text-white">
           <Gift className="h-5 w-5" />
@@ -383,7 +383,7 @@ function BenefitList({ total }: { total: number }) {
           return (
             <div key={benefit.name} className={cn("grid grid-cols-[1fr_auto] gap-3 px-3 py-2 text-sm", isUnlocked ? "bg-emerald-50/80" : "bg-white")}>
               <span className={cn("font-semibold", isUnlocked ? "text-slate-950" : "text-slate-500")}>{benefit.name}</span>
-              <span className={cn("font-black", isUnlocked ? "text-emerald-700" : "text-slate-500")}>{benefit.points} pts</span>
+              <span className={cn("font-semibold", isUnlocked ? "text-emerald-700" : "text-slate-500")}>{benefit.points} pts</span>
             </div>
           );
         })}
