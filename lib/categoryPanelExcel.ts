@@ -291,26 +291,34 @@ function detectTmpBranch(
 
 const TMP_MONTHS: Record<string,number>={ene:1,enero:1,feb:2,febrero:2,mar:3,marzo:3,abr:4,abril:4,may:5,mayo:5,jun:6,junio:6,jul:7,julio:7,ago:8,agosto:8,sep:9,sept:9,septiembre:9,oct:10,octubre:10,nov:11,noviembre:11,dic:12,diciembre:12};
 function parseTmpPeriod(value:CellValue):string|null{
- if(value===null || value===false || value===true || value==='')return null;
+ if(value===null||typeof value==='boolean')return null;
  const normalized=normalizeText(value).toLowerCase();
- // El período TMP aparece en algunas filas de la segunda columna, por ejemplo "oct 26".
- const pattern=/(?:^|[^a-z])([a-z]{3,10})[ .\/-]+(20\d{2}|\d{2})(?=$|[^\d])/g;
- for(const match of normalized.matchAll(pattern)){
+ if(!normalized)return null;
+ const format=(year:number,month:number)=>year>=2000&&year<=2099&&month>=1&&month<=12?year+'-'+String(month).padStart(2,'0'):null;
+ const yearFrom=(raw:string)=>raw.length===2?2000+Number(raw):Number(raw);
+ // Los TXT exportados a Excel pueden contener "oct 26", "oct. 26", "octubre/2026" o "Mes: oct 26".
+ const named=/\\b([a-z]{3,12})[\\s.\\/_-]+(20\\d{2}|\\d{2})\\b/g;
+ for(const match of normalized.matchAll(named)){
   const month=TMP_MONTHS[match[1]];
-  if(!month)continue;
-  const year=match[2].length===2?2000+Number(match[2]):Number(match[2]);
-  return year+'-'+String(month).padStart(2,'0');
+  if(month)return format(yearFrom(match[2]),month);
  }
- const numeric=/\b(20\d{2})[-\/](0?[1-9]|1[0-2])\b/.exec(normalized);
- return numeric?numeric[1]+'-'+String(Number(numeric[2])).padStart(2,'0'):null;
+ // Algunas exportaciones contienen directamente fechas en lugar de abreviaturas.
+ const iso=/\\b(20\\d{2})[-\\/](0?[1-9]|1[0-2])(?:[-\\/](?:[0-3]?\\d))?\\b/.exec(normalized);
+ if(iso)return format(Number(iso[1]),Number(iso[2]));
+ const dayFirst=/\\b(?:[0-3]?\\d)[-\\/](0?[1-9]|1[0-2])[-\\/](20\\d{2}|\\d{2})\\b/.exec(normalized);
+ if(dayFirst)return format(yearFrom(dayFirst[2]),Number(dayFirst[1]));
+ const monthFirst=/\\b(0?[1-9]|1[0-2])[-\\/](20\\d{2})\\b/.exec(normalized);
+ if(monthFirst)return format(Number(monthFirst[2]),Number(monthFirst[1]));
+ return null;
 }
 export function detectTmpMonth(matrix:Matrix):string|null{
+ // Detectamos el período en la columna B, incluidas filas de encabezados y subtotales.
  const periods=new Set<string>();
  for(const row of matrix){
   const period=parseTmpPeriod(row?.[1]??null);
   if(period)periods.add(period);
  }
- if(periods.size>1)throw new Error('El TMP contiene varios meses ('+[...periods].join(', ')+'). Importá un mes por vez.');
+ if(periods.size>1)throw new Error('La columna B del TMP contiene varios meses ('+[...periods].join(', ')+'). Importá un mes por vez.');
  return [...periods][0]??null;
 }
 function parseTmp(matrix: Matrix) {
