@@ -4,6 +4,7 @@ import {useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} from 're
 import {CalendarDays,ChevronDown,FileSpreadsheet,Filter,Loader2,Save,Search,Upload,X} from 'lucide-react';
 import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
 import {RedcomSelect} from '@/components/ui/redcom-select';
+import {ColumnFilterPopup} from '@/components/category-panel/CategoryColumnFilters';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
 
@@ -576,32 +577,18 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
    <div className="min-w-[170px]"><RedcomSelect aria-label="Día" value={date} onValueChange={setDate} options={[{value:'all',label:'Todos los días del mes'},...days.map(day=>({value:day,label:displayDate(day)}))]} className="h-10 rounded-xl text-xs"/></div>
   </div>
   {Object.values(columnFilters).some(values=>values.length>0)&&<div className="flex items-center justify-between border-b border-blue-100 bg-blue-50 px-5 py-2 text-[11px] font-medium text-blue-700"><span><Filter className="mr-1 inline h-3.5 w-3.5"/>Filtros activos · {shown.length} filas</span><button type="button" onClick={clearFilters} className="rounded-lg px-2 py-1 hover:bg-blue-100">Limpiar todos</button></div>}
-  {activeColumn&&<>
-   <button type="button" aria-label="Cerrar menú de filtro" onClick={closeFilter} className="fixed inset-0 z-40 cursor-default bg-transparent"/>
-   <div role="dialog" aria-label={'Filtrar '+columns.find(col=>col.key===activeColumn)?.label} className="fixed z-50 w-[310px] overflow-hidden rounded-xl border border-slate-200 bg-white text-xs shadow-[0_18px_45px_rgba(15,23,42,.2)]" style={{top:filterPosition.top,left:filterPosition.left}}>
-    <div className="border-b border-slate-100 p-2">
-     <button type="button" onClick={()=>setSort('asc')} className="w-full rounded-lg px-3 py-2 text-left text-slate-700 hover:bg-slate-100">Ordenar A a Z / Menor a mayor</button>
-     <button type="button" onClick={()=>setSort('desc')} className="w-full rounded-lg px-3 py-2 text-left text-slate-700 hover:bg-slate-100">Ordenar Z a A / Mayor a menor</button>
-    </div>
-    <div className="px-3 pt-3">
-     <div className="mb-2 font-semibold text-slate-800">Filtrar por valores</div>
-     <div className="flex items-center justify-between text-[11px]">
-      <button type="button" onClick={()=>setDraftSelection(options)} className="text-blue-600 hover:underline">Seleccionar todo</button>
-      <button type="button" onClick={()=>setDraftSelection([])} className="text-blue-600 hover:underline">Borrar</button>
-      <span className="text-slate-400">Mostrando {visibleOptions.length}</span>
-     </div>
-     <div className="relative mt-3"><Search className="absolute right-3 top-2.5 h-4 w-4 text-slate-400"/><input value={filterSearch} onChange={e=>setFilterSearch(e.target.value)} placeholder="Buscar..." className="h-9 w-full rounded-lg border border-slate-200 px-3 pr-9 text-xs outline-none focus:border-blue-400"/></div>
-     <div className="my-3 max-h-48 overflow-y-auto">
-      {visibleOptions.map(value=><label key={value} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs text-slate-700 hover:bg-slate-50"><input type="checkbox" className="accent-emerald-600" checked={selectedDraft.includes(value)} onChange={()=>setDraftSelection(old=>{const current=old??options;return current.includes(value)?current.filter(v=>v!==value):[...current,value];})}/><span className="truncate">{value}</span></label>)}
-      {!visibleOptions.length&&<p className="px-2 py-3 text-slate-400">Sin coincidencias</p>}
-     </div>
-    </div>
-    <div className="flex justify-end gap-2 border-t border-slate-100 px-3 py-3">
-     <button type="button" onClick={closeFilter} className="rounded-lg border border-slate-200 px-4 py-2 font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
-     <button type="button" onClick={applyFilter} className="rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white hover:bg-emerald-800">Aceptar</button>
-    </div>
-   </div>
-  </>}
+  {activeColumn&&<ColumnFilterPopup
+   label={columns.find(col=>col.key===activeColumn)?.label??activeColumn}
+   position={filterPosition}
+   options={options}
+   selected={selectedDraft}
+   search={filterSearch}
+   onSearch={setFilterSearch}
+   onSelected={setDraftSelection}
+   onSort={setSort}
+   onApply={applyFilter}
+   onClose={closeFilter}
+  />}
   <div className="max-h-[calc(100dvh-380px)] min-h-[290px] overflow-auto overscroll-contain border-t-[3px] border-t-slate-400"><table className="w-full min-w-[1690px] text-left text-xs">
    <thead className="sticky top-0 z-20 bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500 shadow-[0_1px_0_#cbd5e1]"><tr>{columns.map(col=><th key={col.key} className={"px-3 py-2 font-semibold "+(col.key==='correctStart'||col.key==='supervisor'?'border-l-[3px] border-l-slate-400 ':'')}><button type="button" onClick={event=>openFilter(col.key,event.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(columnFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5 shrink-0"/></button></th>)}</tr></thead>
    <tbody>{visibleRows.map((item,i)=><tr key={item.visit_date+'|'+item.seller_name} className={(i>0&&item.visit_date!==shown[i-1].visit_date?'border-t-[3px] border-t-slate-400 ':'border-t border-t-slate-100 ')+(i%2?'bg-slate-50/40':'bg-white')}>
