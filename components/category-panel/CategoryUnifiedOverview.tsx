@@ -18,7 +18,6 @@ const branches=[
  {key:'misiones',name:'Misiones',branch:'SUCURSAL POSADAS',force:'all'},
  {key:'obera',name:'Oberá',branch:'SUCURSAL OBERA',force:'all'},
 ] as const;
-const currentMonth=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
 const followingMonth=(v:string)=>{const [y,m]=v.split('-').map(Number),d=new Date(y,m,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
 const fmt=new Intl.NumberFormat('es-AR');
 const money=new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2});
@@ -29,8 +28,7 @@ const duration=(start:string|null,end:string|null)=>{
  return Number.isFinite(result)&&result>=0?result:null;
 };
 const displayDuration=(v:number)=>[Math.floor(v/3600),Math.floor(v%3600/60),Math.round(v%60)].map(x=>String(x).padStart(2,'0')).join(':');
-export default function CategoryUnifiedOverview({rows,projections}:{rows:CategoryPanelRow[];projections:KpiProjection[]}){
- const [month,setMonth]=useState(currentMonth);
+export default function CategoryUnifiedOverview({rows,projections,month,onMonthChange,availableMonths,loadingMonth}:{rows:CategoryPanelRow[];projections:KpiProjection[];month:string;onMonthChange:(month:string)=>void;availableMonths:string[];loadingMonth:boolean}){
  const [daily,setDaily]=useState<Daily[]>([]);
  const [loading,setLoading]=useState(true);
  const [branchTab,setBranchTab]=useState<string>('corrientes_masivos');
@@ -44,6 +42,7 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
  const [personnel,setPersonnel]=useState<Array<{id:number;name:string;branch:string;role:string;superior:string;force:string}>>([]);
  useEffect(()=>{void supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle().then(({data,error})=>{if(error)notify.error(errorMessage(error,'No se pudo cargar Personal comercial.'));else setPersonnel(Array.isArray(data?.people)?data.people:[]);});},[]);
  useEffect(()=>{
+  if(!month){setLoading(false);setDaily([]);return;}
   let active=true;setLoading(true);setDaily([]);
   (async()=>{
    const records:Daily[]=[];let offset=0;
@@ -108,10 +107,12 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
   ];
  },[rows,branchTab,byProjection,stats,loading,counts.elapsed,scaleMetrics,scaleGates]);
  return <div className="mt-6 space-y-6">
+  {month&&!availableMonths.includes(month)&&<p className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800">No hay KPIs unificados guardados para {month}. Los horarios SIGO se consultan por separado; seleccioná o importá el mes correspondiente.</p>}
+  {loadingMonth&&<p className="text-xs text-slate-500">Cargando KPIs del mes…</p>}
   <section className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,.055)]">
    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-5">
     <div><h2 className="text-xl font-semibold text-slate-900">Reportes unificados y horarios</h2><p className="mt-1 text-xs text-slate-500">Datos guardados de KPIs y promedio diario SIGO del mes seleccionado.</p></div>
-    <label className="flex items-center gap-2 text-xs text-slate-600">Mes <input type="month" aria-label="Mes de horarios" value={month} onChange={e=>{if(/^\d{4}-\d{2}$/.test(e.target.value))setMonth(e.target.value)}} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"/></label>
+    <label className="flex items-center gap-2 text-xs text-slate-600">Mes <input type="month" aria-label="Mes de horarios" value={month} onChange={e=>{if(/^\d{4}-\d{2}$/.test(e.target.value))onMonthChange(e.target.value)}} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"/></label>
    </div>
    <div className="flex flex-wrap items-center gap-5 border-b border-slate-100 px-5 py-3">
      <div><div className="text-xs text-slate-500">Días laborales transcurridos</div><div className="text-2xl font-semibold">{calendarLoading?'—':counts.elapsed}</div></div>
