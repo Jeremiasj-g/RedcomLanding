@@ -319,7 +319,9 @@ export default function CategoryPanelPage() {
       setSearch('');
       setBranchFilter('all');
 
-      if (result.canSave) {
+      if (!result.period) {
+        notify.error('No encontré el mes en la primera columna del TMP. Seleccioná el período en la vista previa antes de guardar.');
+      } else if (result.canSave) {
         notify.success(
           `Unificación lista: ${result.rows.length} vendedores para revisar.`,
         );
@@ -670,6 +672,11 @@ export default function CategoryPanelPage() {
             </motion.div>}</AnimatePresence>
           </section>
 
+          {preview&&<div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+             <span className="text-xs text-slate-500">Mes de los reportes Pivot + TMP</span>
+             <input type="month" value={preview.period??''} onChange={e=>setPreview(prev=>prev?{...prev,period:e.target.value||null}:prev)} className="h-9 rounded-lg border border-slate-200 px-3 text-xs"/>
+             <span className="text-xs text-slate-500">{preview.period?'Ese período quedará guardado y podrá consultarse después.':'Es obligatorio seleccionar un mes antes de guardar.'}</span>
+          </div>}
           {preview ? <ValidationSummary result={preview} /> : null}
 
           <section className="mt-5 overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,.045)]">
@@ -777,7 +784,7 @@ export default function CategoryPanelPage() {
                 <button
                   type="button"
                   onClick={() => setConfirmSaveOpen(true)}
-                  disabled={!preview.canSave || saving}
+                  disabled={!preview.canSave || !preview.period || saving}
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   <Save className="h-4 w-4" />
@@ -788,7 +795,7 @@ export default function CategoryPanelPage() {
           </section>
             </>
           ) : activeTab === 'sigo' ? (
-            <CategorySigoHistory />
+            <CategorySigoHistory month={selectedMonth} onMonthChange={setSelectedMonth} />
           ) : (
             <CategoryScaleTab />
           )}
