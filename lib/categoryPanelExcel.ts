@@ -292,6 +292,11 @@ function detectTmpBranch(
 const TMP_MONTHS: Record<string,number>={ene:1,enero:1,feb:2,febrero:2,mar:3,marzo:3,abr:4,abril:4,may:5,mayo:5,jun:6,junio:6,jul:7,julio:7,ago:8,agosto:8,sep:9,sept:9,septiembre:9,oct:10,octubre:10,nov:11,noviembre:11,dic:12,diciembre:12};
 function parseTmpPeriod(value:CellValue):string|null{
  if(value===null||typeof value==='boolean')return null;
+ // Las fechas de Excel pueden estar guardadas como número serial aunque se vean como "oct 26".
+ if(typeof value==='number'&&Number.isInteger(value)&&value>=36526&&value<=73050){
+  const date=new Date(Date.UTC(1899,11,30)+value*86400000);
+  return date.getUTCFullYear()+'-'+String(date.getUTCMonth()+1).padStart(2,'0');
+ }
  const normalized=normalizeText(value).toLowerCase();
  if(!normalized)return null;
  const format=(year:number,month:number)=>year>=2000&&year<=2099&&month>=1&&month<=12?year+'-'+String(month).padStart(2,'0'):null;
