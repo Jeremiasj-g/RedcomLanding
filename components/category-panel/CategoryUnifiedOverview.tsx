@@ -146,7 +146,7 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
    </div>
    <p className="mt-3 text-xs text-slate-500">Categoría alcanzada: estimación ponderada a partir de las escalas configuradas. No es una categoría oficial mientras falten umbrales o se valide la regla final de clasificación.</p>
    <div role="tabpanel" className="mt-4 overflow-x-hidden">
-     <FilterableCategoryTable rows={branchRows} columns={branchColumns} renderRow={p=>{
+     <FilterableCategoryTable key={branchTab} rows={branchRows} columns={branchColumns} renderRow={p=>{
          const branch=branches.find(b=>b.key===branchTab)!;
          const row=rows.find(r=>r.branchKey===branchTab&&r.sellerId===p.id);
          const extra=byProjection.get(branchTab+':'+p.id),avg=stats.get(branchTab+':'+p.id);
