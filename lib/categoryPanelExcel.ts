@@ -46,6 +46,7 @@ export type CategoryPanelParseResult = {
   nameMismatches: CategoryPanelNameMismatch[];
   duplicateKeys: string[];
   canSave: boolean;
+  period: string | null;
 };
 
 type CellValue = string | number | boolean | null;
@@ -287,6 +288,30 @@ function detectTmpBranch(
   return currentBranch;
 }
 
+const TMP_MONTHS: Record<string,number>={ene:1,enero:1,feb:2,febrero:2,mar:3,marzo:3,abr:4,abril:4,may:5,mayo:5,jun:6,junio:6,jul:7,julio:7,ago:8,agosto:8,sep:9,sept:9,septiembre:9,oct:10,octubre:10,nov:11,noviembre:11,dic:12,diciembre:12};
+function parseTmpPeriod(value:CellValue):string|null{
+ if(value===null || value===false || value===true || value==='')return null;
+ const normalized=normalizeText(value).toLowerCase();
+ // La primera columna TMP contiene períodos como "oct 26".
+ const pattern=/(?:^|[^a-z])([a-z]{3,10})[ .\/-]+(20\d{2}|\d{2})(?=$|[^\d])/g;
+ for(const match of normalized.matchAll(pattern)){
+  const month=TMP_MONTHS[match[1]];
+  if(!month)continue;
+  const year=match[2].length===2?2000+Number(match[2]):Number(match[2]);
+  return year+'-'+String(month).padStart(2,'0');
+ }
+ const numeric=/\b(20\d{2})[-\/](0?[1-9]|1[0-2])\b/.exec(normalized);
+ return numeric?numeric[1]+'-'+String(Number(numeric[2])).padStart(2,'0'):null;
+}
+function detectTmpMonth(matrix:Matrix):string|null{
+ const periods=new Set<string>();
+ for(const row of matrix){
+  const period=parseTmpPeriod(row?.[0]??null);
+  if(period)periods.add(period);
+ }
+ if(periods.size>1)throw new Error('El TMP contiene varios meses ('+[...periods].join(', ')+'). Importá un mes por vez.');
+ return [...periods][0]??null;
+}
 function parseTmp(matrix: Matrix) {
   const headerRowIndex = matrix.findIndex((row) => {
     const normalized = (row ?? []).map(normalizeText);
@@ -391,6 +416,7 @@ export function unifyCategoryPanelMatrices(
 ): CategoryPanelParseResult {
   const pivot = parsePivot(pivotMatrix);
   const tmp = parseTmp(tmpMatrix);
+  const period = detectTmpMonth(tmpMatrix);
 
   const tmpByKey = new Map(tmp.records.map((record) => [record.key, record]));
   const pivotByKey = new Map(
@@ -467,6 +493,7 @@ export function unifyCategoryPanelMatrices(
   return {
     rows,
     pivotCount: pivot.records.length,
+    period,
     tmpCount: tmp.records.length,
     unmatchedPivot,
     unmatchedTmp,
