@@ -648,9 +648,10 @@ export default function CategoryPanelPage() {
             </label>
             <AnimatePresence initial={false}>{individualEnabled && <motion.div initial={{opacity:0,y:-6,height:0}} animate={{opacity:1,y:0,height:"auto"}} exit={{opacity:0,y:-6,height:0}} transition={{duration:0.2}} className="mt-4 grid gap-4 overflow-hidden border-t border-slate-100 pt-4 lg:grid-cols-2">
             <SingleSellerPivotUpdate
-            savedRows={savedRows}
+            savedRows={monthlyRows}
+            month={selectedMonth}
             onUpdated={(updated) =>
-              setSavedRows((current) =>
+              setMonthlyRows((current) =>
                 current.map((row) =>
                   row.branchKey === updated.branchKey && row.sellerId === updated.sellerId
                     ? updated
@@ -661,9 +662,10 @@ export default function CategoryPanelPage() {
           />
 
             <SingleSellerTmpUpdate
-            savedRows={savedRows}
+            savedRows={monthlyRows}
+            month={selectedMonth}
             onUpdated={(updated) =>
-              setSavedRows((current) =>
+              setMonthlyRows((current) =>
                 current.map((row) =>
                   row.branchKey === updated.branchKey && row.sellerId === updated.sellerId
                     ? updated
