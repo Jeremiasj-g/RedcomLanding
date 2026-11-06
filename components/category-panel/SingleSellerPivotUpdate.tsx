@@ -9,8 +9,9 @@ import { errorMessage, notify } from '@/lib/notifications';
 type PivotSingle = Awaited<ReturnType<typeof parseSingleSellerPivot>>;
 const number = new Intl.NumberFormat('es-AR');
 
-export default function SingleSellerPivotUpdate({ savedRows, onUpdated }: {
+export default function SingleSellerPivotUpdate({ savedRows, onUpdated, month }: {
   savedRows: CategoryPanelRow[];
+  month:string;
   onUpdated: (row: CategoryPanelRow) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
@@ -35,11 +36,9 @@ export default function SingleSellerPivotUpdate({ savedRows, onUpdated }: {
     if(!window.confirm(`¿Actualizar únicamente a ${parsed.sellerName} (ID ${parsed.sellerId})? Los demás vendedores y los datos TMP permanecerán iguales.`))return;
     try{
       setSaving(true);
-      const {error}=await supabase.rpc('admin_update_category_seller_pivot',{
-        p_branch_key:parsed.branchKey,p_seller_id:parsed.sellerId,
-        p_sector:parsed.sector,p_seller_name:parsed.sellerName,
-        p_visitados:parsed.visitados,p_venta_distancia:parsed.ventaDistancia,
-        p_venta_pdv:parsed.ventaPdv,p_visitas_planeadas:parsed.visitasPlaneadas,
+      const {error}=await supabase.rpc('admin_update_category_month_seller',{
+        p_month:month,p_branch_key:parsed.branchKey,p_seller_id:parsed.sellerId,p_kind:'pivot',
+        p_values:{sector:parsed.sector,seller_name:parsed.sellerName,visitados:parsed.visitados,venta_distancia:parsed.ventaDistancia,venta_pdv:parsed.ventaPdv,visitas_planeadas:parsed.visitasPlaneadas}
       });
       if(error)throw error;
       onUpdated({...current,...parsed,partialUpdatedAt:new Date().toISOString(),partialUpdateSource:'pivot'});
