@@ -1,7 +1,7 @@
 'use client';
 import {useState} from 'react';
 import {FileSpreadsheet, Loader2, RefreshCw, Upload, X} from 'lucide-react';
-import {parseTmpSellerTotals, type CategoryPanelRow} from '@/lib/categoryPanelExcel';
+import {parseTmpSellerTotals,readTmpFileMonth, type CategoryPanelRow} from '@/lib/categoryPanelExcel';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
 
@@ -10,8 +10,8 @@ const money=new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'});
 const num=new Intl.NumberFormat('es-AR');
 
 export default function SingleSellerTmpUpdate({
- savedRows,onUpdated
-}:{savedRows:CategoryPanelRow[];onUpdated:(row:CategoryPanelRow)=>void}){
+ savedRows,onUpdated,month
+}:{savedRows:CategoryPanelRow[];month:string;onUpdated:(row:CategoryPanelRow)=>void}){
  const [file,setFile]=useState<File|null>(null);
  const [list,setList]=useState<TmpSeller[]>([]);
  const [chosen,setChosen]=useState('');
@@ -24,6 +24,8 @@ export default function SingleSellerTmpUpdate({
   if(!file)return;
   try{
    setReading(true);
+   const fileMonth=await readTmpFileMonth(file);
+   if(!fileMonth||fileMonth!==month)throw new Error('El TMP corresponde a '+(fileMonth??'un mes desconocido')+'; estás consultando '+month+'. Seleccioná el mes correcto.');
    const results=await parseTmpSellerTotals(file);
    setList(results);
    const available=results.filter(s=>savedRows.some(r=>r.branchKey===s.branchKey&&r.sellerId===s.sellerId));
@@ -37,9 +39,9 @@ export default function SingleSellerTmpUpdate({
   if(!window.confirm(`¿Actualizar la facturación solo de ${selected.sellerName} (ID ${selected.sellerId})? Los demás vendedores no se modificarán.`))return;
   try{
    setSaving(true);
-   const {error}=await supabase.rpc('admin_update_category_seller_tmp',{
-    p_branch_key:selected.branchKey,p_seller_id:selected.sellerId,
-    p_amount:Math.round(selected.amount*100)/100,p_invoice_count:selected.invoices
+   const {error}=await supabase.rpc('admin_update_category_month_seller',{
+    p_month:month,p_branch_key:selected.branchKey,p_seller_id:selected.sellerId,p_kind:'tmp',
+    p_values:{importe_final_facturado:Math.round(selected.amount*100)/100,cnt_fac:selected.invoices}
    });
    if(error)throw error;
    onUpdated({...existing,importeFinalFacturado:Math.round(selected.amount*100)/100,
