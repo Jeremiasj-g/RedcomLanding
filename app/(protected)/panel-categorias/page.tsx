@@ -29,6 +29,10 @@ import { RedcomSelect } from '@/components/ui/redcom-select';
 import { useMe } from '@/hooks/useMe';
 import {
   fetchCategoryPanelCurrent,
+  listCategoryPanelMonths,
+  fetchCategoryPanelMonth,
+  assignCurrentCategoryPanelMonth,
+  type CategoryPanelMonthInfo,
   replaceCategoryPanelCurrent,
   type CategoryPanelState,
 } from '@/lib/categoryPanel';
@@ -120,6 +124,37 @@ export default function CategoryPanelPage() {
   const { me, loading: meLoading } = useMe();
 
   const [savedRows, setSavedRows] = useState<CategoryPanelRow[]>([]);
+  const [availableMonths,setAvailableMonths]=useState<CategoryPanelMonthInfo[]>([]);
+  const [selectedMonth,setSelectedMonth]=useState('');
+  const [monthlyRows,setMonthlyRows]=useState<CategoryPanelRow[]>([]);
+  const [loadingMonthly,setLoadingMonthly]=useState(false);
+  const [legacyMonth,setLegacyMonth]=useState('2026-10');
+  const [registeringLegacy,setRegisteringLegacy]=useState(false);
+  const refreshMonths=async()=>{const months=await listCategoryPanelMonths();setAvailableMonths(months);return months;};
+  useEffect(()=>{
+    if(meLoading||me?.role!=='admin')return;
+    void refreshMonths().then(async months=>{
+      if(months.length){setSelectedMonth(current=>current||months[0].month);return;}
+      const {data,error}=await supabase.from('category_sigo_daily').select('visit_date').order('visit_date',{ascending:false}).limit(1);
+      if(error)throw error;
+      setSelectedMonth(current=>current||data?.[0]?.visit_date?.slice(0,7)||new Date().toISOString().slice(0,7));
+    }).catch(error=>notify.error(errorMessage(error,'No se pudo cargar el historial mensual.')));
+  },[meLoading,me?.role]);
+  useEffect(()=>{
+    if(!selectedMonth||!availableMonths.some(m=>m.month===selectedMonth)){setMonthlyRows([]);return;}
+    let active=true;setLoadingMonthly(true);
+    void fetchCategoryPanelMonth(selectedMonth).then(rows=>{if(active)setMonthlyRows(rows);}).catch(error=>{if(active)notify.error(errorMessage(error,'No se pudieron cargar los KPIs mensuales.'));}).finally(()=>{if(active)setLoadingMonthly(false);});
+    return()=>{active=false;};
+  },[selectedMonth,availableMonths]);
+  const registerLegacyMonth=async()=>{
+    if(!legacyMonth||registeringLegacy)return;
+    if(!window.confirm('¿Confirmás que el lote actual corresponde a '+legacyMonth+'? Se conservará como histórico sin alterar sus datos.'))return;
+    setRegisteringLegacy(true);
+    try{await assignCurrentCategoryPanelMonth(legacyMonth);await refreshMonths();setSelectedMonth(legacyMonth);notify.success('Lote asociado a '+legacyMonth+'.');}
+    catch(error){notify.error(errorMessage(error,'No se pudo asociar el mes al lote.'));}
+    finally{setRegisteringLegacy(false);}
+  };
+
   const [kpiProjections,setKpiProjections] = useState<KpiProjection[]>([]);
   const [importingKpi,setImportingKpi] = useState(false);
   const [kpiDraft,setKpiDraft] = useState<KpiProjection[] | null>(null);
@@ -210,7 +245,7 @@ export default function CategoryPanelPage() {
     };
   }, [me, meLoading]);
 
-  const displayRows = preview?.rows ?? savedRows;
+  const displayRows = preview?.rows ?? monthlyRows;
   const displayMode = preview ? 'preview' : 'saved';
 
   const branchOptions = useMemo(() => {
@@ -364,13 +399,15 @@ export default function CategoryPanelPage() {
   };
 
   const savePreview = async () => {
-    if (!preview?.canSave || saving) return;
+    if (!preview?.canSave || !preview.period || saving) return;
 
     try {
       setSaving(true);
-      const result = await replaceCategoryPanelCurrent(preview.rows);
+      const result = await replaceCategoryPanelCurrent(preview.rows,preview.period);
 
       setSavedRows(preview.rows);
+      await refreshMonths();
+      setSelectedMonth(preview.period);
       setSavedState({
         lastImportedAt: result.importedAt,
         lastImportedBy: me?.id ?? null,
@@ -450,8 +487,8 @@ export default function CategoryPanelPage() {
                 />
                 <HeroStat
                   label="Modo"
-                  value="Reemplazo"
-                  detail="no acumula históricos"
+                  value="Mensual"
+                  detail="histórico por período"
                 />
               </div>
             </div>
@@ -485,7 +522,18 @@ export default function CategoryPanelPage() {
             />
           </div>
 
-          {activeTab === 'personnel' ? <CommercialPersonnel /> : activeTab === 'categories' ? <CategoryUnifiedOverview rows={savedRows} projections={kpiProjections} /> : activeTab === 'kpis' ? (
+          {(activeTab==='kpis'||activeTab==='categories')&&<div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+            <label className="flex items-center gap-2 text-xs text-slate-600">Mes de consulta
+              <input type="month" value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)} className="h-9 rounded-xl border border-slate-200 px-3 text-sm text-slate-800"/>
+            </label>
+            <span className="text-xs text-slate-500">{availableMonths.some(m=>m.month===selectedMonth)?'KPIs guardados'+(loadingMonthly?' · cargando…':''):'Sin KPIs guardados para este mes'}</span>
+            {!availableMonths.length&&savedRows.length>0&&<div className="ml-auto flex flex-wrap items-center gap-2">
+              <span className="text-xs text-amber-700">Hay {savedRows.length} registros antiguos sin mes asociado.</span>
+              <input type="month" aria-label="Mes del lote anterior" value={legacyMonth} onChange={e=>setLegacyMonth(e.target.value)} className="h-9 rounded-xl border border-slate-200 px-2 text-xs"/>
+              <button type="button" disabled={registeringLegacy} onClick={()=>void registerLegacyMonth()} className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50">Asignar mes al lote anterior</button>
+            </div>}
+          </div>}
+          {activeTab === 'personnel' ? <CommercialPersonnel /> : activeTab === 'categories' ? <CategoryUnifiedOverview rows={monthlyRows} projections={kpiProjections} month={selectedMonth} onMonthChange={setSelectedMonth} availableMonths={availableMonths.map(m=>m.month)} loadingMonth={loadingMonthly} /> : activeTab === 'kpis' ? (
             <>
           <section className="mt-6 grid gap-4 lg:grid-cols-3">
             <UploadCard
