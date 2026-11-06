@@ -402,6 +402,7 @@ export default function CategoryPanelPage() {
 
   const savePreview = async () => {
     if (!preview?.canSave || !preview.period || saving) return;
+    if(!availableMonths.length&&savedRows.length){notify.error('Antes de guardar otro mes, asociá el lote anterior a su mes para conservarlo en el historial.');return;}
 
     try {
       setSaving(true);
