@@ -158,19 +158,22 @@ export default function CategoryPanelPage() {
   const [kpiProjections,setKpiProjections] = useState<KpiProjection[]>([]);
   const [importingKpi,setImportingKpi] = useState(false);
   const [kpiDraft,setKpiDraft] = useState<KpiProjection[] | null>(null);
+  useEffect(()=>{setKpiDraft(null);},[selectedMonth]);
   const [individualEnabled,setIndividualEnabled] = useState(false);
   const kpiImportRef=useRef<HTMLInputElement>(null);
-  const reloadKpi=async()=>{
-    const {data,error}=await supabase.from('category_kpi_projections').select('branch_key,seller_id,projected_category,pop_percentage,exhibition_percentage,coverage_percentage,volume_percentage');
+  const reloadKpi=async(month=selectedMonth)=>{
+    if(!month){setKpiProjections([]);return;}
+    const {data,error}=await supabase.from('category_kpi_projections_monthly').select('branch_key,seller_id,projected_category,pop_percentage,exhibition_percentage,coverage_percentage,volume_percentage').eq('month',month);
     if(error)throw error;
     setKpiProjections((data??[]) as KpiProjection[]);
   };
-  useEffect(()=>{if(!meLoading&&me?.role==='admin')void reloadKpi().catch(error=>notify.error(errorMessage(error,'No se pudieron cargar las proyecciones.')));},[meLoading,me?.role]);
+  useEffect(()=>{if(!meLoading&&me?.role==='admin')void reloadKpi().catch(error=>notify.error(errorMessage(error,'No se pudieron cargar las proyecciones del mes.')));},[meLoading,me?.role,selectedMonth]);
   const importKpi=async(file:File)=>{
     if(preview){notify.error('Guardá o descartá la importación Pivot/TMP pendiente antes de cargar proyecciones.');return;}
+    if(!monthlyRows.length){notify.error('Guardá primero los KPIs unificados correspondientes al mes que querés importar.');return;}
     setImportingKpi(true);
     try{
-      const entries=await parseKpiProjectionFile(file,savedRows);
+      const entries=await parseKpiProjectionFile(file,monthlyRows);
       if(!entries.length)throw new Error('No hay vendedores reconocidos en la planilla.');
       setKpiDraft(entries);
       notify.success('Archivo leído. Revisá las proyecciones antes de confirmar.');
@@ -181,7 +184,7 @@ export default function CategoryPanelPage() {
     if(!kpiDraft||importingKpi)return;
     setImportingKpi(true);
     try{
-      const {error}=await supabase.from('category_kpi_projections').upsert(kpiDraft,{onConflict:'branch_key,seller_id'});
+      const {error}=await supabase.from('category_kpi_projections_monthly').upsert(kpiDraft.map(entry=>({...entry,month:selectedMonth})),{onConflict:'month,branch_key,seller_id'});
       if(error)throw error;
       await reloadKpi();
       notify.success('Proyecciones guardadas para '+kpiDraft.length+' vendedores.');
@@ -563,9 +566,9 @@ export default function CategoryPanelPage() {
               <div className="mt-5 flex min-h-[58px] flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
                 <span className="text-[11px] font-medium text-slate-500">Plantilla de proyecciones XLSX</span>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button type="button" disabled={!savedRows.length} onClick={()=>exportKpiProjectionTemplate(savedRows,kpiProjections)} className="inline-flex h-9 items-center rounded-xl border border-sky-200 bg-sky-50 px-3 text-[10px] font-semibold text-sky-700 transition hover:bg-sky-100 disabled:opacity-50">Exportar</button>
+                  <button type="button" disabled={!monthlyRows.length} onClick={()=>exportKpiProjectionTemplate(monthlyRows,kpiProjections)} className="inline-flex h-9 items-center rounded-xl border border-sky-200 bg-sky-50 px-3 text-[10px] font-semibold text-sky-700 transition hover:bg-sky-100 disabled:opacity-50">Exportar</button>
                   <input ref={kpiImportRef} type="file" accept=".xlsx" className="hidden" onChange={event=>{const file=event.target.files?.[0];if(file)void importKpi(file);}}/>
-                  <button type="button" disabled={importingKpi||!savedRows.length||Boolean(preview)} onClick={()=>kpiImportRef.current?.click()} className="inline-flex h-9 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"><Upload className="h-3.5 w-3.5"/>{importingKpi?'Procesando…':'Seleccionar'}</button>
+                  <button type="button" disabled={importingKpi||!monthlyRows.length||Boolean(preview)} onClick={()=>kpiImportRef.current?.click()} className="inline-flex h-9 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"><Upload className="h-3.5 w-3.5"/>{importingKpi?'Procesando…':'Seleccionar'}</button>
                 </div>
               </div>
             </motion.section>
@@ -586,7 +589,7 @@ export default function CategoryPanelPage() {
               <thead className="sticky top-0 bg-slate-50"><tr><th className="p-3">Sucursal</th><th className="p-3">Vendedor</th><th className="p-3">Categoría</th><th className="p-3">POP</th><th className="p-3">Exhibición</th><th className="p-3">Cobertura</th><th className="p-3">Volumen</th></tr></thead>
               <tbody>{kpiDraft.map(row=><tr key={row.branch_key+':'+row.seller_id} className="border-t border-slate-100">
                 <td className="p-3">{row.branch_key.replaceAll('_',' ')}</td>
-                <td className="p-3">{savedRows.find(s=>s.branchKey===row.branch_key&&s.sellerId===row.seller_id)?.sellerName??row.seller_id}</td>
+                <td className="p-3">{monthlyRows.find(s=>s.branchKey===row.branch_key&&s.sellerId===row.seller_id)?.sellerName??row.seller_id}</td>
                 <td className="p-3">{row.projected_category??'—'}</td>
                 <td className="p-3">{row.pop_percentage===null?'—':row.pop_percentage+'%'}</td>
                 <td className="p-3">{row.exhibition_percentage===null?'—':row.exhibition_percentage+'%'}</td><td className="p-3">{row.coverage_percentage===null?'—':Number(row.coverage_percentage).toLocaleString('es-AR')}</td><td className="p-3">{row.volume_percentage===null?'—':Number(row.volume_percentage).toLocaleString('es-AR')}</td>
