@@ -47,6 +47,7 @@ export type CategoryPanelParseResult = {
   duplicateKeys: string[];
   canSave: boolean;
   period: string | null;
+  detectedPeriod: string | null;
 };
 
 type CellValue = string | number | boolean | null;
@@ -494,6 +495,7 @@ export function unifyCategoryPanelMatrices(
     rows,
     pivotCount: pivot.records.length,
     period,
+    detectedPeriod:period,
     tmpCount: tmp.records.length,
     unmatchedPivot,
     unmatchedTmp,
