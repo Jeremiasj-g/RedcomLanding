@@ -73,7 +73,7 @@ export async function fetchCategoryPanelCurrent(): Promise<{
   };
 }
 
-export async function replaceCategoryPanelCurrent(rows: CategoryPanelRow[]) {
+export async function replaceCategoryPanelCurrent(rows: CategoryPanelRow[],month?:string) {
   const payload = rows.map((row) => ({
     branch_key: row.branchKey,
     branch_label: row.branchLabel,
@@ -88,9 +88,9 @@ export async function replaceCategoryPanelCurrent(rows: CategoryPanelRow[]) {
     cnt_fac: row.cntFac,
   }));
 
-  const { data, error } = await supabase.rpc('admin_replace_category_panel', {
-    p_rows: payload,
-  });
+  const { data, error } = month
+    ? await supabase.rpc('admin_replace_category_panel_monthly',{p_rows:payload,p_month:month})
+    : await supabase.rpc('admin_replace_category_panel',{p_rows:payload});
 
   if (error) throw error;
 
@@ -98,4 +98,20 @@ export async function replaceCategoryPanelCurrent(rows: CategoryPanelRow[]) {
     rowCount: Number(data?.row_count ?? rows.length),
     importedAt: String(data?.imported_at ?? new Date().toISOString()),
   };
+}
+
+export type CategoryPanelMonthInfo={month:string;row_count:number;imported_at:string};
+export async function listCategoryPanelMonths():Promise<CategoryPanelMonthInfo[]>{
+ const {data,error}=await supabase.from('category_panel_monthly').select('month,row_count,imported_at').order('month',{ascending:false});
+ if(error)throw error;
+ return (data??[]) as CategoryPanelMonthInfo[];
+}
+export async function fetchCategoryPanelMonth(month:string):Promise<CategoryPanelRow[]>{
+ const {data,error}=await supabase.from('category_panel_monthly').select('rows').eq('month',month).maybeSingle();
+ if(error)throw error;
+ return ((data?.rows??[]) as DbCategoryPanelRow[]).map(fromDbRow);
+}
+export async function assignCurrentCategoryPanelMonth(month:string):Promise<void>{
+ const {error}=await supabase.rpc('admin_register_current_category_month',{p_month:month});
+ if(error)throw error;
 }
