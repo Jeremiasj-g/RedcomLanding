@@ -323,7 +323,7 @@ export default function CategoryPanelPage() {
       setBranchFilter('all');
 
       if (!result.period) {
-        notify.error('No encontré el mes en la primera columna del TMP. Seleccioná el período en la vista previa antes de guardar.');
+        notify.success('Los  '+result.rows.length+' vendedores se unificaron. No pude detectar automáticamente el período en la columna B del TMP; elegí el mes debajo antes de guardar.');
       } else if (result.canSave) {
         notify.success(
           `Unificación lista: ${result.rows.length} vendedores para revisar.`,
