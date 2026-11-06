@@ -303,7 +303,7 @@ function parseTmpPeriod(value:CellValue):string|null{
  const numeric=/\b(20\d{2})[-\/](0?[1-9]|1[0-2])\b/.exec(normalized);
  return numeric?numeric[1]+'-'+String(Number(numeric[2])).padStart(2,'0'):null;
 }
-function detectTmpMonth(matrix:Matrix):string|null{
+export function detectTmpMonth(matrix:Matrix):string|null{
  const periods=new Set<string>();
  for(const row of matrix){
   const period=parseTmpPeriod(row?.[0]??null);
@@ -799,3 +799,5 @@ export async function parseTmpSellerTotals(file: File) {
  if(!groups.size)throw new Error('No se encontraron vendedores válidos en el TMP.');
  return [...groups.values()].sort((a,b)=>a.branchLabel.localeCompare(b.branchLabel,'es')||a.sellerId-b.sellerId);
 }
+
+export async function readTmpFileMonth(file:File):Promise<string|null>{return detectTmpMonth(await readFirstWorksheet(file));}
