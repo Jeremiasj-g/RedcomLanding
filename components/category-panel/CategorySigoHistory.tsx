@@ -192,7 +192,7 @@ function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[])
  return [...result.values()].sort((a,b)=>b.visit_date.localeCompare(a.visit_date)||a.seller_name.localeCompare(b.seller_name,'es'));
 }
 
-export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:string;force:string;editorRole:string;editorName:string}}={}){
+export default function CategorySigoHistory({branchScope,month:externalMonth,onMonthChange}:{branchScope?:{branch:string;force:string;editorRole:string;editorName:string};month?:string;onMonthChange?:(month:string)=>void}={}){
  const [history,setHistory]=useState<Daily[]>([]);
  const [personnel,setPersonnel]=useState<Person[]>([]);
  const [selectedBranch,setSelectedBranch]=useState<string>(branchScope?.branch??'CASA CENTRAL');
@@ -205,7 +205,9 @@ export default function CategorySigoHistory({branchScope}:{branchScope?:{branch:
  const [missingNames,setMissingNames]=useState<string[]>([]);
  const [duplicateScopes,setDuplicateScopes]=useState<{visit_date:string;branch:string;sales_force:string}[]>([]);
  const [confirmReplace,setConfirmReplace]=useState(false);
- const [selectedMonth,setSelectedMonth]=useState(currentMonth);
+ const [localMonth,setLocalMonth]=useState(currentMonth);
+ const selectedMonth=externalMonth||localMonth;
+ const setSelectedMonth=(next:string)=>{setLocalMonth(next);onMonthChange?.(next);};
  const [date,setDate]=useState('all');
  const [averageMonth,setAverageMonth]=useState('');
  const [view,setView]=useState<'daily'|'averages'|'id-history'>('daily');
