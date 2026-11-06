@@ -7,6 +7,7 @@ import type {KpiProjection} from '@/lib/categoryKpiProjections';
 import WorkCalendar,{useWorkCalendar} from '@/components/category-panel/WorkCalendar';
 import {Popover,PopoverContent,PopoverTrigger} from '@/components/ui/popover';
 import {CalendarDays} from 'lucide-react';
+import {FilterableCategoryTable,type FilterColumn} from '@/components/category-panel/CategoryColumnFilters';
 import {fetchCategoryScaleConfig,type CategoryScaleMetric,type CategoryScaleGate} from '@/lib/categoryScale';
 import {assessSellerCategory,scoreBreakdown,gateBreakdown,type SellerCategoryInput} from '@/lib/categoryReached';
 type Daily={visit_date:string;branch:string;sales_force:string;seller_id:number|null;seller_name:string;first_visit:string|null;last_visit:string|null;corrected_start:string|null;corrected_end:string|null;reason:string|null};
@@ -72,6 +73,40 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
  const byProjection=useMemo(()=>new Map(projections.map(p=>[p.branch_key+':'+p.seller_id,p])),[projections]);
  const sellers=useMemo(()=>personnel.filter(p=>p.role?.toUpperCase()==='VENDEDOR'),[personnel]);
  const filtered=useMemo(()=>rows.filter(r=>(r.sellerName+' '+r.branchLabel+' '+r.sellerId).toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es'))),[rows,search]);
+ const overviewColumns:FilterColumn<CategoryPanelRow>[]=useMemo(()=>[
+  {key:'branch',label:'Sucursal',value:r=>r.branchLabel},{key:'sector',label:'Sector',value:r=>String(r.sector)},{key:'id',label:'ID',value:r=>String(r.sellerId)},
+  {key:'seller',label:'Vendedor',value:r=>r.sellerName},{key:'visited',label:'Visitados',value:r=>String(r.visitados)},
+  {key:'distance',label:'Venta distancia',value:r=>String(r.ventaDistancia)},{key:'pdv',label:'Venta PDV',value:r=>String(r.ventaPdv)},
+  {key:'planned',label:'Visitas planeadas',value:r=>String(r.visitasPlaneadas)},
+  {key:'billing',label:'Facturación',value:r=>money.format(r.importeFinalFacturado)},
+  {key:'invoices',label:'Facturas',value:r=>String(r.cntFac)},
+  {key:'daily',label:'Facturación diaria',value:r=>counts.elapsed>0?money.format(r.importeFinalFacturado/counts.elapsed):'—'},
+  {key:'projected',label:'Categoría proyectada',value:r=>byProjection.get(r.branchKey+':'+r.sellerId)?.projected_category??'—'},
+  {key:'pop',label:'POP',value:r=>String(byProjection.get(r.branchKey+':'+r.sellerId)?.pop_percentage??'—')},
+  {key:'exhibition',label:'Exhibición',value:r=>String(byProjection.get(r.branchKey+':'+r.sellerId)?.exhibition_percentage??'—')},
+  {key:'coverage',label:'Cobertura',value:r=>String(byProjection.get(r.branchKey+':'+r.sellerId)?.coverage_percentage??'—')},
+  {key:'volume',label:'Volumen',value:r=>String(byProjection.get(r.branchKey+':'+r.sellerId)?.volume_percentage??'—')},
+  {key:'hours',label:'Horario promedio',value:r=>{const avg=stats.get(r.branchKey+':'+r.sellerId);return loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos';}},
+  {key:'days',label:'Días válidos',value:r=>String(stats.get(r.branchKey+':'+r.sellerId)?.days??0)}
+ ],[byProjection,stats,counts.elapsed,loading]);
+ const branchRows=useMemo(()=>sellers.filter(p=>{const b=branches.find(item=>item.key===branchTab);return !!b&&p.branch===b.branch&&(b.force==='all'||p.force===b.force)}).sort((a,b)=>a.superior.localeCompare(b.superior,'es')||a.id-b.id),[sellers,branchTab]);
+ const branchColumns:FilterColumn<(typeof sellers)[number]>[]=useMemo(()=>{
+  const get=(p:(typeof sellers)[number])=>{const r=rows.find(row=>row.branchKey===branchTab&&row.sellerId===p.id);const extra=byProjection.get(branchTab+':'+p.id);const avg=stats.get(branchTab+':'+p.id);return {r,extra,avg};};
+  return [
+   {key:'supervisor',label:'Supervisor',value:p=>p.superior||'Sin supervisor'},
+   {key:'seller',label:'N° vendedor · Vendedor',value:p=>p.id+' · '+p.name},
+   {key:'hours',label:'Horario promedio',value:p=>{const {avg}=get(p);return loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos';}},
+   {key:'volume',label:'Obj. Volumen alcanzado',value:p=>String(get(p).extra?.volume_percentage??'—')},
+   {key:'coverage',label:'Obj. Cobertura alcanzado',value:p=>String(get(p).extra?.coverage_percentage??'—')},
+   {key:'effectiveness',label:'% Efectividad',value:p=>{const {r}=get(p);return r&&r.visitasPlaneadas>0?(r.visitados/r.visitasPlaneadas*100).toFixed(2)+'%':'—';}},
+   {key:'efficiency',label:'% Eficiencia',value:p=>{const {r}=get(p);return r&&r.visitados>0?(r.cntFac/r.visitados*100).toFixed(2)+'%':'—';}},
+   {key:'pop',label:'% POP',value:p=>String(get(p).extra?.pop_percentage??'—')},
+   {key:'exhibition',label:'% Exhibición',value:p=>String(get(p).extra?.exhibition_percentage??'—')},
+   {key:'projected',label:'Categoría proyectada',value:p=>get(p).extra?.projected_category??'—'},
+   {key:'reached',label:'Categoría alcanzada',value:p=>{const {r,extra,avg}=get(p);return assessSellerCategory({dailyBilling:r&&counts.elapsed>0?r.importeFinalFacturado/counts.elapsed:null,efficiency:r&&r.visitados>0?r.cntFac/r.visitados*100:null,effectiveness:r&&r.visitasPlaneadas>0?r.visitados/r.visitasPlaneadas*100:null,pop:extra?.pop_percentage??null,exhibition:extra?.exhibition_percentage??null,volume:extra?.volume_percentage??null,coverage:extra?.coverage_percentage??null,routeHours:avg?avg.sum/avg.days/3600:null},scaleMetrics,scaleGates).label;}},
+   {key:'detail',label:'Desglose',value:()=>'Ver puntaje'}
+  ];
+ },[rows,branchTab,byProjection,stats,loading,counts.elapsed,scaleMetrics,scaleGates]);
  return <div className="mt-6 space-y-6">
   <section className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,.055)]">
    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-5">
@@ -88,9 +123,7 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
    </div>
    <div className="border-b border-slate-100 px-5 py-3"><input aria-label="Buscar vendedor" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar vendedor, ID o sucursal" className="h-10 w-full max-w-sm rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-300"/></div>
    <div className="max-h-[650px] overflow-y-auto overflow-x-hidden">
-    <table className="w-full table-fixed text-left text-[10px] leading-4 xl:text-[11px] max-lg:block"><thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 max-lg:hidden"><tr>
-     {['Sucursal','Sector','ID','Vendedor','Visitados','Venta distancia','Venta PDV','Visitas planeadas','Facturación','Facturas','Facturación diaria','Categoría proyectada','POP','Exhibición','Cobertura','Volumen','Horario promedio','Días válidos'].map(t=><th key={t} className="break-words px-1.5 py-3 font-medium">{t}</th>)}
-    </tr></thead><tbody className="max-lg:block">{filtered.map(row=>{
+    <FilterableCategoryTable rows={filtered} columns={overviewColumns} renderRow={row=>{
      const key=row.branchKey+':'+row.sellerId,proj=byProjection.get(key),avg=stats.get(key);
      return <tr key={key} className="border-t border-slate-100 text-slate-700 hover:bg-slate-50/70 max-lg:my-3 max-lg:grid max-lg:grid-cols-2 max-lg:rounded-xl max-lg:border max-lg:border-slate-200 max-lg:p-2">
       <td data-label="Sucursal" className=" px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{row.branchLabel}</td><td data-label="Sector" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{row.sector}</td><td data-label="ID" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{row.sellerId}</td>
@@ -101,8 +134,8 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
       <td data-label="Categoría proyectada" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{proj?.projected_category??'—'}</td><td data-label="POP" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{proj?.pop_percentage==null?'—':proj.pop_percentage+'%'}</td><td data-label="Exhibición" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{proj?.exhibition_percentage==null?'—':proj.exhibition_percentage+'%'}</td>
       <td data-label="Cobertura" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{proj?.coverage_percentage==null?'—':fmt.format(proj.coverage_percentage)}</td><td data-label="Volumen" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{proj?.volume_percentage==null?'—':fmt.format(proj.volume_percentage)}</td>
       <td data-label="Horario promedio" className="px-1.5 py-2.5 font-medium min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos'}</td><td data-label="Días válidos" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{loading?'—':avg?.days??0}</td>
-     </tr>})}</tbody></table>
-    {!filtered.length&&<p className="px-5 py-8 text-center text-sm text-slate-500">No hay vendedores para mostrar.</p>}
+     </tr>}} />
+
    </div>
    <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">El promedio considera días con inicio y fin válidos (corregidos cuando corresponda) y excluye días con motivo registrado. No se inventan horarios faltantes.</p>
   </section>
@@ -113,12 +146,7 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
    </div>
    <p className="mt-3 text-xs text-slate-500">Categoría alcanzada: estimación ponderada a partir de las escalas configuradas. No es una categoría oficial mientras falten umbrales o se valide la regla final de clasificación.</p>
    <div role="tabpanel" className="mt-4 overflow-x-hidden">
-     <table className="w-full table-fixed text-left text-[10px] leading-4 xl:text-[11px] max-lg:block">
-       <thead className="border-b border-slate-100 bg-slate-50 text-slate-600 max-lg:hidden"><tr>{['Supervisor','N° vendedor · Vendedor','Horario promedio','Obj. Volumen alcanzado','Obj. Cobertura alcanzado','% Efectividad','% Eficiencia','% POP','% Exhibición','Categoría proyectada','Categoría alcanzada','Desglose'].map(h=><th key={h} className="break-words px-1.5 py-3 font-medium">{h}</th>)}</tr></thead>
-       <tbody className="max-lg:block">{sellers.filter(p=>{
-         const branch=branches.find(b=>b.key===branchTab);
-         return branch&&p.branch===branch.branch&&(branch.force==='all'||p.force===branch.force);
-       }).sort((a,b)=>a.superior.localeCompare(b.superior,'es')||a.id-b.id).map(p=>{
+     <FilterableCategoryTable rows={branchRows} columns={branchColumns} renderRow={p=>{
          const branch=branches.find(b=>b.key===branchTab)!;
          const row=rows.find(r=>r.branchKey===branchTab&&r.sellerId===p.id);
          const extra=byProjection.get(branchTab+':'+p.id),avg=stats.get(branchTab+':'+p.id);
@@ -141,8 +169,7 @@ export default function CategoryUnifiedOverview({rows,projections}:{rows:Categor
           <td data-label="Efectividad" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{effective==null?'—':percent(effective)}</td><td data-label="Eficiencia" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{efficient==null?'—':percent(efficient)}</td>
           <td data-label="POP" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{percent(extra?.pop_percentage)}</td><td data-label="Exhibición" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{percent(extra?.exhibition_percentage)}</td><td data-label="Categoría proyectada" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{extra?.projected_category??'—'}</td><td data-label="Categoría alcanzada" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400"><span title={scaleLoaded?assessment.details:'Cargando cuadro de escalas'} className={`inline-flex max-w-full break-words rounded-lg px-2.5 py-1 text-xs font-medium ${!scaleLoaded||assessment.status==='pending'?'bg-slate-100 text-slate-500':assessment.label==='SENIOR'?'bg-emerald-100 text-emerald-800':assessment.label==='SEMI SENIOR'?'bg-green-50 text-green-700':assessment.label==='JUNIOR'?'bg-amber-100 text-amber-800':'bg-rose-100 text-rose-700'}`}>{scaleLoaded?assessment.label:'Cargando…'}{scaleLoaded&&assessment.status==='preliminary'?' · preliminar':''}</span></td><td data-label="Desglose" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400"><button type="button" disabled={!scaleLoaded} onClick={()=>setDetail({name:p.name,branch:branch.name,input,projectedCategory:extra?.projected_category??null})} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 transition hover:bg-blue-50 disabled:opacity-40">Ver puntaje</button></td>
          </tr>;
-       })}</tbody>
-     </table>
+       }} />
     </div>
   </section>
   {detail&&<SellerScoreDialog name={detail.name} branch={detail.branch} input={detail.input} projectedCategory={detail.projectedCategory} metrics={scaleMetrics} gates={scaleGates} onClose={()=>setDetail(null)}/>}
