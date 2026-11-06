@@ -680,8 +680,8 @@ export default function CategoryPanelPage() {
 
           {preview&&<div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
              <span className="text-xs text-slate-500">Mes de los reportes Pivot + TMP</span>
-             <input type="month" value={preview.period??''} onChange={e=>setPreview(prev=>prev?{...prev,period:e.target.value||null}:prev)} className="h-9 rounded-lg border border-slate-200 px-3 text-xs"/>
-             <span className="text-xs text-slate-500">{preview.period?'Ese período quedará guardado y podrá consultarse después.':'Es obligatorio seleccionar un mes antes de guardar.'}</span>
+             <input type="month" value={preview.period??''} disabled={Boolean(preview.detectedPeriod)} onChange={e=>setPreview(prev=>prev?{...prev,period:e.target.value||null}:prev)} className="h-9 rounded-lg border border-slate-200 px-3 text-xs disabled:bg-slate-50 disabled:text-slate-600"/>
+             <span className="text-xs text-slate-500">{preview.detectedPeriod?'Mes detectado automáticamente en el TMP.':preview.period?'Mes ingresado manualmente: comprobá que corresponda al archivo TMP.':'Es obligatorio seleccionar el mes del TMP antes de guardar.'}</span>
           </div>}
           {preview ? <ValidationSummary result={preview} /> : null}
 
