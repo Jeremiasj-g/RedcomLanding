@@ -293,7 +293,7 @@ const TMP_MONTHS: Record<string,number>={ene:1,enero:1,feb:2,febrero:2,mar:3,mar
 function parseTmpPeriod(value:CellValue):string|null{
  if(value===null || value===false || value===true || value==='')return null;
  const normalized=normalizeText(value).toLowerCase();
- // La primera columna TMP contiene períodos como "oct 26".
+ // El período TMP aparece en algunas filas de la segunda columna, por ejemplo "oct 26".
  const pattern=/(?:^|[^a-z])([a-z]{3,10})[ .\/-]+(20\d{2}|\d{2})(?=$|[^\d])/g;
  for(const match of normalized.matchAll(pattern)){
   const month=TMP_MONTHS[match[1]];
@@ -307,7 +307,7 @@ function parseTmpPeriod(value:CellValue):string|null{
 export function detectTmpMonth(matrix:Matrix):string|null{
  const periods=new Set<string>();
  for(const row of matrix){
-  const period=parseTmpPeriod(row?.[0]??null);
+  const period=parseTmpPeriod(row?.[1]??null);
   if(period)periods.add(period);
  }
  if(periods.size>1)throw new Error('El TMP contiene varios meses ('+[...periods].join(', ')+'). Importá un mes por vez.');
