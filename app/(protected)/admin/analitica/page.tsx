@@ -12,7 +12,9 @@ import {
   RefreshCw,
   Save,
   Trash2,
+  AlertTriangle,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/auth/AuthProvider';
 import { useAnalyticsConfig } from '@/components/analytics/AnalyticsConfigProvider';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -25,6 +27,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
@@ -119,13 +125,23 @@ export default function AdminAnalyticsSettingsPage() {
   const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const hasUnsavedChanges = dirtyKeys.size > 0;
+  const router = useRouter();
+  const [pendingAction, setPendingAction] = useState<
+    | { kind: 'tab'; section: AnalyticsEmbedSection }
+    | { kind: 'navigate'; url: string }
+    | { kind: 'back' }
+    | { kind: 'refresh' }
+    | null
+  >(null);
   const unsavedRef = useRef(false);
-  unsavedRef.current = hasUnsavedChanges;
+  unsavedRef.current = dirtyKeys.size > 0;
 
-  const confirmDiscard = () =>
-    !unsavedRef.current ||
-    window.confirm('Tenés cambios sin guardar en Analítica. Si continuás, se perderán. ¿Querés salir sin guardarlos?');
+  const requestAction = (action: NonNullable<typeof pendingAction>) => {
+    if (unsavedRef.current) setPendingAction(action);
+    else if (action.kind === 'tab') setActiveSection(action.section);
+    else if (action.kind === 'navigate') router.push(action.url);
+    else if (action.kind === 'back') window.history.back();
+  };
 
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -142,12 +158,11 @@ export default function AdminAnalyticsSettingsPage() {
       const link = target.closest('a[href]');
       if (!(link instanceof HTMLAnchorElement) || link.target === '_blank' || link.hasAttribute('download')) return;
       const next = new URL(link.href, window.location.href);
-      if (next.href === window.location.href) return;
-      if (!confirmDiscard()) {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-      }
+      if (next.href === window.location.href || (next.pathname === window.location.pathname && next.search === window.location.search)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      setPendingAction({ kind: 'navigate', url: next.href });
     };
 
     window.addEventListener('beforeunload', beforeUnload);
@@ -158,24 +173,36 @@ export default function AdminAnalyticsSettingsPage() {
     };
   }, []);
 
-  // Entrada de seguridad para detectar Atrás/Adelante del navegador cuando hay cambios.
   useEffect(() => {
-    if (!hasUnsavedChanges) return;
-    const marker = { ...window.history.state, analyticsUnsavedGuard: true };
-    window.history.pushState(marker, '', window.location.href);
+    if (dirtyKeys.size === 0) return;
+    const guard = { ...window.history.state, analyticsUnsavedGuard: true };
+    window.history.pushState(guard, '', window.location.href);
     const onPopState = () => {
-      if (confirmDiscard()) {
-        // Al aceptar, continuamos hacia la ubicación previa sin bloquear el historial.
-        window.removeEventListener('popstate', onPopState);
-        window.history.back();
-      } else {
-        window.history.pushState(marker, '', window.location.href);
+      if (unsavedRef.current) {
+        window.history.pushState(guard, '', window.location.href);
+        setPendingAction({ kind: 'back' });
       }
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [hasUnsavedChanges]);
+  }, [dirtyKeys.size > 0]);
 
+  const discardAndContinue = () => {
+    const action = pendingAction;
+    if (!action) return;
+    unsavedRef.current = false;
+    setDirtyKeys(new Set());
+    setDrafts(buildDrafts(getUrl));
+    setPendingAction(null);
+    if (action.kind === 'tab') setActiveSection(action.section);
+    if (action.kind === 'navigate') {
+      const target = new URL(action.url);
+      if (target.origin === window.location.origin) router.push(target.pathname + target.search + target.hash);
+      else window.location.assign(action.url);
+    }
+    if (action.kind === 'back') window.history.go(-2);
+    if (action.kind === 'refresh') void doRefresh();
+  };
 
   useEffect(() => {
     if (loading || dirtyKeys.size > 0) return;
@@ -229,8 +256,7 @@ export default function AdminAnalyticsSettingsPage() {
     });
   };
 
-  const handleRefresh = async () => {
-    if (!confirmDiscard()) return;
+  const doRefresh = async () => {
     setRefreshing(true);
     try {
       await refresh();
@@ -240,6 +266,11 @@ export default function AdminAnalyticsSettingsPage() {
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    if (unsavedRef.current) setPendingAction({ kind: 'refresh' });
+    else void doRefresh();
   };
 
   const saveChanges = async () => {
@@ -308,6 +339,7 @@ export default function AdminAnalyticsSettingsPage() {
   }
 
   return (
+    <>
     <div className="space-y-6 pb-10">
       <header className="sticky top-[68px] z-30 -mx-3 flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-[#f4f5f7]/95 px-3 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.07)] backdrop-blur-xl sm:top-[76px] sm:-mx-4 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -415,13 +447,7 @@ export default function AdminAnalyticsSettingsPage() {
           <Tabs
             value={activeSection}
             onValueChange={(value) => {
-              if (value === activeSection) return;
-              if (!confirmDiscard()) return;
-              if (unsavedRef.current) {
-                setDirtyKeys(new Set());
-                setDrafts(buildDrafts(getUrl));
-              }
-              setActiveSection(value as AnalyticsEmbedSection);
+              if (value !== activeSection) requestAction({ kind: 'tab', section: value as AnalyticsEmbedSection });
             }}
           >
             <div className="border-b border-slate-200 px-4 pt-4 sm:px-6">
@@ -585,5 +611,30 @@ export default function AdminAnalyticsSettingsPage() {
         </CardContent>
       </Card>
     </div>
+      <AlertDialog open={pendingAction !== null} onOpenChange={(open) => { if (!open) setPendingAction(null); }}>
+        <AlertDialogContent className="w-[calc(100%-32px)] max-w-[430px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_28px_80px_rgba(15,23,42,0.18)]">
+          <AlertDialogHeader className="space-y-3 px-6 pb-5 pt-7 text-left">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+              <AlertTriangle className="h-5 w-5" strokeWidth={1.8} />
+            </div>
+            <AlertDialogTitle className="text-xl font-semibold tracking-tight text-slate-950">
+              Tenés cambios sin guardar
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm font-normal leading-6 text-slate-500">
+              Modificaste {dirtyKeys.size === 1 ? 'un enlace' : `${dirtyKeys.size} enlaces`} en Analítica.
+              Si salís ahora, esas modificaciones se perderán.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse gap-2 border-t border-slate-100 px-6 py-5 sm:flex-row sm:justify-end">
+            <AlertDialogCancel className="mt-0 h-10 rounded-xl border-slate-200 bg-white px-4 font-medium text-slate-700 hover:bg-slate-50">
+              Seguir editando
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={discardAndContinue} className="h-10 rounded-xl bg-slate-950 px-4 font-medium text-white hover:bg-slate-800">
+              Salir sin guardar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
