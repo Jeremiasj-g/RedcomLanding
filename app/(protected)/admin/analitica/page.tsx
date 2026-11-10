@@ -414,7 +414,15 @@ export default function AdminAnalyticsSettingsPage() {
         <CardContent className="p-0">
           <Tabs
             value={activeSection}
-            onValueChange={(value) => { if (value === activeSection || confirmDiscard()) setActiveSection(value as AnalyticsEmbedSection); }}
+            onValueChange={(value) => {
+              if (value === activeSection) return;
+              if (!confirmDiscard()) return;
+              if (unsavedRef.current) {
+                setDirtyKeys(new Set());
+                setDrafts(buildDrafts(getUrl));
+              }
+              setActiveSection(value as AnalyticsEmbedSection);
+            }}
           >
             <div className="border-b border-slate-200 px-4 pt-4 sm:px-6">
               <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl bg-slate-100 p-1 lg:w-[620px]">
