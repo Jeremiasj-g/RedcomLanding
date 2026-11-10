@@ -309,7 +309,7 @@ export default function AdminAnalyticsSettingsPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <header className="sticky top-[68px] z-30 -mx-3 flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-[#f4f5f7]/95 px-3 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.07)] backdrop-blur-xl sm:top-[76px] sm:-mx-4 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <Badge className="mb-3 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50">
             <Link2 className="mr-1.5 h-3.5 w-3.5" />
