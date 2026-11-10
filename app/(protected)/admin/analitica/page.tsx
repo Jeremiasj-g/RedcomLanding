@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import {
   BarChart3,
   CheckCircle2,
@@ -119,6 +119,63 @@ export default function AdminAnalyticsSettingsPage() {
   const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const hasUnsavedChanges = dirtyKeys.size > 0;
+  const unsavedRef = useRef(false);
+  unsavedRef.current = hasUnsavedChanges;
+
+  const confirmDiscard = () =>
+    !unsavedRef.current ||
+    window.confirm('Tenés cambios sin guardar en Analítica. Si continuás, se perderán. ¿Querés salir sin guardarlos?');
+
+  useEffect(() => {
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!unsavedRef.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    const interceptLinks = (event: MouseEvent) => {
+      if (!unsavedRef.current || event.defaultPrevented || event.button !== 0 ||
+          event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const link = target.closest('a[href]');
+      if (!(link instanceof HTMLAnchorElement) || link.target === '_blank' || link.hasAttribute('download')) return;
+      const next = new URL(link.href, window.location.href);
+      if (next.href === window.location.href) return;
+      if (!confirmDiscard()) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }
+    };
+
+    window.addEventListener('beforeunload', beforeUnload);
+    document.addEventListener('click', interceptLinks, true);
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnload);
+      document.removeEventListener('click', interceptLinks, true);
+    };
+  }, []);
+
+  // Entrada de seguridad para detectar Atrás/Adelante del navegador cuando hay cambios.
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const marker = { ...window.history.state, analyticsUnsavedGuard: true };
+    window.history.pushState(marker, '', window.location.href);
+    const onPopState = () => {
+      if (confirmDiscard()) {
+        // Al aceptar, continuamos hacia la ubicación previa sin bloquear el historial.
+        window.removeEventListener('popstate', onPopState);
+        window.history.back();
+      } else {
+        window.history.pushState(marker, '', window.location.href);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [hasUnsavedChanges]);
+
 
   useEffect(() => {
     if (loading || dirtyKeys.size > 0) return;
@@ -173,6 +230,7 @@ export default function AdminAnalyticsSettingsPage() {
   };
 
   const handleRefresh = async () => {
+    if (!confirmDiscard()) return;
     setRefreshing(true);
     try {
       await refresh();
@@ -356,7 +414,7 @@ export default function AdminAnalyticsSettingsPage() {
         <CardContent className="p-0">
           <Tabs
             value={activeSection}
-            onValueChange={(value) => setActiveSection(value as AnalyticsEmbedSection)}
+            onValueChange={(value) => { if (value === activeSection || confirmDiscard()) setActiveSection(value as AnalyticsEmbedSection); }}
           >
             <div className="border-b border-slate-200 px-4 pt-4 sm:px-6">
               <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl bg-slate-100 p-1 lg:w-[620px]">
