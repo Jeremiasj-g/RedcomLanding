@@ -7,7 +7,7 @@ import type {KpiProjection} from '@/lib/categoryKpiProjections';
 import WorkCalendar,{useWorkCalendar} from '@/components/category-panel/WorkCalendar';
 import {Popover,PopoverContent,PopoverTrigger} from '@/components/ui/popover';
 import {CalendarDays,Download,ChevronDown} from 'lucide-react';
-import {exportSellerCategoryExcel} from '@/lib/exportSellerCategoryExcel';
+import {exportSellerCategoryPdf} from '@/lib/exportSellerCategoryPdf';
 import SellerDataCalculations from '@/components/category-panel/SellerDataCalculations';
 import {FilterableCategoryTable,type FilterColumn} from '@/components/category-panel/CategoryColumnFilters';
 import {fetchCategoryScaleConfig,type CategoryScaleMetric,type CategoryScaleGate} from '@/lib/categoryScale';
@@ -204,8 +204,8 @@ function SellerScoreDialog({name,branch,input,projectedCategory,row,elapsedDays,
      <div className="flex shrink-0 items-center gap-2">
       <Popover open={exportOpen} onOpenChange={setExportOpen}>
        <PopoverTrigger asChild>
-        <button type="button" className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-3.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-emerald-700" aria-label="Opciones de exportación a Excel">
-         <Download className="h-4 w-4"/>Exportar Excel<ChevronDown className="h-4 w-4"/>
+        <button type="button" className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-3.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-emerald-700" aria-label="Opciones de exportación a PDF">
+         <Download className="h-4 w-4"/>Exportar PDF<ChevronDown className="h-4 w-4"/>
         </button>
        </PopoverTrigger>
        <PopoverContent align="end" sideOffset={8} className="z-[220] w-[280px] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_16px_50px_rgba(15,23,42,.14)]">
@@ -221,11 +221,10 @@ function SellerScoreDialog({name,branch,input,projectedCategory,row,elapsedDays,
          </label>
         </div>
         <button type="button" disabled={!exportComparison&&!exportCalculations} onClick={()=>{
-         try{
-          exportSellerCategoryExcel({name,branch,month,projectedCategory,row,elapsedDays,input,assessment,comparison:exportComparison,calculations:exportCalculations});
-          setExportOpen(false);
-         }catch(error){notify.error(errorMessage(error,'No se pudo generar el Excel.'));}
-        }} className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-medium text-white transition-colors duration-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"><Download className="h-4 w-4"/>Descargar Excel</button>
+         void exportSellerCategoryPdf({name,branch,month,projectedCategory,row,elapsedDays,input,assessment,comparison:exportComparison,calculations:exportCalculations})
+          .then(()=>setExportOpen(false))
+          .catch(error=>notify.error(errorMessage(error,'No se pudo generar el PDF.')));
+        }} className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-medium text-white transition-colors duration-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"><Download className="h-4 w-4"/>Descargar PDF</button>
        </PopoverContent>
       </Popover>
       <button type="button" onClick={onClose} aria-label="Cerrar detalle" className="h-10 rounded-xl bg-slate-100 px-4 text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200">Cerrar</button>
