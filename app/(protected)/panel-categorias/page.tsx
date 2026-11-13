@@ -1189,7 +1189,7 @@ function UnifiedTable({
    type={def.numeric?'number':'text'}
    min={def.numeric?0:undefined}
    step={def.decimals?'0.01':def.numeric?'1':undefined}
-   value={String(draft[key]??'')}
+   value={def.numeric&&!Number.isFinite(Number(draft[key]))?'':String(draft[key]??'')}
    onChange={event=>{
     const value=event.target.value;
     setDraft(current=>current?{...current,[key]:def.numeric?(value===''?NaN:Number(value)):value}:current);
@@ -1242,7 +1242,7 @@ function UnifiedTable({
        {edit?<>
         <button type="button" disabled={saving} onClick={()=>void save(row)} title="Aplicar cambios" aria-label={'Guardar '+row.sellerName} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white transition-colors duration-200 hover:bg-emerald-700 disabled:opacity-50"><Save className="h-4 w-4"/></button>
         <button type="button" disabled={saving} onClick={cancel} title="Cancelar edición" aria-label="Cancelar edición" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600"><X className="h-4 w-4"/></button>
-       </>:editable?<button type="button" disabled={Boolean(savingKey)} onClick={()=>begin(row)} title="Editar fila" aria-label={'Editar '+row.sellerName} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors duration-200 hover:border-blue-300 hover:text-blue-700 disabled:opacity-50"><Pencil className="h-4 w-4"/></button>:<span className="text-slate-300">—</span>}
+       </>:editable?<button type="button" disabled={Boolean(savingKey)||(editingKey!==null&&editingKey!==key)} onClick={()=>begin(row)} title="Editar fila" aria-label={'Editar '+row.sellerName} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors duration-200 hover:border-blue-300 hover:text-blue-700 disabled:opacity-50"><Pencil className="h-4 w-4"/></button>:<span className="text-slate-300">—</span>}
       </div>)}
      </tr>;
     })}
