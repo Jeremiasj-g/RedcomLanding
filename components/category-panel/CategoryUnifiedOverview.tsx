@@ -229,7 +229,7 @@ function SellerScoreDialog({name,branch,input,projectedCategory,row,elapsedDays,
        </div>
       </div>
      </div>)}
-    </div>:<SellerDataCalculations row={row} elapsedDays={elapsedDays} projectedCategory={projectedCategory} month={month}/>
+    </div>:<SellerDataCalculations row={row} elapsedDays={elapsedDays} projectedCategory={projectedCategory} month={month}/>}
    </div>
   </section>
  </div>;
