@@ -82,35 +82,3 @@ export async function parseKpiProjectionFile(file:File,sellers:CategoryPanelRow[
  const keys=new Set<string>();for(const row of result){const key=row.branch_key+':'+row.seller_id;if(keys.has(key))throw new Error('Vendedor duplicado en la plantilla: '+key);keys.add(key);}
  return result;
 }
-
-/** Genera un libro Excel con una o varias hojas, reutilizando el empaquetador XLSX existente. */
-export function downloadCategoryWorkbook(sheets:{name:string;rows:(string|number|null)[][]}[],filename:string):void{
- if(!sheets.length)throw new Error('Seleccioná una sección.');
- const escape=(v:unknown)=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
- const worksheet=(rows:(string|number|null)[][])=>{
-  const data=rows.map((row,i)=>'<row r="'+(i+1)+'">'+row.map((value,j)=>{
-   if(value===null||value==='')return '';
-   const address=col(j)+(i+1),numeric=typeof value==='number'&&Number.isFinite(value);
-   const style=row.length===1?1:0;
-   return numeric?'<c r="'+address+'" s="'+style+'"><v>'+value+'</v></c>':'<c r="'+address+'" s="'+style+'" t="inlineStr"><is><t>'+escape(value)+'</t></is></c>';
-  }).join('')+'</row>').join('');
-  return '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="38" customWidth="1"/><col min="2" max="4" width="24" customWidth="1"/><col min="5" max="5" width="46" customWidth="1"/><col min="6" max="6" width="20" customWidth="1"/></cols><sheetData>'+data+'</sheetData></worksheet>';
- };
- const header='<?xml version="1.0" encoding="UTF-8"?>';
- const ns='http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
- const contentTypes=header+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+sheets.map((_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('')+'</Types>';
- const workbook=header+'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="'+ns+'"><sheets>'+sheets.map((sheet,i)=>'<sheet name="'+escape(sheet.name)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>').join('')+'</sheets></workbook>';
- const rels=header+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map((_,i)=>'<Relationship Id="rId'+(i+1)+'" Type="'+ns+'worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join('')+'<Relationship Id="rId'+(sheets.length+1)+'" Type="'+ns+'styles" Target="styles.xml"/></Relationships>';
- const styles=header+'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Aptos"/></font><font><b/><sz val="12"/><name val="Aptos"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyFont="1"/></cellXfs></styleSheet>';
- const files=[
-  {name:'[Content_Types].xml',data:contentTypes},
-  {name:'_rels/.rels',data:header+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="'+ns+'officeDocument" Target="xl/workbook.xml"/></Relationships>'},
-  {name:'xl/workbook.xml',data:workbook},
-  {name:'xl/_rels/workbook.xml.rels',data:rels},
-  {name:'xl/styles.xml',data:styles},
-  ...sheets.map((sheet,i)=>({name:'xl/worksheets/sheet'+(i+1)+'.xml',data:worksheet(sheet.rows)})),
- ];
- const url=URL.createObjectURL(zip(files)),link=document.createElement('a');
- link.href=url;link.download=filename;document.body.appendChild(link);link.click();link.remove();
- window.setTimeout(()=>URL.revokeObjectURL(url),1500);
-}
