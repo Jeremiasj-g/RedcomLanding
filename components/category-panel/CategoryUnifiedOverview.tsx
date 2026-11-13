@@ -6,7 +6,8 @@ import type {CategoryPanelRow} from '@/lib/categoryPanelExcel';
 import type {KpiProjection} from '@/lib/categoryKpiProjections';
 import WorkCalendar,{useWorkCalendar} from '@/components/category-panel/WorkCalendar';
 import {Popover,PopoverContent,PopoverTrigger} from '@/components/ui/popover';
-import {CalendarDays} from 'lucide-react';
+import {CalendarDays,Download,ChevronDown} from 'lucide-react';
+import {exportSellerCategoryExcel} from '@/lib/exportSellerCategoryExcel';
 import SellerDataCalculations from '@/components/category-panel/SellerDataCalculations';
 import {FilterableCategoryTable,type FilterColumn} from '@/components/category-panel/CategoryColumnFilters';
 import {fetchCategoryScaleConfig,type CategoryScaleMetric,type CategoryScaleGate} from '@/lib/categoryScale';
@@ -181,6 +182,9 @@ export default function CategoryUnifiedOverview({rows,projections,month,onMonthC
 
 function SellerScoreDialog({name,branch,input,projectedCategory,row,elapsedDays,month,metrics,gates,onClose}:{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null;row:CategoryPanelRow|null;elapsedDays:number;month:string;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];onClose:()=>void}){
  const [view,setView]=useState<'comparison'|'data'>('comparison');
+ const [exportOpen,setExportOpen]=useState(false);
+ const [exportComparison,setExportComparison]=useState(true);
+ const [exportCalculations,setExportCalculations]=useState(true);
  const assessment=assessSellerCategory(input,metrics,gates,projectedCategory);
  const tiers=scoreByCategory(input,projectedCategory,metrics);
  const checks=gateBreakdown(input,gates);
@@ -197,7 +201,35 @@ function SellerScoreDialog({name,branch,input,projectedCategory,row,elapsedDays,
       <div className="flex flex-wrap items-center gap-3"><h2 id="seller-score-title" className="text-xl font-semibold tracking-tight text-slate-950">Análisis de {name}</h2><span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${badgeClass}`}>{assessment.label}</span></div>
       <p className="mt-1 text-sm text-slate-500">{branch} · Cuadro de escalas · mínimo {CATEGORY_PASS_SCORE}/100 por categoría</p>
      </div>
-     <button type="button" onClick={onClose} aria-label="Cerrar detalle" className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200">Cerrar</button>
+     <div className="flex shrink-0 items-center gap-2">
+      <Popover open={exportOpen} onOpenChange={setExportOpen}>
+       <PopoverTrigger asChild>
+        <button type="button" className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-3.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-emerald-700" aria-label="Opciones de exportación a Excel">
+         <Download className="h-4 w-4"/>Exportar Excel<ChevronDown className="h-4 w-4"/>
+        </button>
+       </PopoverTrigger>
+       <PopoverContent align="end" sideOffset={8} className="z-[220] w-[280px] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_16px_50px_rgba(15,23,42,.14)]">
+        <p className="text-sm font-semibold text-slate-900">Contenido a exportar</p>
+        <div className="mt-3 space-y-1">
+         <label className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2.5 transition-colors duration-200 hover:bg-slate-50">
+          <input type="checkbox" checked={exportComparison} onChange={e=>setExportComparison(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-emerald-600"/>
+          <span className="text-sm font-medium text-slate-700">Comparación</span>
+         </label>
+         <label className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2.5 transition-colors duration-200 hover:bg-slate-50">
+          <input type="checkbox" checked={exportCalculations} onChange={e=>setExportCalculations(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-emerald-600"/>
+          <span className="text-sm font-medium text-slate-700">Datos + cálculos</span>
+         </label>
+        </div>
+        <button type="button" disabled={!exportComparison&&!exportCalculations} onClick={()=>{
+         try{
+          exportSellerCategoryExcel({name,branch,month,projectedCategory,row,elapsedDays,input,assessment,comparison:exportComparison,calculations:exportCalculations});
+          setExportOpen(false);
+         }catch(error){notify.error(errorMessage(error,'No se pudo generar el Excel.'));}
+        }} className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-medium text-white transition-colors duration-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"><Download className="h-4 w-4"/>Descargar Excel</button>
+       </PopoverContent>
+      </Popover>
+      <button type="button" onClick={onClose} aria-label="Cerrar detalle" className="h-10 rounded-xl bg-slate-100 px-4 text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200">Cerrar</button>
+     </div>
     </div>
     <div className="mt-5 grid gap-3 sm:grid-cols-2">
      {checks.map(check=><div key={check.kind} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-4 py-3">
