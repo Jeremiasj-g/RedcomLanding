@@ -1170,120 +1170,99 @@ function TableStat({
 }
 
 function UnifiedTable({
-  projections,
-  rows,
-  editable,
-  onEdit,
-}: {
-  rows: CategoryPanelRow[];
-  projections: KpiProjection[];
-  editable: boolean;
-  onEdit: (row: CategoryPanelRow) => void;
-}) {
-  const bySeller=new Map(projections.map(value=>[value.branch_key+':'+value.seller_id,value]));
-  return (
-    <div className="max-h-[680px] overflow-auto">
-      <table className="w-full min-w-[1800px] text-left">
-        <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl">
-          <tr className="border-b border-slate-200 text-[9px] uppercase tracking-[0.08em] text-slate-400">
-            <th className="px-5 py-3.5 font-semibold">Sucursal</th>
-            <th className="px-4 py-3.5 font-semibold">Sector</th>
-            <th className="px-4 py-3.5 font-semibold">N° vend.</th>
-            <th className="min-w-[230px] px-4 py-3.5 font-semibold">Vendedor</th>
-            <th className="px-4 py-3.5 text-right font-semibold">Visitados</th>
-            <th className="px-4 py-3.5 text-right font-semibold">Venta distancia</th>
-            <th className="px-4 py-3.5 text-right font-semibold">Venta PDV</th>
-            <th className="px-4 py-3.5 text-right font-semibold">Visitas planeadas</th>
-            <th className="px-4 py-3.5 text-right font-semibold">
-              Importe Final Facturado
-            </th>
-            <th className="px-4 py-3.5 text-right font-semibold">Cnt.Fac.</th>
-            <th className="px-4 py-3.5 font-semibold">Categoría proyectada</th>
-            <th className="px-4 py-3.5 text-right font-semibold">POP (%)</th>
-            <th className="px-4 py-3.5 text-right font-semibold">Exhibición (%)</th><th className="px-4 py-3.5 text-right font-semibold">Cobertura</th><th className="px-4 py-3.5 text-right font-semibold">Volumen</th>
-            <th className="sticky right-0 w-[72px] bg-white/95 px-4 py-3.5 text-center font-semibold">
-              Acciones
-            </th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={`${row.branchKey}-${row.sellerId}`}
-              className={`group border-b border-slate-100 text-[12px] text-slate-600 transition last:border-b-0 ${
-                row.partialUpdatedAt
-                  ? 'bg-emerald-50 hover:bg-emerald-100/70'
-                  : 'hover:bg-slate-50/80'
-              }`}
-            >
-              <td className="px-5 py-3.5">
-                <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-500">
-                  {row.branchLabel}
-                </span>
-              </td>
-              <td className="px-4 py-3.5 font-medium text-slate-500">
-                {row.sector}
-              </td>
-              <td className="px-4 py-3.5 font-semibold text-slate-700">
-                {row.sellerId}
-              </td>
-              <td className="px-4 py-3.5 font-semibold text-slate-800">
-                {row.sellerName}
-              </td>
-              <td className="px-4 py-3.5 text-right">
-                {integerFormatter.format(row.visitados)}
-              </td>
-              <td className="px-4 py-3.5 text-right">
-                {integerFormatter.format(row.ventaDistancia)}
-              </td>
-              <td className="px-4 py-3.5 text-right">
-                {integerFormatter.format(row.ventaPdv)}
-              </td>
-              <td className="px-4 py-3.5 text-right">
-                {integerFormatter.format(row.visitasPlaneadas)}
-              </td>
-              <td className="px-4 py-3.5 text-right font-semibold text-slate-800">
-                {currencyFormatter.format(row.importeFinalFacturado)}
-              </td>
-              <td className="px-4 py-3.5 text-right font-semibold text-slate-700">
-                {integerFormatter.format(row.cntFac)}
-              </td>
-              <td className="px-4 py-3.5 font-medium text-slate-700">{bySeller.get(row.branchKey+':'+row.sellerId)?.projected_category??'—'}</td>
-              <td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.pop_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.pop_percentage+'%'}</td>
-              <td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.exhibition_percentage==null?'—':bySeller.get(row.branchKey+':'+row.sellerId)?.exhibition_percentage+'%'}</td><td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.coverage_percentage==null?'—':Number(bySeller.get(row.branchKey+':'+row.sellerId)?.coverage_percentage).toLocaleString('es-AR')}</td><td className="px-4 py-3.5 text-right">{bySeller.get(row.branchKey+':'+row.sellerId)?.volume_percentage==null?'—':Number(bySeller.get(row.branchKey+':'+row.sellerId)?.volume_percentage).toLocaleString('es-AR')}</td>
-              <td className={`sticky right-0 px-4 py-3.5 text-center ${
-                row.partialUpdatedAt ? 'bg-emerald-50 group-hover:bg-emerald-100/70' : 'bg-white group-hover:bg-slate-50/95'
-              }`}>
-                {editable ? (
-                  <button
-                    type="button"
-                    onClick={() => onEdit(row)}
-                    className="mx-auto grid h-8 w-8 place-items-center rounded-xl border border-slate-200 bg-white text-slate-400 shadow-sm transition hover:border-slate-300 hover:bg-slate-950 hover:text-white"
-                    aria-label={`Editar ${row.sellerName}`}
-                    title="Editar fila"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                ) : (
-                  <span className="text-[10px] text-slate-300">—</span>
-                )}
-              </td>
-            </tr>
-          ))}
-
-          {!rows.length ? (
-            <tr>
-              <td colSpan={16} className="px-6 py-16 text-center text-sm text-slate-400">
-                No hay vendedores que coincidan con los filtros actuales.
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
-    </div>
-  );
-} 
+ projections,rows,editable,editedKeys,savingKey,onSave,
+}:{
+ rows:CategoryPanelRow[];
+ projections:KpiProjection[];
+ editable:boolean;
+ editedKeys:Set<string>;
+ savingKey:string|null;
+ onSave:(original:CategoryPanelRow,updated:CategoryPanelRow)=>Promise<boolean>;
+}){
+ const [editingKey,setEditingKey]=useState<string|null>(null);
+ const [draft,setDraft]=useState<CategoryPanelRow|null>(null);
+ const bySeller=useMemo(()=>new Map(projections.map(p=>[p.branch_key+':'+p.seller_id,p])),[projections]);
+ const columns=[
+  'Sucursal','Sector','N° vend.','Vendedor','Visitados','Venta distancia','Venta PDV',
+  'Visitas planeadas','Importe final facturado','Cnt.Fac.','Categoría proyectada',
+  'POP (%)','Exhibición (%)','Cobertura','Volumen','Acciones'
+ ];
+ const fields:{key:keyof CategoryPanelRow;numeric:boolean;decimals?:boolean}[]=[
+  {key:'sector',numeric:true},{key:'sellerName',numeric:false},{key:'visitados',numeric:true},
+  {key:'ventaDistancia',numeric:true},{key:'ventaPdv',numeric:true},
+  {key:'visitasPlaneadas',numeric:true},{key:'importeFinalFacturado',numeric:true,decimals:true},
+  {key:'cntFac',numeric:true}
+ ];
+ const cellInput=(key:keyof CategoryPanelRow,width='100%')=>{
+  const def=fields.find(field=>field.key===key);
+  if(!draft||!def)return null;
+  return <input
+   aria-label={columns.find(label=>label.toLowerCase()===String(key).toLowerCase())??String(key)}
+   type={def.numeric?'number':'text'}
+   min={def.numeric?0:undefined}
+   step={def.decimals?'0.01':def.numeric?'1':undefined}
+   value={String(draft[key]??'')}
+   onChange={event=>{
+    const value=event.target.value;
+    setDraft(current=>current?{...current,[key]:def.numeric?(value===''?NaN:Number(value)):value}:current);
+   }}
+   className="h-9 w-full min-w-0 rounded-lg border border-blue-300 bg-white px-1.5 text-[11px] text-slate-900 outline-none ring-2 ring-blue-50 focus:border-blue-500"
+   style={{width}}
+  />;
+ };
+ const begin=(row:CategoryPanelRow)=>{
+  setDraft({...row});setEditingKey(row.branchKey+':'+row.sellerId);
+ };
+ const cancel=()=>{setDraft(null);setEditingKey(null);};
+ const save=async(row:CategoryPanelRow)=>{
+  if(!draft)return;
+  const ok=await onSave(row,draft);
+  if(ok)cancel();
+ };
+ const td=(label:string,child:React.ReactNode,more='')=><td data-label={label} className={'min-w-0 break-words [overflow-wrap:anywhere] px-1 py-2.5 align-middle max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-2 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400 '+more}>{child}</td>;
+ return <div className="max-h-[680px] overflow-y-auto overflow-x-hidden">
+  <table className="w-full table-fixed text-left text-[10px] leading-4 xl:text-[11px] max-lg:block">
+   <thead className="sticky top-0 z-10 bg-white/95 text-slate-500 backdrop-blur-xl max-lg:hidden">
+    <tr className="border-b border-slate-200">{columns.map((column,i)=>
+     <th key={column} className={'min-w-0 break-words [overflow-wrap:anywhere] px-1 py-3 font-medium '+(i===3?'w-[11%]':i===8?'w-[10%]':i===15?'w-[6%]':'')}>{column}</th>
+    )}</tr>
+   </thead>
+   <tbody className="max-lg:block">
+    {rows.map(row=>{
+     const key=row.branchKey+':'+row.sellerId;
+     const edit=editingKey===key&&draft!==null;
+     const modified=editedKeys.has(key)||Boolean(row.partialUpdatedAt);
+     const saving=savingKey===key;
+     const p=bySeller.get(key);
+     return <tr key={key} className={'group border-b border-slate-100 transition-colors duration-200 max-lg:my-3 max-lg:grid max-lg:grid-cols-2 max-lg:rounded-xl max-lg:border max-lg:border-slate-200 max-lg:p-2 '+(edit?'bg-blue-50/80':modified?'bg-emerald-50 hover:bg-emerald-100/80':'hover:bg-slate-50/80')}>
+      {td('Sucursal',row.branchLabel,'font-medium')}
+      {td('Sector',edit?cellInput('sector'):integerFormatter.format(row.sector))}
+      {td('N° vend.',row.sellerId,'font-medium')}
+      {td('Vendedor',edit?cellInput('sellerName'):row.sellerName,'font-medium text-slate-800')}
+      {td('Visitados',edit?cellInput('visitados'):integerFormatter.format(row.visitados))}
+      {td('Venta distancia',edit?cellInput('ventaDistancia'):integerFormatter.format(row.ventaDistancia))}
+      {td('Venta PDV',edit?cellInput('ventaPdv'):integerFormatter.format(row.ventaPdv))}
+      {td('Visitas planeadas',edit?cellInput('visitasPlaneadas'):integerFormatter.format(row.visitasPlaneadas))}
+      {td('Importe final facturado',edit?cellInput('importeFinalFacturado'):currencyFormatter.format(row.importeFinalFacturado),'tabular-nums font-medium text-slate-800')}
+      {td('Cnt.Fac.',edit?cellInput('cntFac'):integerFormatter.format(row.cntFac))}
+      {td('Categoría proyectada',p?.projected_category??'—')}
+      {td('POP (%)',p?.pop_percentage==null?'—':p.pop_percentage+'%')}
+      {td('Exhibición (%)',p?.exhibition_percentage==null?'—':p.exhibition_percentage+'%')}
+      {td('Cobertura',p?.coverage_percentage==null?'—':integerFormatter.format(p.coverage_percentage))}
+      {td('Volumen',p?.volume_percentage==null?'—':integerFormatter.format(p.volume_percentage))}
+      {td('Acciones',<div className="flex items-center justify-center gap-1 max-lg:justify-start">
+       {edit?<>
+        <button type="button" disabled={saving} onClick={()=>void save(row)} title="Aplicar cambios" aria-label={'Guardar '+row.sellerName} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white transition-colors duration-200 hover:bg-emerald-700 disabled:opacity-50"><Save className="h-4 w-4"/></button>
+        <button type="button" disabled={saving} onClick={cancel} title="Cancelar edición" aria-label="Cancelar edición" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600"><X className="h-4 w-4"/></button>
+       </>:editable?<button type="button" disabled={Boolean(savingKey)} onClick={()=>begin(row)} title="Editar fila" aria-label={'Editar '+row.sellerName} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors duration-200 hover:border-blue-300 hover:text-blue-700 disabled:opacity-50"><Pencil className="h-4 w-4"/></button>:<span className="text-slate-300">—</span>}
+      </div>)}
+     </tr>;
+    })}
+    {!rows.length&&<tr><td colSpan={16} className="px-5 py-10 text-center text-sm text-slate-500">No hay vendedores que coincidan con los filtros actuales.</td></tr>}
+   </tbody>
+  </table>
+ </div>;
+}
 
 function EditorField({
   label,
