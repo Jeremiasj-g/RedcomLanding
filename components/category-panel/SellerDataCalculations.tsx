@@ -37,7 +37,6 @@ export default function SellerDataCalculations({row,elapsedDays,projectedCategor
   {dataStatus&&<p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{dataStatus}</p>}
   <section>
    <h3 className="text-base font-semibold text-slate-900">Indicadores comerciales</h3>
-   <p className="mt-1 text-sm text-slate-500">Valores calculados con los datos del reporte Pivot y TMP de {month||'este período'}.</p>
    <div className="mt-5 grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 xl:grid-cols-4">
     <Metric title="Efectividad" value={percent(effectiveness)} items={[{label:'Visitas planeadas',value:integer(planned)},{label:'Visitados',value:integer(visits)}]} formula="(Visitados / visitas planeadas) × 100"/>
     <Metric title="Eficiencia" value={percent(efficiency)} items={[{label:'Visitados',value:integer(visits)},{label:'Total de ventas',value:integer(sales)}]} formula="(Total de ventas / visitados) × 100"/>
@@ -47,7 +46,6 @@ export default function SellerDataCalculations({row,elapsedDays,projectedCategor
   </section>
   <section className="border-t border-slate-200 pt-7">
    <h3 className="text-base font-semibold text-slate-900">Resumen del vendedor</h3>
-   <p className="mt-1 text-sm text-slate-500">KPIs base utilizados para los cálculos.</p>
    <div className="mt-3 grid grid-cols-2 gap-x-6 sm:grid-cols-3">
     <Datum label="Facturación" value={currency(billing)} description="Importe final facturado"/>
     <Datum label="Total de ventas" value={integer(sales)} description="Cantidad de facturas / boletas"/>
@@ -59,7 +57,6 @@ export default function SellerDataCalculations({row,elapsedDays,projectedCategor
   </section>
   <section className="border-t border-slate-200 pt-7">
    <h3 className="text-base font-semibold text-slate-900">Datos de facturación</h3>
-   <p className="mt-1 text-sm text-slate-500">Promedios calculados sobre los días laborales transcurridos del mes seleccionado.</p>
    <div className="mt-3 grid grid-cols-2 gap-x-6 sm:grid-cols-3 xl:grid-cols-5">
     <Datum label="Días considerados" value={integer(elapsedDays)} description="Lunes a sábado, sin días excluidos"/>
     <Datum label="Promedio boletas diarias" value={decimal(invoicesDaily)} description="Total de ventas / días"/>
