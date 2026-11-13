@@ -1157,6 +1157,32 @@ function TableStat({
   );
 }
 
+/** Acepta moneda AR y formatos exportados en USD sin cambiar la magnitud. */
+function parsePastedCurrency(value:string):number|null{
+ const stripped=value.replace(/[\\s\\u00a0\\u202f$ARS]/gi,'').trim();
+ if(!stripped||!/^[+-]?[\\d.,]+$/.test(stripped))return null;
+ const commas=(stripped.match(/,/g)??[]).length,dots=(stripped.match(/\\./g)??[]).length;
+ const lastComma=stripped.lastIndexOf(','),lastDot=stripped.lastIndexOf('.');
+ let decimalSeparator:string|null=null;
+ if(commas&&dots)decimalSeparator=lastComma>lastDot?',':'.';
+ else if(commas||dots){
+  const separator=commas?',':'.',index=stripped.lastIndexOf(separator);
+  const places=stripped.length-index-1;
+  // Si los grupos de tres están separados de forma consistente, representan miles.
+  const parts=stripped.split(separator);
+  const grouped=parts.length>1&&parts.slice(1).every(part=>part.length===3)&&parts[0].length>=1&&parts[0].length<=3;
+  decimalSeparator=grouped?null:places>=1&&places<=2?separator:null;
+ }
+ let normalized=stripped;
+ if(decimalSeparator){
+  const index=normalized.lastIndexOf(decimalSeparator);
+  normalized=normalized.slice(0,index).replace(/[.,]/g,'')+'.'+normalized.slice(index+1);
+ }else normalized=normalized.replace(/[.,]/g,'');
+ if(!/^[+-]?\\d+(?:\\.\\d{1,2})?$/.test(normalized))return null;
+ const parsed=Number(normalized);
+ return Number.isFinite(parsed)&&parsed>=0?Math.round(parsed*100)/100:null;
+}
+
 function UnifiedTable({
  projections,rows,editable,editedKeys,savingKey,onSave,
 }:{
@@ -1169,6 +1195,7 @@ function UnifiedTable({
 }){
  const [editingKey,setEditingKey]=useState<string|null>(null);
  const [draft,setDraft]=useState<CategoryPanelRow|null>(null);
+ const [currencyInput,setCurrencyInput]=useState('');
  const bySeller=useMemo(()=>new Map(projections.map(p=>[p.branch_key+':'+p.seller_id,p])),[projections]);
  const columns=[
   'Sucursal','Sector','N° vend.','Vendedor','Visitados','Venta distancia','Venta PDV',
@@ -1184,6 +1211,32 @@ function UnifiedTable({
  const cellInput=(key:keyof CategoryPanelRow,width='100%')=>{
   const def=fields.find(field=>field.key===key);
   if(!draft||!def)return null;
+  if(key==='importeFinalFacturado')return <input
+   aria-label="Importe final facturado"
+   type="text"
+   inputMode="decimal"
+   autoComplete="off"
+   value={currencyInput}
+   onChange={event=>{
+    const raw=event.target.value;
+    setCurrencyInput(raw);
+    const amount=parsePastedCurrency(raw);
+    setDraft(current=>current?{...current,importeFinalFacturado:amount??NaN}:current);
+   }}
+   onPaste={event=>{
+    const pasted=event.clipboardData.getData('text');
+    const parsed=parsePastedCurrency(pasted);
+    if(parsed===null)return;
+    event.preventDefault();
+    setCurrencyInput(currencyFormatter.format(parsed));
+    setDraft(current=>current?{...current,importeFinalFacturado:parsed}:current);
+   }}
+   onBlur={()=>{
+    const parsed=parsePastedCurrency(currencyInput);
+    if(parsed!==null)setCurrencyInput(currencyFormatter.format(parsed));
+   }}
+   className="h-9 w-full min-w-0 rounded-lg border border-blue-300 bg-white px-1.5 text-[11px] text-slate-900 outline-none ring-2 ring-blue-50 focus:border-blue-500"
+  />;
   return <input
    aria-label={columns.find(label=>label.toLowerCase()===String(key).toLowerCase())??String(key)}
    type={def.numeric?'number':'text'}
@@ -1199,12 +1252,14 @@ function UnifiedTable({
   />;
  };
  const begin=(row:CategoryPanelRow)=>{
-  setDraft({...row});setEditingKey(row.branchKey+':'+row.sellerId);
+  setDraft({...row});setCurrencyInput(currencyFormatter.format(row.importeFinalFacturado));setEditingKey(row.branchKey+':'+row.sellerId);
  };
  const cancel=()=>{setDraft(null);setEditingKey(null);};
  const save=async(row:CategoryPanelRow)=>{
   if(!draft)return;
-  const ok=await onSave(row,draft);
+  const amount=parsePastedCurrency(currencyInput);
+  if(amount===null){notify.error('Ingresá un importe válido. Ejemplo: $31,596,372.41 o $31.596.372,41.');return;}
+  const ok=await onSave(row,{...draft,importeFinalFacturado:amount});
   if(ok)cancel();
  };
  const td=(label:string,child:React.ReactNode,more='')=><td data-label={label} className={'min-w-0 break-words [overflow-wrap:anywhere] px-1 py-2.5 align-middle max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-2 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400 '+more}>{child}</td>;
