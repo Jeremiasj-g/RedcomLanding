@@ -41,6 +41,9 @@ function parseRequirement(value:string,kind:'route'|'effectiveness'):number|null
  if(kind==='route'){
   const time=/(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(text);
   if(time)return Number(time[1])+Number(time[2])/60+Number(time[3]??0)/3600;
+  // 5.20 hs significa cinco horas y veinte minutos, no cinco horas decimales.
+  const hourMinute=/(\d{1,2})[.,](\d{2})(?:\s*(?:h|hs|hora|horas))?\b/i.exec(text);
+  if(hourMinute){const minutes=Number(hourMinute[2]);return minutes<60?Number(hourMinute[1])+minutes/60:null;}
  }
  const raw=text.match(/\d+(?:\.\d+)?/);
  return raw?Number(raw[0]):null;
