@@ -203,8 +203,6 @@ export default function CategoryPanelPage() {
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
-  const [editingRow, setEditingRow] = useState<CategoryPanelRow | null>(null);
-  const [editingOriginalKey, setEditingOriginalKey] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
@@ -341,66 +339,58 @@ export default function CategoryPanelPage() {
     }
   };
 
-  const openRowEditor = (row: CategoryPanelRow) => {
-    setEditingOriginalKey(`${row.branchKey}:${row.sellerId}`);
-    setEditingRow({ ...row });
-  };
+  const [editedKeys,setEditedKeys] = useState<Set<string>>(new Set());
+  const [savingInlineKey,setSavingInlineKey] = useState<string|null>(null);
 
-  const closeRowEditor = () => {
-    setEditingRow(null);
-    setEditingOriginalKey(null);
-  };
-
-  const saveEditedRow = () => {
-    if (!preview || !editingRow || !editingOriginalKey) return;
-
-    if (
-      !editingRow.sellerName.trim() ||
-      editingRow.sellerId <= 0 ||
-      editingRow.sector <= 0
-    ) {
-      notify.error('Sucursal, sector, ID y nombre del vendedor deben ser válidos.');
-      return;
+  const saveInlineRow = async (original:CategoryPanelRow,updated:CategoryPanelRow) => {
+    const key=original.branchKey+':'+original.sellerId;
+    if(savingInlineKey)return false;
+    if(!updated.sellerName.trim()||updated.sector<=0||
+       [updated.visitados,updated.ventaDistancia,updated.ventaPdv,updated.visitasPlaneadas,updated.cntFac,updated.importeFinalFacturado].some(value=>!Number.isFinite(value)||value<0)){
+      notify.error('Revisá el nombre y los valores: no pueden estar vacíos, ser negativos o inválidos.');
+      return false;
     }
-
-    const branchMeta = EDIT_BRANCH_OPTIONS.find(
-      (option) => option.value === editingRow.branchKey,
-    );
-    const nextRow: CategoryPanelRow = {
-      ...editingRow,
-      branchLabel: branchMeta?.label ?? editingRow.branchLabel,
-      sellerName: editingRow.sellerName.trim(),
-    };
-
-    const nextRows = preview.rows.map((row) =>
-      `${row.branchKey}:${row.sellerId}` === editingOriginalKey
-        ? nextRow
-        : row,
-    );
-
-    const counts = new Map<string, number>();
-    for (const row of nextRows) {
-      const key = `${row.branchKey}:${row.sellerId}`;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
+    const next={...updated,sellerName:updated.sellerName.trim()};
+    if(preview){
+      const nextRows=preview.rows.map(row=>row.branchKey===original.branchKey&&row.sellerId===original.sellerId?next:row);
+      setPreview({...preview,rows:nextRows});
+      setEditedKeys(previous=>new Set(previous).add(key));
+      notify.success('Fila modificada en la vista previa. Guardá los reportes para confirmar.');
+      return true;
     }
-
-    const duplicateKeys = Array.from(counts.entries())
-      .filter(([, count]) => count > 1)
-      .map(([key]) => key);
-
-    setPreview({
-      ...preview,
-      rows: nextRows,
-      duplicateKeys,
-      canSave:
-        nextRows.length > 0 &&
-        preview.unmatchedPivot.length === 0 &&
-        preview.unmatchedTmp.length === 0 &&
-        duplicateKeys.length === 0,
-    });
-
-    closeRowEditor();
-    notify.success('Fila actualizada en la vista previa.');
+    if(!selectedMonth||!availableMonths.some(m=>m.month===selectedMonth)){
+      notify.error('Seleccioná un mes con KPIs guardados para editar.');
+      return false;
+    }
+    try{
+      setSavingInlineKey(key);
+      const pivotChanged=['sector','sellerName','visitados','ventaDistancia','ventaPdv','visitasPlaneadas'].some(field=>
+        original[field as keyof CategoryPanelRow]!==next[field as keyof CategoryPanelRow]);
+      const tmpChanged=original.importeFinalFacturado!==next.importeFinalFacturado||original.cntFac!==next.cntFac;
+      if(pivotChanged){
+        const {error}=await supabase.rpc('admin_update_category_month_seller',{
+          p_month:selectedMonth,p_branch_key:original.branchKey,p_seller_id:original.sellerId,p_kind:'pivot',
+          p_values:{sector:next.sector,seller_name:next.sellerName,visitados:next.visitados,
+            venta_distancia:next.ventaDistancia,venta_pdv:next.ventaPdv,visitas_planeadas:next.visitasPlaneadas}
+        });
+        if(error)throw error;
+      }
+      if(tmpChanged){
+        const {error}=await supabase.rpc('admin_update_category_month_seller',{
+          p_month:selectedMonth,p_branch_key:original.branchKey,p_seller_id:original.sellerId,p_kind:'tmp',
+          p_values:{importe_final_facturado:next.importeFinalFacturado,cnt_fac:next.cntFac}
+        });
+        if(error)throw error;
+      }
+      const result=await fetchCategoryPanelMonth(selectedMonth);
+      setMonthlyRows(result);
+      setEditedKeys(previous=>new Set(previous).add(key));
+      notify.success('Cambios guardados para '+selectedMonth+'.');
+      return true;
+    }catch(error){
+      notify.error(errorMessage(error,'No se pudo guardar. Recargá para comprobar los cambios antes de volver a intentar.'));
+      return false;
+    }finally{setSavingInlineKey(null);}
   };
 
   const savePreview = async () => {
@@ -752,8 +742,10 @@ export default function CategoryPanelPage() {
               <UnifiedTable
                 projections={kpiProjections}
                 rows={filteredRows}
-                editable={Boolean(preview)}
-                onEdit={openRowEditor}
+                editable={true}
+                editedKeys={editedKeys}
+                savingKey={savingInlineKey}
+                onSave={saveInlineRow}
               />
             ) : (
               <div className="grid min-h-[340px] place-items-center px-6 text-center">
@@ -808,196 +800,7 @@ export default function CategoryPanelPage() {
         </div>
       </main>
 
-      <AnimatePresence>
-        {editingRow ? (
-          <motion.div
-            className="fixed inset-0 z-[105] grid place-items-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <button
-              type="button"
-              className="absolute inset-0 bg-slate-950/30 backdrop-blur-md"
-              onClick={closeRowEditor}
-              aria-label="Cerrar editor"
-            />
 
-            <motion.div
-              initial={{ opacity: 0, y: 16, scale: 0.985 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.99 }}
-              className="relative z-10 max-h-[92vh] w-full max-w-[720px] overflow-y-auto rounded-[26px] border border-white/70 bg-white p-6 shadow-[0_35px_100px_rgba(15,23,42,.25)] sm:p-7"
-            >
-              <button
-                type="button"
-                onClick={closeRowEditor}
-                className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <h3 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
-                Editar vendedor
-              </h3>
-              <p className="mt-1 text-[12px] leading-5 text-slate-500">
-                Los cambios se aplican únicamente a esta vista previa y serán los
-                valores que se guarden al confirmar el reemplazo.
-              </p>
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <EditorField label="Sucursal">
-                  <RedcomSelect
-                    value={editingRow.branchKey}
-                    onValueChange={(value) =>
-                      setEditingRow((current) =>
-                        current
-                          ? {
-                              ...current,
-                              branchKey: value as CategoryPanelBranchKey,
-                              branchLabel:
-                                EDIT_BRANCH_OPTIONS.find(
-                                  (option) => option.value === value,
-                                )?.label ?? current.branchLabel,
-                            }
-                          : current,
-                      )
-                    }
-                    options={EDIT_BRANCH_OPTIONS}
-                    className="h-11"
-                  />
-                </EditorField>
-
-                <EditorField label="Sector">
-                  <EditorNumberInput
-                    value={editingRow.sector}
-                    onChange={(value) =>
-                      setEditingRow((current) =>
-                        current ? { ...current, sector: value } : current,
-                      )
-                    }
-                  />
-                </EditorField>
-
-                <EditorField label="N° vendedor">
-                  <EditorNumberInput
-                    value={editingRow.sellerId}
-                    onChange={(value) =>
-                      setEditingRow((current) =>
-                        current ? { ...current, sellerId: value } : current,
-                      )
-                    }
-                  />
-                </EditorField>
-
-                <EditorField label="Vendedor">
-                  <input
-                    value={editingRow.sellerName}
-                    onChange={(event) =>
-                      setEditingRow((current) =>
-                        current
-                          ? { ...current, sellerName: event.target.value }
-                          : current,
-                      )
-                    }
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[12px] text-slate-800 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                  />
-                </EditorField>
-
-                <EditorField label="Visitados">
-                  <EditorNumberInput
-                    value={editingRow.visitados}
-                    onChange={(value) =>
-                      setEditingRow((current) =>
-                        current ? { ...current, visitados: value } : current,
-                      )
-                    }
-                  />
-                </EditorField>
-
-                <EditorField label="Venta a distancia">
-                  <EditorNumberInput
-                    value={editingRow.ventaDistancia}
-                    onChange={(value) =>
-                      setEditingRow((current) =>
-                        current
-                          ? { ...current, ventaDistancia: value }
-                          : current,
-                      )
-                    }
-                  />
-                </EditorField>
-
-                <EditorField label="Venta PDV">
-                  <EditorNumberInput
-                    value={editingRow.ventaPdv}
-                    onChange={(value) =>
-                      setEditingRow((current) =>
-                        current ? { ...current, ventaPdv: value } : current,
-                      )
-                    }
-                  />
-                </EditorField>
-
-                <EditorField label="Visitas planeadas">
-                  <EditorNumberInput
-                    value={editingRow.visitasPlaneadas}
-                    onChange={(value) =>
-                      setEditingRow((current) =>
-                        current
-                          ? { ...current, visitasPlaneadas: value }
-                          : current,
-                      )
-                    }
-                  />
-                </EditorField>
-
-                <EditorField label="Importe Final Facturado">
-                  <EditorNumberInput
-                    value={editingRow.importeFinalFacturado}
-                    decimals
-                    onChange={(value) =>
-                      setEditingRow((current) =>
-                        current
-                          ? { ...current, importeFinalFacturado: value }
-                          : current,
-                      )
-                    }
-                  />
-                </EditorField>
-
-                <EditorField label="Cnt.Fac.">
-                  <EditorNumberInput
-                    value={editingRow.cntFac}
-                    onChange={(value) =>
-                      setEditingRow((current) =>
-                        current ? { ...current, cntFac: value } : current,
-                      )
-                    }
-                  />
-                </EditorField>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-5">
-                <button
-                  type="button"
-                  onClick={closeRowEditor}
-                  className="h-10 rounded-xl px-4 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-100"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={saveEditedRow}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[11px] font-semibold text-white transition hover:bg-emerald-700"
-                >
-                  <Save className="h-4 w-4" />
-                  Aplicar cambios
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
 
       <AnimatePresence>
         {confirmSaveOpen && preview ? (
