@@ -1159,9 +1159,9 @@ function TableStat({
 
 /** Acepta moneda AR y formatos exportados en USD sin cambiar la magnitud. */
 function parsePastedCurrency(value:string):number|null{
- const stripped=value.replace(/[\\s\\u00a0\\u202f$ARS]/gi,'').trim();
- if(!stripped||!/^[+-]?[\\d.,]+$/.test(stripped))return null;
- const commas=(stripped.match(/,/g)??[]).length,dots=(stripped.match(/\\./g)??[]).length;
+ const stripped=value.replace(/[\s\u00a0\u202f$ARS]/gi,'').trim();
+ if(!stripped||!/^[+-]?[\d.,]+$/.test(stripped))return null;
+ const commas=(stripped.match(/,/g)??[]).length,dots=(stripped.match(/\./g)??[]).length;
  const lastComma=stripped.lastIndexOf(','),lastDot=stripped.lastIndexOf('.');
  let decimalSeparator:string|null=null;
  if(commas&&dots)decimalSeparator=lastComma>lastDot?',':'.';
@@ -1178,7 +1178,7 @@ function parsePastedCurrency(value:string):number|null{
   const index=normalized.lastIndexOf(decimalSeparator);
   normalized=normalized.slice(0,index).replace(/[.,]/g,'')+'.'+normalized.slice(index+1);
  }else normalized=normalized.replace(/[.,]/g,'');
- if(!/^[+-]?\\d+(?:\\.\\d{1,2})?$/.test(normalized))return null;
+ if(!/^[+-]?\d+(?:\.\d{1,2})?$/.test(normalized))return null;
  const parsed=Number(normalized);
  return Number.isFinite(parsed)&&parsed>=0?Math.round(parsed*100)/100:null;
 }
