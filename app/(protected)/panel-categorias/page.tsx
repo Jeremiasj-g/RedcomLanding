@@ -38,7 +38,6 @@ import {
 } from '@/lib/categoryPanel';
 import {
   parseCategoryPanelFiles,
-  type CategoryPanelBranchKey,
   type CategoryPanelParseResult,
   type CategoryPanelRow,
 } from '@/lib/categoryPanelExcel';
@@ -75,17 +74,6 @@ const currencyFormatter = new Intl.NumberFormat('es-AR', {
 });
 
 const integerFormatter = new Intl.NumberFormat('es-AR');
-
-const EDIT_BRANCH_OPTIONS: Array<{
-  value: CategoryPanelBranchKey;
-  label: string;
-}> = [
-  { value: 'corrientes_masivos', label: 'Corrientes' },
-  { value: 'corrientes_refrigerados', label: 'Corrientes Refrigerados' },
-  { value: 'chaco', label: 'Chaco' },
-  { value: 'misiones', label: 'Misiones' },
-  { value: 'obera', label: 'Oberá' },
-];
 
 const emptyState: CategoryPanelState = {
   lastImportedAt: null,
@@ -1263,48 +1251,6 @@ function UnifiedTable({
   </table>
  </div>;
 }
-
-function EditorField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label>
-      <span className="mb-1.5 block text-[9px] font-medium text-slate-400">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function EditorNumberInput({
-  value,
-  onChange,
-  decimals = false,
-}: {
-  value: number;
-  onChange: (value: number) => void;
-  decimals?: boolean;
-}) {
-  return (
-    <input
-      type="number"
-      step={decimals ? '0.01' : '1'}
-      value={Number.isFinite(value) ? value : 0}
-      onChange={(event) => {
-        const parsed = Number(event.target.value);
-        onChange(Number.isFinite(parsed) ? parsed : 0);
-      }}
-      className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[12px] tabular-nums text-slate-800 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-    />
-  );
-}
-
-
 
 function PanelTab({
   active,
