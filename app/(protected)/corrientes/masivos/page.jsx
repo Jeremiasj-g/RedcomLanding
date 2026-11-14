@@ -55,13 +55,22 @@ export default function CorrientesMasivos() {
           <section className="bg-white py-12 sm:py-14">
             <Container>
               {canSeeCategories && (
-                <CategoryBannerLink
-                  branchLabel="Corrientes"
-                  href="/corrientes/masivos/categorias-v2"
-                  title="Categorías V 2.0"
-                  description="Horarios SIGO, puntajes y categorías por vendedor."
-                  buttonLabel="Abrir"
-                />
+                <div className="space-y-5">
+                  <CategoryBannerLink
+                    branchLabel="Corrientes"
+                    href="/corrientes/masivos/categorias"
+                    title="Categorías"
+                    description="Ranking por vendedor, puntajes y comparación por criterios."
+                    buttonLabel="Abrir"
+                  />
+                  <CategoryBannerLink
+                    branchLabel="Corrientes"
+                    href="/corrientes/masivos/categorias-v2"
+                    title="Categorías V 2.0"
+                    description="Horarios SIGO, puntajes y categorías por vendedor."
+                    buttonLabel="Abrir"
+                  />
+                </div>
               )}
 
               {canSeeAnalytics && (
