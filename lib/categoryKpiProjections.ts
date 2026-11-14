@@ -33,7 +33,7 @@ export function exportKpiProjectionTemplate(rows:CategoryPanelRow[],existing:Kpi
  let xmlRows:string[]=[];
  for(let ri=1;ri<=max+2;ri++){
   cells.length=0;
-  if(ri===1)byBranch.forEach((b,i)=>{put(ri,i*7,b.label,1);merge.push(`${col(i*7)}1:${col(i*7+5)}1`);});
+  if(ri===1)byBranch.forEach((b,i)=>{put(ri,i*7,b.label,1);merge.push(`${col(i*7)}1:${col(i*7+6)}1`);});
   else if(ri===2)byBranch.forEach((b,i)=>['Vendedor (ID · nombre)','Categoría proyectada','POP (%)','Exhibición (%)','Cobertura','Volumen','Días de vacaciones'].forEach((t,j)=>put(ri,i*7+j,t,2)));
   else byBranch.forEach((b,i)=>{const person=b.rows[ri-3];if(!person)return;const savedRow=saved.get(b.key+':'+person.sellerId);put(ri,i*7,`${person.sellerId} · ${person.sellerName}`,3);put(ri,i*7+1,savedRow?.projected_category,3);put(ri,i*7+2,savedRow?.pop_percentage,4);put(ri,i*7+3,savedRow?.exhibition_percentage,4);put(ri,i*7+4,savedRow?.coverage_percentage,3);put(ri,i*7+5,savedRow?.volume_percentage,3);put(ri,i*7+6,savedRow?.vacation_days,3);});
   xmlRows.push(`<row r="${ri}">${cells.join('')}</row>`);
