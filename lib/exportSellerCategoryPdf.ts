@@ -1,9 +1,10 @@
 
 import type {CategoryPanelRow} from '@/lib/categoryPanelExcel';
 import type {SellerCategoryInput,CategoryAssessment} from '@/lib/categoryReached';
+import type {SigoReasonSummary} from '@/lib/categorySigoReasons';
 
 type Options={
- name:string;branch:string;month:string;projectedCategory:string|null;vacationDays:number|null;
+ name:string;branch:string;month:string;projectedCategory:string|null;reasonSummary:SigoReasonSummary[];
  row:CategoryPanelRow|null;elapsedDays:number;input:SellerCategoryInput;
  assessment:CategoryAssessment;comparison:boolean;calculations:boolean;
 };
@@ -126,8 +127,8 @@ export async function exportSellerCategoryPdf(o:Options):Promise<void>{
   labelText('Promedio $ por boleta',currency(divide(billing,sales)));
   labelText('Categoría según proyección',o.projectedCategory??'Sin cargar');
   rule();
-  heading('Vacaciones registradas');
-  labelText('Días de vacaciones',o.vacationDays===null?'Sin cargar':fmt(o.vacationDays,0));
+  heading('Motivos registrados en SIGO');
+  for(const item of o.reasonSummary)labelText(item.reason,fmt(item.days,0)+(item.days===1?' día':' días'));
  }
  const total=pdf.getNumberOfPages();
  for(let page=1;page<=total;page++){
