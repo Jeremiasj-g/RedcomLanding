@@ -26,6 +26,7 @@ import { useRouter } from 'next/navigation';
 
 import DualSpinner from '@/components/ui/DualSpinner';
 import { RedcomSelect } from '@/components/ui/redcom-select';
+import CategoryMonthPicker from '@/components/category-panel/CategoryMonthPicker';
 import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
 import { useMe } from '@/hooks/useMe';
 import {
@@ -119,6 +120,7 @@ export default function CategoryPanelPage() {
   const [loadingMonthly,setLoadingMonthly]=useState(false);
   const [legacyMonth,setLegacyMonth]=useState('2026-10');
   const [registeringLegacy,setRegisteringLegacy]=useState(false);
+  const [confirmLegacyMonth,setConfirmLegacyMonth]=useState(false);
   const refreshMonths=async()=>{const months=await listCategoryPanelMonths();setAvailableMonths(months);return months;};
   useEffect(()=>{
     if(meLoading||me?.role!=='admin')return;
@@ -137,9 +139,8 @@ export default function CategoryPanelPage() {
   },[selectedMonth,availableMonths]);
   const registerLegacyMonth=async()=>{
     if(!legacyMonth||registeringLegacy)return;
-    if(!window.confirm('¿Confirmás que el lote actual corresponde a '+legacyMonth+'? Se conservará como histórico sin alterar sus datos.'))return;
     setRegisteringLegacy(true);
-    try{await assignCurrentCategoryPanelMonth(legacyMonth);await refreshMonths();setSelectedMonth(legacyMonth);notify.success('Lote asociado a '+legacyMonth+'.');}
+    try{await assignCurrentCategoryPanelMonth(legacyMonth);await refreshMonths();setSelectedMonth(legacyMonth);setConfirmLegacyMonth(false);notify.success('Lote asociado a '+legacyMonth+'.');}
     catch(error){notify.error(errorMessage(error,'No se pudo asociar el mes al lote.'));}
     finally{setRegisteringLegacy(false);}
   };
@@ -438,8 +439,7 @@ export default function CategoryPanelPage() {
                 </h1>
 
                 <p className="mt-3 max-w-2xl text-[14px] leading-6 text-slate-500">
-                  Unificá el reporte de visitas con el reporte de facturación,
-                  revisá el resultado y reemplazá el estado actual guardado.
+                  Consultá KPIs, horarios y categorías por período.
                 </p>
               </div>
 
@@ -509,13 +509,13 @@ export default function CategoryPanelPage() {
 
           {(activeTab==='kpis'||activeTab==='categories')&&<div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
             <label className="flex items-center gap-2 text-xs text-slate-600">Mes de consulta
-              <input type="month" value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)} className="h-9 rounded-xl border border-slate-200 px-3 text-sm text-slate-800"/>
+              <CategoryMonthPicker label="Mes de consulta" value={selectedMonth} onChange={setSelectedMonth} className="h-9"/>
             </label>
             <span className="text-xs text-slate-500">{availableMonths.some(m=>m.month===selectedMonth)?'KPIs guardados'+(loadingMonthly?' · cargando…':''):'Sin KPIs guardados para este mes'}</span>
             {!availableMonths.length&&savedRows.length>0&&<div className="ml-auto flex flex-wrap items-center gap-2">
               <span className="text-xs text-amber-700">Hay {savedRows.length} registros antiguos sin mes asociado.</span>
-              <input type="month" aria-label="Mes del lote anterior" value={legacyMonth} onChange={e=>setLegacyMonth(e.target.value)} className="h-9 rounded-xl border border-slate-200 px-2 text-xs"/>
-              <button type="button" disabled={registeringLegacy} onClick={()=>void registerLegacyMonth()} className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50">Asignar mes al lote anterior</button>
+              <CategoryMonthPicker label="Mes del lote anterior" value={legacyMonth} onChange={setLegacyMonth} className="h-9"/>
+              <button type="button" disabled={registeringLegacy} onClick={()=>setConfirmLegacyMonth(true)} className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50">Asignar mes al lote anterior</button>
             </div>}
           </div>}
           {activeTab === 'personnel' ? <CommercialPersonnel /> : activeTab === 'categories' ? <CategoryUnifiedOverview rows={monthlyRows} projections={kpiProjections} month={selectedMonth} onMonthChange={setSelectedMonth} availableMonths={availableMonths.map(m=>m.month)} loadingMonth={loadingMonthly} /> : activeTab === 'kpis' ? (
@@ -540,7 +540,7 @@ export default function CategoryPanelPage() {
             <motion.section initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:0.2,delay:0.08}} className="flex min-h-[210px] flex-col justify-between rounded-[24px] border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)]">
               <div>
                 <h3 className="mt-1 text-lg font-semibold tracking-[-0.02em] text-slate-950">Categoría, POP y Exhibición</h3>
-                <p className="mt-1 max-w-xl text-[11px] leading-5 text-slate-400">Descargá la plantilla, completá los valores e importá para revisar.</p>
+                
               </div>
               <div className="mt-5 flex min-h-[58px] flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
                 <span className="text-[11px] font-medium text-slate-500">Plantilla de proyecciones XLSX</span>
@@ -659,7 +659,7 @@ export default function CategoryPanelPage() {
 
           {preview&&<div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
              <span className="text-xs text-slate-500">Mes de los reportes Pivot + TMP</span>
-             <input type="month" value={preview.period??''} disabled={Boolean(preview.detectedPeriod)} onChange={e=>setPreview(prev=>prev?{...prev,period:e.target.value||null}:prev)} className="h-9 rounded-lg border border-slate-200 px-3 text-xs disabled:bg-slate-50 disabled:text-slate-600"/>
+             <CategoryMonthPicker label="Mes del reporte TMP" value={preview.period??''} disabled={Boolean(preview.detectedPeriod)} onChange={value=>setPreview(prev=>prev?{...prev,period:value}:prev)} className="h-9"/>
              <span className="text-xs text-slate-500">{preview.detectedPeriod?'Mes detectado automáticamente en el TMP.':preview.period?'Mes ingresado manualmente: comprobá que corresponda al archivo TMP.':'Es obligatorio seleccionar el mes del TMP antes de guardar.'}</span>
           </div>}
           {preview ? <ValidationSummary result={preview} /> : null}
@@ -791,6 +791,18 @@ export default function CategoryPanelPage() {
 
 
 
+      <AlertDialog open={confirmLegacyMonth} onOpenChange={open=>{if(!registeringLegacy)setConfirmLegacyMonth(open);}}>
+        <AlertDialogContent className="w-[calc(100%-32px)] max-w-[440px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,.18)]">
+          <AlertDialogHeader className="space-y-2 p-6 text-left">
+            <AlertDialogTitle className="text-lg font-semibold text-slate-950">¿Asociar el lote al mes seleccionado?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-6 text-slate-500">Los registros actuales se asociarán a {legacyMonth} como histórico, conservando sus datos.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 border-t border-slate-100 px-6 py-4">
+            <AlertDialogCancel disabled={registeringLegacy} className="mt-0 flex-1 rounded-xl border-slate-200 sm:flex-none">Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={registeringLegacy} onClick={event=>{event.preventDefault();void registerLegacyMonth();}} className="flex-1 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 sm:flex-none">{registeringLegacy?'Guardando…':'Confirmar'}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AnimatePresence>
         {confirmSaveOpen && preview ? (
           <motion.div
