@@ -151,7 +151,7 @@ export default function CategoryPanelPage() {
   const kpiImportRef=useRef<HTMLInputElement>(null);
   const reloadKpi=async(month=selectedMonth)=>{
     if(!month){setKpiProjections([]);return;}
-    const {data,error}=await supabase.from('category_kpi_projections_monthly').select('branch_key,seller_id,projected_category,pop_percentage,exhibition_percentage,coverage_percentage,volume_percentage,vacation_days').eq('month',month);
+    const {data,error}=await supabase.from('category_kpi_projections_monthly').select('branch_key,seller_id,projected_category,pop_percentage,exhibition_percentage,coverage_percentage,volume_percentage').eq('month',month);
     if(error)throw error;
     setKpiProjections((data??[]) as KpiProjection[]);
   };
@@ -556,7 +556,7 @@ export default function CategoryPanelPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div><h3 className="text-base font-semibold text-slate-900">Vista previa · Proyecciones sin guardar</h3>
                 <p className="mt-1 text-xs text-slate-600">{kpiDraft.length} vendedores en la planilla. Las celdas vacías quedarán sin valor y los vendedores no incluidos no se modificarán.</p>
-                <p className="mt-1 text-xs text-slate-600">{kpiDraft.filter(r=>r.projected_category!==null).length} categorías · {kpiDraft.filter(r=>r.pop_percentage!==null).length} POP · {kpiDraft.filter(r=>r.exhibition_percentage!==null).length} Exhibición · {kpiDraft.filter(r=>r.coverage_percentage!==null).length} Cobertura · {kpiDraft.filter(r=>r.volume_percentage!==null).length} Volumen · {kpiDraft.filter(r=>r.vacation_days!==null).length} Vacaciones</p>
+                <p className="mt-1 text-xs text-slate-600">{kpiDraft.filter(r=>r.projected_category!==null).length} categorías · {kpiDraft.filter(r=>r.pop_percentage!==null).length} POP · {kpiDraft.filter(r=>r.exhibition_percentage!==null).length} Exhibición · {kpiDraft.filter(r=>r.coverage_percentage!==null).length} Cobertura · {kpiDraft.filter(r=>r.volume_percentage!==null).length} Volumen</p>
               </div>
               <div className="flex gap-2">
                 <button type="button" disabled={importingKpi} onClick={()=>setKpiDraft(null)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-medium text-slate-700">Cancelar</button>
@@ -564,13 +564,13 @@ export default function CategoryPanelPage() {
               </div>
             </div>
             <div className="mt-4 max-h-64 overflow-auto rounded-xl bg-white"><table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-slate-50"><tr><th className="p-3">Sucursal</th><th className="p-3">Vendedor</th><th className="p-3">Categoría</th><th className="p-3">POP</th><th className="p-3">Exhibición</th><th className="p-3">Cobertura</th><th className="p-3">Volumen</th><th className="p-3">Vacaciones (días)</th></tr></thead>
+              <thead className="sticky top-0 bg-slate-50"><tr><th className="p-3">Sucursal</th><th className="p-3">Vendedor</th><th className="p-3">Categoría</th><th className="p-3">POP</th><th className="p-3">Exhibición</th><th className="p-3">Cobertura</th><th className="p-3">Volumen</th></tr></thead>
               <tbody>{kpiDraft.map(row=><tr key={row.branch_key+':'+row.seller_id} className="border-t border-slate-100">
                 <td className="p-3">{row.branch_key.replaceAll('_',' ')}</td>
                 <td className="p-3">{monthlyRows.find(s=>s.branchKey===row.branch_key&&s.sellerId===row.seller_id)?.sellerName??row.seller_id}</td>
                 <td className="p-3">{row.projected_category??'—'}</td>
                 <td className="p-3">{row.pop_percentage===null?'—':row.pop_percentage+'%'}</td>
-                <td className="p-3">{row.exhibition_percentage===null?'—':row.exhibition_percentage+'%'}</td><td className="p-3">{row.coverage_percentage===null?'—':Number(row.coverage_percentage).toLocaleString('es-AR')}</td><td className="p-3">{row.volume_percentage===null?'—':Number(row.volume_percentage).toLocaleString('es-AR')}</td><td className="p-3">{row.vacation_days??'—'}</td>
+                <td className="p-3">{row.exhibition_percentage===null?'—':row.exhibition_percentage+'%'}</td><td className="p-3">{row.coverage_percentage===null?'—':Number(row.coverage_percentage).toLocaleString('es-AR')}</td><td className="p-3">{row.volume_percentage===null?'—':Number(row.volume_percentage).toLocaleString('es-AR')}</td>
               </tr>)}</tbody>
             </table></div>
           </motion.section>}
