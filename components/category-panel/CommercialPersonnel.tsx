@@ -154,7 +154,7 @@ export default function CommercialPersonnel(){
     <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"><FileSpreadsheet className="h-4 w-4"/> {file?file.name:'Seleccionar Excel'}
      <input type="file" accept=".xlsx" className="sr-only" onChange={event=>void upload(event.target.files?.[0]??null)}/>
     </label>
-    {preview&&<button type="button" disabled={busy} onClick={()=>void save()} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold text-white disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar personal</button>}
+    {preview&&<button type="button" disabled={busy} onClick={()=>void save()} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-medium text-white transition-colors duration-200 motion-reduce:transition-none hover:bg-emerald-700 disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar personal</button>}
    </div>
   </div>
   <AnimatePresence initial={false}>{preview&&<motion.div initial={{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} transition={{duration:reducedMotion?0:0.2}} className="overflow-hidden border-b border-blue-100 bg-blue-50 px-6 py-3 text-xs font-medium text-blue-700">Vista previa · {preview.length} personas · Guardá para reemplazar la información vigente.</motion.div>}</AnimatePresence>
