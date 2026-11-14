@@ -40,7 +40,10 @@ export default function CategoryScaleHero({metrics,gates,loading,error}:{
  return <div className="relative mb-36 sm:mb-32">
   <div className="relative h-[350px] w-full bg-cover bg-bottom shadow-2xl" style={{backgroundImage:"url('/categorias.webp')"}} aria-hidden="true"/>
   <div className="absolute bottom-0 left-1/2 z-10 w-[min(1020px,calc(100%-24px))] -translate-x-1/2 translate-y-1/2 rounded-xl bg-white px-2 py-4 shadow-2xl">
-   {loading?<p className="px-4 py-10 text-center text-sm text-slate-500">Cargando Cuadro de escalas…</p>:
+   {loading?<div className="overflow-hidden px-1" role="status" aria-label="Cargando Cuadro de escalas">
+    <div className="grid grid-cols-10 gap-3 bg-gray-50 px-3 py-2">{Array.from({length:10},(_,i)=><div key={i} className="h-4 rounded bg-slate-200 animate-pulse motion-reduce:animate-none"/>)}</div>
+    {Array.from({length:4},(_,row)=><div key={row} className={'grid grid-cols-10 gap-3 px-3 py-2 '+(row%2?'bg-gray-50':'bg-white')}>{Array.from({length:10},(_,col)=><div key={col} className={'h-6 rounded animate-pulse motion-reduce:animate-none '+(col===0?'bg-slate-200':'bg-slate-100')}/>)}</div>)}
+   </div>:
    error?<p role="alert" className="px-4 py-8 text-center text-sm text-rose-600">{error}</p>:
    metrics.length===0?<p className="px-4 py-8 text-center text-sm text-slate-500">No hay escalas configuradas.</p>:
    <div className="overflow-x-auto">

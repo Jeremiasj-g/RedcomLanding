@@ -26,6 +26,8 @@ Estas reglas aplican a todo el repositorio (pantallas, modales, componentes y ca
 - En formularios con cambios pendientes, advertir antes de salir o cambiar de sección. Usar una modal propia minimalista para navegación interna cuando sea posible; para cerrar/recargar el navegador, usar el aviso nativo.
 - Mantener acciones frecuentes (por ejemplo, Guardar cambios) visibles con sticky si la página es larga y no tapa contenido.
 - Mostrar estados vacíos, loading y errores claros; no inventar valores ni colocar datos estáticos cuando hay fuentes reales.
+- **Skeleton loaders obligatorios** para cargas iniciales y cambios de datos que puedan demorar: reproducir la **misma estructura, anchura, altura, espaciado, cantidad aproximada de filas, tarjetas y contenedores** del contenido definitivo. Evitar reemplazar una tabla o tarjeta por un mensaje o spinner de altura distinta; reservar espacio para que no haya saltos de layout. Usar animaciones discretas y respetar `prefers-reduced-motion`.
+- **Conservar el estado al navegar entre tabs**: mantener filtros, períodos, scroll y ediciones en curso siempre que corresponda; no repetir la verificación inicial de permisos ni remontar toda la vista por un cambio de pestaña. Revalidar accesos al cambiar de usuario/permisos o entrar desde fuera del módulo, sin debilitar RLS.
 
 ## 4. Mantener funcionalidad y consistencia
 - Un cambio **solo visual** no debe alterar cálculos, permisos, roles, RLS, importaciones, rutas, modelos de datos ni lógica de negocio.
