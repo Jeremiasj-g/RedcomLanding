@@ -10,7 +10,6 @@ import {CalendarDays,Download,ChevronDown} from 'lucide-react';
 import {exportSellerCategoryPdf} from '@/lib/exportSellerCategoryPdf';
 import SellerDataCalculations from '@/components/category-panel/SellerDataCalculations';
 import {summarizeSigoReasons,type SigoReasonSummary} from '@/lib/categorySigoReasons';
-import CategoryMonthPicker from '@/components/category-panel/CategoryMonthPicker';
 import {FilterableCategoryTable,type FilterColumn} from '@/components/category-panel/CategoryColumnFilters';
 import {fetchCategoryScaleConfig,type CategoryScaleMetric,type CategoryScaleGate} from '@/lib/categoryScale';
 import {assessSellerCategory,gateBreakdown,scoreByCategory,CATEGORY_PASS_SCORE,type SellerCategoryInput} from '@/lib/categoryReached';
@@ -116,7 +115,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,onMonthC
   <section className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,.055)]">
    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-5">
     <h2 className="text-xl font-semibold text-slate-900">Reportes unificados y horarios</h2>
-    <div className="flex items-center gap-2 text-xs text-slate-600"><span>Mes</span><CategoryMonthPicker label="Mes de Categorías" value={month} onChange={onMonthChange}/></div>
+    
    </div>
    <div className="flex flex-wrap items-center gap-5 border-b border-slate-100 px-5 py-3">
      <div><div className="text-xs text-slate-500">Días laborales transcurridos</div><div className="text-2xl font-semibold">{calendarLoading?'—':counts.elapsed}</div></div>
