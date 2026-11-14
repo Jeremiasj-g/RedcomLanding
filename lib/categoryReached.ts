@@ -7,7 +7,9 @@ export type SellerCategoryInput = {
 
 export const CATEGORY_PASS_SCORE=75;
 export const DEFAULT_ROUTE_MINUTES=5*60+20;
-export const DEFAULT_EFFECTIVENESS=89;
+export const DEFAULT_EFFECTIVENESS=90;
+/** Tolerancia comercial en puntos porcentuales, sin modificar el dato real. */
+export const CATEGORY_PERCENT_TOLERANCE=1;
 export type CategoryLevel='JUNIOR'|'SEMI SENIOR'|'SENIOR';
 export type CategoryAssessment={label:string;status:'qualified'|'pending'|'blocked';score:number|null;details:string;tiers:TierAssessment[];gates:GateAssessment[]};
 export type TierAssessment={label:CategoryLevel;score:number;maximum:number;passed:boolean;missing:string[];lines:TierMetricAssessment[]};
@@ -25,6 +27,15 @@ export function categoryRank(value:string|null|undefined):number|null{
  return text==='senior'?3:text==='semi senior'||text==='semisenior'?2:text==='junior'?1:text==='plan de mejora'?0:null;
 }
 function projectedMetric(name:string){return normalized(name).includes('facturac');}
+/** Volumen y cobertura exigen el valor completo. El horario de ruta se verifica por separado. */
+function hasPercentageTolerance(name:string,valueType?:string){
+ const n=normalized(name);
+ if(n.includes('volumen')||n.includes('cobertura')||n.includes('hora')||n.includes('ruta'))return false;
+ return ['efectividad','eficiencia','pop','exhibic'].some(token=>n.includes(token)) || valueType==='percent';
+}
+function meetsRequirement(actual:number,required:number,tolerance=0){
+ return actual+1e-9>=required-tolerance;
+}
 export function measure(name:string,x:SellerCategoryInput):number|null{
  const n=normalized(name);
  if(projectedMetric(name))return x.dailyBilling;
@@ -58,7 +69,7 @@ export function gateBreakdown(input:SellerCategoryInput,gates:CategoryScaleGate[
   const parsed=configured?parseRequirement(configured.valueText,def.kind):null;
   const required=parsed??def.fallback;
   const actual=def.actual!==null&&Number.isFinite(def.actual)?def.actual:null;
-  return {kind:def.kind,label:def.label,unit:def.unit,required,actual,passed:actual===null?null:actual+1e-9>=required};
+  return {kind:def.kind,label:def.label,unit:def.unit,required,actual,passed:actual===null?null:meetsRequirement(actual,required,def.kind==='effectiveness'?CATEGORY_PERCENT_TOLERANCE:0)};
  });
 }
 export function scoreByCategory(input:SellerCategoryInput,projectedCategory:string|null,metrics:CategoryScaleMetric[]):TierAssessment[]{
@@ -71,7 +82,7 @@ export function scoreByCategory(input:SellerCategoryInput,projectedCategory:stri
    const required=projected?tier.label:metric[tier.key];
    const passed=projected
     ?projectedRank===null?null:projectedRank>=tier.rank
-    :actual===null||!Number.isFinite(actual)||typeof required!=='number'?null:actual+1e-9>=required;
+    :actual===null||!Number.isFinite(actual)||typeof required!=='number'?null:meetsRequirement(actual,required,hasPercentageTolerance(metric.metricName,metric.valueType)?CATEGORY_PERCENT_TOLERANCE:0);
    return {id:metric.id,name:metric.metricName,unit:metric.valueType,weight:metric.weightPercent,actual,required,passed,projected} satisfies TierMetricAssessment;
   });
   const score=lines.reduce((sum,line)=>sum+(line.passed===true?line.weight:0),0);
@@ -104,7 +115,8 @@ export function scoreBreakdown(input:SellerCategoryInput,metrics:CategoryScaleMe
  return metrics.filter(m=>m.weightPercent>0).map(m=>{
   const actual=measure(m.metricName,input);
   const available=[m.seniorValue,m.semiSeniorValue,m.juniorValue].every(v=>v!==null);
-  const rank=available&&actual!==null?([m.seniorValue,m.semiSeniorValue,m.juniorValue].findIndex(v=>actual>=Number(v))):null;
+  const tolerance=hasPercentageTolerance(m.metricName,m.valueType)?CATEGORY_PERCENT_TOLERANCE:0;
+  const rank=available&&actual!==null?([m.seniorValue,m.semiSeniorValue,m.juniorValue].findIndex(v=>meetsRequirement(actual,Number(v),tolerance))):null;
   const normalizedRank=rank===null?null:rank===-1?0:3-rank;
   return {id:m.id,section:m.sectionName,name:m.metricName,unit:m.valueType,actual,
    thresholds:{senior:m.seniorValue,semiSenior:m.semiSeniorValue,junior:m.juniorValue,improvement:m.improvementValue},
