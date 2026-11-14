@@ -31,7 +31,7 @@ const duration=(start:string|null,end:string|null)=>{
  return Number.isFinite(result)&&result>=0?result:null;
 };
 const displayDuration=(v:number)=>[Math.floor(v/3600),Math.floor(v%3600/60),Math.round(v%60)].map(x=>String(x).padStart(2,'0')).join(':');
-export default function CategoryUnifiedOverview({rows,projections,month,onMonthChange,availableMonths,loadingMonth}:{rows:CategoryPanelRow[];projections:KpiProjection[];month:string;onMonthChange:(month:string)=>void;availableMonths:string[];loadingMonth:boolean}){
+export default function CategoryUnifiedOverview({rows,projections,month,availableMonths,loadingMonth}:{rows:CategoryPanelRow[];projections:KpiProjection[];month:string;onMonthChange:(month:string)=>void;availableMonths:string[];loadingMonth:boolean}){
  const [daily,setDaily]=useState<Daily[]>([]);
  const [loading,setLoading]=useState(true);
  const [branchTab,setBranchTab]=useState<string>('corrientes_masivos');
