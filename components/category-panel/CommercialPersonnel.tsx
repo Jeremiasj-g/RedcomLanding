@@ -1,7 +1,7 @@
 'use client';
 
 import {useEffect,useMemo,useState} from 'react';
-import {AnimatePresence,motion} from 'framer-motion';
+import {AnimatePresence,motion,useReducedMotion} from 'framer-motion';
 import {ChevronDown,ChevronRight,FileSpreadsheet,LayoutList,Network,Loader2,Save,Search,UsersRound} from 'lucide-react';
 import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
 import {supabase} from '@/lib/supabaseClient';
@@ -70,6 +70,7 @@ function buildTree(people:CommercialPerson[]):Node[]{
 const countSellers=(node:Node):number=>node.kind==='seller'?1:node.children.reduce((sum,child)=>sum+countSellers(child),0);
 
 export default function CommercialPersonnel(){
+ const reducedMotion=useReducedMotion();
  const [people,setPeople]=useState<CommercialPerson[]>([]);
  const [updatedAt,setUpdatedAt]=useState<string|null>(null);
  const [file,setFile]=useState<File|null>(null);
@@ -127,10 +128,10 @@ export default function CommercialPersonnel(){
   const expandable=node.children.length>0;
   const type=node.kind==='branch'?'Sucursal':node.kind==='manager'?'Gerencia':node.kind==='supervisor'?'Supervisión':'Vendedor';
   return <div key={node.key}>
-   <motion.div layout transition={{duration:0.2,ease:'easeInOut'}} className={'flex items-center gap-3 border-b border-slate-100 py-3 pr-4 '+(node.kind==='branch'?'bg-[#edf1f7] font-medium':node.kind==='manager'?'bg-slate-50 font-medium':'bg-white')}
+   <motion.div layout transition={{duration:reducedMotion?0:0.2,ease:'easeInOut'}} className={'flex items-center gap-3 border-b border-slate-100 py-3 pr-4 '+(node.kind==='branch'?'bg-[#edf1f7] font-medium':node.kind==='manager'?'bg-slate-50 font-medium':'bg-white')}
     style={{paddingLeft:16+depth*22}}>
-    {expandable?<button type="button" onClick={()=>setCollapsed(old=>old.includes(node.key)?old.filter(x=>x!==node.key):[...old,node.key])} aria-label={(open?'Contraer ':'Expandir ')+node.name} aria-expanded={open} className="grid h-7 w-7 shrink-0 place-items-center rounded-lg transition-colors duration-200 hover:bg-slate-200">
-      <motion.span className="block" animate={{rotate:open?0:-90}} transition={{duration:0.2,ease:'easeInOut'}}><ChevronDown className="h-4 w-4"/></motion.span>
+    {expandable?<button type="button" onClick={()=>setCollapsed(old=>old.includes(node.key)?old.filter(x=>x!==node.key):[...old,node.key])} aria-label={(open?'Contraer ':'Expandir ')+node.name} aria-expanded={open} className="grid h-7 w-7 shrink-0 place-items-center rounded-lg transition-colors duration-200 motion-reduce:transition-none hover:bg-slate-200">
+      <motion.span className="block" animate={{rotate:open?0:-90}} transition={{duration:reducedMotion?0:0.2,ease:'easeInOut'}}><ChevronDown className="h-4 w-4"/></motion.span>
     </button>:<span className="w-7 shrink-0"/>}
     <div className="min-w-0 flex-1"><div className="truncate text-[13px] text-slate-900">{node.person?.id?String(node.person.id).padStart(2,'0')+' · ':''}{node.name}</div>
      {node.person?.superior&&<div className="text-[10px] font-normal text-slate-400">Superior: {node.person.superior}</div>}
@@ -139,11 +140,11 @@ export default function CommercialPersonnel(){
     {expandable&&<span className="whitespace-nowrap text-[11px] font-normal text-slate-400">{countSellers(node)} vendedores</span>}
    </motion.div>
    <AnimatePresence initial={false}>
-    {open&&expandable&&<motion.div key="children" initial={{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} transition={{duration:0.2,ease:[0.4,0,0.2,1]}} className="overflow-hidden">{node.children.map(child=>renderNode(child,depth+1))}</motion.div>}
+    {open&&expandable&&<motion.div key="children" initial={{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} transition={{duration:reducedMotion?0:0.2,ease:[0.4,0,0.2,1]}} className="overflow-hidden">{node.children.map(child=>renderNode(child,depth+1))}</motion.div>}
    </AnimatePresence>
   </div>;
  };
- return <motion.section initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:0.2,ease:'easeOut'}} className="mt-6 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,.035)]">
+ return <motion.section initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:reducedMotion?0:0.2,ease:'easeOut'}} className="mt-6 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,.035)]">
   <div className="flex flex-wrap items-start justify-between gap-5 border-b border-slate-200 p-6">
    <div>
     <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">Personal comercial</h2>
@@ -156,7 +157,7 @@ export default function CommercialPersonnel(){
     {preview&&<button type="button" disabled={busy} onClick={()=>void save()} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold text-white disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar personal</button>}
    </div>
   </div>
-  <AnimatePresence initial={false}>{preview&&<motion.div initial={{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} transition={{duration:0.2}} className="overflow-hidden border-b border-blue-100 bg-blue-50 px-6 py-3 text-xs font-medium text-blue-700">Vista previa · {preview.length} personas · Guardá para reemplazar la información vigente.</motion.div>}</AnimatePresence>
+  <AnimatePresence initial={false}>{preview&&<motion.div initial={{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} transition={{duration:reducedMotion?0:0.2}} className="overflow-hidden border-b border-blue-100 bg-blue-50 px-6 py-3 text-xs font-medium text-blue-700">Vista previa · {preview.length} personas · Guardá para reemplazar la información vigente.</motion.div>}</AnimatePresence>
   <div className="grid grid-cols-2 gap-0 border-b border-slate-200 sm:grid-cols-4">
    {[['Sucursales',new Set(current.map(p=>branchKey(p.branch))).size],['Gerentes',current.filter(p=>p.role==='GERENTE').length],['Supervisores',current.filter(p=>p.role==='SUPERVISOR').length],['Vendedores',current.filter(p=>p.role==='VENDEDOR').length]].map(([label,value])=>
      <div key={label} className="border-r border-slate-100 px-6 py-4"><div className="text-[10px] uppercase text-slate-400">{label}</div><div className="mt-1 text-2xl font-semibold text-slate-950">{value}</div></div>)}
@@ -165,8 +166,8 @@ export default function CommercialPersonnel(){
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar nombre, ID o superior..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
    <RedcomSelect aria-label="Sucursal" value={branch} onValueChange={setBranch} options={[{value:'all',label:'Todas las sucursales'},...[...new Set(current.map(p=>p.branch))].map(value=>({value,label:value}))]} className="h-10 min-w-[190px] w-full rounded-xl text-xs sm:w-auto" />
    <div className="inline-flex h-10 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
-    <button type="button" onClick={()=>setDisplayMode('hierarchy')} aria-pressed={displayMode==='hierarchy'} className={'inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors duration-200 '+(displayMode==='hierarchy'?'bg-slate-950 text-white':'text-slate-600 hover:bg-white')}><Network className="h-3.5 w-3.5"/>Jerarquía</button>
-    <button type="button" onClick={()=>setDisplayMode('table')} aria-pressed={displayMode==='table'} className={'inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors duration-200 '+(displayMode==='table'?'bg-slate-950 text-white':'text-slate-600 hover:bg-white')}><LayoutList className="h-3.5 w-3.5"/>Tabla</button>
+    <button type="button" onClick={()=>setDisplayMode('hierarchy')} aria-pressed={displayMode==='hierarchy'} className={'inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors duration-200 motion-reduce:transition-none '+(displayMode==='hierarchy'?'bg-slate-950 text-white':'text-slate-600 hover:bg-white')}><Network className="h-3.5 w-3.5"/>Jerarquía</button>
+    <button type="button" onClick={()=>setDisplayMode('table')} aria-pressed={displayMode==='table'} className={'inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors duration-200 motion-reduce:transition-none '+(displayMode==='table'?'bg-slate-950 text-white':'text-slate-600 hover:bg-white')}><LayoutList className="h-3.5 w-3.5"/>Tabla</button>
    </div>
    {displayMode==='hierarchy'&&<button type="button" onClick={()=>setCollapsed([])} className="h-10 rounded-xl bg-slate-100 px-3 text-xs font-semibold text-slate-700">Expandir todo</button>}
    {displayMode==='hierarchy'&&<button type="button" onClick={()=>setCollapsed(trees.flatMap(b=>[b.key,...b.children.flatMap(m=>[m.key,...m.children.map(s=>s.key)])]))} className="h-10 rounded-xl border border-slate-200 px-3 text-xs font-semibold">Contraer todo</button>}
