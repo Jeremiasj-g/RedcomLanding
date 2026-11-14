@@ -1,11 +1,11 @@
 'use client';
 
 import {useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
-import {CalendarDays,ChevronDown,ChevronLeft,ChevronRight,FileSpreadsheet,Filter,Loader2,Save,Search,Upload,X} from 'lucide-react';
+import {ChevronDown,FileSpreadsheet,Filter,Loader2,Save,Search,Upload,X} from 'lucide-react';
 import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
 import {SIGO_REASONS} from '@/lib/categorySigoReasons';
 import {RedcomSelect} from '@/components/ui/redcom-select';
-import {Popover,PopoverTrigger,PopoverContent} from '@/components/ui/popover';
+import CategoryMonthPicker from '@/components/category-panel/CategoryMonthPicker';
 import {ColumnFilterPopup} from '@/components/category-panel/CategoryColumnFilters';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
@@ -15,29 +15,6 @@ type Person={id:number;name:string;branch:string;role:string;superior:string;for
 type CorrectionField='corrected_start'|'corrected_end'|'reason'|'comments';
 const nextMonth=(month:string)=>{const [year,m]=month.split('-').map(Number);const d=new Date(year,m,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
 const currentMonth=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
-
-const MONTH_NAMES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-function SigoMonthPicker({value,onChange}:{value:string;onChange:(month:string)=>void}){
- const [open,setOpen]=useState(false);
- const [year,setYear]=useState(()=>Number(value.slice(0,4))||new Date().getFullYear());
- useEffect(()=>{if(open)setYear(Number(value.slice(0,4))||new Date().getFullYear());},[open,value]);
- const monthNumber=Number(value.slice(5,7));
- const display=monthNumber>=1&&monthNumber<=12?MONTH_NAMES[monthNumber-1]+' de '+value.slice(0,4):'Seleccionar mes';
- return <Popover open={open} onOpenChange={setOpen}>
-  <PopoverTrigger asChild><button type="button" aria-label="Mes del histórico" className="inline-flex h-10 min-w-[180px] items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 transition-colors duration-200 motion-reduce:transition-none hover:border-slate-300"><span>{display}</span><CalendarDays className="h-4 w-4 text-slate-500"/></button></PopoverTrigger>
-  <PopoverContent align="end" sideOffset={8} className="z-[220] w-[288px] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_45px_rgba(15,23,42,.14)]">
-   <div className="mb-3 flex items-center justify-between">
-    <button type="button" aria-label="Año anterior" onClick={()=>setYear(n=>n-1)} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition-colors duration-200 motion-reduce:transition-none hover:bg-slate-100"><ChevronLeft className="h-4 w-4"/></button>
-    <span className="text-sm font-semibold tabular-nums text-slate-900">{year}</span>
-    <button type="button" aria-label="Año siguiente" onClick={()=>setYear(n=>n+1)} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition-colors duration-200 motion-reduce:transition-none hover:bg-slate-100"><ChevronRight className="h-4 w-4"/></button>
-   </div>
-   <div className="grid grid-cols-3 gap-1">{MONTH_NAMES.map((label,index)=>{
-    const month=year+'-'+String(index+1).padStart(2,'0'),active=month===value;
-    return <button key={label} type="button" aria-pressed={active} onClick={()=>{onChange(month);setOpen(false);}} className={'rounded-lg px-2 py-2.5 text-xs font-medium transition-colors duration-200 '+(active?'bg-slate-950 text-white':'text-slate-700 hover:bg-slate-100')}>{label.slice(0,3)}</button>;
-   })}</div>
-  </PopoverContent>
- </Popover>;
-}
 
 async function loadSigoRows(month:string,branchScope?:{branch:string;force:string}):Promise<Daily[]>{
  const rows:Daily[]=[];let offset=0;
@@ -593,7 +570,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4">
    {!branchScope&&<RedcomSelect aria-label="Fuerza de venta" value={selectedForce} onValueChange={value=>{setSelectedForce(value);setAverageMonth('');setColumnFilters({});}} options={[{value:'all',label:'Todas las fuerzas de venta'},...forces.map(force=>({value:force,label:force}))]} className="h-10 min-w-[205px] w-auto rounded-xl text-xs"/>}
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
-   <div className="flex items-center gap-2 text-xs text-slate-600"><span>Mes</span><SigoMonthPicker value={selectedMonth} onChange={value=>{setSelectedMonth(value);setAverageMonth('');setColumnFilters({});}}/></div>
+   <div className="flex items-center gap-2 text-xs text-slate-600"><span>Mes</span><CategoryMonthPicker label="Mes del histórico" value={selectedMonth} onChange={value=>{setSelectedMonth(value);setAverageMonth('');setColumnFilters({});}}/></div>
   </div>
   {Object.values(columnFilters).some(values=>values.length>0)&&<div className="flex items-center justify-between border-b border-blue-100 bg-blue-50 px-5 py-2 text-[11px] font-medium text-blue-700"><span><Filter className="mr-1 inline h-3.5 w-3.5"/>Filtros activos · {shown.length} filas</span><button type="button" onClick={clearFilters} className="rounded-lg px-2 py-1 hover:bg-blue-100">Limpiar todos</button></div>}
   {activeColumn&&<ColumnFilterPopup
