@@ -26,6 +26,7 @@ import { useRouter } from 'next/navigation';
 
 import DualSpinner from '@/components/ui/DualSpinner';
 import { RedcomSelect } from '@/components/ui/redcom-select';
+import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
 import { useMe } from '@/hooks/useMe';
 import {
   fetchCategoryPanelCurrent,
@@ -1348,6 +1349,24 @@ function CategoryScaleTab() {
   const [editingGateId, setEditingGateId] = useState<number | 'new' | null>(null);
   const [gateDraft, setGateDraft] = useState({ label: '', valueText: '', sortOrder: 100 });
   const [savingRow, setSavingRow] = useState(false);
+  const [deleteScaleTarget,setDeleteScaleTarget]=useState<{kind:'metric'|'gate';id:number;label:string}|null>(null);
+  const [deletingScale,setDeletingScale]=useState(false);
+  const confirmScaleDeletion=async()=>{
+    if(!deleteScaleTarget||deletingScale)return;
+    setDeletingScale(true);
+    try{
+      if(deleteScaleTarget.kind==='metric'){
+        await deleteCategoryScaleMetric(deleteScaleTarget.id);
+        setMetrics(current=>current.filter(item=>item.id!==deleteScaleTarget.id));
+      }else{
+        await deleteCategoryScaleGate(deleteScaleTarget.id);
+        setGates(current=>current.filter(item=>item.id!==deleteScaleTarget.id));
+      }
+      setDeleteScaleTarget(null);
+      notify.success('Elemento eliminado.');
+    }catch(error){notify.error(errorMessage(error,'No se pudo eliminar el elemento.'));}
+    finally{setDeletingScale(false);}
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1523,9 +1542,7 @@ function CategoryScaleTab() {
               <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
                 {settings.title}
               </h2>
-              <p className="mt-1 text-[12px] leading-5 text-slate-500">
-                Adaptado del cuadro preventa. Todo puede modificarse sin tocar código.
-              </p>
+              
             </div>
 
             <div className="flex flex-wrap items-end gap-2">
@@ -1603,11 +1620,7 @@ function CategoryScaleTab() {
 
         <div className="px-5 py-5 sm:px-6">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <div className="mt-1 text-[11px] text-slate-500">
-                Senior · Semi Senior · Junior · Plan de Mejora
-              </div>
-            </div>
+            <span className="text-sm font-medium text-slate-700">Indicadores y puntajes</span>
             <button
               type="button"
               onClick={beginNewMetric}
@@ -1618,8 +1631,8 @@ function CategoryScaleTab() {
             </button>
           </div>
 
-          <div className="overflow-x-auto rounded-[18px] border border-slate-200">
-            <table className="w-full min-w-[1250px] text-left">
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="w-full min-w-[960px] table-fixed text-left">
               <thead className="bg-[#f7f8fa] text-[9px] uppercase tracking-[0.08em] text-slate-400">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Sección</th>
@@ -1664,10 +1677,10 @@ function CategoryScaleTab() {
                       key={metric.id}
                       className="border-t border-slate-100 text-[11px] text-slate-600"
                     >
-                      <td className="px-4 py-3.5 text-[10px] font-medium text-slate-400">
+                      <td className="break-words px-2 py-3 text-[11px] font-normal text-slate-500">
                         {metric.sectionName}
                       </td>
-                      <td className="px-4 py-3.5 font-semibold text-slate-800">
+                      <td className="break-words px-2 py-3 font-medium text-slate-800">
                         {metric.metricName}
                       </td>
                       <ScaleValueCell
@@ -1690,7 +1703,7 @@ function CategoryScaleTab() {
                         value={metric.improvementValue}
                         valueType={metric.valueType}
                       />
-                      <td className="px-4 py-3.5 text-right font-semibold text-slate-800">
+                      <td className="px-2 py-3 text-right font-medium text-slate-800">
                         {metric.weightPercent}%
                       </td>
                       <td className="px-4 py-3.5">
@@ -1704,21 +1717,7 @@ function CategoryScaleTab() {
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
-                              void (async () => {
-                                if (!window.confirm('¿Eliminar esta métrica?')) return;
-                                try {
-                                  await deleteCategoryScaleMetric(metric.id);
-                                  setMetrics((current) =>
-                                    current.filter((item) => item.id !== metric.id),
-                                  );
-                                } catch (error) {
-                                  notify.error(
-                                    errorMessage(error, 'No se pudo eliminar la métrica.'),
-                                  );
-                                }
-                              })()
-                            }
+                            onClick={() => setDeleteScaleTarget({kind:'metric',id:metric.id,label:metric.metricName})}
                             className="grid h-8 w-8 place-items-center rounded-xl text-slate-300 hover:bg-rose-50 hover:text-rose-600"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -1795,21 +1794,7 @@ function CategoryScaleTab() {
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      void (async () => {
-                        if (!window.confirm('¿Eliminar este requisito?')) return;
-                        try {
-                          await deleteCategoryScaleGate(gate.id);
-                          setGates((current) =>
-                            current.filter((item) => item.id !== gate.id),
-                          );
-                        } catch (error) {
-                          notify.error(
-                            errorMessage(error, 'No se pudo eliminar el requisito.'),
-                          );
-                        }
-                      })()
-                    }
+                    onClick={() => setDeleteScaleTarget({kind:'gate',id:gate.id,label:gate.label})}
                     className="grid h-8 w-8 place-items-center rounded-xl text-slate-300 hover:bg-rose-50 hover:text-rose-600"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -1822,6 +1807,18 @@ function CategoryScaleTab() {
       </section>
 
       <SellerConsiderations metrics={metrics} gates={gates} />
+      <AlertDialog open={deleteScaleTarget!==null} onOpenChange={open=>{if(!open&&!deletingScale)setDeleteScaleTarget(null);}}>
+        <AlertDialogContent className="w-[calc(100%-32px)] max-w-[430px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,.18)]">
+          <AlertDialogHeader className="space-y-2 p-6 text-left">
+            <AlertDialogTitle className="text-lg font-semibold text-slate-950">¿Eliminar {deleteScaleTarget?.kind==='metric'?'métrica':'requisito'}?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-6 text-slate-500">Se eliminará «{deleteScaleTarget?.label}» del Cuadro de escalas. Esta acción no se puede deshacer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 border-t border-slate-100 px-6 py-4">
+            <AlertDialogCancel disabled={deletingScale} className="mt-0 flex-1 rounded-xl border-slate-200 bg-white text-slate-700 sm:flex-none">Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={deletingScale} onClick={event=>{event.preventDefault();void confirmScaleDeletion();}} className="flex-1 rounded-xl bg-rose-600 text-white hover:bg-rose-700 sm:flex-none">{deletingScale?'Eliminando…':'Eliminar'}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1912,25 +1909,12 @@ function ScaleEditRow({
       <td className="px-2 py-2">{textField('sectionName')}</td>
       <td className="px-2 py-2">
         {textField('metricName')}
-        <select
+        <RedcomSelect aria-label="Tipo de valor"
           value={draft.valueType}
-          onChange={(event) =>
-            setDraft((current) =>
-              current
-                ? {
-                    ...current,
-                    valueType: event.target.value as CategoryScaleValueType,
-                  }
-                : current,
-            )
-          }
-          className="mt-1.5 h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-[9px] text-slate-500 outline-none"
-        >
-          <option value="number">Número</option>
-          <option value="percent">Porcentaje</option>
-          <option value="count">Cantidad</option>
-          <option value="currency">Importe</option>
-        </select>
+          onValueChange={value=>setDraft(current=>current?{...current,valueType:value as CategoryScaleValueType}:current)}
+          options={[{value:'number',label:'Número'},{value:'percent',label:'Porcentaje'},{value:'count',label:'Cantidad'},{value:'currency',label:'Importe'}]}
+          className="mt-1.5 h-9 w-full rounded-lg px-2 text-[11px]"
+        />
       </td>
       <td className="bg-emerald-900/10 px-2 py-2">{numberField('seniorValue')}</td>
       <td className="bg-emerald-100 px-2 py-2">{numberField('semiSeniorValue')}</td>
@@ -1993,7 +1977,7 @@ function ScaleValueCell({
   }
 
   return (
-    <td className={`px-4 py-3.5 text-center text-[13px] font-semibold tabular-nums ${classes[tone]}`}>
+    <td className={`break-words px-2 py-3 text-center text-[11px] font-medium tabular-nums ${classes[tone]}`}>
       {formatted}
     </td>
   );
