@@ -37,5 +37,7 @@ Estas reglas aplican a todo el repositorio (pantallas, modales, componentes y ca
 1. Leer este archivo y revisar los componentes y convenciones del módulo antes de editar.
 2. Identificar el alcance funcional y la rama indicada por el usuario. **No cambiar de rama ni subir a `main` por iniciativa propia.**
 3. Aplicar el cambio más pequeño y reutilizable posible; evitar dependencias y código duplicado.
-4. Verificar tipos, lint y build cuando el entorno lo permita; revisar responsive, accesibilidad y estados interactivos.
-5. Reportar qué se modificó, en qué rama/commit y qué validaciones se ejecutaron realmente. No afirmar que un despliegue o prueba pasó sin comprobarlo.
+4. Completar y revisar **todos los cambios del pedido antes de publicar**. Agruparlos en **un único commit y un único push por pedido y rama**; no crear un commit por archivo o corrección intermedia. Evitar commits vacíos, pushes de prueba y despliegues innecesarios.
+5. Verificar tipos, lint y build cuando el entorno lo permita; revisar responsive, accesibilidad y estados interactivos **antes del único push**. Si hace falta corregir algo, hacerlo antes de publicar.
+6. En `main`, extremar el cuidado con los pushes porque pueden disparar builds de Vercel y consumir cuota. Trabajar en ramas de pruebas cuando corresponda, pero comprobar su configuración de despliegue: estar fuera de `main` no garantiza que Vercel no genere previews.
+7. Reportar qué se modificó, en qué rama/commit y qué validaciones se ejecutaron realmente. No afirmar que un despliegue o prueba pasó sin comprobarlo.
