@@ -208,10 +208,8 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
  const [localMonth,setLocalMonth]=useState(currentMonth);
  const selectedMonth=externalMonth||localMonth;
  const setSelectedMonth=(next:string)=>{setLocalMonth(next);onMonthChange?.(next);};
- const [date,setDate]=useState('all');
  const [averageMonth,setAverageMonth]=useState('');
- const [view,setView]=useState<'daily'|'averages'|'id-history'>('daily');
- const [historySellerId,setHistorySellerId]=useState<string>('');
+ const [view,setView]=useState<'daily'|'averages'>('daily');
  const [averageFilters,setAverageFilters]=useState<Record<string,string[]>>({});
  const [averageFilterColumn,setAverageFilterColumn]=useState<string|null>(null);
  const [averageFilterSearch,setAverageFilterSearch]=useState('');
@@ -270,7 +268,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
  },[personnel,selectedBranch,selectedForce]);
  const discardUpload=()=>{
   setFiles([]);setPreview(null);setMissingNames([]);setDuplicateScopes([]);setConfirmReplace(false);
-  setDate('all');setColumnFilters({});setActiveColumn(null);
+  setColumnFilters({});setActiveColumn(null);
  };
  const upload=async(nextFiles:File[])=>{
   setFiles(nextFiles);setPreview(null);setMissingNames([]);setDuplicateScopes([]);setConfirmReplace(false);
@@ -295,7 +293,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
     unique.set(key,item);
    }
    const combined=[...unique.values()];
-   setPreview(combined);setDate('all');
+   setPreview(combined);
    if(new Set(combined.map(p=>p.branch)).size===1)setSelectedBranch(combined[0].branch);
    setSelectedForce('all');
    const scopes=[...new Map(combined.map(p=>[p.visit_date+'|'+p.branch+'|'+p.sales_force,{visit_date:p.visit_date,branch:p.branch,sales_force:p.sales_force}])).values()];
@@ -423,7 +421,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    default:return '';
   }
  };
- const baseRows=useMemo(()=>scopedData.filter(item=>(date==='all'||item.visit_date===date)&&(!deferredQuery||norm(item.seller_name).includes(norm(deferredQuery)))),[scopedData,date,deferredQuery]);
+ const baseRows=useMemo(()=>scopedData.filter(item=>!deferredQuery||norm(item.seller_name).includes(norm(deferredQuery))),[scopedData,deferredQuery]);
  const matches=(item:Daily,key:string)=>!columnFilters[key]?.length||columnFilters[key].includes(cellValue(item,key));
  const shown=useMemo(()=>baseRows.filter(item=>columns.every(col=>matches(item,col.key))).sort((a,b)=>{
   if(sortColumn){
@@ -435,7 +433,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   return a.visit_date.localeCompare(b.visit_date)||a.seller_name.localeCompare(b.seller_name,'es');
  }),[baseRows,columnFilters,sortColumn,sortDirection,sellerDetails]);
  const visibleRows=useMemo(()=>shown.slice(0,visibleLimit),[shown,visibleLimit]);
- useEffect(()=>{setVisibleLimit(120);},[date,selectedBranch,selectedForce,deferredQuery,columnFilters,sortColumn,sortDirection]);
+ useEffect(()=>{setVisibleLimit(120);},[selectedBranch,selectedForce,deferredQuery,columnFilters,sortColumn,sortDirection]);
  const options=useMemo(()=>activeColumn?[...new Set(baseRows.filter(item=>columns.every(col=>col.key===activeColumn||matches(item,col.key))).map(item=>cellValue(item,activeColumn)))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true})):[],[activeColumn,baseRows,columnFilters,sellerDetails]);
  const visibleOptions=options.filter(value=>norm(value).includes(norm(filterSearch)));
  const selectedDraft=draftSelection??(activeColumn&&columnFilters[activeColumn]?.length?options.filter(value=>columnFilters[activeColumn].includes(value)):options);
@@ -504,11 +502,6 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   setAverageFilters(old=>({...old,[averageFilterColumn]:averageFilterDraft.length===averageOptions.length?[]:averageFilterDraft}));
   setAverageFilterColumn(null);
  };
- const historyIds=[...new Set(scopedData.map(item=>item.seller_id).filter((id):id is number=>id!==null))].sort((a,b)=>a-b);
- const activeHistoryId=historyIds.includes(Number(historySellerId))?Number(historySellerId):historyIds[0];
- const idHistoryRows=scopedData.filter(item=>item.seller_id===activeHistoryId&&(effectiveMonth?item.visit_date.startsWith(effectiveMonth):true)).sort((a,b)=>a.visit_date.localeCompare(b.visit_date));
- const idHistoryDurations=idHistoryRows.map(item=>durationSeconds(effectiveStart(item),effectiveEnd(item))).filter((seconds):seconds is number=>seconds!==null);
- const idHistoryAverage=idHistoryDurations.length?formatDuration(Math.round(idHistoryDurations.reduce((sum,value)=>sum+value,0)/idHistoryDurations.length)):'—';
  const monthLabel=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'));
  const datesInPreview=[...new Set(preview?.map(item=>item.visit_date)??[])];
  return <div className="mt-6">
@@ -524,7 +517,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
      obera:'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-800',
     };
     return <button key={team.id} type="button" aria-pressed={active}
-     onClick={()=>{setSelectedBranch(team.branch);setSelectedForce(team.force);setDate('all');setAverageMonth('');setColumnFilters({});setActiveColumn(null);setSortColumn(null);}}
+     onClick={()=>{setSelectedBranch(team.branch);setSelectedForce(team.force);setAverageMonth('');setColumnFilters({});setActiveColumn(null);setSortColumn(null);}}
      className={'flex min-h-[88px] flex-col justify-center gap-1 rounded-2xl border px-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md '+compactColor[team.id]+(active?' ring-2 ring-offset-2 ring-current shadow-sm':'')}>
       <span className="text-sm font-semibold">{team.name}</span>
       <span className="text-[11px] opacity-70">{total} registros históricos</span>
@@ -568,15 +561,13 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   <div className="sticky top-[72px] z-30 flex flex-wrap gap-2 border-b border-slate-200 bg-[#fafbfc] px-5 py-3" role="tablist" aria-label="Vistas de Horarios SIGO">
    <button type="button" role="tab" aria-selected={view==='daily'} onClick={()=>{setView('daily');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='daily'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Detalle diario</button>
    <button type="button" role="tab" aria-selected={view==='averages'} onClick={()=>{setView('averages');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='averages'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Promedios mensuales</button>
-   <button type="button" role="tab" aria-selected={view==='id-history'} onClick={()=>{setView('id-history');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='id-history'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Análisis por ID</button>
   </div>
   {view==='daily'&&<>
   <div className="grid grid-cols-2 border-b border-slate-200 md:grid-cols-4">{[['Días registrados',days.length],['Clientes asignados',totals.assigned],['Visitados',totals.visited],['Sin visitar',totals.missing]].map(([label,n])=><div key={label} className="border-r border-slate-100 px-6 py-4"><p className="text-[10px] uppercase text-slate-400">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{Number(n).toLocaleString('es-AR')}</p></div>)}</div>
   <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4">
-   {!branchScope&&<RedcomSelect aria-label="Fuerza de venta" value={selectedForce} onValueChange={value=>{setSelectedForce(value);setDate('all');setAverageMonth('');setColumnFilters({});}} options={[{value:'all',label:'Todas las fuerzas de venta'},...forces.map(force=>({value:force,label:force}))]} className="h-10 min-w-[205px] w-auto rounded-xl text-xs"/>}
+   {!branchScope&&<RedcomSelect aria-label="Fuerza de venta" value={selectedForce} onValueChange={value=>{setSelectedForce(value);setAverageMonth('');setColumnFilters({});}} options={[{value:'all',label:'Todas las fuerzas de venta'},...forces.map(force=>({value:force,label:force}))]} className="h-10 min-w-[205px] w-auto rounded-xl text-xs"/>}
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
-   <label className="flex items-center gap-2 text-xs text-slate-600">Mes <input aria-label="Mes del histórico" type="month" value={selectedMonth} onChange={event=>{if(/^\d{4}-\d{2}$/.test(event.target.value)){setSelectedMonth(event.target.value);setDate('all');setAverageMonth('');setColumnFilters({});}}} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800"/></label>
-   <div className="min-w-[170px]"><RedcomSelect aria-label="Día" value={date} onValueChange={setDate} options={[{value:'all',label:'Todos los días del mes'},...days.map(day=>({value:day,label:displayDate(day)}))]} className="h-10 rounded-xl text-xs"/></div>
+   <label className="flex items-center gap-2 text-xs text-slate-600">Mes <input aria-label="Mes del histórico" type="month" value={selectedMonth} onChange={event=>{if(/^\d{4}-\d{2}$/.test(event.target.value)){setSelectedMonth(event.target.value);setAverageMonth('');setColumnFilters({});}}} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800"/></label>
   </div>
   {Object.values(columnFilters).some(values=>values.length>0)&&<div className="flex items-center justify-between border-b border-blue-100 bg-blue-50 px-5 py-2 text-[11px] font-medium text-blue-700"><span><Filter className="mr-1 inline h-3.5 w-3.5"/>Filtros activos · {shown.length} filas</span><button type="button" onClick={clearFilters} className="rounded-lg px-2 py-1 hover:bg-blue-100">Limpiar todos</button></div>}
   {activeColumn&&<ColumnFilterPopup
@@ -591,7 +582,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    onApply={applyFilter}
    onClose={closeFilter}
   />}
-  <div className="max-h-[calc(100dvh-380px)] min-h-[290px] overflow-auto overscroll-contain border-t-[3px] border-t-slate-400"><table className="w-full min-w-[1690px] text-left text-xs">
+  <div className="h-[min(78dvh,960px)] min-h-[520px] overflow-auto overscroll-contain border-t border-t-slate-200"><table className="w-full min-w-[1690px] text-left text-xs">
    <thead className="sticky top-0 z-20 bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500 shadow-[0_1px_0_#cbd5e1]"><tr>{columns.map(col=><th key={col.key} className={"px-3 py-2 font-semibold "+(col.key==='correctStart'||col.key==='supervisor'?'border-l-[3px] border-l-slate-400 ':'')}><button type="button" onClick={event=>openFilter(col.key,event.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(columnFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5 shrink-0"/></button></th>)}</tr></thead>
    <tbody>{visibleRows.map((item,i)=><tr key={item.visit_date+'|'+item.seller_name} className={(i>0&&item.visit_date!==shown[i-1].visit_date?'border-t-[3px] border-t-slate-400 ':'border-t border-t-slate-100 ')+(i%2?'bg-slate-50/40':'bg-white')}>
     <td className="whitespace-nowrap px-5 py-3 font-medium capitalize text-slate-600">{new Intl.DateTimeFormat('es-AR',{month:'long',timeZone:'UTC'}).format(new Date(item.visit_date+'T12:00:00Z'))}</td>
@@ -638,7 +629,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
       <div className="flex justify-end gap-2 border-t border-slate-100 p-3"><button type="button" onClick={()=>setAverageFilterColumn(null)} className="rounded-lg border border-slate-200 px-4 py-2">Cancelar</button><button type="button" onClick={applyAverageFilter} className="rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white">Aceptar</button></div>
      </div>
     </>}
-    <div className="max-h-[calc(100dvh-350px)] min-h-[240px] overflow-auto border-t-[3px] border-t-slate-400">
+    <div className="h-[min(78dvh,960px)] min-h-[520px] overflow-auto border-t border-t-slate-200">
      <table className="w-full min-w-[680px] text-left text-xs">
       <thead className="sticky top-0 z-20 bg-[#f5f7fa] text-[10px] font-semibold uppercase tracking-wider text-slate-500"><tr>{averageColumns.map(col=><th key={col.key} className={'px-3 py-2 '+(col.key==='supervisor'?'border-l-[3px] border-l-slate-400':'')}><button type="button" onClick={e=>openAverageFilter(col.key,e.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(averageFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5"/></button></th>)}</tr></thead>
       <tbody>{filteredAverages.map((item,index)=><tr key={item.id+'|'+item.seller} className={'border-t border-slate-100 '+(index%2?'bg-slate-50/40':'bg-white')}>
@@ -650,24 +641,6 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
      </table>
      {!filteredAverages.length&&<p className="px-6 py-12 text-center text-xs text-slate-400">No hay vendedores para mostrar con los filtros actuales.</p>}
     </div>
-  </div>}
-  {view==='id-history'&&<div className="bg-white">
-   <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 px-6 py-5">
-    <div><h3 className="text-lg font-semibold text-slate-900">Histórico del código de vendedor</h3><p className="mt-1 text-xs text-slate-500">Incluye distintos nombres que ocuparon el mismo ID durante el mes. Conserva el nombre de cada fecha.</p></div>
-    <div className="flex flex-wrap gap-2">
-     <RedcomSelect aria-label="ID del vendedor" value={activeHistoryId===undefined?'':String(activeHistoryId)} onValueChange={setHistorySellerId} options={historyIds.map(id=>({value:String(id),label:'ID '+id}))} placeholder="Sin vendedores" className="h-10 min-w-[140px] rounded-xl text-xs"/>
-     <RedcomSelect aria-label="Mes de análisis por ID" value={effectiveMonth} onValueChange={setAverageMonth} options={months.map(month=>({value:month,label:monthLabel(month)}))} placeholder="Sin meses cargados" className="h-10 min-w-[165px] rounded-xl text-xs"/>
-    </div>
-   </div>
-   <div className="border-b border-slate-100 px-6 py-4 text-xs text-slate-600">Registros: <strong>{idHistoryRows.length}</strong> · Promedio del ID: <strong>{idHistoryAverage}</strong></div>
-   <div className="overflow-x-auto"><table className="w-full min-w-[700px] text-left text-xs">
-    <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr>{['Fecha','Cod vendedor','Nombre histórico','Inicio','Fin','Horario ruta','PDVs sin visitar'].map(label=><th key={label} className="px-5 py-3">{label}</th>)}</tr></thead>
-    <tbody>{idHistoryRows.map(item=><tr key={item.visit_date+'|'+item.branch+'|'+item.sales_force+'|'+item.seller_name} className="border-t border-slate-100">
-     <td className="px-5 py-3">{displayDate(item.visit_date)}</td><td className="px-5 py-3">{item.seller_id}</td><td className="px-5 py-3 font-semibold">{item.seller_name}</td>
-     <td className="px-5 py-3">{item.first_visit??'—'}</td><td className="px-5 py-3">{item.last_visit??'—'}</td>
-     <td className="px-5 py-3"><span className={"inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums "+hoursColor(effectiveStart(item),effectiveEnd(item))}>{workedHours(effectiveStart(item),effectiveEnd(item))}</span></td><td className="px-5 py-3">{item.unvisited_clients}</td>
-    </tr>)}</tbody>
-   </table>{!idHistoryRows.length&&<p className="p-8 text-center text-xs text-slate-400">No hay registros con ID histórico para este período.</p>}</div>
   </div>}
  </section></div>;
 }
