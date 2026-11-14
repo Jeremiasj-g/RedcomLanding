@@ -4,6 +4,8 @@ import {FileSpreadsheet, Loader2, RefreshCw, Upload, X} from 'lucide-react';
 import {parseTmpSellerTotals,readTmpFileMonth, type CategoryPanelRow} from '@/lib/categoryPanelExcel';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
+import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
+import {RedcomSearchableSelect} from '@/components/ui/redcom-select';
 
 type TmpSeller=Awaited<ReturnType<typeof parseTmpSellerTotals>>[number];
 const money=new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'});
@@ -17,6 +19,7 @@ export default function SingleSellerTmpUpdate({
  const [chosen,setChosen]=useState('');
  const [reading,setReading]=useState(false);
  const [saving,setSaving]=useState(false);
+ const [confirmOpen,setConfirmOpen]=useState(false);
  const selected=list.find(s=>s.branchKey+':'+s.sellerId===chosen);
  const existing=selected?savedRows.find(r=>r.branchKey===selected.branchKey&&r.sellerId===selected.sellerId):undefined;
  const clear=()=>{setFile(null);setList([]);setChosen('');};
@@ -36,7 +39,6 @@ export default function SingleSellerTmpUpdate({
  }
  async function confirm(){
   if(!selected||!existing||saving)return;
-  if(!window.confirm(`¿Actualizar la facturación solo de ${selected.sellerName} (ID ${selected.sellerId})? Los demás vendedores no se modificarán.`))return;
   try{
    setSaving(true);
    const {error}=await supabase.rpc('admin_update_category_month_seller',{
@@ -46,7 +48,7 @@ export default function SingleSellerTmpUpdate({
    if(error)throw error;
    onUpdated({...existing,importeFinalFacturado:Math.round(selected.amount*100)/100,
      cntFac:selected.invoices,partialUpdatedAt:new Date().toISOString(),partialUpdateSource:'tmp'});
-   clear();
+   clear();setConfirmOpen(false);
    notify.success('Facturación actualizada solo para el vendedor seleccionado.');
   }catch(e){notify.error(errorMessage(e,'No se pudo actualizar la facturación.'));}
   finally{setSaving(false);}
@@ -56,7 +58,7 @@ export default function SingleSellerTmpUpdate({
     <div>
      
      <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">Actualizar facturación de un vendedor</h2>
-     <p className="mt-1 text-xs leading-5 text-slate-500">Suma todos sus períodos y actualiza solo Importe Final Facturado y Cnt.Fac., sin tocar visitas ni otros vendedores.</p>
+     
     </div>
     <div className="flex flex-wrap items-center gap-2">
      <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50">
@@ -72,20 +74,20 @@ export default function SingleSellerTmpUpdate({
    </div>
    {list.length>0&&<div className="mt-5 border-t border-slate-200 pt-4">
     {list.length>1&&<p className="mb-2 text-xs font-medium text-amber-700">El archivo contiene {num.format(list.length)} vendedores. Seleccioná uno: solamente ese será actualizado.</p>}
-    <select value={chosen} onChange={e=>setChosen(e.target.value)}
-      className="h-11 w-full max-w-[630px] rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 outline-none focus:border-blue-400">
-      <option value="">Seleccionar vendedor por sucursal e ID</option>
-      {list.map(s=><option key={s.branchKey+':'+s.sellerId} value={s.branchKey+':'+s.sellerId}>
-       {s.branchLabel} · ID {s.sellerId} · {s.sellerName} · {s.periods} período(s)
-      </option>)}
-    </select>
+    <RedcomSearchableSelect aria-label="Vendedor a actualizar"
+      value={chosen} onValueChange={setChosen}
+      placeholder="Seleccionar vendedor por sucursal e ID"
+      searchPlaceholder="Buscar nombre o ID"
+      options={list.map(item=>({value:item.branchKey+':'+item.sellerId,label:item.branchLabel+' · ID '+item.sellerId+' · '+item.sellerName+' · '+item.periods+' período(s)'}))}
+      className="h-11 w-full max-w-[630px] rounded-xl text-xs"
+    />
     {selected&&<div className="mt-4">
      <div className="mb-3 text-sm font-semibold text-slate-900">{selected.sellerName}
       <span className="ml-2 font-normal text-slate-500">· ID {selected.sellerId} · {selected.branchLabel} · {selected.periods} fila(s) acumuladas</span>
      </div>
      {existing?<><div className="overflow-x-auto rounded-xl border border-slate-200">
-      <table className="w-full min-w-[580px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
-       <tr><th className="px-4 py-3">Dato</th><th className="px-4 py-3">Guardado</th><th className="px-4 py-3">Nuevo (suma de períodos)</th></tr></thead>
+      <table className="w-full table-fixed text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+       <tr><th className="break-words px-2 py-3">Dato</th><th className="px-4 py-3">Guardado</th><th className="px-4 py-3">Nuevo (suma de períodos)</th></tr></thead>
        <tbody>
         <tr className="border-t border-slate-100"><td className="px-4 py-3">Importe Final Facturado</td><td className="px-4 py-3 text-slate-500">{money.format(existing.importeFinalFacturado)}</td><td className="px-4 py-3 font-semibold">{money.format(selected.amount)}</td></tr>
         <tr className="border-t border-slate-100"><td className="px-4 py-3">Cnt.Fac.</td><td className="px-4 py-3 text-slate-500">{num.format(existing.cntFac)}</td><td className="px-4 py-3 font-semibold">{num.format(selected.invoices)}</td></tr>
@@ -93,12 +95,24 @@ export default function SingleSellerTmpUpdate({
      </div>
      <div className="mt-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
       <p className="text-[11px] text-slate-500">Las visitas de este vendedor y los demás registros permanecerán sin cambios.</p>
-      <button type="button" onClick={()=>void confirm()} disabled={saving}
-       className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+      <button type="button" onClick={()=>setConfirmOpen(true)} disabled={saving}
+       className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
        {saving?<Loader2 className="h-4 w-4 animate-spin"/>:<RefreshCw className="h-4 w-4"/>}Confirmar actualización
       </button>
      </div></>:<p className="mt-2 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800">Este vendedor no está en los KPIs guardados; no se puede modificar con una importación parcial.</p>}
     </div>}
    </div>}
+  <AlertDialog open={confirmOpen} onOpenChange={open=>{if(!saving)setConfirmOpen(open);}}>
+    <AlertDialogContent className="w-[calc(100%-32px)] max-w-[440px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,.18)]">
+     <AlertDialogHeader className="space-y-2 p-6 text-left">
+      <AlertDialogTitle className="text-lg font-semibold text-slate-950">¿Actualizar facturación?</AlertDialogTitle>
+      <AlertDialogDescription className="text-sm leading-6 text-slate-500">Solo se actualizarán Importe Final Facturado y Cnt.Fac. del vendedor seleccionado. Los demás registros permanecerán iguales. Vendedor: {selected?.sellerName} (ID {selected?.sellerId}).</AlertDialogDescription>
+     </AlertDialogHeader>
+     <AlertDialogFooter className="flex-row gap-2 border-t border-slate-100 px-6 py-4">
+      <AlertDialogCancel disabled={saving} className="mt-0 flex-1 rounded-xl border-slate-200 sm:flex-none">Cancelar</AlertDialogCancel>
+      <AlertDialogAction disabled={saving} onClick={event=>{event.preventDefault();void confirm();}} className="flex-1 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 sm:flex-none">{saving?'Guardando…':'Confirmar'}</AlertDialogAction>
+     </AlertDialogFooter>
+    </AlertDialogContent>
+   </AlertDialog>
  </section>;
 }
