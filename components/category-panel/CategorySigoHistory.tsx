@@ -1,10 +1,11 @@
 'use client';
 
 import {useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
-import {CalendarDays,ChevronDown,FileSpreadsheet,Filter,Loader2,Save,Search,Upload,X} from 'lucide-react';
+import {CalendarDays,ChevronDown,ChevronLeft,ChevronRight,FileSpreadsheet,Filter,Loader2,Save,Search,Upload,X} from 'lucide-react';
 import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
 import {SIGO_REASONS} from '@/lib/categorySigoReasons';
 import {RedcomSelect} from '@/components/ui/redcom-select';
+import {Popover,PopoverTrigger,PopoverContent} from '@/components/ui/popover';
 import {ColumnFilterPopup} from '@/components/category-panel/CategoryColumnFilters';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
@@ -14,6 +15,30 @@ type Person={id:number;name:string;branch:string;role:string;superior:string;for
 type CorrectionField='corrected_start'|'corrected_end'|'reason'|'comments';
 const nextMonth=(month:string)=>{const [year,m]=month.split('-').map(Number);const d=new Date(year,m,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
 const currentMonth=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
+
+const MONTH_NAMES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function SigoMonthPicker({value,onChange}:{value:string;onChange:(month:string)=>void}){
+ const [open,setOpen]=useState(false);
+ const [year,setYear]=useState(()=>Number(value.slice(0,4))||new Date().getFullYear());
+ useEffect(()=>{if(open)setYear(Number(value.slice(0,4))||new Date().getFullYear());},[open,value]);
+ const monthNumber=Number(value.slice(5,7));
+ const display=monthNumber>=1&&monthNumber<=12?MONTH_NAMES[monthNumber-1]+' de '+value.slice(0,4):'Seleccionar mes';
+ return <Popover open={open} onOpenChange={setOpen}>
+  <PopoverTrigger asChild><button type="button" aria-label="Mes del histórico" className="inline-flex h-10 min-w-[180px] items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 transition-colors duration-200 hover:border-slate-300"><span>{display}</span><CalendarDays className="h-4 w-4 text-slate-500"/></button></PopoverTrigger>
+  <PopoverContent align="end" sideOffset={8} className="z-[220] w-[288px] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_45px_rgba(15,23,42,.14)]">
+   <div className="mb-3 flex items-center justify-between">
+    <button type="button" aria-label="Año anterior" onClick={()=>setYear(n=>n-1)} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition-colors duration-200 hover:bg-slate-100"><ChevronLeft className="h-4 w-4"/></button>
+    <span className="text-sm font-semibold tabular-nums text-slate-900">{year}</span>
+    <button type="button" aria-label="Año siguiente" onClick={()=>setYear(n=>n+1)} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition-colors duration-200 hover:bg-slate-100"><ChevronRight className="h-4 w-4"/></button>
+   </div>
+   <div className="grid grid-cols-3 gap-1">{MONTH_NAMES.map((label,index)=>{
+    const month=year+'-'+String(index+1).padStart(2,'0'),active=month===value;
+    return <button key={label} type="button" aria-pressed={active} onClick={()=>{onChange(month);setOpen(false);}} className={'rounded-lg px-2 py-2.5 text-xs font-medium transition-colors duration-200 '+(active?'bg-slate-950 text-white':'text-slate-700 hover:bg-slate-100')}>{label.slice(0,3)}</button>;
+   })}</div>
+  </PopoverContent>
+ </Popover>;
+}
+
 async function loadSigoRows(month:string,branchScope?:{branch:string;force:string}):Promise<Daily[]>{
  const rows:Daily[]=[];let offset=0;
  while(true){
@@ -519,7 +544,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
     };
     return <button key={team.id} type="button" aria-pressed={active}
      onClick={()=>{setSelectedBranch(team.branch);setSelectedForce(team.force);setAverageMonth('');setColumnFilters({});setActiveColumn(null);setSortColumn(null);}}
-     className={'flex min-h-[88px] flex-col justify-center gap-1 rounded-2xl border px-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md '+compactColor[team.id]+(active?' ring-2 ring-offset-2 ring-current shadow-sm':'')}>
+     className={'flex min-h-[88px] flex-col justify-center gap-1 rounded-2xl border px-5 text-left transition-all duration-200 motion-reduce:transition-none hover:shadow-sm '+compactColor[team.id]+(active?' ring-2 ring-offset-2 ring-current shadow-sm':'')}>
       <span className="text-sm font-semibold">{team.name}</span>
       <span className="text-[11px] opacity-70">{total} registros históricos</span>
      </button>;
@@ -548,7 +573,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   </div>}
   <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,.035)]">
   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-6">
-   <div><h2 className="mt-1 text-2xl font-semibold tracking-tight">Horarios de vendedores</h2><p className="mt-1 text-xs text-slate-500">Cada archivo se procesa localmente: solo se guardan los resultados diarios, nunca el Excel.</p></div>
+   <div><h2 className="mt-1 text-2xl font-semibold tracking-tight">Horarios de vendedores</h2></div>
    <div className="flex items-center gap-2">
     {!branchScope&&<div className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700">
      <label className="inline-flex h-full cursor-pointer items-center gap-2 rounded-l-xl px-4 hover:bg-slate-50"><Upload className="h-4 w-4"/>{files.length?files.length+' Excel seleccionados':'Importar Excel SIGO'}<input type="file" multiple accept=".xlsx" className="sr-only" disabled={busy} onChange={e=>{const selected=Array.from(e.target.files??[]);e.target.value='';if(selected.length)void upload([...files,...selected]);}}/></label>
@@ -560,15 +585,15 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   {!branchScope&&files.length>0&&<div className="flex flex-wrap gap-2 border-b border-slate-200 px-6 py-3">{files.map((item,index)=><span key={item.name+'-'+index} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700">{item.name}<button type="button" aria-label={'Quitar '+item.name} disabled={busy} onClick={()=>void upload(files.filter((_,i)=>i!==index))} className="rounded text-slate-400 hover:text-red-600 disabled:opacity-40"><X className="h-3.5 w-3.5"/></button></span>)}</div>}
   {!branchScope&&preview&&<div className="border-b border-blue-100 bg-blue-50 px-6 py-3 text-xs text-blue-700"><strong>Vista previa sin guardar:</strong> {preview.length} registros de vendedor/día · {datesInPreview.map(displayDate).join(', ')}. Al guardar se actualizan solo estas fechas.</div>}
   <div className="sticky top-[72px] z-30 flex flex-wrap gap-2 border-b border-slate-200 bg-[#fafbfc] px-5 py-3" role="tablist" aria-label="Vistas de Horarios SIGO">
-   <button type="button" role="tab" aria-selected={view==='daily'} onClick={()=>{setView('daily');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='daily'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Detalle diario</button>
-   <button type="button" role="tab" aria-selected={view==='averages'} onClick={()=>{setView('averages');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 '+(view==='averages'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Promedios mensuales</button>
+   <button type="button" role="tab" aria-selected={view==='daily'} onClick={()=>{setView('daily');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-200 '+(view==='daily'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Detalle diario</button>
+   <button type="button" role="tab" aria-selected={view==='averages'} onClick={()=>{setView('averages');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-200 '+(view==='averages'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Promedios mensuales</button>
   </div>
   {view==='daily'&&<>
   <div className="grid grid-cols-2 border-b border-slate-200 md:grid-cols-4">{[['Días registrados',days.length],['Clientes asignados',totals.assigned],['Visitados',totals.visited],['Sin visitar',totals.missing]].map(([label,n])=><div key={label} className="border-r border-slate-100 px-6 py-4"><p className="text-[10px] uppercase text-slate-400">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{Number(n).toLocaleString('es-AR')}</p></div>)}</div>
   <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4">
    {!branchScope&&<RedcomSelect aria-label="Fuerza de venta" value={selectedForce} onValueChange={value=>{setSelectedForce(value);setAverageMonth('');setColumnFilters({});}} options={[{value:'all',label:'Todas las fuerzas de venta'},...forces.map(force=>({value:force,label:force}))]} className="h-10 min-w-[205px] w-auto rounded-xl text-xs"/>}
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
-   <label className="flex items-center gap-2 text-xs text-slate-600">Mes <input aria-label="Mes del histórico" type="month" value={selectedMonth} onChange={event=>{if(/^\d{4}-\d{2}$/.test(event.target.value)){setSelectedMonth(event.target.value);setAverageMonth('');setColumnFilters({});}}} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800"/></label>
+   <div className="flex items-center gap-2 text-xs text-slate-600"><span>Mes</span><SigoMonthPicker value={selectedMonth} onChange={value=>{setSelectedMonth(value);setAverageMonth('');setColumnFilters({});}}/></div>
   </div>
   {Object.values(columnFilters).some(values=>values.length>0)&&<div className="flex items-center justify-between border-b border-blue-100 bg-blue-50 px-5 py-2 text-[11px] font-medium text-blue-700"><span><Filter className="mr-1 inline h-3.5 w-3.5"/>Filtros activos · {shown.length} filas</span><button type="button" onClick={clearFilters} className="rounded-lg px-2 py-1 hover:bg-blue-100">Limpiar todos</button></div>}
   {activeColumn&&<ColumnFilterPopup
@@ -583,21 +608,21 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    onApply={applyFilter}
    onClose={closeFilter}
   />}
-  <div className="h-[min(78dvh,960px)] min-h-[520px] overflow-auto overscroll-contain border-t border-t-slate-200"><table className="w-full min-w-[1690px] text-left text-xs">
+  <div className="h-[min(78dvh,960px)] min-h-[520px] overflow-auto overscroll-contain border-t border-t-slate-200"><table className="w-full min-w-[1320px] text-left text-xs">
    <thead className="sticky top-0 z-20 bg-[#f5f7fa] text-[10px] uppercase tracking-wider text-slate-500 shadow-[0_1px_0_#cbd5e1]"><tr>{columns.map(col=><th key={col.key} className={"px-3 py-2 font-semibold "+(col.key==='correctStart'||col.key==='supervisor'?'border-l-[3px] border-l-slate-400 ':'')}><button type="button" onClick={event=>openFilter(col.key,event.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(columnFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5 shrink-0"/></button></th>)}</tr></thead>
    <tbody>{visibleRows.map((item,i)=><tr key={item.visit_date+'|'+item.seller_name} className={(i>0&&item.visit_date!==shown[i-1].visit_date?'border-t-[3px] border-t-slate-400 ':'border-t border-t-slate-100 ')+(i%2?'bg-slate-50/40':'bg-white')}>
-    <td className="whitespace-nowrap px-5 py-3 font-medium capitalize text-slate-600">{new Intl.DateTimeFormat('es-AR',{month:'long',timeZone:'UTC'}).format(new Date(item.visit_date+'T12:00:00Z'))}</td>
-    <td className="whitespace-nowrap px-5 py-3 font-semibold text-slate-600">{displayDate(item.visit_date)}</td>
-    <td className="border-l-[3px] border-l-slate-400 px-5 py-3 text-slate-700">{sellerDetails.get(norm(item.seller_name))?.supervisor??'—'}</td>
-    <td className="px-5 py-3 font-medium tabular-nums">{item.seller_id??'—'}</td>
-    <td className="px-5 py-3 font-semibold text-slate-900">{item.seller_name}</td>
-    <td className="px-5 py-3 font-medium tabular-nums">{item.first_visit??'—'}</td>
-    <td className="px-5 py-3 font-medium tabular-nums">{item.last_visit??'—'}</td>
-    <td className="px-5 py-3"><span className={"inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums "+hoursColor(effectiveStart(item),effectiveEnd(item))}>{workedHours(effectiveStart(item),effectiveEnd(item))}</span></td>
-    <td className="px-5 py-3"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
+    <td className="whitespace-nowrap px-2.5 py-2.5 font-medium capitalize text-slate-600">{new Intl.DateTimeFormat('es-AR',{month:'long',timeZone:'UTC'}).format(new Date(item.visit_date+'T12:00:00Z'))}</td>
+    <td className="whitespace-nowrap px-2.5 py-2.5 font-semibold text-slate-600">{displayDate(item.visit_date)}</td>
+    <td className="border-l-[3px] border-l-slate-400 px-2.5 py-2.5 text-slate-700">{sellerDetails.get(norm(item.seller_name))?.supervisor??'—'}</td>
+    <td className="px-2.5 py-2.5 font-medium tabular-nums">{item.seller_id??'—'}</td>
+    <td className="px-2.5 py-2.5 font-semibold text-slate-900">{item.seller_name}</td>
+    <td className="px-2.5 py-2.5 font-medium tabular-nums">{item.first_visit??'—'}</td>
+    <td className="px-2.5 py-2.5 font-medium tabular-nums">{item.last_visit??'—'}</td>
+    <td className="px-2.5 py-2.5"><span className={"inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums "+hoursColor(effectiveStart(item),effectiveEnd(item))}>{workedHours(effectiveStart(item),effectiveEnd(item))}</span></td>
+    <td className="px-2.5 py-2.5"><span className={'rounded-lg px-2 py-1 font-semibold tabular-nums '+(item.unvisited_clients?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700')}>{item.unvisited_clients}</span></td>
     <td className="border-l-[3px] border-l-slate-400 px-3 py-2"><SigoTimeInput value={item.corrected_start} disabled={!!preview||savingCorrection===correctionKey(item)||!canEditRow(item)} onSave={value=>void updateCorrection(item,{corrected_start:value})}/></td>
     <td className="px-3 py-2"><SigoTimeInput value={item.corrected_end} disabled={!!preview||savingCorrection===correctionKey(item)||!canEditRow(item)} onSave={value=>void updateCorrection(item,{corrected_end:value})}/></td>
-    <td className="px-3 py-2"><RedcomSelect aria-label={'Motivo '+item.seller_name+' '+displayDate(item.visit_date)} value={item.reason??'none'} disabled={!!preview||savingCorrection===correctionKey(item)||!canEditRow(item)} onValueChange={value=>void updateCorrection(item,{reason:value==='none'?null:value})} options={[{value:'none',label:'Sin motivo'},...REASONS.map(reason=>({value:reason,label:reason}))]} className={'h-9 w-[155px] rounded-xl text-xs '+reasonClass(item.reason)}/></td>
+    <td className="px-3 py-2"><RedcomSelect aria-label={'Motivo '+item.seller_name+' '+displayDate(item.visit_date)} value={item.reason??'none'} disabled={!!preview||savingCorrection===correctionKey(item)||!canEditRow(item)} onValueChange={value=>void updateCorrection(item,{reason:value==='none'?null:value})} options={[{value:'none',label:'Sin motivo'},...REASONS.map(reason=>({value:reason,label:reason}))]} className={'h-9 w-[140px] rounded-xl text-xs '+reasonClass(item.reason)}/></td>
     <td className="px-3 py-2"><div className="flex items-center gap-2"><SigoCommentInput value={item.comments} disabled={!!preview||savingCorrection===correctionKey(item)||!canEditRow(item)} onSave={value=>void updateCorrection(item,{comments:value})}/><SigoAuditButton row={item}/></div></td>
    </tr>)}</tbody>
   </table>{shown.length>visibleRows.length&&<div className="flex items-center justify-center gap-3 border-t border-slate-100 bg-white px-4 py-4 text-xs text-slate-500"><span>Mostrando {visibleRows.length} de {shown.length}</span><button type="button" onClick={()=>setVisibleLimit(limit=>limit+120)} className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-50">Mostrar 120 más</button><button type="button" onClick={()=>setVisibleLimit(shown.length)} className="rounded-xl bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">Ver todos</button></div>}{loading?<p className="p-12 text-center text-sm text-slate-400">Cargando histórico...</p>:!shown.length?<p className="p-12 text-center text-sm text-slate-400"><FileSpreadsheet className="mx-auto mb-2 h-6 w-6"/>No hay registros para mostrar.</p>:null}</div>
@@ -631,13 +656,13 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
      </div>
     </>}
     <div className="h-[min(78dvh,960px)] min-h-[520px] overflow-auto border-t border-t-slate-200">
-     <table className="w-full min-w-[680px] text-left text-xs">
+     <table className="w-full min-w-[620px] text-left text-xs">
       <thead className="sticky top-0 z-20 bg-[#f5f7fa] text-[10px] font-semibold uppercase tracking-wider text-slate-500"><tr>{averageColumns.map(col=><th key={col.key} className={'px-3 py-2 '+(col.key==='supervisor'?'border-l-[3px] border-l-slate-400':'')}><button type="button" onClick={e=>openAverageFilter(col.key,e.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(averageFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5"/></button></th>)}</tr></thead>
       <tbody>{filteredAverages.map((item,index)=><tr key={item.id+'|'+item.seller} className={'border-t border-slate-100 '+(index%2?'bg-slate-50/40':'bg-white')}>
-       <td className="px-5 py-3 font-medium tabular-nums text-slate-600">{item.id}</td>
-       <td className="border-l-[3px] border-l-slate-400 px-5 py-3 text-slate-700">{item.supervisor}</td>
-       <td className="px-5 py-3 font-semibold text-slate-900">{item.seller}</td>
-       <td className="px-5 py-3"><span className={'inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums '+(item.days?item.seconds/item.days<5*3600?'bg-red-100 text-red-700':item.seconds/item.days<5*3600+20*60?'bg-amber-100 text-amber-800':'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-500')}>{item.days?formatDuration(Math.round(item.seconds/item.days)):'—'}</span></td>
+       <td className="px-2.5 py-2.5 font-medium tabular-nums text-slate-600">{item.id}</td>
+       <td className="border-l-[3px] border-l-slate-400 px-2.5 py-2.5 text-slate-700">{item.supervisor}</td>
+       <td className="px-2.5 py-2.5 font-semibold text-slate-900">{item.seller}</td>
+       <td className="px-2.5 py-2.5"><span className={'inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums '+(item.days?item.seconds/item.days<5*3600?'bg-red-100 text-red-700':item.seconds/item.days<5*3600+20*60?'bg-amber-100 text-amber-800':'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-500')}>{item.days?formatDuration(Math.round(item.seconds/item.days)):'—'}</span></td>
       </tr>)}</tbody>
      </table>
      {!filteredAverages.length&&<p className="px-6 py-12 text-center text-xs text-slate-400">No hay vendedores para mostrar con los filtros actuales.</p>}
