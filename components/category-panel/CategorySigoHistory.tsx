@@ -24,12 +24,12 @@ function SigoMonthPicker({value,onChange}:{value:string;onChange:(month:string)=
  const monthNumber=Number(value.slice(5,7));
  const display=monthNumber>=1&&monthNumber<=12?MONTH_NAMES[monthNumber-1]+' de '+value.slice(0,4):'Seleccionar mes';
  return <Popover open={open} onOpenChange={setOpen}>
-  <PopoverTrigger asChild><button type="button" aria-label="Mes del histórico" className="inline-flex h-10 min-w-[180px] items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 transition-colors duration-200 hover:border-slate-300"><span>{display}</span><CalendarDays className="h-4 w-4 text-slate-500"/></button></PopoverTrigger>
+  <PopoverTrigger asChild><button type="button" aria-label="Mes del histórico" className="inline-flex h-10 min-w-[180px] items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 transition-colors duration-200 motion-reduce:transition-none hover:border-slate-300"><span>{display}</span><CalendarDays className="h-4 w-4 text-slate-500"/></button></PopoverTrigger>
   <PopoverContent align="end" sideOffset={8} className="z-[220] w-[288px] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_45px_rgba(15,23,42,.14)]">
    <div className="mb-3 flex items-center justify-between">
-    <button type="button" aria-label="Año anterior" onClick={()=>setYear(n=>n-1)} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition-colors duration-200 hover:bg-slate-100"><ChevronLeft className="h-4 w-4"/></button>
+    <button type="button" aria-label="Año anterior" onClick={()=>setYear(n=>n-1)} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition-colors duration-200 motion-reduce:transition-none hover:bg-slate-100"><ChevronLeft className="h-4 w-4"/></button>
     <span className="text-sm font-semibold tabular-nums text-slate-900">{year}</span>
-    <button type="button" aria-label="Año siguiente" onClick={()=>setYear(n=>n+1)} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition-colors duration-200 hover:bg-slate-100"><ChevronRight className="h-4 w-4"/></button>
+    <button type="button" aria-label="Año siguiente" onClick={()=>setYear(n=>n+1)} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition-colors duration-200 motion-reduce:transition-none hover:bg-slate-100"><ChevronRight className="h-4 w-4"/></button>
    </div>
    <div className="grid grid-cols-3 gap-1">{MONTH_NAMES.map((label,index)=>{
     const month=year+'-'+String(index+1).padStart(2,'0'),active=month===value;
@@ -579,7 +579,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
      <label className="inline-flex h-full cursor-pointer items-center gap-2 rounded-l-xl px-4 hover:bg-slate-50"><Upload className="h-4 w-4"/>{files.length?files.length+' Excel seleccionados':'Importar Excel SIGO'}<input type="file" multiple accept=".xlsx" className="sr-only" disabled={busy} onChange={e=>{const selected=Array.from(e.target.files??[]);e.target.value='';if(selected.length)void upload([...files,...selected]);}}/></label>
      {files.length>0&&<button type="button" aria-label="Quitar todos los archivos importados" title="Quitar todos" disabled={busy} onClick={discardUpload} className="flex h-full w-10 items-center justify-center rounded-r-xl border-l border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"><X className="h-4 w-4"/></button>}
     </div>}
-    {!branchScope&&preview&&<button disabled={busy} onClick={()=>void save(false)} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold text-white disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar días</button>}
+    {!branchScope&&preview&&<button disabled={busy} onClick={()=>void save(false)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-medium text-white transition-colors duration-200 motion-reduce:transition-none hover:bg-emerald-700 disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar días</button>}
    </div>
   </div>
   {!branchScope&&files.length>0&&<div className="flex flex-wrap gap-2 border-b border-slate-200 px-6 py-3">{files.map((item,index)=><span key={item.name+'-'+index} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700">{item.name}<button type="button" aria-label={'Quitar '+item.name} disabled={busy} onClick={()=>void upload(files.filter((_,i)=>i!==index))} className="rounded text-slate-400 hover:text-red-600 disabled:opacity-40"><X className="h-3.5 w-3.5"/></button></span>)}</div>}
