@@ -3,6 +3,7 @@
 import {useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
 import {CalendarDays,ChevronDown,FileSpreadsheet,Filter,Loader2,Save,Search,Upload,X} from 'lucide-react';
 import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
+import {SIGO_REASONS} from '@/lib/categorySigoReasons';
 import {RedcomSelect} from '@/components/ui/redcom-select';
 import {ColumnFilterPopup} from '@/components/category-panel/CategoryColumnFilters';
 import {supabase} from '@/lib/supabaseClient';
@@ -83,7 +84,7 @@ const workedHours=(start:string|null,end:string|null)=>{
  if(!Number.isFinite(duration)||duration<0)return '—';
  return [Math.floor(duration/3600),Math.floor(duration%3600/60),duration%60].map(n=>String(n).padStart(2,'0')).join(':');
 };
-const REASONS=['Vacaciones','Desvinculado','Suspendido','Médico','Duelo','Otro'] as const;
+const REASONS=SIGO_REASONS;
 const reasonClass=(reason:string|null)=>{
  switch(reason){
   case 'Vacaciones':return 'bg-sky-50 text-sky-700';
