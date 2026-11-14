@@ -26,7 +26,7 @@ export default function CategoryBannerLink({
   const COLORS = CATEGORIA_ACCENTS;
 
   return (
-    <motion.button
+    <motion.div
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}
       viewport={{ once: true }}
@@ -39,7 +39,7 @@ export default function CategoryBannerLink({
         className={[
           'group relative block rounded-2xl overflow-hidden',
           'border border-white/10 bg-slate-950',
-          'shadow-xl transition-transform duration-200 group-hover:scale-105',
+          'shadow-xl transition-transform duration-200 group-hover:scale-[1.01]',
           className,
         ].join(' ')}
       >
@@ -138,6 +138,6 @@ export default function CategoryBannerLink({
         </div>
       </Link>
 
-    </motion.button>
+    </motion.div>
   );
 }

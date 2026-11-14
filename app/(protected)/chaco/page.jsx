@@ -54,9 +54,9 @@ export default function Chaco() {
               {canSeeCategories && (
                 <CategoryBannerLink
                   branchLabel="Resistencia"
-                  href="/chaco/categorias"
-                  title="Categorías"
-                  description="Ranking por vendedor, puntajes y comparación por criterios."
+                  href="/chaco/categorias-v2"
+                  title="Categorías V 2.0"
+                  description="Horarios SIGO, puntajes y categorías por vendedor."
                   buttonLabel="Abrir"
                 />
               )}

@@ -31,20 +31,29 @@ const duration=(start:string|null,end:string|null)=>{
  return Number.isFinite(result)&&result>=0?result:null;
 };
 const displayDuration=(v:number)=>[Math.floor(v/3600),Math.floor(v%3600/60),Math.round(v%60)].map(x=>String(x).padStart(2,'0')).join(':');
-export default function CategoryUnifiedOverview({rows,projections,month,availableMonths,loadingMonth}:{rows:CategoryPanelRow[];projections:KpiProjection[];month:string;onMonthChange:(month:string)=>void;availableMonths:string[];loadingMonth:boolean}){
+type BranchScopeProps={branchScope?:string;scopedDaily?:Daily[];scopedPersonnel?:Array<{id:number;name:string;branch:string;role:string;superior:string;force:string}>;scopedMetrics?:CategoryScaleMetric[];scopedGates?:CategoryScaleGate[]};
+export default function CategoryUnifiedOverview({rows,projections,month,availableMonths,loadingMonth,branchScope,scopedDaily,scopedPersonnel,scopedMetrics,scopedGates}:{rows:CategoryPanelRow[];projections:KpiProjection[];month:string;onMonthChange?:(month:string)=>void;availableMonths:string[];loadingMonth:boolean}&BranchScopeProps){
  const [daily,setDaily]=useState<Daily[]>([]);
- const [loading,setLoading]=useState(true);
- const [branchTab,setBranchTab]=useState<string>('corrientes_masivos');
+ const [loading,setLoading]=useState(!branchScope);
+ const [branchTab,setBranchTab]=useState<string>(branchScope??'corrientes_masivos');
  const [search,setSearch]=useState('');
  const [detail,setDetail]=useState<{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null;sellerId:number;branchKey:string;row:CategoryPanelRow|null}|null>(null);
  const [scaleMetrics,setScaleMetrics]=useState<CategoryScaleMetric[]>([]);
  const [scaleGates,setScaleGates]=useState<CategoryScaleGate[]>([]);
- const [scaleLoaded,setScaleLoaded]=useState(false);
- useEffect(()=>{let active=true;void fetchCategoryScaleConfig().then(config=>{if(active){setScaleMetrics(config.metrics);setScaleGates(config.gates);setScaleLoaded(true);}}).catch(error=>notify.error(errorMessage(error,'No se pudieron cargar las escalas.')));return()=>{active=false;};},[]);
+ const [scaleLoaded,setScaleLoaded]=useState(Boolean(branchScope));
+ useEffect(()=>{
+  if(branchScope){setScaleMetrics(scopedMetrics??[]);setScaleGates(scopedGates??[]);setScaleLoaded(true);return;}
+  let active=true;void fetchCategoryScaleConfig().then(config=>{if(active){setScaleMetrics(config.metrics);setScaleGates(config.gates);setScaleLoaded(true);}}).catch(error=>notify.error(errorMessage(error,'No se pudieron cargar las escalas.')));
+  return()=>{active=false;};
+ },[branchScope,scopedMetrics,scopedGates]);
  const {counts,excluded,loading:calendarLoading,toggle}=useWorkCalendar(month);
  const [personnel,setPersonnel]=useState<Array<{id:number;name:string;branch:string;role:string;superior:string;force:string}>>([]);
- useEffect(()=>{void supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle().then(({data,error})=>{if(error)notify.error(errorMessage(error,'No se pudo cargar Personal comercial.'));else setPersonnel(Array.isArray(data?.people)?data.people:[]);});},[]);
  useEffect(()=>{
+  if(branchScope){setPersonnel(scopedPersonnel??[]);return;}
+  void supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle().then(({data,error})=>{if(error)notify.error(errorMessage(error,'No se pudo cargar Personal comercial.'));else setPersonnel(Array.isArray(data?.people)?data.people:[]);});
+ },[branchScope,scopedPersonnel]);
+ useEffect(()=>{
+  if(branchScope){setDaily(scopedDaily??[]);setLoading(false);return;}
   if(!month){setLoading(false);setDaily([]);return;}
   let active=true;setLoading(true);setDaily([]);
   (async()=>{
@@ -58,7 +67,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
    if(active)setDaily(records);
   })().catch(e=>{if(active)notify.error(errorMessage(e,'No se pudieron cargar los horarios del mes.'));}).finally(()=>{if(active)setLoading(false)});
   return()=>{active=false};
- },[month]);
+ },[month,branchScope,scopedDaily]);
  const stats=useMemo(()=>{
   const group=new Map<string,{sum:number;days:number}>();
   for(const day of daily){
@@ -74,7 +83,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
  },[daily]);
  const byProjection=useMemo(()=>new Map(projections.map(p=>[p.branch_key+':'+p.seller_id,p])),[projections]);
  const sellers=useMemo(()=>personnel.filter(p=>p.role?.toUpperCase()==='VENDEDOR'),[personnel]);
- const filtered=useMemo(()=>rows.filter(r=>(r.sellerName+' '+r.branchLabel+' '+r.sellerId).toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es'))),[rows,search]);
+ const filtered=useMemo(()=>rows.filter(r=>(!branchScope||r.branchKey===branchScope)&&(r.sellerName+' '+r.branchLabel+' '+r.sellerId).toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es'))),[rows,search,branchScope]);
  const overviewColumns:FilterColumn<CategoryPanelRow>[]=useMemo(()=>[
   {key:'branch',label:'Sucursal',value:r=>r.branchLabel},{key:'sector',label:'Sector',value:r=>String(r.sector)},{key:'id',label:'ID',value:r=>String(r.sellerId)},
   {key:'seller',label:'Vendedor',value:r=>r.sellerName},{key:'visited',label:'Visitados',value:r=>String(r.visitados)},
@@ -91,7 +100,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
   {key:'hours',label:'Horario promedio',value:r=>{const avg=stats.get(r.branchKey+':'+r.sellerId);return loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos';}},
   {key:'days',label:'Días válidos',value:r=>String(stats.get(r.branchKey+':'+r.sellerId)?.days??0)}
  ],[byProjection,stats,counts.elapsed,loading]);
- const branchRows=useMemo(()=>sellers.filter(p=>{const b=branches.find(item=>item.key===branchTab);return !!b&&p.branch===b.branch&&(b.force==='all'||p.force===b.force)}).sort((a,b)=>a.superior.localeCompare(b.superior,'es')||a.id-b.id),[sellers,branchTab]);
+ const branchRows=useMemo(()=>sellers.filter(p=>{const b=branches.find(item=>item.key===(branchScope??branchTab));return !!b&&p.branch===b.branch&&(b.force==='all'||p.force===b.force)}).sort((a,b)=>a.superior.localeCompare(b.superior,'es')||a.id-b.id),[sellers,branchTab]);
  const branchColumns:FilterColumn<(typeof sellers)[number]>[]=useMemo(()=>{
   const get=(p:(typeof sellers)[number])=>{const r=rows.find(row=>row.branchKey===branchTab&&row.sellerId===p.id);const extra=byProjection.get(branchTab+':'+p.id);const avg=stats.get(branchTab+':'+p.id);return {r,extra,avg};};
   return [
@@ -120,10 +129,12 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
    <div className="flex flex-wrap items-center gap-5 border-b border-slate-100 px-5 py-3">
      <div><div className="text-xs text-slate-500">Días laborales transcurridos</div><div className="text-2xl font-semibold">{calendarLoading?'—':counts.elapsed}</div></div>
      <div><div className="text-xs text-slate-500">Días laborales del mes</div><div className="text-2xl font-semibold">{calendarLoading?'—':counts.total}</div></div>
-     <Popover>
+     {!branchScope&&<Popover>
+
       <PopoverTrigger asChild><button type="button" className="ml-auto inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50"><CalendarDays className="h-4 w-4"/>Configurar calendario</button></PopoverTrigger>
       <PopoverContent align="end" sideOffset={8} className="z-[80] w-auto rounded-2xl border border-slate-200 bg-white p-0 shadow-[0_18px_55px_rgba(15,23,42,.13)]"><WorkCalendar month={month} excluded={excluded} onToggle={d=>void toggle(d)}/></PopoverContent>
-    </Popover>
+    
+    </Popover>}
    </div>
    <div className="border-b border-slate-100 px-5 py-3"><input aria-label="Buscar vendedor" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar vendedor, ID o sucursal" className="h-10 w-full max-w-sm rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-300"/></div>
    <div className="max-h-[650px] overflow-y-auto overflow-x-hidden">
@@ -144,10 +155,10 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
    <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">El promedio considera días con inicio y fin válidos (corregidos cuando corresponda) y excluye días con motivo registrado. No se inventan horarios faltantes.</p>
   </section>
   <section className="rounded-[24px] border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.055)]">
-   <h2 className="text-lg font-semibold text-slate-900">Categorías por sucursal</h2>
-   <div role="tablist" aria-label="Sucursales" className="mt-4 flex flex-wrap gap-2 border-b border-slate-100 pb-4">
+   <h2 className="text-lg font-semibold text-slate-900">{branchScope?`Categorías · ${branches.find(b=>b.key===branchScope)?.name??"Sucursal"}`:"Categorías por sucursal"}</h2>
+   {!branchScope&&<div role="tablist" aria-label="Sucursales" className="mt-4 flex flex-wrap gap-2 border-b border-slate-100 pb-4">
     {branches.map(b=><button key={b.key} type="button" role="tab" aria-selected={branchTab===b.key} onClick={()=>setBranchTab(b.key)} className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-colors duration-200 ${branchTab===b.key?'bg-emerald-600 text-white':'text-slate-600 hover:bg-slate-100'}`}>{b.name}</button>)}
-   </div>
+   </div>}
    <p className="mt-3 text-xs text-slate-500">Categoría alcanzada: exige 75 puntos por nivel y cumplimiento de horario de ruta y efectividad. Se asigna el nivel más alto aprobado; sin datos suficientes se indica Pendiente.</p>
    <div role="tabpanel" className="mt-4 overflow-x-hidden">
      <FilterableCategoryTable key={branchTab} rows={branchRows} columns={branchColumns} renderRow={p=>{

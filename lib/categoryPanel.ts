@@ -25,7 +25,7 @@ type DbCategoryPanelRow = {
   partial_update_source: string | null;
 };
 
-function fromDbRow(row: DbCategoryPanelRow): CategoryPanelRow {
+export function fromDbRow(row: DbCategoryPanelRow): CategoryPanelRow {
   return {
     branchKey: row.branch_key as CategoryPanelRow['branchKey'],
     branchLabel: row.branch_label,

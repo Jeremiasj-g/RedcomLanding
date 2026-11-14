@@ -57,9 +57,9 @@ export default function CorrientesMasivos() {
               {canSeeCategories && (
                 <CategoryBannerLink
                   branchLabel="Corrientes"
-                  href="/corrientes/masivos/categorias"
-                  title="Categorías"
-                  description="Ranking por vendedor, puntajes y comparación por criterios."
+                  href="/corrientes/masivos/categorias-v2"
+                  title="Categorías V 2.0"
+                  description="Horarios SIGO, puntajes y categorías por vendedor."
                   buttonLabel="Abrir"
                 />
               )}
