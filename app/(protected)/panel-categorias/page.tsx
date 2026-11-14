@@ -197,6 +197,33 @@ export default function CategoryPanelPage() {
   const [search, setSearch] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
   const [activeTab, setActiveTab] = useState<'kpis' | 'sigo' | 'scales' | 'personnel' | 'categories'>('kpis');
+  const [pendingLeave,setPendingLeave]=useState<{kind:'tab';value:typeof activeTab}|{kind:'month';value:string}|null>(null);
+  const unsavedImport=Boolean(kpiDraft||preview||pivotFile||tmpFile);
+  const requestTab=(tab:typeof activeTab)=>{
+    if(tab===activeTab)return;
+    if(unsavedImport){setPendingLeave({kind:'tab',value:tab});return;}
+    setActiveTab(tab);
+  };
+  const requestMonth=(month:string)=>{
+    if(month===selectedMonth)return;
+    if(unsavedImport){setPendingLeave({kind:'month',value:month});return;}
+    setSelectedMonth(month);
+  };
+  const discardImportAndContinue=()=>{
+    if(!pendingLeave)return;
+    setKpiDraft(null);setPreview(null);setPivotFile(null);setTmpFile(null);
+    setConfirmSaveOpen(false);setInputVersion(version=>version+1);
+    if(pendingLeave.kind==='tab')setActiveTab(pendingLeave.value);
+    else setSelectedMonth(pendingLeave.value);
+    setPendingLeave(null);
+  };
+  useEffect(()=>{
+    if(!unsavedImport)return;
+    const onBeforeUnload=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};
+    window.addEventListener('beforeunload',onBeforeUnload);
+    return()=>window.removeEventListener('beforeunload',onBeforeUnload);
+  },[unsavedImport]);
+
 
   useEffect(() => {
     if (meLoading) return;
@@ -482,26 +509,26 @@ export default function CategoryPanelPage() {
           <div className="mt-6 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
             <PanelTab
               active={activeTab === 'sigo'}
-              onClick={() => setActiveTab('sigo')}
+              onClick={() => requestTab('sigo')}
               icon={<Clock3 className="h-4 w-4" />}
               label="Horarios SIGO"
             />
             <PanelTab
               active={activeTab === 'kpis'}
-              onClick={() => setActiveTab('kpis')}
+              onClick={() => requestTab('kpis')}
               icon={<Database className="h-4 w-4" />}
               label="KPIs"
             />
-            <PanelTab active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} icon={<FileSpreadsheet className="h-4 w-4" />} label="Categorías" />
+            <PanelTab active={activeTab === 'categories'} onClick={() => requestTab('categories')} icon={<FileSpreadsheet className="h-4 w-4" />} label="Categorías" />
             <PanelTab
               active={activeTab === 'scales'}
-              onClick={() => setActiveTab('scales')}
+              onClick={() => requestTab('scales')}
               icon={<Gauge className="h-4 w-4" />}
               label="Cuadro de escalas"
             />
             <PanelTab
               active={activeTab === 'personnel'}
-              onClick={() => setActiveTab('personnel')}
+              onClick={() => requestTab('personnel')}
               icon={<UsersRound className="h-4 w-4" />}
               label="Personal comercial"
             />
@@ -509,7 +536,7 @@ export default function CategoryPanelPage() {
 
           {(activeTab==='kpis'||activeTab==='categories')&&<div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
             <label className="flex items-center gap-2 text-xs text-slate-600">Mes de consulta
-              <CategoryMonthPicker label="Mes de consulta" value={selectedMonth} onChange={setSelectedMonth} className="h-9"/>
+              <CategoryMonthPicker label="Mes de consulta" value={selectedMonth} onChange={requestMonth} className="h-9"/>
             </label>
             <span className="text-xs text-slate-500">{availableMonths.some(m=>m.month===selectedMonth)?'KPIs guardados'+(loadingMonthly?' · cargando…':''):'Sin KPIs guardados para este mes'}</span>
             {!availableMonths.length&&savedRows.length>0&&<div className="ml-auto flex flex-wrap items-center gap-2">
@@ -791,6 +818,18 @@ export default function CategoryPanelPage() {
 
 
 
+      <AlertDialog open={pendingLeave!==null} onOpenChange={open=>{if(!open)setPendingLeave(null);}}>
+        <AlertDialogContent className="w-[calc(100%-32px)] max-w-[440px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,.18)]">
+          <AlertDialogHeader className="space-y-2 p-6 text-left">
+            <AlertDialogTitle className="text-lg font-semibold text-slate-950">Tenés cambios sin guardar</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-6 text-slate-500">Hay archivos o reportes en preparación. Si continuás, se descartarán los cambios pendientes sin modificar los datos guardados.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 border-t border-slate-100 px-6 py-4">
+            <AlertDialogCancel className="mt-0 flex-1 rounded-xl border-slate-200 sm:flex-none">Seguir editando</AlertDialogCancel>
+            <AlertDialogAction onClick={event=>{event.preventDefault();discardImportAndContinue();}} className="flex-1 rounded-xl bg-rose-600 text-white hover:bg-rose-700 sm:flex-none">Salir sin guardar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={confirmLegacyMonth} onOpenChange={open=>{if(!registeringLegacy)setConfirmLegacyMonth(open);}}>
         <AlertDialogContent className="w-[calc(100%-32px)] max-w-[440px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,.18)]">
           <AlertDialogHeader className="space-y-2 p-6 text-left">
