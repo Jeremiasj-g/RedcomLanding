@@ -2,7 +2,7 @@
 
 import type { CategoryPanelRow } from '@/lib/categoryPanelExcel';
 
-type Props={row:CategoryPanelRow|null;elapsedDays:number;projectedCategory:string|null;month:string};
+type Props={row:CategoryPanelRow|null;elapsedDays:number;projectedCategory:string|null;vacationDays:number|null;month:string};
 const percent=(value:number|null)=>value===null?'—':value.toLocaleString('es-AR',{maximumFractionDigits:2})+'%';
 const integer=(value:number|null)=>value===null?'—':value.toLocaleString('es-AR',{maximumFractionDigits:0});
 const decimal=(value:number|null)=>value===null?'—':value.toLocaleString('es-AR',{maximumFractionDigits:2});
@@ -22,7 +22,7 @@ function Datum({label,value,description}:{label:string;value:string;description?
   {description&&<p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>}
  </div>;
 }
-export default function SellerDataCalculations({row,elapsedDays,projectedCategory,month}:Props){
+export default function SellerDataCalculations({row,elapsedDays,projectedCategory,vacationDays,month}:Props){
  const visits=row?.visitados??null,planned=row?.visitasPlaneadas??null,sales=row?.cntFac??null;
  const pdv=row?.ventaPdv??null,distance=row?.ventaDistancia??null,billing=row?.importeFinalFacturado??null;
  const effectiveness=planned!==null&&planned>0&&visits!==null?visits/planned*100:null;
@@ -64,6 +64,7 @@ export default function SellerDataCalculations({row,elapsedDays,projectedCategor
     <Datum label="Promedio $ por boleta" value={currency(averageInvoice)} description="Facturación / ventas"/>
     <Datum label="Categoría según proyección" value={projectedCategory??'Sin cargar'} description="Importada desde la plantilla de KPIs"/>
    </div>
+   <div className="mt-5 border-t border-slate-100 pt-4"><p className="text-sm font-medium text-slate-900">Vacaciones registradas</p><p className="mt-2 text-2xl font-semibold tabular-nums text-slate-950">{vacationDays===null?'Sin cargar':vacationDays.toLocaleString('es-AR')+' días'}</p></div>
    {elapsedDays===0&&<p className="mt-3 text-xs text-amber-700">No hay días laborales transcurridos para este período. Los promedios diarios se muestran sin valor hasta contar con días válidos.</p>}
   </section>
  </div>;
