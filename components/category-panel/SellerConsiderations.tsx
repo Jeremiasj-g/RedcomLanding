@@ -9,6 +9,8 @@ import {
   type SellerConsideration, type ConsiderationRule, type MetricRules, type GateRules,
 } from '@/lib/categorySellerConsiderations';
 import { errorMessage, notify } from '@/lib/notifications';
+import {RedcomSelect,RedcomSearchableSelect} from '@/components/ui/redcom-select';
+import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
 
 type Seller = { branch_key: string; branch_label: string; seller_id: number; seller_name: string };
 type Cell = 'senior' | 'semi' | 'junior' | 'improvement' | 'weight';
@@ -31,16 +33,11 @@ function RuleEditor({rule, inherited, onChange}: {
   const mode = rule?.mode ?? 'inherit';
   return (
     <div className="flex min-w-[116px] flex-col gap-1.5">
-      <select aria-label="Tipo de consideración" value={mode}
-        onChange={(e) => {
-          const m=e.target.value;
-          onChange(m==='inherit' ? undefined : m==='exempt' ? {mode:'exempt'} : {mode:'custom',value:rule?.mode==='custom'?rule.value:0});
-        }}
-        className="h-8 w-full rounded-lg border border-slate-200 bg-white px-1.5 text-[11px] text-slate-800 outline-none focus:border-blue-400">
-        <option value="inherit">General</option>
-        <option value="custom">Personalizado</option>
-        <option value="exempt">Exento</option>
-      </select>
+      <RedcomSelect aria-label="Tipo de consideración" value={mode}
+        onValueChange={m=>onChange(m==='inherit'?undefined:m==='exempt'?{mode:'exempt'}:{mode:'custom',value:rule?.mode==='custom'?rule.value:0})}
+        options={[{value:'inherit',label:'General'},{value:'custom',label:'Personalizado'},{value:'exempt',label:'Exento'}]}
+        className="h-9 w-full rounded-lg px-2 text-[11px]"
+      />
       {rule?.mode==='custom' ? (
         <input type="number" step="any" aria-label="Valor personalizado" value={rule.value}
           onChange={(e)=>onChange({mode:'custom',value:Number(e.target.value)})}
@@ -65,6 +62,8 @@ export default function SellerConsiderations({
   const [metricRules,setMetricRules]=useState<MetricRules>({});
   const [gateRules,setGateRules]=useState<GateRules>({});
   const [saving,setSaving]=useState(false);
+  const [pendingRemoval,setPendingRemoval]=useState<SellerConsideration|null>(null);
+  const [deleting,setDeleting]=useState(false);
 
   useEffect(()=>{
     let mounted=true;
@@ -125,13 +124,15 @@ export default function SellerConsiderations({
     finally{setSaving(false);}
   }
   async function remove(entry:SellerConsideration){
-    if(!window.confirm('¿Quitar las consideraciones de este vendedor? Volverá a regirse por la escala general.'))return;
     try {
+      setDeleting(true);
       await deleteSellerConsideration(entry.branch_key,entry.seller_id);
       setEntries(old=>old.filter(x=>x!==entry && !(x.branch_key===entry.branch_key && x.seller_id===entry.seller_id)));
       if(selected===entry.branch_key+':'+entry.seller_id){setSelected('');setEditing(false);}
       notify.success('Consideraciones eliminadas.');
+      setPendingRemoval(null);
     }catch(e){notify.error(errorMessage(e,'No se pudieron quitar las consideraciones.'));}
+    finally{setDeleting(false);}
   }
 
   return (
@@ -157,19 +158,19 @@ export default function SellerConsiderations({
                 <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor por ID, nombre o sucursal"
                   className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs outline-none focus:border-blue-300"/>
               </div>
-              <div className="relative">
-                <select value={selected} onChange={e=>openSeller(e.target.value)}
-                  className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm font-medium text-slate-800 outline-none focus:border-blue-400">
-                  <option value="">Seleccionar un vendedor de los KPIs guardados</option>
-                  {listed.map(s=><option key={s.branch_key+':'+s.seller_id} value={s.branch_key+':'+s.seller_id}>
-                    {s.branch_label} · ID {s.seller_id} · {s.seller_name}
-                  </option>)}
-                  {selectedSeller && !listed.some(s=>s.branch_key+':'+s.seller_id===selected) && (
-                    <option value={selected}>{selectedSeller.branch_label} · ID {selectedSeller.seller_id} · {selectedSeller.seller_name}</option>
-                  )}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-3.5 h-4 w-4 text-slate-400"/>
-              </div>
+              <RedcomSearchableSelect
+                aria-label="Seleccionar vendedor"
+                value={selected}
+                onValueChange={openSeller}
+                options={listed.map(s=>({value:s.branch_key+':'+s.seller_id,label:s.branch_label+' · ID '+s.seller_id+' · '+s.seller_name})).concat(
+                  selectedSeller&&!listed.some(s=>s.branch_key+':'+s.seller_id===selected)
+                    ? [{value:selected,label:selectedSeller.branch_label+' · ID '+selectedSeller.seller_id+' · '+selectedSeller.seller_name}]
+                    : []
+                )}
+                placeholder="Seleccionar un vendedor de los KPIs guardados"
+                searchPlaceholder="Buscar vendedor..."
+                className="h-11 w-full rounded-xl"
+              />
               {!sellers.length && <p className="mt-3 text-xs text-amber-700">Primero importá y guardá los KPIs para poder seleccionar vendedores.</p>}
               {selectedSeller && <>
                 <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-slate-900"><UserRound className="h-4 w-4 text-blue-600"/>ID {selectedSeller.seller_id} · {selectedSeller.seller_name} <span className="text-xs font-normal text-slate-400">({selectedSeller.branch_label})</span></div>
@@ -221,7 +222,7 @@ export default function SellerConsiderations({
                   </div>
                   <div className="flex gap-1">
                     <button title="Editar" disabled={!seller} onClick={()=>openSeller(k)} className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-white disabled:opacity-30"><Pencil className="h-3.5 w-3.5"/></button>
-                    <button title="Eliminar" onClick={()=>void remove(entry)} className="grid h-8 w-8 place-items-center rounded-lg text-rose-500 hover:bg-rose-50"><Trash2 className="h-3.5 w-3.5"/></button>
+                    <button title="Eliminar" onClick={()=>setPendingRemoval(entry)} className="grid h-8 w-8 place-items-center rounded-lg text-rose-500 hover:bg-rose-50"><Trash2 className="h-3.5 w-3.5"/></button>
                   </div>
                 </div>;
               })}
@@ -229,6 +230,18 @@ export default function SellerConsiderations({
           </div>
         </>
       )}
+      <AlertDialog open={pendingRemoval!==null} onOpenChange={open=>{if(!open&&!deleting)setPendingRemoval(null);}}>
+        <AlertDialogContent className="w-[calc(100%-32px)] max-w-[430px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,.18)]">
+          <AlertDialogHeader className="space-y-2 p-6 text-left">
+            <AlertDialogTitle className="text-lg font-semibold text-slate-950">¿Eliminar consideración?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-6 text-slate-500">Este vendedor volverá a regirse por el Cuadro de escalas general. La acción no se puede deshacer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 border-t border-slate-100 px-6 py-4">
+            <AlertDialogCancel disabled={deleting} className="mt-0 flex-1 rounded-xl border-slate-200 sm:flex-none">Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={deleting} onClick={event=>{event.preventDefault();if(pendingRemoval)void remove(pendingRemoval);}} className="flex-1 rounded-xl bg-rose-600 text-white hover:bg-rose-700 sm:flex-none">{deleting?'Eliminando…':'Eliminar'}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
