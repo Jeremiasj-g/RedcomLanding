@@ -171,15 +171,15 @@ export default function CommercialPersonnel(){
    {displayMode==='hierarchy'&&<button type="button" onClick={()=>setCollapsed([])} className="h-10 rounded-xl bg-slate-100 px-3 text-xs font-semibold text-slate-700">Expandir todo</button>}
    {displayMode==='hierarchy'&&<button type="button" onClick={()=>setCollapsed(trees.flatMap(b=>[b.key,...b.children.flatMap(m=>[m.key,...m.children.map(s=>s.key)])]))} className="h-10 rounded-xl border border-slate-200 px-3 text-xs font-semibold">Contraer todo</button>}
   </div>
-  {loading?<div className="p-12 text-center text-sm text-slate-400">Cargando personal comercial...</div>:displayMode==='table'?<div className="overflow-x-auto"><table className="w-full table-fixed text-left text-xs">
-   <thead className="bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-500"><tr>{['Sucursal','Código','Personal','Cargo','Superior','Fuerza de venta'].map(label=><th key={label} className="break-words px-2 py-3 font-medium">{label}</th>)}</tr></thead>
-   <tbody>{visiblePeople.map((person,index)=><tr key={person.branch+':'+person.role+':'+person.id} className={'border-t border-slate-100 '+(index%2?'bg-slate-50/40':'bg-white')}>
-    <td className="break-words px-2 py-3 text-slate-600">{person.branch}</td>
-    <td className="break-words px-2 py-3 font-medium tabular-nums text-slate-700">{person.id}</td>
-    <td className="break-words px-2 py-3 font-medium text-slate-900">{person.name}</td>
-    <td className="break-words px-2 py-3 text-slate-600">{person.role==='GERENTE'?'Gerencia':person.role==='SUPERVISOR'?'Supervisor':'Vendedor'}</td>
-    <td className="px-5 py-3 text-slate-600">{person.superior||'—'}</td>
-    <td className="px-5 py-3 text-slate-600">{person.force||'—'}</td>
+  {loading?<div className="p-12 text-center text-sm text-slate-400">Cargando personal comercial...</div>:displayMode==='table'?<div className="overflow-x-auto"><table className="w-full table-fixed text-left text-xs max-md:block">
+   <thead className="bg-slate-50 text-[10px] font-medium uppercase tracking-wider text-slate-500 max-md:hidden"><tr>{['Sucursal','Código','Personal','Cargo','Superior','Fuerza de venta'].map(label=><th key={label} className="break-words px-2 py-3 font-medium">{label}</th>)}</tr></thead>
+   <tbody className="max-md:block">{visiblePeople.map((person,index)=><tr key={person.branch+':'+person.role+':'+person.id} className={'border-t border-slate-100 max-md:my-3 max-md:grid max-md:grid-cols-2 max-md:gap-x-3 max-md:rounded-xl max-md:border max-md:border-slate-200 max-md:p-3 '+(index%2?'bg-slate-50/40':'bg-white')}>
+    <td data-label="Sucursal" className="max-md:flex max-md:flex-col max-md:gap-1 max-md:px-1 max-md:py-2 max-md:before:content-[attr(data-label)] max-md:before:text-[10px] max-md:before:font-medium max-md:before:text-slate-400 break-words px-2 py-3 text-slate-600">{person.branch}</td>
+    <td data-label="Código" className="max-md:flex max-md:flex-col max-md:gap-1 max-md:px-1 max-md:py-2 max-md:before:content-[attr(data-label)] max-md:before:text-[10px] max-md:before:font-medium max-md:before:text-slate-400 break-words px-2 py-3 font-medium tabular-nums text-slate-700">{person.id}</td>
+    <td data-label="Personal" className="max-md:flex max-md:flex-col max-md:gap-1 max-md:px-1 max-md:py-2 max-md:before:content-[attr(data-label)] max-md:before:text-[10px] max-md:before:font-medium max-md:before:text-slate-400 break-words px-2 py-3 font-medium text-slate-900">{person.name}</td>
+    <td data-label="Cargo" className="max-md:flex max-md:flex-col max-md:gap-1 max-md:px-1 max-md:py-2 max-md:before:content-[attr(data-label)] max-md:before:text-[10px] max-md:before:font-medium max-md:before:text-slate-400 break-words px-2 py-3 text-slate-600">{person.role==='GERENTE'?'Gerencia':person.role==='SUPERVISOR'?'Supervisor':'Vendedor'}</td>
+    <td data-label="Superior" className="max-md:flex max-md:flex-col max-md:gap-1 max-md:px-1 max-md:py-2 max-md:before:content-[attr(data-label)] max-md:before:text-[10px] max-md:before:font-medium max-md:before:text-slate-400 px-5 py-3 text-slate-600">{person.superior||'—'}</td>
+    <td data-label="Fuerza de venta" className="max-md:flex max-md:flex-col max-md:gap-1 max-md:px-1 max-md:py-2 max-md:before:content-[attr(data-label)] max-md:before:text-[10px] max-md:before:font-medium max-md:before:text-slate-400 px-5 py-3 text-slate-600">{person.force||'—'}</td>
    </tr>)}</tbody>
    </table>{!visiblePeople.length&&<p className="px-5 py-12 text-center text-sm text-slate-400">No hay personal para mostrar.</p>}</div>:visible.length?<div>{visible.map(node=>renderNode(node))}</div>:<div className="p-12 text-center text-sm text-slate-400"><UsersRound className="mx-auto mb-3 h-7 w-7"/> {current.length?'No hay coincidencias.':'Importá DetallePersonal para visualizar la jerarquía.'}</div>}
  </motion.section>;
