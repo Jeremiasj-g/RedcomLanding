@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, Loader2, Pencil, Plus, Save, Search, Trash2, UserRound, X } from 'lucide-react';
+import { Loader2, Pencil, Plus, Save, Search, Trash2, UserRound, X } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { type CategoryScaleMetric, type CategoryScaleGate } from '@/lib/categoryScale';
 import {
