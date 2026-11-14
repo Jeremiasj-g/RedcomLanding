@@ -16,6 +16,7 @@ import type {CategoryScaleMetric,CategoryScaleGate} from '@/lib/categoryScale';
 import CategoryMonthPicker from '@/components/category-panel/CategoryMonthPicker';
 import CategoryUnifiedOverview from '@/components/category-panel/CategoryUnifiedOverview';
 import CategorySigoHistory from '@/components/category-panel/CategorySigoHistory';
+import CategoryScaleHero from '@/components/category-panel/CategoryScaleHero';
 
 type Scope={key:string;userBranch:string;branch:string;force:string;label:string;basePath:string};
 type Daily={visit_date:string;branch:string;sales_force:string;seller_id:number|null;seller_name:string;first_visit:string|null;last_visit:string|null;corrected_start:string|null;corrected_end:string|null;reason:string|null};
@@ -33,17 +34,17 @@ export default function BranchCategoryV2Page({scope,view}:{scope:Scope;view:'cat
  const canManageSigo=Boolean(ownsBranch&&(me?.role==='admin'||me?.role==='supervisor'||me?.role==='jdv'));
  const canSeeCategories=Boolean(ownsBranch&&(canAccessModule('branch_categories')||canManageSigo));
  useEffect(()=>{
-  if(authLoading||permissionsLoading||!canSeeCategories||view==='horarios-sigo')return;
+  if(authLoading||permissionsLoading||!canSeeCategories)return;
   let active=true;
   setBusy(true);setError('');
-  void supabase.rpc('branch_category_v2_data',{p_branch_key:scope.key,p_month:month||null})
+  void supabase.rpc('branch_category_v2_data',{p_branch_key:scope.key,p_month:view==='horarios-sigo'?null:month||null})
    .then(({data,error})=>{
      if(!active)return;
      if(error)throw error;
      const result=data as Snapshot|null;
      if(!result)throw new Error('No se recibieron datos de la sucursal.');
      setSnapshot(result);
-     if(!month&&result.months.length)setMonth(result.months[0]);
+     if(view==='categorias'&&!month&&result.months.length)setMonth(result.months[0]);
    }).catch(e=>{
      if(!active)return;
      setError(errorMessage(e,'No se pudieron consultar los datos de la sucursal.'));
@@ -55,7 +56,8 @@ export default function BranchCategoryV2Page({scope,view}:{scope:Scope;view:'cat
  const rows=snapshot.rows.map(row=>fromDbRow(row as Parameters<typeof fromDbRow>[0])) as CategoryPanelRow[];
  return <RequireAuth branches={[scope.userBranch]}>
   <main className="min-h-screen bg-[#f7f7f8] pb-16">
-   <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8">
+   <CategoryScaleHero metrics={snapshot.metrics} gates={snapshot.gates} loading={busy} error={error}/>
+   <div className="mx-auto max-w-[1500px] px-4 pb-8 sm:px-6 lg:px-8">
     <Link href={scope.basePath.replace('/categorias-v2','')} className="text-xs font-medium text-slate-500 hover:text-slate-950">← Volver a {scope.label}</Link>
     <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
      <div><h1 className="text-3xl font-semibold tracking-tight text-slate-950">Categorías V 2.0 · {scope.label}</h1></div>
