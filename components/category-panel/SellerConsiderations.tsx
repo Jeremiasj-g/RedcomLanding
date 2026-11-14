@@ -32,7 +32,7 @@ function RuleEditor({rule, inherited, onChange}: {
 }) {
   const mode = rule?.mode ?? 'inherit';
   return (
-    <div className="flex min-w-[116px] flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <RedcomSelect aria-label="Tipo de consideración" value={mode}
         onValueChange={m=>onChange(m==='inherit'?undefined:m==='exempt'?{mode:'exempt'}:{mode:'custom',value:rule?.mode==='custom'?rule.value:0})}
         options={[{value:'inherit',label:'General'},{value:'custom',label:'Personalizado'},{value:'exempt',label:'Exento'}]}
@@ -141,7 +141,7 @@ export default function SellerConsiderations({
         <div>
           
           <h3 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">Consideraciones por vendedor</h3>
-          <p className="mt-1 text-xs leading-5 text-slate-500">Ajustá requisitos o marcá exenciones sin alterar la escala general. Cada vendedor se identifica por sucursal e ID.</p>
+          
         </div>
         <button type="button" onClick={()=>setEditing(v=>!v)}
           className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-semibold text-white hover:bg-slate-800">
@@ -178,14 +178,14 @@ export default function SellerConsiderations({
                 <textarea value={reason} onChange={e=>setReason(e.target.value)} rows={2} placeholder="Ej.: cartera reducida, reemplazo temporal, situación excepcional..."
                   className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-xs text-slate-800 outline-none focus:border-blue-400"/>
                 <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
-                  <table className="w-full min-w-[980px] border-collapse text-left text-xs">
+                  <table className="w-full min-w-[840px] table-fixed border-collapse text-left text-xs">
                     <thead className="bg-slate-50"><tr>
-                      <th className="w-[260px] px-3 py-3 text-slate-500">Métrica / KPI</th>
+                      <th className="w-[25%] px-2 py-3 text-slate-500">Métrica / KPI</th>
                       {cells.map(cell=><th key={cell.key} className={'px-2 py-3 text-center '+cell.color}>{cell.label}</th>)}
                     </tr></thead>
                     <tbody>{metrics.map(metric=><tr key={metric.id} className="border-t border-slate-100">
-                      <td className="px-3 py-4"><div className="font-semibold text-slate-800">{metric.metricName}</div><div className="mt-1 text-[10px] text-slate-400">{metric.sectionName}</div></td>
-                      {cells.map(cell=><td key={cell.key} className="border-l border-slate-100 px-2 py-2 align-top">
+                      <td className="break-words px-2 py-3"><div className="font-medium text-slate-800">{metric.metricName}</div><div className="mt-1 text-[10px] text-slate-400">{metric.sectionName}</div></td>
+                      {cells.map(cell=><td key={cell.key} className="min-w-0 border-l border-slate-100 px-1 py-2 align-top">
                         <RuleEditor rule={metricRules[String(metric.id)]?.[cell.key]} inherited={'General: '+(baseValue(metric,cell.key)??'—')}
                           onChange={rule=>updateMetric(metric.id,cell.key,rule)}/>
                       </td>)}
@@ -221,8 +221,8 @@ export default function SellerConsiderations({
                     {entry.reason&&<div className="mt-1 truncate text-[10px] text-slate-400">{entry.reason}</div>}
                   </div>
                   <div className="flex gap-1">
-                    <button title="Editar" disabled={!seller} onClick={()=>openSeller(k)} className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-white disabled:opacity-30"><Pencil className="h-3.5 w-3.5"/></button>
-                    <button title="Eliminar" onClick={()=>setPendingRemoval(entry)} className="grid h-8 w-8 place-items-center rounded-lg text-rose-500 hover:bg-rose-50"><Trash2 className="h-3.5 w-3.5"/></button>
+                    <button title="Editar" aria-label="Editar consideración" disabled={!seller} onClick={()=>openSeller(k)} className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-white disabled:opacity-30"><Pencil className="h-3.5 w-3.5"/></button>
+                    <button title="Eliminar" aria-label="Eliminar consideración" onClick={()=>setPendingRemoval(entry)} className="grid h-8 w-8 place-items-center rounded-lg text-rose-500 hover:bg-rose-50"><Trash2 className="h-3.5 w-3.5"/></button>
                   </div>
                 </div>;
               })}
