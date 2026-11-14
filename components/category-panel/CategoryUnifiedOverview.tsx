@@ -10,6 +10,10 @@ import {CalendarDays,Download,ChevronDown} from 'lucide-react';
 import {exportSellerCategoryPdf} from '@/lib/exportSellerCategoryPdf';
 import SellerDataCalculations from '@/components/category-panel/SellerDataCalculations';
 import {summarizeSigoReasons,type SigoReasonSummary} from '@/lib/categorySigoReasons';
+import CategoriaCard from '@/components/categoria/CategoriaCard';
+import CategoriasFiltersBar from '@/components/categoria/CategoriasFiltersBar';
+import CategoriasSummaryCards from '@/components/categoria/CategoriasSummaryCards';
+import {getCategoriaByKey,normalizeCategoriaKey,type CategoriaKey} from '@/utils/categories';
 import {FilterableCategoryTable,type FilterColumn} from '@/components/category-panel/CategoryColumnFilters';
 import {fetchCategoryScaleConfig,type CategoryScaleMetric,type CategoryScaleGate} from '@/lib/categoryScale';
 import {assessSellerCategory,gateBreakdown,scoreByCategory,CATEGORY_PASS_SCORE,CATEGORY_PERCENT_TOLERANCE,type SellerCategoryInput} from '@/lib/categoryReached';
@@ -31,12 +35,15 @@ const duration=(start:string|null,end:string|null)=>{
  return Number.isFinite(result)&&result>=0?result:null;
 };
 const displayDuration=(v:number)=>[Math.floor(v/3600),Math.floor(v%3600/60),Math.round(v%60)].map(x=>String(x).padStart(2,'0')).join(':');
-type BranchScopeProps={branchScope?:string;scopedDaily?:Daily[];scopedPersonnel?:Array<{id:number;name:string;branch:string;role:string;superior:string;force:string}>;scopedMetrics?:CategoryScaleMetric[];scopedGates?:CategoryScaleGate[]};
-export default function CategoryUnifiedOverview({rows,projections,month,availableMonths,loadingMonth,branchScope,scopedDaily,scopedPersonnel,scopedMetrics,scopedGates}:{rows:CategoryPanelRow[];projections:KpiProjection[];month:string;onMonthChange?:(month:string)=>void;availableMonths:string[];loadingMonth:boolean}&BranchScopeProps){
+type BranchScopeProps={mode?:'cards'|'detail';branchScope?:string;scopedDaily?:Daily[];scopedPersonnel?:Array<{id:number;name:string;branch:string;role:string;superior:string;force:string}>;scopedMetrics?:CategoryScaleMetric[];scopedGates?:CategoryScaleGate[]};
+export default function CategoryUnifiedOverview({rows,projections,month,availableMonths,loadingMonth,mode='detail',branchScope,scopedDaily,scopedPersonnel,scopedMetrics,scopedGates}:{rows:CategoryPanelRow[];projections:KpiProjection[];month:string;onMonthChange?:(month:string)=>void;availableMonths:string[];loadingMonth:boolean}&BranchScopeProps){
  const [daily,setDaily]=useState<Daily[]>([]);
  const [loading,setLoading]=useState(!branchScope);
  const [branchTab,setBranchTab]=useState<string>(branchScope??'corrientes_masivos');
  const [search,setSearch]=useState('');
+ const [cardQuery,setCardQuery]=useState('');
+ const [cardCategory,setCardCategory]=useState<CategoriaKey|'ALL'>('ALL');
+ const [cardSupervisor,setCardSupervisor]=useState<string>('ALL');
  const [detail,setDetail]=useState<{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null;sellerId:number;branchKey:string;row:CategoryPanelRow|null}|null>(null);
  const [scaleMetrics,setScaleMetrics]=useState<CategoryScaleMetric[]>([]);
  const [scaleGates,setScaleGates]=useState<CategoryScaleGate[]>([]);
@@ -101,6 +108,32 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
   {key:'days',label:'Días válidos',value:r=>String(stats.get(r.branchKey+':'+r.sellerId)?.days??0)}
  ],[byProjection,stats,counts.elapsed,loading]);
  const branchRows=useMemo(()=>sellers.filter(p=>{const b=branches.find(item=>item.key===(branchScope??branchTab));return !!b&&p.branch===b.branch&&(b.force==='all'||p.force===b.force)}).sort((a,b)=>a.superior.localeCompare(b.superior,'es')||a.id-b.id),[sellers,branchTab]);
+ const cardScope=branchScope??branchTab;
+ const categoryCards=branchRows.map(person=>{
+   const row=rows.find(item=>item.branchKey===cardScope&&item.sellerId===person.id)??null;
+   const extra=byProjection.get(cardScope+':'+person.id);
+   const average=stats.get(cardScope+':'+person.id);
+   const input:SellerCategoryInput={
+     dailyBilling:row&&counts.elapsed>0?row.importeFinalFacturado/counts.elapsed:null,
+     efficiency:row&&row.visitados>0?row.cntFac/row.visitados*100:null,
+     effectiveness:row&&row.visitasPlaneadas>0?row.visitados/row.visitasPlaneadas*100:null,
+     pop:extra?.pop_percentage??null,exhibition:extra?.exhibition_percentage??null,
+     volume:extra?.volume_percentage??null,coverage:extra?.coverage_percentage??null,
+     routeHours:average?average.sum/average.days/3600:null
+   };
+   const assessment=assessSellerCategory(input,scaleMetrics,scaleGates,extra?.projected_category??null);
+   const categoriaKey=assessment.status==='pending'?'PENDIENTE' as const:normalizeCategoriaKey(assessment.label);
+   return {person,row,extra,input,assessment,categoriaKey,
+     vendedor:person.name,Supervisor:person.superior??'',id:cardScope+':'+person.id};
+ });
+ const supervisors=Array.from(new Set(categoryCards.map(c=>c.Supervisor).filter(Boolean)))
+   .sort((a,b)=>a.localeCompare(b,'es'));
+ const filteredCards=categoryCards.filter(card=>{
+   const query=cardQuery.trim().toLocaleLowerCase('es');
+   return (!query||(card.vendedor+' '+card.person.id).toLocaleLowerCase('es').includes(query))
+     &&(cardCategory==='ALL'||card.categoriaKey===cardCategory)
+     &&(cardSupervisor==='ALL'||card.Supervisor===cardSupervisor);
+ });
  const branchColumns:FilterColumn<(typeof sellers)[number]>[]=useMemo(()=>{
   const get=(p:(typeof sellers)[number])=>{const r=rows.find(row=>row.branchKey===branchTab&&row.sellerId===p.id);const extra=byProjection.get(branchTab+':'+p.id);const avg=stats.get(branchTab+':'+p.id);return {r,extra,avg};};
   return [
@@ -121,6 +154,30 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
  return <div className="mt-6 space-y-6">
   {month&&!availableMonths.includes(month)&&<p className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800">No hay KPIs unificados guardados para {month}. Los horarios SIGO se consultan por separado; seleccioná o importá el mes correspondiente.</p>}
   {loadingMonth&&<p className="text-xs text-slate-500">Cargando KPIs del mes…</p>}
+  {mode==='cards'&&branchScope?<div>
+    <div className="mt-10">
+     <CategoriasFiltersBar query={cardQuery} onQueryChange={setCardQuery}
+       categoria={cardCategory} onCategoriaChange={setCardCategory}
+       supervisor={cardSupervisor} onSupervisorChange={setCardSupervisor} supervisors={supervisors}/>
+    </div>
+    <div className="mt-6"><CategoriasSummaryCards rows={filteredCards.filter(card=>card.categoriaKey!=='PENDIENTE')}/></div>
+    {filteredCards.length===0?<p className="py-16 text-center text-sm text-slate-500">No hay vendedores que coincidan con los filtros.</p>:
+    <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+      {filteredCards.map(card=>{
+       const category=card.categoriaKey==='PENDIENTE'?null:getCategoriaByKey(card.categoriaKey);
+       return <CategoriaCard key={card.id} id={String(card.person.id)}
+         vendedor={card.vendedor} categoriaLabel={category?.label??'Pendiente'}
+         categoriaColor={category?.color??{bg:'bg-slate-400',text:'text-slate-600',border:'border-slate-200'}}
+         accentColor={category?.color.bg??'#94a3b8'}
+         eficiencia={card.input.efficiency} cobertura={card.input.coverage}
+         volumen={card.input.volume} pop={card.input.pop} exhibicion={card.input.exhibition}
+         onDetails={()=>setDetail({name:card.person.name,
+           branch:branches.find(item=>item.key===cardScope)?.name??cardScope,
+           input:card.input,projectedCategory:card.extra?.projected_category??null,
+           sellerId:card.person.id,branchKey:cardScope,row:card.row})}/>;
+      })}
+    </div>}
+   </div>:<>
   <section className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,.055)]">
    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-5">
     <h2 className="text-xl font-semibold text-slate-900">Reportes unificados y horarios</h2>
@@ -187,6 +244,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
        }} />
     </div>
   </section>
+  </>}
   {detail&&<SellerScoreDialog name={detail.name} branch={detail.branch} input={detail.input} projectedCategory={detail.projectedCategory} reasonSummary={summarizeSigoReasons(daily,detail.sellerId,branches.find(item=>item.key===detail.branchKey)?.branch??'',branches.find(item=>item.key===detail.branchKey)?.force??'')} row={detail.row} elapsedDays={counts.elapsed} month={month} metrics={scaleMetrics} gates={scaleGates} onClose={()=>setDetail(null)}/>}
  </div>;
 }

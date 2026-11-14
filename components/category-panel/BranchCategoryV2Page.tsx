@@ -27,7 +27,7 @@ type Snapshot={months:string[];rows:Record<string,unknown>[];projections:KpiProj
 const EMPTY:Snapshot={months:[],rows:[],projections:[],daily:[],personnel:[],metrics:[],gates:[]};
 export default function BranchCategoryV2Page({scope,children}:{scope:Scope;children?:ReactNode}){
  const pathname=usePathname();
- const view=pathname.endsWith('/horarios-sigo')?'horarios-sigo':'categorias';
+ const view=pathname.endsWith('/horarios-sigo')?'horarios-sigo':pathname.endsWith('/detalle-categorias')?'detalle-categorias':'categorias';
  const {me,loading:authLoading}=useMe();
  const {loading:permissionsLoading,canAccessModule}=useModulePermissions();
  const [month,setMonth]=useState(()=>{const date=new Date();return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0');});
@@ -76,17 +76,18 @@ export default function BranchCategoryV2Page({scope,children}:{scope:Scope;child
       </label>
     </div>
     <nav aria-label="Secciones de Categorías V 2.0" className="mt-6 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
-      {canManageSigo&&<Link scroll={false} href={scope.basePath+'/horarios-sigo'} aria-current={view==='horarios-sigo'?'page':undefined} className={'inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors duration-200 '+(view==='horarios-sigo'?'border-slate-950 bg-slate-950 text-white':'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}><Clock3 className="h-4 w-4"/>Horarios SIGO</Link>}
       <Link scroll={false} href={scope.basePath+'/categorias'} aria-current={view==='categorias'?'page':undefined} className={'inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors duration-200 '+(view==='categorias'?'border-slate-950 bg-slate-950 text-white':'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}><Layers3 className="h-4 w-4"/>Categorías</Link>
+      <Link scroll={false} href={scope.basePath+'/detalle-categorias'} aria-current={view==='detalle-categorias'?'page':undefined} className={'inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors duration-200 '+(view==='detalle-categorias'?'border-slate-950 bg-slate-950 text-white':'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}><Layers3 className="h-4 w-4"/>Detalle categorías</Link>
+      {canManageSigo&&<Link scroll={false} href={scope.basePath+'/horarios-sigo'} aria-current={view==='horarios-sigo'?'page':undefined} className={'inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors duration-200 '+(view==='horarios-sigo'?'border-slate-950 bg-slate-950 text-white':'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}><Clock3 className="h-4 w-4"/>Horarios SIGO</Link>}
     </nav>
     {canManageSigo&&visitedSigo&&<div hidden={view!=='horarios-sigo'} aria-hidden={view!=='horarios-sigo'}>
       <CategorySigoHistory branchScope={{branch:scope.branch,force:scope.force,editorRole:me?.role??'',editorName:me?.full_name??''}} month={month} onMonthChange={setMonth}/>
     </div>}
-    {visitedCategories&&<div hidden={view!=='categorias'} aria-hidden={view!=='categorias'}>
+    {visitedCategories&&<div hidden={view==='horarios-sigo'} aria-hidden={view==='horarios-sigo'}>
       {busy&&loadedMonth!==month&&<CategoryV2ContentSkeleton variant="categories"/>}
       {error&&<div role="alert" className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}
       <div hidden={loadedMonth!==month||Boolean(error)}>
-       <CategoryUnifiedOverview rows={rows} projections={snapshot.projections} month={month} availableMonths={snapshot.months} loadingMonth={busy}
+       <CategoryUnifiedOverview rows={rows} projections={snapshot.projections} month={month} availableMonths={snapshot.months} loadingMonth={busy} mode={view==='detalle-categorias'?'detail':'cards'}
         branchScope={scope.key} scopedDaily={snapshot.daily} scopedPersonnel={snapshot.personnel} scopedMetrics={snapshot.metrics} scopedGates={snapshot.gates}/>
       </div>
     </div>}
