@@ -54,7 +54,7 @@ export default function SingleSellerPivotUpdate({ savedRows, onUpdated, month }:
     ['Venta PDV',current.ventaPdv,parsed.ventaPdv],
     ['Visitas planeadas',current.visitasPlaneadas,parsed.visitasPlaneadas],
   ] as const : [];
-  return <section className="h-full rounded-[20px] bg-white p-5 shadow-[0_6px_22px_rgba(15,23,42,.05)]">
+  return <section className="h-full bg-white px-1 py-4 sm:px-4">
     <div className="flex flex-col justify-between gap-3">
       <div>
         
