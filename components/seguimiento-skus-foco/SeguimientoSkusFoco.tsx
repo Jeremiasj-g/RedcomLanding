@@ -8,6 +8,7 @@ import { useMe } from '@/hooks/useMe';
 import { notify, errorMessage } from '@/lib/notifications';
 import { findLineObjective, parseObjectiveMatrix, type ObjectiveValues } from '@/lib/skuFocoObjectives';
 import FocoHierarchyMatrix from './FocoHierarchyMatrix';
+import {getActivePersonnelMeta,downloadActivePersonnel} from '@/lib/commercialPersonnelMaster';
 
 type ExcelRow = Record<string, unknown>;
 type FocusLine = { linea: string; articulos: string[] };
@@ -126,8 +127,9 @@ export default function SeguimientoSkusFoco() {
   const [articleFile,setArticleFile] = useState<File|null>(null);
   const [objectiveVolumeFile,setObjectiveVolumeFile] = useState<File|null>(null);
   const [objectiveCoverageFile,setObjectiveCoverageFile] = useState<File|null>(null);
-  const [personalFile,setPersonalFile] = useState<File|null>(null);
+  const [masterMeta,setMasterMeta] = useState<Awaited<ReturnType<typeof getActivePersonnelMeta>>>(null);
   const [personalRows,setPersonalRows] = useState<ExcelRow[]>([]);
+  useEffect(()=>{let active=true;const refresh=()=>{void getActivePersonnelMeta().then(meta=>{if(active)setMasterMeta(meta);}).catch(e=>notify.error(errorMessage(e,'No se pudo consultar DetallePersonal global.')));};refresh();window.addEventListener('focus',refresh);return()=>{active=false;window.removeEventListener('focus',refresh);};},[]);
   const [volumeObjectives,setVolumeObjectives] = useState<ObjectiveValues>({});
   const [coverageObjectives,setCoverageObjectives] = useState<ObjectiveValues>({});
   const [storedPaths,setStoredPaths] = useState<{
@@ -158,7 +160,7 @@ export default function SeguimientoSkusFoco() {
   // Al entrar, los archivos congelados se descargan una sola vez desde Storage.
   // La tabla SQL solo almacena metadatos, no miles de filas JSON.
   useEffect(()=>{
-    if(!xlsxReady || (!storedPaths.lineas && !storedPaths.articulos && !storedPaths.volume && !storedPaths.coverage && !storedPaths.personal))return;
+    if(!xlsxReady)return;
     let cancelled=false;
     (async()=>{
       try{
@@ -174,7 +176,11 @@ export default function SeguimientoSkusFoco() {
           storedPaths.articulos?download(storedPaths.articulos):Promise.resolve(null),
           storedPaths.volume?download(storedPaths.volume):Promise.resolve(null),
           storedPaths.coverage?download(storedPaths.coverage):Promise.resolve(null),
-          storedPaths.personal?download(storedPaths.personal):Promise.resolve(null),
+          masterMeta?downloadActivePersonnel().then(async file=>{
+            if(!file)return null;
+            const wb=window.XLSX!.read(new Uint8Array(await file.arrayBuffer()),{type:'array'});
+            return window.XLSX!.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+          }):Promise.resolve(null),
         ]);
         if(cancelled)return;
         setState(prev=>({...prev,lineas:lineas??prev.lineas,articulos:articulos??prev.articulos}));
@@ -185,7 +191,7 @@ export default function SeguimientoSkusFoco() {
       finally{if(!cancelled)setLoading(false);}
     })();
     return ()=>{cancelled=true;};
-  },[xlsxReady,storedPaths.lineas,storedPaths.articulos,storedPaths.volume,storedPaths.coverage,storedPaths.personal]);
+  },[xlsxReady,storedPaths.lineas,storedPaths.articulos,storedPaths.volume,storedPaths.coverage,masterMeta?.updated_at]);
 
   const parsedFocus = useMemo(()=>forms.filter(f=>f.linea.trim()).map(f=>({
     linea:f.linea.trim().toUpperCase(),articulos:f.articulos.split(',').map(a=>a.trim()).filter(Boolean),
@@ -252,11 +258,10 @@ export default function SeguimientoSkusFoco() {
         articleFile?readFile(articleFile):Promise.resolve(state.articulos),
         objectiveVolumeFile?readFile(objectiveVolumeFile):Promise.resolve(null),
         objectiveCoverageFile?readFile(objectiveCoverageFile):Promise.resolve(null),
-        personalFile?readFile(personalFile):Promise.resolve(null),
+        Promise.resolve(null),
       ]);
       const newVolume=rowsVolume ? parseObjectiveMatrix(rowsVolume) : volumeObjectives;
       const newCoverage=rowsCoverage ? parseObjectiveMatrix(rowsCoverage) : coverageObjectives;
-      if(rowsPersonal && !rowsPersonal.some(r=>r['Superior']!==undefined&&r['Cargo']!==undefined&&r['Código']!==undefined)) throw new Error('DetallePersonal no tiene columnas Superior, Cargo y Código.');
       const upload=async(file:File,kind:string)=>{
         const path=`live/${kind}-${Date.now()}-${Math.random().toString(36).slice(2,10)}.xlsx`;
         const {error}=await supabase.storage.from('sku-foco-reports').upload(path,file,{
@@ -271,14 +276,12 @@ export default function SeguimientoSkusFoco() {
       const articulosPath=articleFile?await upload(articleFile,'articulos'):storedPaths.articulos;
       const volumePath=objectiveVolumeFile?await upload(objectiveVolumeFile,'objetivo-volumen'):storedPaths.volume;
       const coveragePath=objectiveCoverageFile?await upload(objectiveCoverageFile,'objetivo-cobertura'):storedPaths.coverage;
-      const personalPath=personalFile?await upload(personalFile,'personal'):storedPaths.personal;
       // Sin enviar todas las filas en un único JSON: evita timeout y Failed to fetch.
       const timestamp=new Date().toISOString();
       const {error}=await supabase.from('sku_foco_shared_state').update({
         lineas:[],articulos:[],
         lineas_storage_path:lineasPath,articulos_storage_path:articulosPath,
         objetivo_volumen_storage_path:volumePath,objetivo_cobertura_storage_path:coveragePath,
-        personal_storage_path:personalPath,personal_file_name:personalFile?.name??state.personal_file_name,
         objetivo_volumen_file_name:objectiveVolumeFile?.name??state.objetivo_volumen_file_name,
         objetivo_cobertura_file_name:objectiveCoverageFile?.name??state.objetivo_cobertura_file_name,
         ...(canEditFocus ? {focus_config:parsedFocus} : {}),
@@ -292,15 +295,13 @@ export default function SeguimientoSkusFoco() {
         file_articulos_name:articleFile?.name??prev.file_articulos_name,
         lineas_storage_path:lineasPath,articulos_storage_path:articulosPath,
         objetivo_volumen_storage_path:volumePath,objetivo_cobertura_storage_path:coveragePath,
-        personal_storage_path:personalPath,personal_file_name:personalFile?.name??prev.personal_file_name,
         objetivo_volumen_file_name:objectiveVolumeFile?.name??prev.objetivo_volumen_file_name,
         objetivo_cobertura_file_name:objectiveCoverageFile?.name??prev.objetivo_cobertura_file_name,
         updated_at:timestamp}));
       setVolumeObjectives(newVolume);setCoverageObjectives(newCoverage);
-      if(rowsPersonal)setPersonalRows(rowsPersonal);
       setStoredPaths({lineas:lineasPath??null,articulos:articulosPath??null,
-        volume:volumePath??null,coverage:coveragePath??null,personal:personalPath??null});
-      setLineFile(null);setArticleFile(null);setObjectiveVolumeFile(null);setObjectiveCoverageFile(null);setPersonalFile(null);setVendorFilter('all');setTab('dashboard');
+        volume:volumePath??null,coverage:coveragePath??null,personal:storedPaths.personal});
+      setLineFile(null);setArticleFile(null);setObjectiveVolumeFile(null);setObjectiveCoverageFile(null);setVendorFilter('all');setTab('dashboard');
       notify.success('Reportes congelados en Storage y disponibles para los demás usuarios.');
     }catch(e){
       if(newUploads.length)void supabase.storage.from('sku-foco-reports').remove(newUploads);
@@ -381,14 +382,10 @@ export default function SeguimientoSkusFoco() {
                 <div><h3 className="text-sm font-semibold text-slate-800">Detalle de Personal Comercial</h3>
                 <p className="mt-1 text-xs text-slate-500">Jefes de ventas, supervisores y vendedores. Se vinculan por sucursal, código y superior.</p></div>
               </div>
-              <p className="mt-3 text-xs text-slate-500">{storedPaths.personal
-                ? 'Guardado: '+(state.personal_file_name??'DetallePersonal.xlsx')+' · '+personalRows.length+' personas'
-                : 'Todavía no hay un organigrama guardado'}</p>
-              {storedPaths.personal&&<button type="button" disabled={downloadingPath!==null} onClick={()=>void downloadImportedFile(storedPaths.personal,state.personal_file_name)} className="mt-3 inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50">{downloadingPath===storedPaths.personal?<Loader2 className="h-4 w-4 animate-spin"/>:<Download className="h-4 w-4"/>}{downloadingPath===storedPaths.personal?'Descargando…':'Descargar archivo'}</button>}
-              {personalFile&&<p className="mt-2 text-xs font-semibold text-blue-700">Nuevo archivo: {personalFile.name}</p>}
-              {canUploadReports&&<input aria-label="Detalle de Personal Comercial" type="file" accept=".xlsx,.xls"
-                disabled={!xlsxReady} onChange={e=>setPersonalFile(e.target.files?.[0]??null)}
-                className="mt-4 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-50 file:px-3 file:py-2 file:font-semibold file:text-violet-700 disabled:opacity-50"/>}
+              <p className="mt-3 text-xs text-slate-500">{masterMeta
+                ? 'Fuente central: '+masterMeta.original_name+' · '+personalRows.length+' personas'
+                : 'No existe DetallePersonal global. Administración debe cargarlo desde el Panel de Administrador.'}</p>
+              {masterMeta&&<button type="button" onClick={()=>void (async()=>{try{const file=await downloadActivePersonnel();if(!file)return;const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){notify.error(errorMessage(e,'No se pudo descargar DetallePersonal.'));}})()} className="mt-3 inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-50"><Download className="h-4 w-4"/>Descargar archivo maestro</button>}
             </div>
             <p className="mt-3 text-xs text-slate-500">Los objetivos se cruzan por ID de vendedor y línea comercial. Las planillas corresponden a Casa Central.</p>
             <div className="mt-6 flex justify-between border-t border-slate-100 pt-5">
