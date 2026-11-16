@@ -5,6 +5,7 @@ import CategoriasLayout from '@/components/categoria/CategoriasLayout'
 
 export default function Page() {
   return (
+   <>
     <CategoriasLayout
       roles={['admin', 'supervisor', 'jdv' ,'vendedor', 'rrhh']}
       branches={['corrientes']}
@@ -14,5 +15,6 @@ export default function Page() {
       grid={<CategoriasGrid />}
       historyHref="/corrientes/masivos/categorias/historico"
     />
+   </>
   )
 }

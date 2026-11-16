@@ -1,0 +1,2095 @@
+'use client';
+
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  Database,
+  FileSpreadsheet,
+  Gauge,
+  UsersRound,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Save,
+  Search,
+  ShieldCheck,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+import DualSpinner from '@/components/ui/DualSpinner';
+import { RedcomSelect } from '@/components/ui/redcom-select';
+import CategoryMonthPicker from '@/components/category-panel/CategoryMonthPicker';
+import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
+import { useMe } from '@/hooks/useMe';
+import {
+  fetchCategoryPanelCurrent,
+  listCategoryPanelMonths,
+  fetchCategoryPanelMonth,
+  assignCurrentCategoryPanelMonth,
+  type CategoryPanelMonthInfo,
+  replaceCategoryPanelCurrent,
+  type CategoryPanelState,
+} from '@/lib/categoryPanel';
+import {
+  parseCategoryPanelFiles,
+  type CategoryPanelParseResult,
+  type CategoryPanelRow,
+} from '@/lib/categoryPanelExcel';
+import { errorMessage, notify } from '@/lib/notifications';
+import { supabase } from '@/lib/supabaseClient';
+import { exportKpiProjectionTemplate, parseKpiProjectionFile, type KpiProjection } from '@/lib/categoryKpiProjections';
+import SellerConsiderations from '@/components/category-panel/SellerConsiderations';
+import CommercialPersonnel from '@/components/category-panel/CommercialPersonnel';
+import CategorySigoHistory from '@/components/category-panel/CategorySigoHistory';
+import CategoryUnifiedOverview from '@/components/category-panel/CategoryUnifiedOverview';
+import SingleSellerPivotUpdate from '@/components/category-panel/SingleSellerPivotUpdate';
+import SingleSellerTmpUpdate from '@/components/category-panel/SingleSellerTmpUpdate';
+import {
+  createCategoryScaleGate,
+  createCategoryScaleMetric,
+  deleteCategoryScaleGate,
+  deleteCategoryScaleMetric,
+  fetchCategoryScaleConfig,
+  updateCategoryScaleGate,
+  updateCategoryScaleMetric,
+  updateCategoryScaleSettings,
+  type CategoryScaleGate,
+  type CategoryScaleMetric,
+  type CategoryScaleMetricInput,
+  type CategoryScaleSettings,
+  type CategoryScaleValueType,
+} from '@/lib/categoryScale';
+
+const currencyFormatter = new Intl.NumberFormat('es-AR', {
+  style: 'currency',
+  currency: 'ARS',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const integerFormatter = new Intl.NumberFormat('es-AR');
+
+const emptyState: CategoryPanelState = {
+  lastImportedAt: null,
+  lastImportedBy: null,
+  rowCount: 0,
+};
+
+function dateTimeLabel(value: string | null) {
+  if (!value) return 'Todavía sin actualización';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat('es-AR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+function normalizeSearch(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function fileSizeLabel(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export default function CategoryPanelPage() {
+  const router = useRouter();
+  const { me, loading: meLoading } = useMe();
+
+  const [savedRows, setSavedRows] = useState<CategoryPanelRow[]>([]);
+  const [availableMonths,setAvailableMonths]=useState<CategoryPanelMonthInfo[]>([]);
+  const [selectedMonth,setSelectedMonth]=useState('');
+  const [monthlyRows,setMonthlyRows]=useState<CategoryPanelRow[]>([]);
+  const [loadingMonthly,setLoadingMonthly]=useState(false);
+  const [legacyMonth,setLegacyMonth]=useState('2026-10');
+  const [registeringLegacy,setRegisteringLegacy]=useState(false);
+  const [confirmLegacyMonth,setConfirmLegacyMonth]=useState(false);
+  const refreshMonths=async()=>{const months=await listCategoryPanelMonths();setAvailableMonths(months);return months;};
+  useEffect(()=>{
+    if(meLoading||me?.role!=='admin')return;
+    void refreshMonths().then(async months=>{
+      if(months.length){setSelectedMonth(current=>current||months[0].month);return;}
+      const {data,error}=await supabase.from('category_sigo_daily').select('visit_date').order('visit_date',{ascending:false}).limit(1);
+      if(error)throw error;
+      setSelectedMonth(current=>current||data?.[0]?.visit_date?.slice(0,7)||new Date().toISOString().slice(0,7));
+    }).catch(error=>notify.error(errorMessage(error,'No se pudo cargar el historial mensual.')));
+  },[meLoading,me?.role]);
+  useEffect(()=>{
+    if(!selectedMonth||!availableMonths.some(m=>m.month===selectedMonth)){setMonthlyRows([]);return;}
+    let active=true;setLoadingMonthly(true);
+    void fetchCategoryPanelMonth(selectedMonth).then(rows=>{if(active)setMonthlyRows(rows);}).catch(error=>{if(active)notify.error(errorMessage(error,'No se pudieron cargar los KPIs mensuales.'));}).finally(()=>{if(active)setLoadingMonthly(false);});
+    return()=>{active=false;};
+  },[selectedMonth,availableMonths]);
+  const registerLegacyMonth=async()=>{
+    if(!legacyMonth||registeringLegacy)return;
+    setRegisteringLegacy(true);
+    try{await assignCurrentCategoryPanelMonth(legacyMonth);await refreshMonths();setSelectedMonth(legacyMonth);setConfirmLegacyMonth(false);notify.success('Lote asociado a '+legacyMonth+'.');}
+    catch(error){notify.error(errorMessage(error,'No se pudo asociar el mes al lote.'));}
+    finally{setRegisteringLegacy(false);}
+  };
+
+  const [kpiProjections,setKpiProjections] = useState<KpiProjection[]>([]);
+  const [importingKpi,setImportingKpi] = useState(false);
+  const [kpiDraft,setKpiDraft] = useState<KpiProjection[] | null>(null);
+  useEffect(()=>{setKpiDraft(null);},[selectedMonth]);
+  const [individualEnabled,setIndividualEnabled] = useState(false);
+  const kpiImportRef=useRef<HTMLInputElement>(null);
+  const reloadKpi=async(month=selectedMonth)=>{
+    if(!month){setKpiProjections([]);return;}
+    const {data,error}=await supabase.from('category_kpi_projections_monthly').select('branch_key,seller_id,projected_category,pop_percentage,exhibition_percentage,coverage_percentage,volume_percentage').eq('month',month);
+    if(error)throw error;
+    setKpiProjections((data??[]) as KpiProjection[]);
+  };
+  useEffect(()=>{if(!meLoading&&me?.role==='admin')void reloadKpi().catch(error=>notify.error(errorMessage(error,'No se pudieron cargar las proyecciones del mes.')));},[meLoading,me?.role,selectedMonth]);
+  const importKpi=async(file:File)=>{
+    if(preview){notify.error('Guardá o descartá la importación Pivot/TMP pendiente antes de cargar proyecciones.');return;}
+    if(!monthlyRows.length){notify.error('Guardá primero los KPIs unificados correspondientes al mes que querés importar.');return;}
+    setImportingKpi(true);
+    try{
+      const entries=await parseKpiProjectionFile(file,monthlyRows);
+      if(!entries.length)throw new Error('No hay vendedores reconocidos en la planilla.');
+      setKpiDraft(entries);
+      notify.success('Archivo leído. Revisá las proyecciones antes de confirmar.');
+    }catch(error){setKpiDraft(null);notify.error(errorMessage(error,'No se pudo interpretar la planilla de proyecciones.'));}
+    finally{setImportingKpi(false);if(kpiImportRef.current)kpiImportRef.current.value='';}
+  };
+  const saveKpiDraft=async()=>{
+    if(!kpiDraft||importingKpi)return;
+    setImportingKpi(true);
+    try{
+      const {error}=await supabase.from('category_kpi_projections_monthly').upsert(kpiDraft.map(entry=>({...entry,month:selectedMonth})),{onConflict:'month,branch_key,seller_id'});
+      if(error)throw error;
+      await reloadKpi();
+      notify.success('Proyecciones guardadas para '+kpiDraft.length+' vendedores.');
+      setKpiDraft(null);
+    }catch(error){notify.error(errorMessage(error,'No se pudieron guardar las proyecciones.'));}
+    finally{setImportingKpi(false);}
+  };
+  const [savedState, setSavedState] = useState<CategoryPanelState>(emptyState);
+  const [loadingSaved, setLoadingSaved] = useState(true);
+
+  const [pivotFile, setPivotFile] = useState<File | null>(null);
+  const [tmpFile, setTmpFile] = useState<File | null>(null);
+  const [inputVersion, setInputVersion] = useState(0);
+
+  const [preview, setPreview] = useState<CategoryPanelParseResult | null>(null);
+  const [parsing, setParsing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+
+  const [search, setSearch] = useState('');
+  const [branchFilter, setBranchFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState<'kpis' | 'sigo' | 'scales' | 'personnel' | 'categories'>('kpis');
+  const [pendingLeave,setPendingLeave]=useState<{kind:'tab';value:typeof activeTab}|{kind:'month';value:string}|null>(null);
+  const unsavedImport=Boolean(kpiDraft||preview||pivotFile||tmpFile);
+  const requestTab=(tab:typeof activeTab)=>{
+    if(tab===activeTab)return;
+    if(unsavedImport){setPendingLeave({kind:'tab',value:tab});return;}
+    setActiveTab(tab);
+  };
+  const requestMonth=(month:string)=>{
+    if(month===selectedMonth)return;
+    if(unsavedImport){setPendingLeave({kind:'month',value:month});return;}
+    setSelectedMonth(month);
+  };
+  const discardImportAndContinue=()=>{
+    if(!pendingLeave)return;
+    setKpiDraft(null);setPreview(null);setPivotFile(null);setTmpFile(null);
+    setConfirmSaveOpen(false);setInputVersion(version=>version+1);
+    if(pendingLeave.kind==='tab')setActiveTab(pendingLeave.value);
+    else setSelectedMonth(pendingLeave.value);
+    setPendingLeave(null);
+  };
+  useEffect(()=>{
+    if(!unsavedImport)return;
+    const onBeforeUnload=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};
+    window.addEventListener('beforeunload',onBeforeUnload);
+    return()=>window.removeEventListener('beforeunload',onBeforeUnload);
+  },[unsavedImport]);
+
+
+  useEffect(() => {
+    if (meLoading) return;
+    if (!me || me.role !== 'admin') {
+      router.replace('/acceso-denegado?modulo=panel-categorias');
+    }
+  }, [me, meLoading, router]);
+
+  useEffect(() => {
+    if (meLoading || !me || me.role !== 'admin') return;
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        setLoadingSaved(true);
+        const current = await fetchCategoryPanelCurrent();
+        if (cancelled) return;
+        setSavedRows(current.rows);
+        setSavedState(current.state);
+      } catch (error) {
+        if (!cancelled) {
+          notify.error(
+            errorMessage(
+              error,
+              'No se pudieron cargar los datos actuales del Panel de categorías.',
+            ),
+          );
+        }
+      } finally {
+        if (!cancelled) setLoadingSaved(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [me, meLoading]);
+
+  const displayRows = preview?.rows ?? monthlyRows;
+  const displayMode = preview ? 'preview' : 'saved';
+
+  const branchOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of displayRows) map.set(row.branchKey, row.branchLabel);
+
+    return [
+      { value: 'all', label: 'Todas las sucursales' },
+      ...Array.from(map.entries())
+        .map(([value, label]) => ({ value, label }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'es')),
+    ];
+  }, [displayRows]);
+
+  useEffect(() => {
+    if (
+      branchFilter !== 'all' &&
+      !branchOptions.some((option) => option.value === branchFilter)
+    ) {
+      setBranchFilter('all');
+    }
+  }, [branchFilter, branchOptions]);
+
+  const filteredRows = useMemo(() => {
+    const query = normalizeSearch(search);
+
+    return displayRows.filter((row) => {
+      if (branchFilter !== 'all' && row.branchKey !== branchFilter) return false;
+
+      if (!query) return true;
+
+      return normalizeSearch(
+        [
+          row.branchLabel,
+          row.sector,
+          row.sellerId,
+          row.sellerName,
+        ].join(' '),
+      ).includes(query);
+    });
+  }, [branchFilter, displayRows, search]);
+
+  const totals = useMemo(() => {
+    return displayRows.reduce(
+      (acc, row) => {
+        acc.billing += row.importeFinalFacturado;
+        acc.invoices += row.cntFac;
+        return acc;
+      },
+      { billing: 0, invoices: 0 },
+    );
+  }, [displayRows]);
+
+  const clearFiles = () => {
+    setPivotFile(null);
+    setTmpFile(null);
+    setPreview(null);
+    setInputVersion((current) => current + 1);
+  };
+
+  const processFiles = async () => {
+    if (!pivotFile || !tmpFile) {
+      notify.error('Seleccioná los dos reportes antes de unificar.');
+      return;
+    }
+
+    try {
+      setParsing(true);
+      const result = await parseCategoryPanelFiles(pivotFile, tmpFile);
+      setPreview(result);
+      setSearch('');
+      setBranchFilter('all');
+
+      if (!result.period) {
+        notify.success('Los  '+result.rows.length+' vendedores se unificaron. No pude detectar automáticamente el período en la columna B del TMP; elegí el mes debajo antes de guardar.');
+      } else if (result.canSave) {
+        notify.success(
+          `Unificación lista: ${result.rows.length} vendedores para revisar.`,
+        );
+      } else {
+        notify.error(
+          'La vista previa tiene diferencias entre reportes. Revisalas antes de guardar.',
+        );
+      }
+    } catch (error) {
+      setPreview(null);
+      notify.error(errorMessage(error, 'No se pudieron procesar los reportes.'));
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const [editedKeys,setEditedKeys] = useState<Set<string>>(new Set());
+  const [savingInlineKey,setSavingInlineKey] = useState<string|null>(null);
+
+  const saveInlineRow = async (original:CategoryPanelRow,updated:CategoryPanelRow) => {
+    const key=original.branchKey+':'+original.sellerId;
+    if(savingInlineKey)return false;
+    if(!updated.sellerName.trim()||updated.sector<=0||
+       [updated.visitados,updated.ventaDistancia,updated.ventaPdv,updated.visitasPlaneadas,updated.cntFac,updated.importeFinalFacturado].some(value=>!Number.isFinite(value)||value<0)){
+      notify.error('Revisá el nombre y los valores: no pueden estar vacíos, ser negativos o inválidos.');
+      return false;
+    }
+    const next={...updated,sellerName:updated.sellerName.trim()};
+    if(preview){
+      const nextRows=preview.rows.map(row=>row.branchKey===original.branchKey&&row.sellerId===original.sellerId?next:row);
+      setPreview({...preview,rows:nextRows});
+      setEditedKeys(previous=>new Set(previous).add(key));
+      notify.success('Fila modificada en la vista previa. Guardá los reportes para confirmar.');
+      return true;
+    }
+    if(!selectedMonth||!availableMonths.some(m=>m.month===selectedMonth)){
+      notify.error('Seleccioná un mes con KPIs guardados para editar.');
+      return false;
+    }
+    try{
+      setSavingInlineKey(key);
+      const pivotChanged=['sector','sellerName','visitados','ventaDistancia','ventaPdv','visitasPlaneadas'].some(field=>
+        original[field as keyof CategoryPanelRow]!==next[field as keyof CategoryPanelRow]);
+      const tmpChanged=original.importeFinalFacturado!==next.importeFinalFacturado||original.cntFac!==next.cntFac;
+      if(pivotChanged){
+        const {error}=await supabase.rpc('admin_update_category_month_seller',{
+          p_month:selectedMonth,p_branch_key:original.branchKey,p_seller_id:original.sellerId,p_kind:'pivot',
+          p_values:{sector:next.sector,seller_name:next.sellerName,visitados:next.visitados,
+            venta_distancia:next.ventaDistancia,venta_pdv:next.ventaPdv,visitas_planeadas:next.visitasPlaneadas}
+        });
+        if(error)throw error;
+      }
+      if(tmpChanged){
+        const {error}=await supabase.rpc('admin_update_category_month_seller',{
+          p_month:selectedMonth,p_branch_key:original.branchKey,p_seller_id:original.sellerId,p_kind:'tmp',
+          p_values:{importe_final_facturado:next.importeFinalFacturado,cnt_fac:next.cntFac}
+        });
+        if(error)throw error;
+      }
+      const result=await fetchCategoryPanelMonth(selectedMonth);
+      setMonthlyRows(result);
+      setEditedKeys(previous=>new Set(previous).add(key));
+      notify.success('Cambios guardados para '+selectedMonth+'.');
+      return true;
+    }catch(error){
+      notify.error(errorMessage(error,'No se pudo guardar. Recargá para comprobar los cambios antes de volver a intentar.'));
+      return false;
+    }finally{setSavingInlineKey(null);}
+  };
+
+  const savePreview = async () => {
+    if (!preview?.canSave || !preview.period || saving) return;
+    if(!availableMonths.length&&savedRows.length){notify.error('Antes de guardar otro mes, asociá el lote anterior a su mes para conservarlo en el historial.');return;}
+
+    try {
+      setSaving(true);
+      const result = await replaceCategoryPanelCurrent(preview.rows,preview.period);
+
+      setSavedRows(preview.rows);
+      await refreshMonths();
+      setSelectedMonth(preview.period);
+      setSavedState({
+        lastImportedAt: result.importedAt,
+        lastImportedBy: me?.id ?? null,
+        rowCount: result.rowCount,
+      });
+
+      setConfirmSaveOpen(false);
+      setPivotFile(null);
+      setTmpFile(null);
+      setPreview(null);
+      setInputVersion((current) => current + 1);
+
+      notify.success(
+        `Datos actualizados. Se reemplazaron por ${result.rowCount} vendedores.`,
+      );
+    } catch (error) {
+      notify.error(
+        errorMessage(error, 'No se pudieron guardar los datos unificados.'),
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (meLoading || !me || me.role !== 'admin') {
+    return (
+      <div className="grid min-h-[75vh] place-items-center bg-[#f4f5f7]">
+        <DualSpinner size={60} thickness={4} />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <main className="min-h-screen bg-[#f4f5f7] pb-16">
+        <div className={'mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8'}>
+          <section className="px-1 pb-2 pt-4 sm:px-2 sm:pt-6">
+            <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
+              <div className="max-w-3xl">
+
+                <h1 className="mt-2 text-4xl font-semibold tracking-[-0.05em] text-[#111214] sm:text-[46px]">
+                  Panel de categorías
+                </h1>
+
+                <p className="mt-3 max-w-2xl text-[14px] leading-6 text-slate-500">
+                  Consultá KPIs, horarios y categorías por período.
+                </p>
+              </div>
+
+              <div className="grid min-w-0 gap-0 border-y border-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-slate-200 xl:min-w-[600px]">
+                <HeroStat
+                  label="Datos guardados"
+                  value={loadingSaved ? '—' : integerFormatter.format(savedState.rowCount)}
+                  detail="vendedores actuales"
+                />
+                <HeroStat
+                  label="Última actualización"
+                  value={
+                    savedState.lastImportedAt
+                      ? new Intl.DateTimeFormat('es-AR', {
+                          day: '2-digit',
+                          month: 'short',
+                        })
+                          .format(new Date(savedState.lastImportedAt))
+                          .replace('.', '')
+                      : '—'
+                  }
+                  detail={
+                    savedState.lastImportedAt
+                      ? new Intl.DateTimeFormat('es-AR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }).format(new Date(savedState.lastImportedAt))
+                      : 'sin importaciones'
+                  }
+                />
+                <HeroStat
+                  label="Modo"
+                  value="Mensual"
+                  detail="histórico por período"
+                />
+              </div>
+            </div>
+          </section>
+
+          <div className="mt-6 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+            <PanelTab
+              active={activeTab === 'sigo'}
+              onClick={() => requestTab('sigo')}
+              icon={<Clock3 className="h-4 w-4" />}
+              label="Horarios SIGO"
+            />
+            <PanelTab
+              active={activeTab === 'kpis'}
+              onClick={() => requestTab('kpis')}
+              icon={<Database className="h-4 w-4" />}
+              label="KPIs"
+            />
+            <PanelTab active={activeTab === 'categories'} onClick={() => requestTab('categories')} icon={<FileSpreadsheet className="h-4 w-4" />} label="Categorías" />
+            <PanelTab
+              active={activeTab === 'scales'}
+              onClick={() => requestTab('scales')}
+              icon={<Gauge className="h-4 w-4" />}
+              label="Cuadro de escalas"
+            />
+            <PanelTab
+              active={activeTab === 'personnel'}
+              onClick={() => requestTab('personnel')}
+              icon={<UsersRound className="h-4 w-4" />}
+              label="Personal comercial"
+            />
+          </div>
+
+          {(activeTab==='kpis'||activeTab==='categories')&&<div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+            <label className="flex items-center gap-2 text-xs text-slate-600">Mes de consulta
+              <CategoryMonthPicker label="Mes de consulta" value={selectedMonth} onChange={requestMonth} className="h-9"/>
+            </label>
+            <span className="text-xs text-slate-500">{availableMonths.some(m=>m.month===selectedMonth)?'KPIs guardados'+(loadingMonthly?' · cargando…':''):'Sin KPIs guardados para este mes'}</span>
+            {!availableMonths.length&&savedRows.length>0&&<div className="ml-auto flex flex-wrap items-center gap-2">
+              <span className="text-xs text-amber-700">Hay {savedRows.length} registros antiguos sin mes asociado.</span>
+              <CategoryMonthPicker label="Mes del lote anterior" value={legacyMonth} onChange={setLegacyMonth} className="h-9"/>
+              <button type="button" disabled={registeringLegacy} onClick={()=>setConfirmLegacyMonth(true)} className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50">Asignar mes al lote anterior</button>
+            </div>}
+          </div>}
+          {activeTab === 'personnel' ? <CommercialPersonnel /> : activeTab === 'categories' ? <CategoryUnifiedOverview rows={monthlyRows} projections={kpiProjections} month={selectedMonth} onMonthChange={setSelectedMonth} availableMonths={availableMonths.map(m=>m.month)} loadingMonth={loadingMonthly} /> : activeTab === 'kpis' ? (
+            <>
+          <section className="mt-6 grid gap-4 lg:grid-cols-3">
+            <UploadCard
+              key={`pivot-${inputVersion}`}
+              title="Reporte de visitas"
+              description="Sector, vendedor, visitados, venta a distancia, venta en PDV y visitas planeadas."
+              file={pivotFile}
+              onFile={setPivotFile}
+              accept=".xlsx"
+            />
+            <UploadCard
+              key={`tmp-${inputVersion}`}
+              title="Reporte de facturación"
+              description="Se utilizan únicamente Importe Final Facturado y Cnt.Fac."
+              file={tmpFile}
+              onFile={setTmpFile}
+              accept=".xlsx"
+            />
+            <motion.section initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:0.2,delay:0.08}} className="flex min-h-[210px] flex-col justify-between rounded-[24px] border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)]">
+              <div>
+                <h3 className="mt-1 text-lg font-semibold tracking-[-0.02em] text-slate-950">Categoría, POP y Exhibición</h3>
+                
+              </div>
+              <div className="mt-5 flex min-h-[58px] flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                <span className="text-[11px] font-medium text-slate-500">Plantilla de proyecciones XLSX</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" disabled={!monthlyRows.length} onClick={()=>exportKpiProjectionTemplate(monthlyRows,kpiProjections)} className="inline-flex h-9 items-center rounded-xl border border-sky-200 bg-sky-50 px-3 text-[10px] font-semibold text-sky-700 transition hover:bg-sky-100 disabled:opacity-50">Exportar</button>
+                  <input ref={kpiImportRef} type="file" accept=".xlsx" className="hidden" onChange={event=>{const file=event.target.files?.[0];if(file)void importKpi(file);}}/>
+                  <button type="button" disabled={importingKpi||!monthlyRows.length||Boolean(preview)} onClick={()=>kpiImportRef.current?.click()} className="inline-flex h-9 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"><Upload className="h-3.5 w-3.5"/>{importingKpi?'Procesando…':'Seleccionar'}</button>
+                </div>
+              </div>
+            </motion.section>
+          </section>
+
+          {kpiDraft && <motion.section initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:0.2}} className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50/60 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><h3 className="text-base font-semibold text-slate-900">Vista previa · Proyecciones sin guardar</h3>
+                <p className="mt-1 text-xs text-slate-600">{kpiDraft.length} vendedores en la planilla. Las celdas vacías quedarán sin valor y los vendedores no incluidos no se modificarán.</p>
+                <p className="mt-1 text-xs text-slate-600">{kpiDraft.filter(r=>r.projected_category!==null).length} categorías · {kpiDraft.filter(r=>r.pop_percentage!==null).length} POP · {kpiDraft.filter(r=>r.exhibition_percentage!==null).length} Exhibición · {kpiDraft.filter(r=>r.coverage_percentage!==null).length} Cobertura · {kpiDraft.filter(r=>r.volume_percentage!==null).length} Volumen</p>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" disabled={importingKpi} onClick={()=>setKpiDraft(null)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-medium text-slate-700">Cancelar</button>
+                <button type="button" disabled={importingKpi} onClick={()=>void saveKpiDraft()} className="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">{importingKpi?'Guardando…':'Confirmar y guardar'}</button>
+              </div>
+            </div>
+            <div className="mt-4 max-h-64 overflow-auto rounded-xl bg-white"><table className="w-full text-left text-xs">
+              <thead className="sticky top-0 bg-slate-50"><tr><th className="p-3">Sucursal</th><th className="p-3">Vendedor</th><th className="p-3">Categoría</th><th className="p-3">POP</th><th className="p-3">Exhibición</th><th className="p-3">Cobertura</th><th className="p-3">Volumen</th></tr></thead>
+              <tbody>{kpiDraft.map(row=><tr key={row.branch_key+':'+row.seller_id} className="border-t border-slate-100">
+                <td className="p-3">{row.branch_key.replaceAll('_',' ')}</td>
+                <td className="p-3">{monthlyRows.find(s=>s.branchKey===row.branch_key&&s.sellerId===row.seller_id)?.sellerName??row.seller_id}</td>
+                <td className="p-3">{row.projected_category??'—'}</td>
+                <td className="p-3">{row.pop_percentage===null?'—':row.pop_percentage+'%'}</td>
+                <td className="p-3">{row.exhibition_percentage===null?'—':row.exhibition_percentage+'%'}</td><td className="p-3">{row.coverage_percentage===null?'—':Number(row.coverage_percentage).toLocaleString('es-AR')}</td><td className="p-3">{row.volume_percentage===null?'—':Number(row.volume_percentage).toLocaleString('es-AR')}</td>
+              </tr>)}</tbody>
+            </table></div>
+          </motion.section>}
+
+          <section className="mt-4 flex flex-col gap-3 rounded-[22px] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_12px_36px_rgba(15,23,42,.035)] sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500">
+                <ShieldCheck className="h-4 w-4" />
+              </span>
+              <div>
+                <div className="text-[12px] font-semibold text-slate-800">
+                  Los archivos no se almacenan
+                </div>
+                <p className="mt-0.5 text-[11px] leading-5 text-slate-400">
+                  Se leen localmente para generar la vista previa. Al guardar,
+                  solo se persisten las filas unificadas.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {(pivotFile || tmpFile || preview) && (
+                <button
+                  type="button"
+                  onClick={clearFiles}
+                  disabled={parsing || saving}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl px-3 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-100 disabled:opacity-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Limpiar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void processFiles()}
+                disabled={!pivotFile || !tmpFile || parsing || saving}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-[11px] font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                {parsing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                {parsing ? 'Unificando...' : 'Unificar reportes'}
+              </button>
+            </div>
+          </section>
+
+          <section className="mt-5 rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.05)]">
+            <label className="flex cursor-pointer items-center justify-between gap-4">
+              <div><h3 className="text-sm font-semibold text-slate-900">Actualización individual de vendedor</h3><p className="mt-1 text-xs text-slate-500">Activá para importar Pivot o TMP de un solo vendedor.</p></div>
+              <input type="checkbox" role="switch" checked={individualEnabled} onChange={e=>setIndividualEnabled(e.target.checked)} className="h-5 w-5 accent-emerald-600"/>
+            </label>
+            <AnimatePresence initial={false}>{individualEnabled && <motion.div initial={{opacity:0,y:-6,height:0}} animate={{opacity:1,y:0,height:"auto"}} exit={{opacity:0,y:-6,height:0}} transition={{duration:0.2}} className="mt-4 grid gap-4 overflow-hidden border-t border-slate-100 pt-4 lg:grid-cols-2">
+            <SingleSellerPivotUpdate
+            savedRows={monthlyRows}
+            month={selectedMonth}
+            onUpdated={(updated) =>
+              setMonthlyRows((current) =>
+                current.map((row) =>
+                  row.branchKey === updated.branchKey && row.sellerId === updated.sellerId
+                    ? updated
+                    : row,
+                ),
+              )
+            }
+          />
+
+            <SingleSellerTmpUpdate
+            savedRows={monthlyRows}
+            month={selectedMonth}
+            onUpdated={(updated) =>
+              setMonthlyRows((current) =>
+                current.map((row) =>
+                  row.branchKey === updated.branchKey && row.sellerId === updated.sellerId
+                    ? updated
+                    : row,
+                ),
+              )
+            }
+          />
+
+            </motion.div>}</AnimatePresence>
+          </section>
+
+          {preview&&<div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+             <span className="text-xs text-slate-500">Mes de los reportes Pivot + TMP</span>
+             <CategoryMonthPicker label="Mes del reporte TMP" value={preview.period??''} disabled={Boolean(preview.detectedPeriod)} onChange={value=>setPreview(prev=>prev?{...prev,period:value}:prev)} className="h-9"/>
+             <span className="text-xs text-slate-500">{preview.detectedPeriod?'Mes detectado automáticamente en el TMP.':preview.period?'Mes ingresado manualmente: comprobá que corresponda al archivo TMP.':'Es obligatorio seleccionar el mes del TMP antes de guardar.'}</span>
+          </div>}
+          {preview ? <ValidationSummary result={preview} /> : null}
+
+          <section className="mt-5 overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,.045)]">
+            <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
+              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                <div><h2 className="mt-1 text-xl font-semibold tracking-[-0.025em] text-slate-950">
+                    {displayRows.length
+                      ? `${integerFormatter.format(displayRows.length)} vendedores unificados`
+                      : 'Todavía no hay datos guardados'}
+                  </h2>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    {displayMode === 'preview'
+                      ? 'Revisá esta tabla antes de reemplazar la información actual.'
+                      : `Última actualización: ${dateTimeLabel(
+                          savedState.lastImportedAt,
+                        )}`}
+                  </p>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2 xl:min-w-[570px]">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Buscar vendedor, ID o sector..."
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-10 pr-3 text-[12px] text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-100"
+                    />
+                  </div>
+                  <RedcomSelect
+                    value={branchFilter}
+                    onValueChange={setBranchFilter}
+                    options={branchOptions}
+                    className="h-11"
+                    placeholder="Sucursal"
+                  />
+                </div>
+              </div>
+
+              {displayRows.length ? (
+                <div className="mt-5 grid gap-0 border-y border-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-slate-200">
+                  <TableStat
+                    label="Vendedores visibles"
+                    value={integerFormatter.format(filteredRows.length)}
+                  />
+                  <TableStat
+                    label="Facturación total"
+                    value={currencyFormatter.format(totals.billing)}
+                    compact
+                  />
+                  <TableStat
+                    label="Cantidad de facturas"
+                    value={integerFormatter.format(totals.invoices)}
+                  />
+                </div>
+              ) : null}
+            </div>
+
+            {loadingSaved && !preview ? (
+              <div className="grid min-h-[340px] place-items-center">
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                  Cargando datos actuales...
+                </div>
+              </div>
+            ) : displayRows.length ? (
+              <UnifiedTable
+                projections={kpiProjections}
+                rows={filteredRows}
+                editable={true}
+                editedKeys={editedKeys}
+                savingKey={savingInlineKey}
+                onSave={saveInlineRow}
+              />
+            ) : (
+              <div className="grid min-h-[340px] place-items-center px-6 text-center">
+                <div>
+                  <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+                    <FileSpreadsheet className="h-5 w-5" />
+                  </span>
+                  <div className="mt-3 text-sm font-semibold text-slate-700">
+                    Importá los dos reportes para comenzar
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    La vista previa aparecerá acá antes de guardar cualquier dato.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {preview ? (
+              <div className="flex flex-col gap-3 border-t border-slate-200 bg-[#fafbfc] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <div className="text-[11px] text-slate-400">
+                  {preview.canSave ? (
+                    <span className="inline-flex items-center gap-1.5 text-emerald-600">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Validación completa. Los dos reportes coinciden por ID.
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-amber-600">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Corregí las diferencias antes de guardar.
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setConfirmSaveOpen(true)}
+                  disabled={!preview.canSave || !preview.period || saving}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  <Save className="h-4 w-4" />
+                  Guardar y reemplazar datos actuales
+                </button>
+              </div>
+            ) : null}
+          </section>
+            </>
+          ) : activeTab === 'sigo' ? (
+            <CategorySigoHistory month={selectedMonth} onMonthChange={setSelectedMonth} />
+          ) : (
+            <CategoryScaleTab />
+          )}
+        </div>
+      </main>
+
+
+
+      <AlertDialog open={pendingLeave!==null} onOpenChange={open=>{if(!open)setPendingLeave(null);}}>
+        <AlertDialogContent className="w-[calc(100%-32px)] max-w-[440px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,.18)]">
+          <AlertDialogHeader className="space-y-2 p-6 text-left">
+            <AlertDialogTitle className="text-lg font-semibold text-slate-950">Tenés cambios sin guardar</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-6 text-slate-500">Hay archivos o reportes en preparación. Si continuás, se descartarán los cambios pendientes sin modificar los datos guardados.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 border-t border-slate-100 px-6 py-4">
+            <AlertDialogCancel className="mt-0 flex-1 rounded-xl border-slate-200 sm:flex-none">Seguir editando</AlertDialogCancel>
+            <AlertDialogAction onClick={event=>{event.preventDefault();discardImportAndContinue();}} className="flex-1 rounded-xl bg-rose-600 text-white hover:bg-rose-700 sm:flex-none">Salir sin guardar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={confirmLegacyMonth} onOpenChange={open=>{if(!registeringLegacy)setConfirmLegacyMonth(open);}}>
+        <AlertDialogContent className="w-[calc(100%-32px)] max-w-[440px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,.18)]">
+          <AlertDialogHeader className="space-y-2 p-6 text-left">
+            <AlertDialogTitle className="text-lg font-semibold text-slate-950">¿Asociar el lote al mes seleccionado?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-6 text-slate-500">Los registros actuales se asociarán a {legacyMonth} como histórico, conservando sus datos.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 border-t border-slate-100 px-6 py-4">
+            <AlertDialogCancel disabled={registeringLegacy} className="mt-0 flex-1 rounded-xl border-slate-200 sm:flex-none">Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={registeringLegacy} onClick={event=>{event.preventDefault();void registerLegacyMonth();}} className="flex-1 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 sm:flex-none">{registeringLegacy?'Guardando…':'Confirmar'}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AnimatePresence>
+        {confirmSaveOpen && preview ? (
+          <motion.div
+            className="fixed inset-0 z-[100] grid place-items-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <button
+              type="button"
+              className="absolute inset-0 bg-slate-950/35 backdrop-blur-md"
+              onClick={() => !saving && setConfirmSaveOpen(false)}
+              aria-label="Cerrar confirmación"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.99 }}
+              className="relative z-10 w-full max-w-[480px] rounded-[24px] border border-white/70 bg-white p-6 shadow-[0_35px_100px_rgba(15,23,42,.25)]"
+            >
+              <button
+                type="button"
+                onClick={() => setConfirmSaveOpen(false)}
+                disabled={saving}
+                className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-600">
+                <Database className="h-5 w-5" />
+              </span>
+
+              <h3 className="mt-4 text-xl font-semibold tracking-[-0.025em] text-slate-950">
+                Reemplazar datos actuales
+              </h3>
+
+              <p className="mt-2 text-[12px] leading-6 text-slate-500">
+                Se eliminará el estado actual del Panel de categorías y será
+                reemplazado por los{' '}
+                <strong className="font-semibold text-slate-800">
+                  {preview.rows.length} vendedores
+                </strong>{' '}
+                de esta vista previa. No se conservará una copia de las filas
+                anteriores.
+              </p>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmSaveOpen(false)}
+                  disabled={saving}
+                  className="h-10 rounded-xl px-4 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void savePreview()}
+                  disabled={saving}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[11px] font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowRight className="h-4 w-4" />
+                  )}
+                  {saving ? 'Guardando...' : 'Confirmar reemplazo'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </>
+  );
+}
+
+function HeroStat({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="px-2 py-4 sm:px-5">
+      <div className="text-[9px] font-medium text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 text-[22px] font-semibold tracking-[-0.035em] text-slate-950">
+        {value}
+      </div>
+      <div className="mt-0.5 text-[10px] text-slate-400">{detail}</div>
+    </div>
+  );
+}
+
+function UploadCard({
+  title,
+  description,
+  file,
+  onFile,
+  accept,
+}: {
+  title: string;
+  description: string;
+  file: File | null;
+  onFile: (file: File | null) => void;
+  accept: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const takeFile = (candidate: File | undefined) => {
+    if (!candidate) return;
+    if (!candidate.name.toLowerCase().endsWith('.xlsx')) {
+      notify.error('El archivo debe tener formato .xlsx.');
+      return;
+    }
+    onFile(candidate);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+      onDragEnter={(event) => {
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={(event) => {
+        event.preventDefault();
+        setDragging(false);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDragging(false);
+        takeFile(event.dataTransfer.files?.[0]);
+      }}
+      className={`relative flex min-h-[210px] flex-col justify-between overflow-hidden rounded-[24px] border bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)] transition-all duration-200 ${
+        dragging
+          ? 'border-blue-300 ring-4 ring-blue-100'
+          : file
+            ? 'border-emerald-200'
+            : 'border-slate-200/80'
+      }`}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={(event) => takeFile(event.target.files?.[0])}
+      />
+
+      <div className="flex items-start justify-between gap-5">
+        <div className="flex min-w-0 items-start gap-4">
+          <div className="min-w-0">
+            <h3 className="mt-1 text-lg font-semibold tracking-[-0.02em] text-slate-950">
+              {title}
+            </h3>
+            <p className="mt-1 max-w-xl text-[11px] leading-5 text-slate-400">
+              {description}
+            </p>
+          </div>
+        </div>
+
+        {file ? (
+          <button
+            type="button"
+            onClick={() => onFile(null)}
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Quitar archivo"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+
+      <div
+        className={`mt-5 flex min-h-[58px] items-center justify-between gap-4 border-t border-slate-100 pt-3 ${
+          file
+            ? 'border-emerald-100'
+            : 'border-slate-100'
+        }`}
+      >
+        {file ? (
+          <div className="min-w-0">
+            <div className="truncate text-[12px] font-semibold text-slate-700">
+              {file.name}
+            </div>
+            <div className="mt-0.5 text-[10px] text-slate-400">
+              {fileSizeLabel(file.size)} · listo para procesar
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="text-[11px] font-medium text-slate-500">
+              Arrastrá el archivo acá
+            </div>
+            <div className="mt-0.5 text-[10px] text-slate-400">
+              o seleccioná un XLSX desde tu equipo
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-[10px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+        >
+          <Upload className="h-3.5 w-3.5" />
+          {file ? 'Cambiar' : 'Seleccionar'}
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+function ValidationSummary({ result }: { result: CategoryPanelParseResult }) {
+  const criticalCount =
+    result.unmatchedPivot.length +
+    result.unmatchedTmp.length +
+    result.duplicateKeys.length;
+
+  return (
+    <section
+      className={`mt-4 rounded-[22px] border px-5 py-4 ${
+        criticalCount
+          ? 'border-amber-200 bg-amber-50/75'
+          : 'border-emerald-200 bg-emerald-50/70'
+      }`}
+    >
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex items-start gap-3">
+          {criticalCount ? (
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+          ) : (
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+          )}
+          <div>
+            <div
+              className={`text-[12px] font-semibold ${
+                criticalCount ? 'text-amber-900' : 'text-emerald-900'
+              }`}
+            >
+              {criticalCount
+                ? 'Hay diferencias que requieren revisión'
+                : 'Los reportes coinciden correctamente'}
+            </div>
+            <p
+              className={`mt-1 text-[11px] leading-5 ${
+                criticalCount ? 'text-amber-700' : 'text-emerald-700'
+              }`}
+            >
+              El cruce se realiza por sucursal + ID de vendedor. Los nombres se
+              muestran para control visual, pero no se utilizan como clave.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-5">
+          <ValidationMetric label="Pivot" value={result.pivotCount} />
+          <ValidationMetric label="TMP" value={result.tmpCount} />
+          <ValidationMetric label="Unificados" value={result.rows.length} />
+          <ValidationMetric
+            label="Sin pareja"
+            value={result.unmatchedPivot.length + result.unmatchedTmp.length}
+            warning={
+              result.unmatchedPivot.length + result.unmatchedTmp.length > 0
+            }
+          />
+          <ValidationMetric
+            label="Nombre distinto"
+            value={result.nameMismatches.length}
+            warning={false}
+          />
+        </div>
+      </div>
+
+      {criticalCount ? (
+        <div className="mt-4 border-t border-amber-200/70 pt-3 text-[10px] leading-5 text-amber-800">
+          {result.unmatchedPivot.slice(0, 4).map((item) => (
+            <div key={`pivot-${item.key}`}>
+              Solo en Pivot: {item.branchLabel} · ID {item.sellerId} ·{' '}
+              {item.sellerName}
+            </div>
+          ))}
+          {result.unmatchedTmp.slice(0, 4).map((item) => (
+            <div key={`tmp-${item.key}`}>
+              Solo en TMP: {item.branchLabel} · ID {item.sellerId} ·{' '}
+              {item.sellerName}
+            </div>
+          ))}
+          {result.duplicateKeys.slice(0, 4).map((key) => (
+            <div key={`duplicate-${key}`}>ID duplicado: {key}</div>
+          ))}
+        </div>
+      ) : result.nameMismatches.length ? (
+        <div className="mt-4 border-t border-emerald-200/70 pt-3 text-[10px] leading-5 text-emerald-800">
+          Hay {result.nameMismatches.length} ID
+          {result.nameMismatches.length === 1 ? '' : 's'} con nombres distintos
+          entre reportes. No bloquea el guardado porque el cruce se realiza por
+          ID.
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ValidationMetric({
+  label,
+  value,
+  warning = false,
+}: {
+  label: string;
+  value: number;
+  warning?: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-[9px] font-medium text-slate-400">
+        {label}
+      </div>
+      <div
+        className={`mt-0.5 text-lg font-semibold ${
+          warning ? 'text-amber-700' : 'text-slate-800'
+        }`}
+      >
+        {integerFormatter.format(value)}
+      </div>
+    </div>
+  );
+}
+
+function TableStat({
+  label,
+  value,
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className="px-1 py-3.5 sm:px-5">
+      <div className="text-[9px] font-medium text-slate-400">
+        {label}
+      </div>
+      <div
+        className={`mt-1 truncate font-semibold tracking-[-0.025em] text-slate-950 ${
+          compact ? 'text-lg' : 'text-2xl'
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+/** Acepta moneda AR y formatos exportados en USD sin cambiar la magnitud. */
+function parsePastedCurrency(value:string):number|null{
+ const stripped=value.replace(/[\s\u00a0\u202f$ARS]/gi,'').trim();
+ if(!stripped||!/^[+-]?[\d.,]+$/.test(stripped))return null;
+ const commas=(stripped.match(/,/g)??[]).length,dots=(stripped.match(/\./g)??[]).length;
+ const lastComma=stripped.lastIndexOf(','),lastDot=stripped.lastIndexOf('.');
+ let decimalSeparator:string|null=null;
+ if(commas&&dots)decimalSeparator=lastComma>lastDot?',':'.';
+ else if(commas||dots){
+  const separator=commas?',':'.',index=stripped.lastIndexOf(separator);
+  const places=stripped.length-index-1;
+  // Si los grupos de tres están separados de forma consistente, representan miles.
+  const parts=stripped.split(separator);
+  const grouped=parts.length>1&&parts.slice(1).every(part=>part.length===3)&&parts[0].length>=1&&parts[0].length<=3;
+  decimalSeparator=grouped?null:places>=1&&places<=2?separator:null;
+ }
+ let normalized=stripped;
+ if(decimalSeparator){
+  const index=normalized.lastIndexOf(decimalSeparator);
+  normalized=normalized.slice(0,index).replace(/[.,]/g,'')+'.'+normalized.slice(index+1);
+ }else normalized=normalized.replace(/[.,]/g,'');
+ if(!/^[+-]?\d+(?:\.\d{1,2})?$/.test(normalized))return null;
+ const parsed=Number(normalized);
+ return Number.isFinite(parsed)&&parsed>=0?Math.round(parsed*100)/100:null;
+}
+
+function UnifiedTable({
+ projections,rows,editable,editedKeys,savingKey,onSave,
+}:{
+ rows:CategoryPanelRow[];
+ projections:KpiProjection[];
+ editable:boolean;
+ editedKeys:Set<string>;
+ savingKey:string|null;
+ onSave:(original:CategoryPanelRow,updated:CategoryPanelRow)=>Promise<boolean>;
+}){
+ const [editingKey,setEditingKey]=useState<string|null>(null);
+ const [draft,setDraft]=useState<CategoryPanelRow|null>(null);
+ const [currencyInput,setCurrencyInput]=useState('');
+ const bySeller=useMemo(()=>new Map(projections.map(p=>[p.branch_key+':'+p.seller_id,p])),[projections]);
+ const columns=[
+  'Sucursal','Sector','N° vend.','Vendedor','Visitados','Venta distancia','Venta PDV',
+  'Visitas planeadas','Importe final facturado','Cnt.Fac.','Categoría proyectada',
+  'POP (%)','Exhibición (%)','Cobertura','Volumen','Acciones'
+ ];
+ const fields:{key:keyof CategoryPanelRow;numeric:boolean;decimals?:boolean}[]=[
+  {key:'sector',numeric:true},{key:'sellerName',numeric:false},{key:'visitados',numeric:true},
+  {key:'ventaDistancia',numeric:true},{key:'ventaPdv',numeric:true},
+  {key:'visitasPlaneadas',numeric:true},{key:'importeFinalFacturado',numeric:true,decimals:true},
+  {key:'cntFac',numeric:true}
+ ];
+ const cellInput=(key:keyof CategoryPanelRow,width='100%')=>{
+  const def=fields.find(field=>field.key===key);
+  if(!draft||!def)return null;
+  if(key==='importeFinalFacturado')return <input
+   aria-label="Importe final facturado"
+   type="text"
+   inputMode="decimal"
+   autoComplete="off"
+   value={currencyInput}
+   onChange={event=>{
+    const raw=event.target.value;
+    setCurrencyInput(raw);
+    const amount=parsePastedCurrency(raw);
+    setDraft(current=>current?{...current,importeFinalFacturado:amount??NaN}:current);
+   }}
+   onPaste={event=>{
+    const pasted=event.clipboardData.getData('text');
+    const parsed=parsePastedCurrency(pasted);
+    if(parsed===null)return;
+    event.preventDefault();
+    setCurrencyInput(currencyFormatter.format(parsed));
+    setDraft(current=>current?{...current,importeFinalFacturado:parsed}:current);
+   }}
+   onBlur={()=>{
+    const parsed=parsePastedCurrency(currencyInput);
+    if(parsed!==null)setCurrencyInput(currencyFormatter.format(parsed));
+   }}
+   className="h-9 w-full min-w-0 rounded-lg border border-blue-300 bg-white px-1.5 text-[11px] text-slate-900 outline-none ring-2 ring-blue-50 focus:border-blue-500"
+  />;
+  return <input
+   aria-label={columns.find(label=>label.toLowerCase()===String(key).toLowerCase())??String(key)}
+   type={def.numeric?'number':'text'}
+   min={def.numeric?0:undefined}
+   step={def.decimals?'0.01':def.numeric?'1':undefined}
+   value={def.numeric&&!Number.isFinite(Number(draft[key]))?'':String(draft[key]??'')}
+   onChange={event=>{
+    const value=event.target.value;
+    setDraft(current=>current?{...current,[key]:def.numeric?(value===''?NaN:Number(value)):value}:current);
+   }}
+   className="h-9 w-full min-w-0 rounded-lg border border-blue-300 bg-white px-1.5 text-[11px] text-slate-900 outline-none ring-2 ring-blue-50 focus:border-blue-500"
+   style={{width}}
+  />;
+ };
+ const begin=(row:CategoryPanelRow)=>{
+  setDraft({...row});setCurrencyInput(currencyFormatter.format(row.importeFinalFacturado));setEditingKey(row.branchKey+':'+row.sellerId);
+ };
+ const cancel=()=>{setDraft(null);setEditingKey(null);};
+ const save=async(row:CategoryPanelRow)=>{
+  if(!draft)return;
+  const amount=parsePastedCurrency(currencyInput);
+  if(amount===null){notify.error('Ingresá un importe válido. Ejemplo: $31,596,372.41 o $31.596.372,41.');return;}
+  const ok=await onSave(row,{...draft,importeFinalFacturado:amount});
+  if(ok)cancel();
+ };
+ const td=(label:string,child:React.ReactNode,more='')=><td data-label={label} className={'min-w-0 break-words [overflow-wrap:anywhere] px-1 py-2.5 align-middle max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-2 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400 '+more}>{child}</td>;
+ return <div className="max-h-[680px] overflow-y-auto overflow-x-hidden">
+  <table className="w-full table-fixed text-left text-[10px] leading-4 xl:text-[11px] max-lg:block">
+   <thead className="sticky top-0 z-10 bg-white/95 text-slate-500 backdrop-blur-xl max-lg:hidden">
+    <tr className="border-b border-slate-200">{columns.map((column,i)=>
+     <th key={column} className={'min-w-0 break-words [overflow-wrap:anywhere] px-1 py-3 font-medium '+(i===3?'w-[11%]':i===8?'w-[10%]':i===15?'w-[6%]':'')}>{column}</th>
+    )}</tr>
+   </thead>
+   <tbody className="max-lg:block">
+    {rows.map(row=>{
+     const key=row.branchKey+':'+row.sellerId;
+     const edit=editingKey===key&&draft!==null;
+     const modified=editedKeys.has(key)||Boolean(row.partialUpdatedAt);
+     const saving=savingKey===key;
+     const p=bySeller.get(key);
+     return <tr key={key} className={'group border-b border-slate-100 transition-colors duration-200 max-lg:my-3 max-lg:grid max-lg:grid-cols-2 max-lg:rounded-xl max-lg:border max-lg:border-slate-200 max-lg:p-2 '+(edit?'bg-blue-50/80':modified?'bg-emerald-50 hover:bg-emerald-100/80':'hover:bg-slate-50/80')}>
+      {td('Sucursal',row.branchLabel,'font-medium')}
+      {td('Sector',edit?cellInput('sector'):integerFormatter.format(row.sector))}
+      {td('N° vend.',row.sellerId,'font-medium')}
+      {td('Vendedor',edit?cellInput('sellerName'):row.sellerName,'font-medium text-slate-800')}
+      {td('Visitados',edit?cellInput('visitados'):integerFormatter.format(row.visitados))}
+      {td('Venta distancia',edit?cellInput('ventaDistancia'):integerFormatter.format(row.ventaDistancia))}
+      {td('Venta PDV',edit?cellInput('ventaPdv'):integerFormatter.format(row.ventaPdv))}
+      {td('Visitas planeadas',edit?cellInput('visitasPlaneadas'):integerFormatter.format(row.visitasPlaneadas))}
+      {td('Importe final facturado',edit?cellInput('importeFinalFacturado'):currencyFormatter.format(row.importeFinalFacturado),'tabular-nums font-medium text-slate-800')}
+      {td('Cnt.Fac.',edit?cellInput('cntFac'):integerFormatter.format(row.cntFac))}
+      {td('Categoría proyectada',p?.projected_category??'—')}
+      {td('POP (%)',p?.pop_percentage==null?'—':p.pop_percentage+'%')}
+      {td('Exhibición (%)',p?.exhibition_percentage==null?'—':p.exhibition_percentage+'%')}
+      {td('Cobertura',p?.coverage_percentage==null?'—':integerFormatter.format(p.coverage_percentage))}
+      {td('Volumen',p?.volume_percentage==null?'—':integerFormatter.format(p.volume_percentage))}
+      {td('Acciones',<div className="flex items-center justify-center gap-1 max-lg:justify-start">
+       {edit?<>
+        <button type="button" disabled={saving} onClick={()=>void save(row)} title="Aplicar cambios" aria-label={'Guardar '+row.sellerName} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white transition-colors duration-200 hover:bg-emerald-700 disabled:opacity-50"><Save className="h-4 w-4"/></button>
+        <button type="button" disabled={saving} onClick={cancel} title="Cancelar edición" aria-label="Cancelar edición" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600"><X className="h-4 w-4"/></button>
+       </>:editable?<button type="button" disabled={Boolean(savingKey)||(editingKey!==null&&editingKey!==key)} onClick={()=>begin(row)} title="Editar fila" aria-label={'Editar '+row.sellerName} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors duration-200 hover:border-blue-300 hover:text-blue-700 disabled:opacity-50"><Pencil className="h-4 w-4"/></button>:<span className="text-slate-300">—</span>}
+      </div>)}
+     </tr>;
+    })}
+    {!rows.length&&<tr><td colSpan={16} className="px-5 py-10 text-center text-sm text-slate-500">No hay vendedores que coincidan con los filtros actuales.</td></tr>}
+   </tbody>
+  </table>
+ </div>;
+}
+
+function PanelTab({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        active
+          ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[11px] font-semibold text-white shadow-sm'
+          : 'inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900'
+      }
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function CategoryScaleTab() {
+  const [settings, setSettings] = useState<CategoryScaleSettings>({
+    title: 'Escalas categorización preventa',
+    validYear: 2026,
+  });
+  const [metrics, setMetrics] = useState<CategoryScaleMetric[]>([]);
+  const [gates, setGates] = useState<CategoryScaleGate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [editingMetricId, setEditingMetricId] = useState<number | 'new' | null>(null);
+  const [metricDraft, setMetricDraft] = useState<CategoryScaleMetricInput | null>(null);
+  const [editingGateId, setEditingGateId] = useState<number | 'new' | null>(null);
+  const [gateDraft, setGateDraft] = useState({ label: '', valueText: '', sortOrder: 100 });
+  const [savingRow, setSavingRow] = useState(false);
+  const [deleteScaleTarget,setDeleteScaleTarget]=useState<{kind:'metric'|'gate';id:number;label:string}|null>(null);
+  const [deletingScale,setDeletingScale]=useState(false);
+  const confirmScaleDeletion=async()=>{
+    if(!deleteScaleTarget||deletingScale)return;
+    setDeletingScale(true);
+    try{
+      if(deleteScaleTarget.kind==='metric'){
+        await deleteCategoryScaleMetric(deleteScaleTarget.id);
+        setMetrics(current=>current.filter(item=>item.id!==deleteScaleTarget.id));
+      }else{
+        await deleteCategoryScaleGate(deleteScaleTarget.id);
+        setGates(current=>current.filter(item=>item.id!==deleteScaleTarget.id));
+      }
+      setDeleteScaleTarget(null);
+      notify.success('Elemento eliminado.');
+    }catch(error){notify.error(errorMessage(error,'No se pudo eliminar el elemento.'));}
+    finally{setDeletingScale(false);}
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        setLoading(true);
+        const config = await fetchCategoryScaleConfig();
+        if (cancelled) return;
+        setSettings(config.settings);
+        setMetrics(config.metrics);
+        setGates(config.gates);
+      } catch (error) {
+        if (!cancelled) {
+          notify.error(errorMessage(error, 'No se pudo cargar el cuadro de escalas.'));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const totalWeight = metrics.reduce(
+    (sum, metric) => sum + metric.weightPercent,
+    0,
+  );
+
+  const beginMetricEdit = (metric: CategoryScaleMetric) => {
+    setEditingMetricId(metric.id);
+    setMetricDraft({
+      sectionName: metric.sectionName,
+      metricName: metric.metricName,
+      valueType: metric.valueType,
+      seniorValue: metric.seniorValue,
+      semiSeniorValue: metric.semiSeniorValue,
+      juniorValue: metric.juniorValue,
+      improvementValue: metric.improvementValue,
+      weightPercent: metric.weightPercent,
+      sortOrder: metric.sortOrder,
+    });
+  };
+
+  const beginNewMetric = () => {
+    setEditingMetricId('new');
+    setMetricDraft({
+      sectionName: 'Nueva sección',
+      metricName: '',
+      valueType: 'number',
+      seniorValue: null,
+      semiSeniorValue: null,
+      juniorValue: null,
+      improvementValue: 0,
+      weightPercent: 0,
+      sortOrder:
+        metrics.reduce((max, metric) => Math.max(max, metric.sortOrder), 0) + 10,
+    });
+  };
+
+  const saveMetricDraft = async () => {
+    if (!metricDraft) return;
+    if (!metricDraft.sectionName.trim() || !metricDraft.metricName.trim()) {
+      notify.error('Completá la sección y el nombre de la métrica.');
+      return;
+    }
+
+    if (
+      metricDraft.valueType !== 'currency' &&
+      (metricDraft.seniorValue === null ||
+        metricDraft.semiSeniorValue === null ||
+        metricDraft.juniorValue === null)
+    ) {
+      notify.error('Completá los valores de Senior, Semi Senior y Junior.');
+      return;
+    }
+    try {
+      setSavingRow(true);
+      if (editingMetricId === 'new') {
+        const created = await createCategoryScaleMetric(metricDraft);
+        setMetrics((current) =>
+          [...current, created].sort(
+            (a, b) => a.sortOrder - b.sortOrder || a.id - b.id,
+          ),
+        );
+      } else if (typeof editingMetricId === 'number') {
+        const updated = await updateCategoryScaleMetric(
+          editingMetricId,
+          metricDraft,
+        );
+        setMetrics((current) =>
+          current
+            .map((metric) => (metric.id === updated.id ? updated : metric))
+            .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
+        );
+      }
+      setEditingMetricId(null);
+      setMetricDraft(null);
+      notify.success('Cuadro de escalas actualizado.');
+    } catch (error) {
+      notify.error(errorMessage(error, 'No se pudo guardar la métrica.'));
+    } finally {
+      setSavingRow(false);
+    }
+  };
+
+  const beginGateEdit = (gate: CategoryScaleGate) => {
+    setEditingGateId(gate.id);
+    setGateDraft({
+      label: gate.label,
+      valueText: gate.valueText,
+      sortOrder: gate.sortOrder,
+    });
+  };
+
+  const beginNewGate = () => {
+    setEditingGateId('new');
+    setGateDraft({
+      label: '',
+      valueText: '',
+      sortOrder: gates.reduce((max, gate) => Math.max(max, gate.sortOrder), 0) + 10,
+    });
+  };
+
+  const saveGateDraft = async () => {
+    if (!gateDraft.label.trim() || !gateDraft.valueText.trim()) {
+      notify.error('Completá el parámetro y su valor.');
+      return;
+    }
+    try {
+      setSavingRow(true);
+      if (editingGateId === 'new') {
+        const created = await createCategoryScaleGate(gateDraft);
+        setGates((current) =>
+          [...current, created].sort(
+            (a, b) => a.sortOrder - b.sortOrder || a.id - b.id,
+          ),
+        );
+      } else if (typeof editingGateId === 'number') {
+        const updated = await updateCategoryScaleGate(editingGateId, gateDraft);
+        setGates((current) =>
+          current
+            .map((gate) => (gate.id === updated.id ? updated : gate))
+            .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
+        );
+      }
+      setEditingGateId(null);
+      notify.success('Requisito actualizado.');
+    } catch (error) {
+      notify.error(errorMessage(error, 'No se pudo guardar el requisito.'));
+    } finally {
+      setSavingRow(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="grid min-h-[420px] place-items-center">
+        <div className="flex items-center gap-2 text-sm text-slate-400">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+          Cargando cuadro de escalas...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 space-y-5">
+      <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,.04)]">
+        <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
+                {settings.title}
+              </h2>
+              
+            </div>
+
+            <div className="flex flex-wrap items-end gap-2">
+              <label>
+                <span className="mb-1 block text-[9px] font-medium text-slate-400">
+                  Año
+                </span>
+                <input
+                  type="number"
+                  value={settings.validYear}
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      validYear: Number(event.target.value),
+                    }))
+                  }
+                  className="h-10 w-24 rounded-xl border border-slate-200 bg-[#fafbfc] px-3 text-[12px] outline-none"
+                />
+              </label>
+              <label className="w-[250px]">
+                <span className="mb-1 block text-[9px] font-medium text-slate-400">
+                  Título
+                </span>
+                <input
+                  value={settings.title}
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] px-3 text-[12px] outline-none"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={savingSettings}
+                onClick={() =>
+                  void (async () => {
+                    try {
+                      setSavingSettings(true);
+                      await updateCategoryScaleSettings(settings);
+                      notify.success('Configuración actualizada.');
+                    } catch (error) {
+                      notify.error(
+                        errorMessage(error, 'No se pudo guardar la configuración.'),
+                      );
+                    } finally {
+                      setSavingSettings(false);
+                    }
+                  })()
+                }
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[11px] font-semibold text-white"
+              >
+                {savingSettings ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Guardar
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-0 border-y border-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-slate-200">
+            <ScaleSummary label="Métricas" value={String(metrics.length)} />
+            <ScaleSummary
+              label="Peso total"
+              value={String(totalWeight).replace('.', ',') + '%'}
+              warning={Math.abs(totalWeight - 100) > 0.001}
+            />
+            <ScaleSummary label="Puertas de apertura" value={String(gates.length)} />
+          </div>
+        </div>
+
+        <div className="px-5 py-5 sm:px-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-slate-700">Indicadores y puntajes</span>
+            <button
+              type="button"
+              onClick={beginNewMetric}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-[11px] font-semibold text-slate-700 shadow-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Agregar métrica
+            </button>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="w-full min-w-[960px] table-fixed text-left">
+              <thead className="bg-[#f7f8fa] text-[9px] uppercase tracking-[0.08em] text-slate-400">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Sección</th>
+                  <th className="px-4 py-3 font-semibold">Métrica / KPI</th>
+                  <th className="bg-emerald-900 px-4 py-3 font-semibold text-white">Senior</th>
+                  <th className="bg-emerald-200 px-4 py-3 font-semibold text-emerald-950">Semi Senior</th>
+                  <th className="bg-amber-200 px-4 py-3 font-semibold text-amber-950">Junior</th>
+                  <th className="bg-rose-200 px-4 py-3 font-semibold text-rose-950">Plan Mejora</th>
+                  <th className="px-4 py-3 text-right font-semibold">Peso</th>
+                  <th className="px-4 py-3 text-center font-semibold">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {editingMetricId === 'new' && metricDraft ? (
+                  <ScaleEditRow
+                    draft={metricDraft}
+                    setDraft={setMetricDraft}
+                    saving={savingRow}
+                    onSave={saveMetricDraft}
+                    onCancel={() => {
+                      setEditingMetricId(null);
+                      setMetricDraft(null);
+                    }}
+                  />
+                ) : null}
+
+                {metrics.map((metric) =>
+                  editingMetricId === metric.id && metricDraft ? (
+                    <ScaleEditRow
+                      key={metric.id}
+                      draft={metricDraft}
+                      setDraft={setMetricDraft}
+                      saving={savingRow}
+                      onSave={saveMetricDraft}
+                      onCancel={() => {
+                        setEditingMetricId(null);
+                        setMetricDraft(null);
+                      }}
+                    />
+                  ) : (
+                    <tr
+                      key={metric.id}
+                      className="border-t border-slate-100 text-[11px] text-slate-600"
+                    >
+                      <td className="break-words px-2 py-3 text-[11px] font-normal text-slate-500">
+                        {metric.sectionName}
+                      </td>
+                      <td className="break-words px-2 py-3 font-medium text-slate-800">
+                        {metric.metricName}
+                      </td>
+                      <ScaleValueCell
+                        tone="senior"
+                        value={metric.seniorValue}
+                        valueType={metric.valueType}
+                      />
+                      <ScaleValueCell
+                        tone="semi"
+                        value={metric.semiSeniorValue}
+                        valueType={metric.valueType}
+                      />
+                      <ScaleValueCell
+                        tone="junior"
+                        value={metric.juniorValue}
+                        valueType={metric.valueType}
+                      />
+                      <ScaleValueCell
+                        tone="improvement"
+                        value={metric.improvementValue}
+                        valueType={metric.valueType}
+                      />
+                      <td className="px-2 py-3 text-right font-medium text-slate-800">
+                        {metric.weightPercent}%
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => beginMetricEdit(metric)}
+                            className="grid h-8 w-8 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-800"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteScaleTarget({kind:'metric',id:metric.id,label:metric.metricName})}
+                            className="grid h-8 w-8 place-items-center rounded-xl text-slate-300 hover:bg-rose-50 hover:text-rose-600"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ),
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[24px] border border-slate-200/80 bg-white px-5 py-5 shadow-[0_14px_40px_rgba(15,23,42,.035)] sm:px-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="mt-1 text-lg font-semibold tracking-[-0.025em] text-slate-950">
+              Parámetros necesarios para categorizar
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={beginNewGate}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-[11px] font-semibold text-slate-700"
+          >
+            <Plus className="h-4 w-4" />
+            Agregar requisito
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {editingGateId === 'new' ? (
+            <GateEditCard
+              draft={gateDraft}
+              setDraft={setGateDraft}
+              saving={savingRow}
+              onSave={saveGateDraft}
+              onCancel={() => setEditingGateId(null)}
+            />
+          ) : null}
+
+          {gates.map((gate) =>
+            editingGateId === gate.id ? (
+              <GateEditCard
+                key={gate.id}
+                draft={gateDraft}
+                setDraft={setGateDraft}
+                saving={savingRow}
+                onSave={saveGateDraft}
+                onCancel={() => setEditingGateId(null)}
+              />
+            ) : (
+              <div
+                key={gate.id}
+                className="flex items-center justify-between gap-4 rounded-[18px] border border-slate-200 bg-[#fafbfc] px-4 py-4"
+              >
+                <div>
+                  <div className="text-[9px] font-medium text-slate-400">
+                    {gate.label}
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-slate-950">
+                    {gate.valueText}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => beginGateEdit(gate)}
+                    className="grid h-8 w-8 place-items-center rounded-xl text-slate-400 hover:bg-white hover:text-slate-800"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteScaleTarget({kind:'gate',id:gate.id,label:gate.label})}
+                    className="grid h-8 w-8 place-items-center rounded-xl text-slate-300 hover:bg-rose-50 hover:text-rose-600"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ),
+          )}
+        </div>
+      </section>
+
+      <SellerConsiderations metrics={metrics} gates={gates} />
+      <AlertDialog open={deleteScaleTarget!==null} onOpenChange={open=>{if(!open&&!deletingScale)setDeleteScaleTarget(null);}}>
+        <AlertDialogContent className="w-[calc(100%-32px)] max-w-[430px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,.18)]">
+          <AlertDialogHeader className="space-y-2 p-6 text-left">
+            <AlertDialogTitle className="text-lg font-semibold text-slate-950">¿Eliminar {deleteScaleTarget?.kind==='metric'?'métrica':'requisito'}?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-6 text-slate-500">Se eliminará «{deleteScaleTarget?.label}» del Cuadro de escalas. Esta acción no se puede deshacer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 border-t border-slate-100 px-6 py-4">
+            <AlertDialogCancel disabled={deletingScale} className="mt-0 flex-1 rounded-xl border-slate-200 bg-white text-slate-700 sm:flex-none">Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={deletingScale} onClick={event=>{event.preventDefault();void confirmScaleDeletion();}} className="flex-1 rounded-xl bg-rose-600 text-white hover:bg-rose-700 sm:flex-none">{deletingScale?'Eliminando…':'Eliminar'}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function ScaleSummary({
+  label,
+  value,
+  warning = false,
+}: {
+  label: string;
+  value: string;
+  warning?: boolean;
+}) {
+  return (
+    <div className="px-2 py-3.5 sm:px-5">
+      <div className="text-[9px] font-medium text-slate-400">
+        {label}
+      </div>
+      <div
+        className={
+          warning
+            ? 'mt-1 text-2xl font-semibold text-amber-600'
+            : 'mt-1 text-2xl font-semibold text-slate-950'
+        }
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ScaleEditRow({
+  draft,
+  setDraft,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  draft: CategoryScaleMetricInput;
+  setDraft: React.Dispatch<React.SetStateAction<CategoryScaleMetricInput | null>>;
+  saving: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const textField = (key: 'sectionName' | 'metricName') => (
+    <input
+      type="text"
+      value={draft[key]}
+      onChange={(event) =>
+        setDraft((current) =>
+          current ? { ...current, [key]: event.target.value } : current,
+        )
+      }
+      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] text-slate-700 outline-none focus:border-slate-400"
+    />
+  );
+
+  const numberField = (
+    key:
+      | 'seniorValue'
+      | 'semiSeniorValue'
+      | 'juniorValue'
+      | 'improvementValue'
+      | 'weightPercent',
+  ) => (
+    <input
+      type="number"
+      step="0.01"
+      value={draft[key] ?? ''}
+      placeholder="—"
+      onChange={(event) => {
+        const raw = event.target.value;
+        setDraft((current) =>
+          current
+            ? {
+                ...current,
+                [key]: raw === '' ? null : Number(raw),
+              }
+            : current,
+        );
+      }}
+      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] tabular-nums text-slate-700 outline-none focus:border-slate-400"
+    />
+  );
+
+  return (
+    <tr className="border-t border-blue-100 bg-blue-50/40">
+      <td className="px-2 py-2">{textField('sectionName')}</td>
+      <td className="px-2 py-2">
+        {textField('metricName')}
+        <RedcomSelect aria-label="Tipo de valor"
+          value={draft.valueType}
+          onValueChange={value=>setDraft(current=>current?{...current,valueType:value as CategoryScaleValueType}:current)}
+          options={[{value:'number',label:'Número'},{value:'percent',label:'Porcentaje'},{value:'count',label:'Cantidad'},{value:'currency',label:'Importe'}]}
+          className="mt-1.5 h-9 w-full rounded-lg px-2 text-[11px]"
+        />
+      </td>
+      <td className="bg-emerald-900/10 px-2 py-2">{numberField('seniorValue')}</td>
+      <td className="bg-emerald-100 px-2 py-2">{numberField('semiSeniorValue')}</td>
+      <td className="bg-amber-100 px-2 py-2">{numberField('juniorValue')}</td>
+      <td className="bg-rose-100 px-2 py-2">{numberField('improvementValue')}</td>
+      <td className="px-2 py-2">{numberField('weightPercent')}</td>
+      <td className="px-2 py-2">
+        <div className="flex justify-center gap-1">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={onSave}
+            className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-600 text-white"
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={onCancel}
+            className="grid h-8 w-8 place-items-center rounded-lg bg-white text-slate-400"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function ScaleValueCell({
+  tone,
+  value,
+  valueType,
+}: {
+  tone: 'senior' | 'semi' | 'junior' | 'improvement';
+  value: number | null;
+  valueType: CategoryScaleValueType;
+}) {
+  const classes = {
+    senior: 'bg-emerald-900 text-white',
+    semi: 'bg-emerald-200 text-emerald-950',
+    junior: 'bg-amber-200 text-amber-950',
+    improvement: 'bg-rose-200 text-rose-950',
+  };
+
+  let formatted = '—';
+  if (value !== null) {
+    if (valueType === 'currency') {
+      formatted = currencyFormatter.format(value);
+    } else {
+      formatted = Number.isInteger(value)
+        ? integerFormatter.format(value)
+        : value.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+    }
+  }
+
+  return (
+    <td className={`break-words px-2 py-3 text-center text-[11px] font-medium tabular-nums ${classes[tone]}`}>
+      {formatted}
+    </td>
+  );
+}
+
+function GateEditCard({
+  draft,
+  setDraft,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  draft: { label: string; valueText: string; sortOrder: number };
+  setDraft: React.Dispatch<
+    React.SetStateAction<{ label: string; valueText: string; sortOrder: number }>
+  >;
+  saving: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="rounded-[18px] border border-blue-200 bg-blue-50/40 p-4">
+      <input
+        value={draft.label}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, label: event.target.value }))
+        }
+        placeholder="Parámetro"
+        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] outline-none"
+      />
+      <input
+        value={draft.valueText}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, valueText: event.target.value }))
+        }
+        placeholder="Valor requerido"
+        className="mt-2 h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] outline-none"
+      />
+      <div className="mt-3 flex justify-end gap-1">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={onCancel}
+          className="h-8 rounded-lg px-3 text-[10px] font-semibold text-slate-500"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={onSave}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-[10px] font-semibold text-white"
+        >
+          {saving ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Save className="h-3.5 w-3.5" />
+          )}
+          Guardar
+        </button>
+      </div>
+    </div>
+  );
+}
