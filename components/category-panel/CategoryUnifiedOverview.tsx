@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
+import {AnimatePresence,motion,useReducedMotion} from 'framer-motion';
 import {supabase} from '@/lib/supabaseClient';
 import {notify,errorMessage} from '@/lib/notifications';
 import type {CategoryPanelRow} from '@/lib/categoryPanelExcel';
@@ -43,6 +44,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
  const [search,setSearch]=useState('');
  const [overviewDisplay,setOverviewDisplay]=useState<'summary'|'spreadsheet'>('summary');
  const [expandedSeller,setExpandedSeller]=useState<string|null>(null);
+ const reducedMotion=useReducedMotion();
  const [summaryLimit,setSummaryLimit]=useState(25);
  useEffect(()=>{setSummaryLimit(25);setExpandedSeller(null);},[month,search,branchScope]);
  const [cardQuery,setCardQuery]=useState('');
@@ -262,7 +264,8 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
         <td className="px-3 py-3 text-right text-xs tabular-nums whitespace-nowrap">{loading?'Cargando…':average?displayDuration(Math.round(average.sum/average.days)):'Sin datos'}</td>
         <td className="px-3 py-3 text-right"><button type="button" aria-expanded={isExpanded} aria-label={(isExpanded?'Ocultar':'Mostrar')+' indicadores de '+row.sellerName} onClick={()=>setExpandedSeller(isExpanded?null:key)} className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">{isExpanded?'Cerrar':'Expandir'}{isExpanded?<ChevronUp className="h-3.5 w-3.5"/>:<ChevronDown className="h-3.5 w-3.5"/>}</button></td>
        </tr>
-       {isExpanded&&<tr key={key+'-detail'} className="bg-slate-50/70 max-lg:block"><td colSpan={compactColumns.length} className="p-4 max-lg:block">
+       <AnimatePresence initial={false}>
+       {isExpanded&&<motion.tr key={key+'-detail'} initial={reducedMotion?false:{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:reducedMotion?0:0.2,ease:'easeInOut'}} className="bg-slate-50/70 max-lg:block"><td colSpan={compactColumns.length} className="p-4 max-lg:block">
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-3 lg:grid-cols-4">
          {([
           ['Visitas planeadas',fmt.format(row.visitasPlaneadas)],
@@ -280,7 +283,8 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
          ] as [string,string][]).map(([label,value])=><div key={label} className="min-w-0"><div className="text-[11px] text-slate-500">{label}</div><div className="mt-1 break-words text-sm font-medium tabular-nums text-slate-900">{value}</div></div>)}
         </div>
         <div className="mt-3 flex justify-end"><button type="button" onClick={()=>openSellerDetails(row)} disabled={!scaleLoaded} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50">Ver puntajes y cálculos</button></div>
-       </td></tr>}
+       </td></motion.tr>}
+       </AnimatePresence>
       </>;
      }} />
     </div>
