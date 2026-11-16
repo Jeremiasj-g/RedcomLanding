@@ -82,6 +82,7 @@ export async function publishMasterPersonnel(file:File,people:CommercialPerson[]
   // Si falla la respuesta después de un commit, no borrar la versión activa.
   const active=await getActivePersonnelMeta().catch(()=>null);
   if(active?.storage_path!==path)await supabase.storage.from(BUCKET).remove([path]);
+  if(error.code==='PGRST202')throw new Error('La base de datos todavía no tiene instalada la migración de Personal comercial. Aplicá las migraciones de DetallePersonal antes de publicar el archivo.');
   throw error;
  }
  return path;
