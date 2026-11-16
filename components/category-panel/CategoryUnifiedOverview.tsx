@@ -45,8 +45,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
  const [overviewDisplay,setOverviewDisplay]=useState<'summary'|'spreadsheet'>('summary');
  const [expandedSeller,setExpandedSeller]=useState<string|null>(null);
  const reducedMotion=useReducedMotion();
- const [summaryLimit,setSummaryLimit]=useState(25);
- useEffect(()=>{setSummaryLimit(25);setExpandedSeller(null);},[month,search,branchScope]);
+ useEffect(()=>{setExpandedSeller(null);},[month,search,branchScope]);
  const [cardQuery,setCardQuery]=useState('');
  const [cardCategory,setCardCategory]=useState<CategoriaKey|'ALL'>('ALL');
  const [cardSupervisor,setCardSupervisor]=useState<string>('ALL');
@@ -136,7 +135,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
   {key:'hours',label:'Horario promedio',value:r=>{const avg=stats.get(r.branchKey+':'+r.sellerId);return loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos';}},
   {key:'actions',label:'Detalle',value:()=>'Ver detalle'},
  ],[byProjection,stats,loading,scaleMetrics,scaleGates,scaleLoaded,counts.elapsed]);
- const summaryRows=filtered.slice(0,summaryLimit);
+ const summaryRows=filtered;
  const openSellerDetails=(row:CategoryPanelRow)=>{
   const key=row.branchKey+':'+row.sellerId;
   const projection=byProjection.get(key);
@@ -288,7 +287,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
       </>;
      }} />
     </div>
-    {filtered.length>summaryRows.length&&<div className="flex flex-wrap items-center justify-center gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-600"><span>Mostrando {summaryRows.length} de {filtered.length} vendedores</span><button type="button" onClick={()=>setSummaryLimit(n=>n+25)} className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium hover:bg-slate-50">Mostrar 25 más</button></div>}
+    
    </>}
    <div hidden={overviewDisplay!=='spreadsheet'} className="max-h-[650px] overflow-y-auto overflow-x-auto">
     <div className="min-w-[1900px]">
