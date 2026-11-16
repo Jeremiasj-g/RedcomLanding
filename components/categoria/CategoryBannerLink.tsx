@@ -24,9 +24,10 @@ export default function CategoryBannerLink({
   className = '',
 }: Props) {
   const COLORS = CATEGORIA_ACCENTS;
+  const isBeta = /\/categorias-v2(?:\/|$)/.test(href);
 
   return (
-    <motion.button
+    <motion.div
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}
       viewport={{ once: true }}
@@ -35,11 +36,11 @@ export default function CategoryBannerLink({
 
       <Link
         href={href}
-        aria-label={`Abrir ${title} - ${branchLabel}`}
+        aria-label={`Abrir ${title} - ${branchLabel}${isBeta ? " (versión beta)" : ""}`}
         className={[
           'group relative block rounded-2xl overflow-hidden',
           'border border-white/10 bg-slate-950',
-          'shadow-xl transition-transform duration-200 group-hover:scale-105',
+          'shadow-xl transition-transform duration-200 group-hover:scale-[1.01]',
           className,
         ].join(' ')}
       >
@@ -115,8 +116,9 @@ export default function CategoryBannerLink({
             </div>
 
             <div className="min-w-0">
-              <div className="text-white font-semibold truncate flex">
-                {title} {branchLabel ? `· ${branchLabel}` : ''}
+              <div className="flex min-w-0 flex-wrap items-center gap-2 text-white font-semibold">
+                <span className="min-w-0 truncate">{title} {branchLabel ? `· ${branchLabel}` : ''}</span>
+                {isBeta&&<span className="shrink-0 rounded-md border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/90">Beta</span>}
               </div>
               <div className="text-sm text-white/70 truncate">
                 {description}
@@ -138,6 +140,6 @@ export default function CategoryBannerLink({
         </div>
       </Link>
 
-    </motion.button>
+    </motion.div>
   );
 }

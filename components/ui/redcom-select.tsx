@@ -15,7 +15,7 @@ export type RedcomSelectOption = {
   keywords?: string[];
 };
 
-type SelectAccent = "red" | "indigo" | "teal";
+type SelectAccent = "neutral" | "red" | "indigo" | "teal";
 type TriggerTone = "neutral" | "blue" | "green" | "amber" | "red";
 
 const darkTriggerToneStyles: Record<TriggerTone, string> = {
@@ -36,6 +36,13 @@ const accentStyles: Record<
     indicator: string;
   }
 > = {
+  neutral: {
+    trigger: "hover:border-slate-300 hover:bg-slate-50 focus-visible:border-slate-400 focus-visible:ring-slate-300/30 data-[state=open]:border-slate-300 data-[state=open]:ring-slate-300/20",
+    icon: "group-hover:bg-slate-100 group-hover:text-slate-800",
+    openIcon: "group-data-[state=open]:bg-slate-100 group-data-[state=open]:text-slate-800",
+    item: "data-[highlighted]:bg-slate-100 data-[highlighted]:text-slate-950 data-[state=checked]:bg-slate-50",
+    indicator: "bg-transparent text-slate-700 data-[highlighted]:bg-transparent data-[highlighted]:text-slate-950",
+  },
   red: {
     trigger:
       "hover:border-slate-300 hover:bg-slate-50/70 focus-visible:border-slate-950 focus-visible:ring-slate-950/5 data-[state=open]:border-slate-950 data-[state=open]:ring-slate-950/5",
@@ -134,7 +141,7 @@ export function RedcomSelect({
                       : triggerTone === "red"
                         ? "bg-rose-400/[0.14] text-rose-200"
                         : "bg-white/[0.06] text-white/[0.76]"
-                : "bg-slate-100 text-slate-600",
+                : accent === "neutral" ? "bg-transparent text-slate-500" : "bg-slate-100 text-slate-600",
               surface === "dark"
                 ? "group-hover:bg-white/[0.08] group-hover:text-white/[0.82] group-data-[state=open]:bg-[#0a84ff] group-data-[state=open]:text-white"
                 : cn(styles.icon, styles.openIcon),
@@ -277,7 +284,7 @@ export function RedcomSearchableSelect({
                       : triggerTone === "red"
                         ? "bg-rose-400/[0.14] text-rose-200"
                         : "bg-white/[0.06] text-white/[0.76]"
-                : "bg-slate-100 text-slate-600",
+                : accent === "neutral" ? "bg-transparent text-slate-500" : "bg-slate-100 text-slate-600",
               surface === "dark"
                 ? "group-hover:bg-white/[0.08] group-hover:text-white/[0.82] group-data-[state=open]:bg-[#0a84ff] group-data-[state=open]:text-white"
                 : cn(styles.icon, styles.openIcon),
@@ -330,7 +337,9 @@ export function RedcomSearchableSelect({
                     surface === "dark" ? "text-white/[0.88]" : "text-slate-700",
                     surface === "dark"
                       ? "data-[selected=true]:bg-white/[0.07] data-[selected=true]:text-white"
-                      : accent === "indigo"
+                      : accent === "neutral"
+                        ? "data-[selected=true]:bg-slate-100 data-[selected=true]:text-slate-950"
+                        : accent === "indigo"
                         ? "data-[selected=true]:bg-indigo-600 data-[selected=true]:text-white"
                         : accent === "teal"
                           ? "data-[selected=true]:bg-teal-600 data-[selected=true]:text-white"

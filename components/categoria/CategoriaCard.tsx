@@ -9,11 +9,11 @@ type Props = {
   categoriaLabel: string;
   categoriaColor: { bg: string; text: string; border: string };
 
-  eficiencia: number;
-  cobertura: number;
-  volumen: number;
-  pop: number;
-  exhibicion: number;
+  eficiencia: number | null;
+  cobertura: number | null;
+  volumen: number | null;
+  pop: number | null;
+  exhibicion: number | null;
 
   accentColor: string; // ✅ lo dejamos por si lo querés usar después (ej: borde), pero no lo usamos en el ring
 
@@ -46,7 +46,7 @@ export default function CategoriaCard({
             </div>
 
             <div>
-              <div className="font-bold text-slate-900 leading-tight">
+              <div className="font-semibold text-slate-900 leading-tight">
                 {vendedor}
               </div>
               <div className="text-xs text-slate-500 uppercase tracking-wide">
@@ -64,10 +64,10 @@ export default function CategoriaCard({
           <CircularProgress value={eficiencia} uid={id} />
 
           <div className="grid grid-cols-2 gap-3">
-            <MiniStat label="Cobertura" value={cobertura} />
-            <MiniStat label="Volumen" value={volumen} />
-            <MiniStat label="POP" value={`${pop.toFixed(2)}%`} />
-            <MiniStat label="Exhibición" value={`${exhibicion.toFixed(2)}%`} />
+            <MiniStat label="Cobertura" value={cobertura ?? "—"} />
+            <MiniStat label="Volumen" value={volumen ?? "—"} />
+            <MiniStat label="POP" value={pop===null?"—":`${pop.toFixed(2)}%`} />
+            <MiniStat label="Exhibición" value={exhibicion===null?"—":`${exhibicion.toFixed(2)}%`} />
           </div>
         </div>
 
@@ -88,14 +88,14 @@ function CircularProgress({
   size = 72,
   stroke = 8,
 }: {
-  value: number;
+  value: number | null;
   uid: string; // ✅ para gradientId único
   size?: number;
   stroke?: number;
 }) {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const progress = Math.min(Math.max(value, 0), 100);
+  const progress = Math.min(Math.max(value ?? 0, 0), 100);
   const offset = circumference - (progress / 100) * circumference;
 
   const COLORS = {
@@ -145,8 +145,8 @@ function CircularProgress({
       </svg>
 
       <div className="absolute text-center">
-        <div className="text-sm font-bold text-slate-900">
-          {Math.round(progress)}%
+        <div className="text-sm font-semibold text-slate-900">
+          {value===null?'—':Math.round(progress)+'%'}
         </div>
         <div className="text-[10px] text-slate-500">Eficiencia</div>
       </div>

@@ -84,6 +84,8 @@ export const MODULE_PERMISSION_DEFINITIONS: ModulePermissionDefinition[] = [
       '/corrientes/masivos/categorias',
       '/chaco/categorias',
       '/misiones/categorias',
+      '/corrientes/refrigerados/categorias-v2',
+      '/obera/categorias-v2',
     ],
     defaultRoles: INTERNAL_BASE_ROLES,
     branchAware: true,

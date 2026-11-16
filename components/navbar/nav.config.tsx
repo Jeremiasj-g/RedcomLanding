@@ -5,7 +5,6 @@ import {
   Sparkles,
   CalendarDays,
   ListChecks,
-  Target,
   Shield,
   ClipboardList,
   Hammer,
@@ -13,6 +12,8 @@ import {
   LayoutDashboard,
   BadgeCheck,
   Smartphone,
+  Database,
+  Target,
 } from 'lucide-react';
 
 export type NavRuleCtx = {
@@ -28,6 +29,9 @@ export type NavItemConfig = {
   label: string;
   href?: string;
   icon?: React.ReactNode;
+
+  // Opcional: ocultar completamente un item para ciertos perfiles.
+  visibleWhen?: (ctx: NavRuleCtx) => boolean;
 
   // si querés "mostrar siempre", pero deshabilitar según permisos:
   enabledWhen?: (ctx: NavRuleCtx) => boolean;
@@ -66,7 +70,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Corrientes',
         href: '/corrientes/masivos',
         icon: <Building2 className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && hasBranch('corrientes')(ctx),
+        enabledWhen: (ctx) => canUse('branch_dashboards')(ctx) && hasBranch('corrientes')(ctx),
         enabledReason: () => 'No tenés la sucursal Corrientes',
         className: 'text-slate-100',
       },
@@ -75,7 +79,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Refrigerados',
         href: '/corrientes/refrigerados',
         icon: <Building2 className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && hasBranch('refrigerados')(ctx),
+        enabledWhen: (ctx) => canUse('branch_dashboards')(ctx) && hasBranch('refrigerados')(ctx),
         enabledReason: () => 'No tenés la sucursal Refrigerados',
         className: 'text-slate-100',
       },
@@ -84,7 +88,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Chaco',
         href: '/chaco',
         icon: <Building2 className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && hasBranch('chaco')(ctx),
+        enabledWhen: (ctx) => canUse('branch_dashboards')(ctx) && hasBranch('chaco')(ctx),
         enabledReason: () => 'No tenés la sucursal Chaco',
         className: 'text-slate-100',
       },
@@ -93,7 +97,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Misiones',
         href: '/misiones',
         icon: <Building2 className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && hasBranch('misiones')(ctx),
+        enabledWhen: (ctx) => canUse('branch_dashboards')(ctx) && hasBranch('misiones')(ctx),
         enabledReason: () => 'No tenés la sucursal Misiones',
         className: 'text-slate-100',
       },
@@ -102,7 +106,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Oberá',
         href: '/obera',
         icon: <Building2 className="h-4 w-4" />,
-        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && hasBranch('obera')(ctx),
+        enabledWhen: (ctx) => canUse('branch_dashboards')(ctx) && hasBranch('obera')(ctx),
         enabledReason: () => 'No tenés la sucursal Oberá',
         className: 'text-slate-100',
       },
@@ -219,6 +223,16 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         enabledReason: () => 'Solo Admin',
         // ✅ color original admin panel
         className: 'text-amber-300 hover:text-amber-200',
+      },
+      {
+        id: 'panel-categorias',
+        label: 'Panel de categorías',
+        href: '/panel-categorias',
+        icon: <Database className="h-4 w-4" />,
+        visibleWhen: (ctx) => roleIn(['admin'])(ctx),
+        enabledWhen: (ctx) => mustBeLoggedActive(ctx) && roleIn(['admin'])(ctx),
+        enabledReason: () => 'Solo Admin',
+        className: 'text-blue-300 hover:text-blue-200 hover:bg-blue-500/10',
       },
     ],
   },
