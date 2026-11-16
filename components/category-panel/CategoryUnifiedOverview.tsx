@@ -62,7 +62,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
  const [personnel,setPersonnel]=useState<Array<{id:number;name:string;branch:string;role:string;superior:string;force:string}>>([]);
  useEffect(()=>{
   if(branchScope){setPersonnel(scopedPersonnel??[]);return;}
-  void supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle().then(({data,error})=>{if(error)notify.error(errorMessage(error,'No se pudo cargar Personal comercial.'));else setPersonnel(Array.isArray(data?.people)?data.people:[]);});
+  void supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle().then(({data,error})=>{if(error)notify.error(errorMessage(error,'No se pudo cargar Personal comercial.'));else setPersonnel(Array.isArray(data?.people)?(data?.people??[]):[]);});
  },[branchScope,scopedPersonnel]);
  useEffect(()=>{
   if(branchScope){setDaily(scopedDaily??[]);setLoading(false);return;}
