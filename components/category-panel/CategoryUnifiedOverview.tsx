@@ -94,7 +94,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
  },[daily]);
  const byProjection=useMemo(()=>new Map(projections.map(p=>[p.branch_key+':'+p.seller_id,p])),[projections]);
  const sellers=useMemo(()=>personnel.filter(p=>p.role?.toUpperCase()==='VENDEDOR'),[personnel]);
- const filtered=useMemo(()=>rows.filter(r=>(!branchScope||r.branchKey===branchScope)&&(r.sellerName+' '+r.branchLabel+' '+r.sellerId).toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es'))),[rows,search,branchScope]);
+ const filtered=useMemo(()=>rows.filter(r=>(!branchScope||r.branchKey===branchScope)&&(r.sellerName+' '+r.branchLabel+' '+r.sellerId+' '+r.sector).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es').includes(search.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es'))),[rows,search,branchScope]);
  const overviewColumns:FilterColumn<CategoryPanelRow>[]=useMemo(()=>[
   {key:'branch',label:'Sucursal',value:r=>r.branchLabel},{key:'sector',label:'Sector',value:r=>String(r.sector)},{key:'id',label:'ID',value:r=>String(r.sellerId)},
   {key:'seller',label:'Vendedor',value:r=>r.sellerName},{key:'visited',label:'Visitados',value:r=>String(r.visitados)},
@@ -112,15 +112,28 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
   {key:'days',label:'Días válidos',value:r=>String(stats.get(r.branchKey+':'+r.sellerId)?.days??0)}
  ],[byProjection,stats,counts.elapsed,loading]);
 
+ const categoryForRow=(row:CategoryPanelRow)=>{
+  if(!scaleLoaded)return 'Cargando…';
+  const key=row.branchKey+':'+row.sellerId;
+  const projection=byProjection.get(key),average=stats.get(key);
+  const input:SellerCategoryInput={
+   dailyBilling:counts.elapsed>0?row.importeFinalFacturado/counts.elapsed:null,
+   efficiency:row.visitados>0?row.cntFac/row.visitados*100:null,
+   effectiveness:row.visitasPlaneadas>0?row.visitados/row.visitasPlaneadas*100:null,
+   pop:projection?.pop_percentage??null,exhibition:projection?.exhibition_percentage??null,
+   volume:projection?.volume_percentage??null,coverage:projection?.coverage_percentage??null,
+   routeHours:average?average.sum/average.days/3600:null};
+  return assessSellerCategory(input,scaleMetrics,scaleGates,projection?.projected_category??null).label;
+ };
  const compactColumns:FilterColumn<CategoryPanelRow>[]=useMemo(()=>[
   {key:'seller',label:'Vendedor',value:r=>r.sellerName},
   {key:'sector',label:'Sector',value:r=>String(r.sector)},
-  {key:'category',label:'Categoría',value:r=>byProjection.get(r.branchKey+':'+r.sellerId)?.projected_category??'—'},
+  {key:'category',label:'Categoría alcanzada',value:r=>categoryForRow(r)},
   {key:'billing',label:'Facturación',value:r=>money.format(r.importeFinalFacturado)},
   {key:'visited',label:'PDVs visitados',value:r=>String(r.visitados)},
   {key:'hours',label:'Horario promedio',value:r=>{const avg=stats.get(r.branchKey+':'+r.sellerId);return loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos';}},
   {key:'actions',label:'Detalle',value:()=>'Ver detalle'},
- ],[byProjection,stats,loading]);
+ ],[byProjection,stats,loading,scaleMetrics,scaleGates,scaleLoaded,counts.elapsed]);
  const summaryRows=filtered.slice(0,summaryLimit);
  const openSellerDetails=(row:CategoryPanelRow)=>{
   const key=row.branchKey+':'+row.sellerId;
@@ -240,16 +253,16 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
       const average=stats.get(key);
       const isExpanded=expandedSeller===key;
       return <>
-       <tr key={key} className="border-t border-slate-100 text-slate-700 hover:bg-slate-50/70">
-        <td className="px-4 py-3"><div className="font-medium text-slate-950">{row.sellerName}</div><div className="text-[11px] text-slate-500">ID {row.sellerId} · {row.branchLabel}</div></td>
+       <tr key={key} className="border-t border-slate-100 text-slate-700 hover:bg-slate-50/70 max-lg:my-2 max-lg:grid max-lg:grid-cols-2 max-lg:gap-1 max-lg:rounded-xl max-lg:border max-lg:border-slate-200 max-lg:p-3">
+        <td className="px-4 py-3 max-lg:col-span-2 max-lg:px-2"><div className="font-medium text-slate-950">{row.sellerName}</div><div className="text-[11px] text-slate-500">ID {row.sellerId} · {row.branchLabel}</div></td>
         <td className="px-3 py-3 text-xs tabular-nums">{row.sector}</td>
-        <td className="px-3 py-3 text-xs font-medium text-slate-700">{projection?.projected_category??'—'}</td>
+        <td className="px-3 py-3 text-xs font-medium text-slate-700">{categoryForRow(row)}</td>
         <td className="px-3 py-3 text-right text-xs tabular-nums whitespace-nowrap">{money.format(row.importeFinalFacturado)}</td>
         <td className="px-3 py-3 text-right text-xs tabular-nums">{fmt.format(row.visitados)}</td>
         <td className="px-3 py-3 text-right text-xs tabular-nums whitespace-nowrap">{loading?'Cargando…':average?displayDuration(Math.round(average.sum/average.days)):'Sin datos'}</td>
         <td className="px-3 py-3 text-right"><button type="button" aria-expanded={isExpanded} aria-label={(isExpanded?'Ocultar':'Mostrar')+' indicadores de '+row.sellerName} onClick={()=>setExpandedSeller(isExpanded?null:key)} className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">{isExpanded?'Cerrar':'Expandir'}{isExpanded?<ChevronUp className="h-3.5 w-3.5"/>:<ChevronDown className="h-3.5 w-3.5"/>}</button></td>
        </tr>
-       {isExpanded&&<tr key={key+'-detail'} className="bg-slate-50/70"><td colSpan={compactColumns.length} className="p-4">
+       {isExpanded&&<tr key={key+'-detail'} className="bg-slate-50/70 max-lg:block"><td colSpan={compactColumns.length} className="p-4 max-lg:block">
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-3 lg:grid-cols-4">
          {([
           ['Visitas planeadas',fmt.format(row.visitasPlaneadas)],
