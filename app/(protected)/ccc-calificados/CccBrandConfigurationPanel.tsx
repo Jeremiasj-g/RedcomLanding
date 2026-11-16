@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import {
   Check,
   ChevronDown,
@@ -34,10 +35,8 @@ import {
 } from "./ccc-brand-config.service";
 import {
   CccSharedFileMeta,
-  deleteSharedPersonalDetail,
   downloadSharedPersonalDetail,
   getSharedPersonalDetailMeta,
-  uploadSharedPersonalDetail,
 } from "./ccc-shared-personal-detail.service";
 
 type DashboardUser = {
@@ -511,35 +510,6 @@ export default function CccBrandConfigurationPanel({
     }
   };
 
-  const handleSharedDetailUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file || !isAdmin) return;
-
-    const extension = file.name.split(".").pop()?.toLowerCase();
-    if (!extension || !["xlsx", "xls"].includes(extension)) {
-      notify.error("Detalle personal debe ser un archivo .xlsx o .xls.");
-      return;
-    }
-
-    setSharedDetailBusy("upload");
-    try {
-      const meta = await uploadSharedPersonalDetail({
-        file,
-        userId: me.id,
-        uploaderName: me.full_name,
-      });
-      setSharedDetail(meta);
-      window.dispatchEvent(new Event("ccc:shared-personal-detail-changed"));
-      notify.success("Detalle personal global actualizado correctamente.");
-    } catch (error) {
-      console.error(error);
-      notify.error(errorMessage(error, "No se pudo guardar Detalle personal."));
-    } finally {
-      setSharedDetailBusy(null);
-    }
-  };
-
   const handleSharedDetailDownload = async () => {
     setSharedDetailBusy("download");
     try {
@@ -548,24 +518,6 @@ export default function CccBrandConfigurationPanel({
     } catch (error) {
       console.error(error);
       notify.error(errorMessage(error, "No se pudo descargar Detalle personal."));
-    } finally {
-      setSharedDetailBusy(null);
-    }
-  };
-
-  const handleSharedDetailDelete = async () => {
-    if (!isAdmin || !sharedDetail) return;
-    if (!window.confirm("¿Eliminar Detalle personal global? CCC, MIX y DROPSIZE dejarán de procesar hasta que se cargue un archivo nuevo.")) return;
-
-    setSharedDetailBusy("delete");
-    try {
-      await deleteSharedPersonalDetail();
-      setSharedDetail(null);
-      window.dispatchEvent(new Event("ccc:shared-personal-detail-changed"));
-      notify.success("Detalle personal global eliminado.");
-    } catch (error) {
-      console.error(error);
-      notify.error(errorMessage(error, "No se pudo eliminar Detalle personal."));
     } finally {
       setSharedDetailBusy(null);
     }
@@ -800,52 +752,11 @@ export default function CccBrandConfigurationPanel({
             </div>
           )}
 
-          {isAdmin ? (
-            <div className="mt-4 space-y-2">
-              <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 ${sharedDetailBusy ? "pointer-events-none opacity-50" : ""}`}>
-                {sharedDetailBusy === "upload" ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                {sharedDetail ? "Reemplazar archivo" : "Importar archivo"}
-                <input
-                  type="file"
-                  accept=".xls,.xlsx"
-                  className="hidden"
-                  disabled={Boolean(sharedDetailBusy)}
-                  onChange={handleSharedDetailUpload}
-                />
-              </label>
-
-              {sharedDetail && (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSharedDetailDownload}
-                    disabled={Boolean(sharedDetailBusy)}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-45"
-                  >
-                    {sharedDetailBusy === "download" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                    Descargar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSharedDetailDelete}
-                    disabled={Boolean(sharedDetailBusy)}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-[11px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-45"
-                  >
-                    {sharedDetailBusy === "delete" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                    Eliminar
-                  </button>
-                </div>
-              )}
-
-              <p className="pt-1 text-[10px] leading-4 text-slate-400">
-                Solo usuarios Administrador pueden importar, reemplazar o eliminar este archivo.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-4 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] leading-5 text-slate-500">
-              Detalle personal global es administrado exclusivamente por Administración.
-            </div>
-          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {sharedDetail&&<button type="button" disabled={sharedDetailBusy!==null} onClick={handleSharedDetailDownload} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 transition-colors duration-200 hover:bg-slate-50 disabled:opacity-50"><Download className="h-4 w-4"/>Descargar DetallePersonal</button>}
+            {isAdmin&&<Link href="/admin/personal-comercial" className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-50">Administrar personal comercial</Link>}
+          </div>
+          <p className="mt-2 text-xs text-slate-500">La importación se administra únicamente desde el Panel de Administrador.</p>
         </aside>
       </div>
     </section>

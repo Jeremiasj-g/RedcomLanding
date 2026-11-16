@@ -59,61 +59,6 @@ export async function getSharedPersonalDetailMeta(): Promise<CccSharedFileMeta |
   return (data as CccSharedFileMeta | null) ?? null;
 }
 
-export async function uploadSharedPersonalDetail(params: {
-  file: File;
-  userId: string;
-  uploaderName?: string | null;
-}): Promise<CccSharedFileMeta> {
-  if (activeSnapshotId()) throw new Error("Volvé a Datos actuales antes de reemplazar Detalle personal.");
-
-  const lowerName = params.file.name.toLowerCase();
-  const extension = lowerName.endsWith(".xls") ? "xls" : "xlsx";
-  const storagePath = `global/detalle-personal.${extension}`;
-  const uploadedAt = new Date().toISOString();
-  const previous = await getSharedPersonalDetailMeta();
-
-  const { error: storageError } = await supabase.storage
-    .from(CCC_SHARED_FILES_BUCKET)
-    .upload(storagePath, params.file, {
-      upsert: true,
-      contentType:
-        params.file.type ||
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      cacheControl: "0",
-    });
-
-  if (storageError) throw storageError;
-
-  const payload = {
-    file_key: CCC_SHARED_PERSONAL_DETAIL_KEY,
-    storage_path: storagePath,
-    original_name: params.file.name,
-    mime_type: params.file.type || null,
-    size_bytes: params.file.size,
-    uploaded_by: params.userId,
-    uploaded_by_name: params.uploaderName || null,
-    uploaded_at: uploadedAt,
-    updated_at: uploadedAt,
-  };
-
-  const { data, error } = await supabase
-    .from("ccc_shared_files")
-    .upsert(payload, { onConflict: "file_key" })
-    .select("*")
-    .single();
-
-  if (error) throw error;
-
-  if (previous?.storage_path && previous.storage_path !== storagePath) {
-    await supabase.storage
-      .from(CCC_SHARED_FILES_BUCKET)
-      .remove([previous.storage_path])
-      .catch(() => undefined);
-  }
-
-  return data as CccSharedFileMeta;
-}
-
 export async function downloadSharedPersonalDetail(): Promise<{
   file: File;
   meta: CccSharedFileMeta;
@@ -142,22 +87,3 @@ export async function downloadSharedPersonalDetail(): Promise<{
   };
 }
 
-export async function deleteSharedPersonalDetail(): Promise<void> {
-  if (activeSnapshotId()) throw new Error("Volvé a Datos actuales antes de eliminar Detalle personal.");
-
-  const meta = await getSharedPersonalDetailMeta();
-  if (!meta) return;
-
-  const { error: storageError } = await supabase.storage
-    .from(CCC_SHARED_FILES_BUCKET)
-    .remove([meta.storage_path]);
-
-  if (storageError) throw storageError;
-
-  const { error } = await supabase
-    .from("ccc_shared_files")
-    .delete()
-    .eq("file_key", CCC_SHARED_PERSONAL_DETAIL_KEY);
-
-  if (error) throw error;
-}
