@@ -7,12 +7,13 @@ import {Popover,PopoverContent,PopoverTrigger} from '@/components/ui/popover';
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 export default function CategoryMonthPicker({
- value,onChange,disabled=false,label='Mes',className='',
-}:{value:string;onChange:(value:string)=>void;disabled?:boolean;label?:string;className?:string}){
+ value,onChange,disabled=false,label='Mes',className='',minMonth,
+}:{value:string;onChange:(value:string)=>void;disabled?:boolean;label?:string;className?:string;minMonth?:string}){
  const [open,setOpen]=useState(false);
  const [year,setYear]=useState(()=>Number(value.slice(0,4))||new Date().getFullYear());
  useEffect(()=>{if(open)setYear(Number(value.slice(0,4))||new Date().getFullYear());},[open,value]);
  const month=Number(value.slice(5,7));
+ const earliestYear=minMonth?Number(minMonth.slice(0,4)):null;
  const title=month>=1&&month<=12?MONTHS[month-1]+' de '+value.slice(0,4):'Seleccionar mes';
  return <Popover open={open} onOpenChange={setOpen}>
   <PopoverTrigger asChild>
@@ -23,7 +24,7 @@ export default function CategoryMonthPicker({
   </PopoverTrigger>
   <PopoverContent align="end" sideOffset={8} className="z-[220] w-[288px] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_45px_rgba(15,23,42,.14)]">
    <div className="mb-3 flex items-center justify-between">
-    <button type="button" aria-label="Año anterior" onClick={()=>setYear(y=>y-1)} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition-colors duration-200 hover:bg-slate-100"><ChevronLeft className="h-4 w-4"/></button>
+    <button type="button" aria-label="Año anterior" disabled={earliestYear!==null&&year<=earliestYear} onClick={()=>setYear(y=>y-1)} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition-colors duration-200 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"><ChevronLeft className="h-4 w-4"/></button>
     <span className="text-sm font-semibold tabular-nums text-slate-900">{year}</span>
     <button type="button" aria-label="Año siguiente" onClick={()=>setYear(y=>y+1)} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition-colors duration-200 hover:bg-slate-100"><ChevronRight className="h-4 w-4"/></button>
    </div>
@@ -31,8 +32,9 @@ export default function CategoryMonthPicker({
     {MONTHS.map((monthName,index)=>{
      const next=year+'-'+String(index+1).padStart(2,'0');
      const active=value===next;
-     return <button type="button" key={monthName} aria-pressed={active} onClick={()=>{onChange(next);setOpen(false);}}
-      className={'rounded-lg px-2 py-2.5 text-xs font-medium transition-colors duration-200 motion-reduce:transition-none '+(active?'bg-slate-950 text-white':'text-slate-700 hover:bg-slate-100')}>{monthName.slice(0,3)}</button>;
+     const unavailable=Boolean(minMonth&&next<minMonth);
+     return <button type="button" key={monthName} disabled={unavailable} aria-pressed={active} onClick={()=>{if(unavailable)return;onChange(next);setOpen(false);}}
+      className={'rounded-lg px-2 py-2.5 text-xs font-medium transition-colors duration-200 motion-reduce:transition-none '+(unavailable?'cursor-not-allowed bg-slate-50 text-slate-300':active?'bg-slate-950 text-white':'text-slate-700 hover:bg-slate-100')}>{monthName.slice(0,3)}</button>;
     })}
    </div>
   </PopoverContent>

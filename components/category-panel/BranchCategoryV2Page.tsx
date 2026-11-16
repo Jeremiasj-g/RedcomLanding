@@ -72,7 +72,7 @@ export default function BranchCategoryV2Page({scope,children}:{scope:Scope;child
     <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
      <div><h1 className="text-3xl font-semibold tracking-tight text-slate-950">Categorías V 2.0 · {scope.label}</h1></div>
      <label className="flex items-center gap-2 text-xs text-slate-600">Mes
-       <CategoryMonthPicker value={month} onChange={setMonth} label="Mes de consulta"/>
+       <CategoryMonthPicker value={month} onChange={setMonth} minMonth="2026-10" label="Mes de consulta"/>
       </label>
     </div>
     <nav aria-label="Secciones de Categorías V 2.0" className="mt-6 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
