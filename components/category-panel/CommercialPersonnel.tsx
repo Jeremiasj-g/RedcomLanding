@@ -87,7 +87,7 @@ export default function CommercialPersonnel(){
    try{
     const {data,error}=await supabase.from('category_commercial_personnel').select('people,updated_at').eq('id',1).maybeSingle();
     if(error)throw error;
-    if(active){setPeople(Array.isArray(data?.people)?data.people as CommercialPerson[]:[]);setUpdatedAt(data?.updated_at??null);}
+    if(active){setPeople(Array.isArray(data?.people)?(data?.people??[]) as CommercialPerson[]:[]);setUpdatedAt(data?.updated_at??null);}
    }catch(e){if(active)notify.error(errorMessage(e,'No se pudo cargar el personal comercial.'));}
    finally{if(active)setLoading(false);}
   })();
