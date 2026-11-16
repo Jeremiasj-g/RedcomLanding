@@ -46,7 +46,7 @@ export default function BranchCategoryV2Page({scope,children}:{scope:Scope;child
   if(authLoading||permissionsLoading||!canSeeCategories)return;
   let active=true;
   setBusy(true);setError('');
-  void supabase.rpc('branch_category_v2_data',{p_branch_key:scope.key,p_month:month})
+  void Promise.resolve(supabase.rpc('branch_category_v2_data',{p_branch_key:scope.key,p_month:month}))
    .then(({data,error})=>{
      if(!active)return;
      if(error)throw error;
