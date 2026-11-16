@@ -273,8 +273,8 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
     </div>
     {filtered.length>summaryRows.length&&<div className="flex flex-wrap items-center justify-center gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-600"><span>Mostrando {summaryRows.length} de {filtered.length} vendedores</span><button type="button" onClick={()=>setSummaryLimit(n=>n+25)} className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium hover:bg-slate-50">Mostrar 25 más</button></div>}
    </>}
-   <div hidden={overviewDisplay!=='spreadsheet'} className="max-h-[650px] overflow-y-auto overflow-x-auto"> value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar vendedor, ID o sucursal" className="h-10 w-full max-w-sm rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-300"/></div>
-   <div className="max-h-[650px] overflow-y-auto overflow-x-hidden">
+   <div hidden={overviewDisplay!=='spreadsheet'} className="max-h-[650px] overflow-y-auto overflow-x-auto">
+    <div className="min-w-[1900px]">
     <FilterableCategoryTable rows={filtered} columns={overviewColumns} renderRow={row=>{
      const key=row.branchKey+':'+row.sellerId,proj=byProjection.get(key),avg=stats.get(key);
      return <tr key={key} className="border-t border-slate-100 text-slate-700 hover:bg-slate-50/70 max-lg:my-3 max-lg:grid max-lg:grid-cols-2 max-lg:rounded-xl max-lg:border max-lg:border-slate-200 max-lg:p-2">
@@ -287,7 +287,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
       <td data-label="Cobertura" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{proj?.coverage_percentage==null?'—':fmt.format(proj.coverage_percentage)}</td><td data-label="Volumen" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{proj?.volume_percentage==null?'—':fmt.format(proj.volume_percentage)}</td>
       <td data-label="Horario promedio" className="px-1.5 py-2.5 font-medium min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos'}</td><td data-label="Días válidos" className="px-1.5 py-2.5 min-w-0 break-words [overflow-wrap:anywhere] max-lg:flex max-lg:flex-col max-lg:gap-1 max-lg:px-3 max-lg:py-3 max-lg:before:content-[attr(data-label)] max-lg:before:text-[10px] max-lg:before:font-medium max-lg:before:text-slate-400">{loading?'—':avg?.days??0}</td>
      </tr>}} />
-
+    </div>
    </div>
    <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">El promedio considera días con inicio y fin válidos (corregidos cuando corresponda) y excluye días con motivo registrado. No se inventan horarios faltantes.</p>
   </section>
