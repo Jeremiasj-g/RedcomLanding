@@ -64,7 +64,7 @@ begin
         order by mv.effective_month desc limit 1
       ),(select cp.people from public.category_commercial_personnel cp where cp.id=1),'[]'::jsonb)) as person(value)
       where person.value->>'branch'=v_branch
-        and (v_force='all' or person.value->>'force'=v_force or person.value->>'role'='SUPERVISOR')
+        and (v_force='all' or person.value->>'force'=v_force)
     ),'[]'::jsonb),
     'daily',coalesce((
       select jsonb_agg(to_jsonb(d))
