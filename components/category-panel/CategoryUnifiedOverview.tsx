@@ -90,7 +90,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
  },[daily]);
  const byProjection=useMemo(()=>new Map(projections.map(p=>[p.branch_key+':'+p.seller_id,p])),[projections]);
  const sellers=useMemo(()=>personnel.filter(p=>p.role?.toUpperCase()==='VENDEDOR'),[personnel]);
- const filtered=useMemo(()=>rows.filter(r=>(!branchScope||r.branchKey===branchScope)&&(r.sellerName+' '+r.branchLabel+' '+r.sellerId).toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es'))),[rows,search,branchScope]);
+ const filtered=useMemo(()=>rows.filter(r=>(!branchScope||r.branchKey===branchScope)&&(r.sellerName+' '+r.branchLabel+' '+r.sellerId).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es').includes(search.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es'))),[rows,search,branchScope]);
  const overviewColumns:FilterColumn<CategoryPanelRow>[]=useMemo(()=>[
   {key:'branch',label:'Sucursal',value:r=>r.branchLabel},{key:'sector',label:'Sector',value:r=>String(r.sector)},{key:'id',label:'ID',value:r=>String(r.sellerId)},
   {key:'seller',label:'Vendedor',value:r=>r.sellerName},{key:'visited',label:'Visitados',value:r=>String(r.visitados)},
@@ -130,7 +130,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
    .sort((a,b)=>a.localeCompare(b,'es'));
  const filteredCards=categoryCards.filter(card=>{
    const query=cardQuery.trim().toLocaleLowerCase('es');
-   return (!query||(card.vendedor+' '+card.person.id).toLocaleLowerCase('es').includes(query))
+   return (!query||(card.vendedor+' '+card.person.id).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es').includes(query.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es')))
      &&(cardCategory==='ALL'||card.categoriaKey===cardCategory)
      &&(cardSupervisor==='ALL'||card.Supervisor===cardSupervisor);
  });

@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo,useState,type ReactNode} from 'react';
+import {useEffect,useMemo,useState,type ReactNode} from 'react';
 import {ChevronDown,Filter,Search} from 'lucide-react';
 
 export type FilterColumn<T>={key:string;label:string;value:(row:T)=>string};
@@ -11,6 +11,7 @@ export function ColumnFilterPopup({label,position,options,selected,search,onSear
  label:string;position:{top:number;left:number};options:string[];selected:string[];search:string;onSearch:(value:string)=>void;
  onSelected:(values:string[])=>void;onSort:(order:'asc'|'desc')=>void;onApply:()=>void;onClose:()=>void;
 }){
+ useEffect(()=>{const onKey=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();onClose();}};document.addEventListener('keydown',onKey);return()=>document.removeEventListener('keydown',onKey);},[onClose]);
  const visible=options.filter(v=>normalize(v).includes(normalize(search)));
  return <>
   <button type="button" aria-label="Cerrar menú de filtro" onClick={onClose} className="fixed inset-0 z-40 cursor-default bg-transparent"/>
@@ -26,7 +27,7 @@ export function ColumnFilterPopup({label,position,options,selected,search,onSear
      <button type="button" onClick={()=>onSelected([])} className="text-blue-600 hover:underline">Borrar</button>
      <span className="text-slate-400">Mostrando {visible.length}</span>
     </div>
-    <div className="relative mt-3"><Search className="absolute right-3 top-2.5 h-4 w-4 text-slate-400"/><input value={search} onChange={event=>onSearch(event.target.value)} placeholder="Buscar..." className="h-9 w-full rounded-lg border border-slate-200 px-3 pr-9 text-xs outline-none focus:border-blue-400"/></div>
+    <div className="relative mt-3"><Search className="absolute right-3 top-2.5 h-4 w-4 text-slate-400"/><input value={search} onChange={event=>onSearch(event.target.value)} aria-label={"Buscar valores de "+label} placeholder="Buscar..." className="h-9 w-full rounded-lg border border-slate-200 px-3 pr-9 text-xs outline-none focus:border-blue-400"/></div>
     <div className="my-3 max-h-48 overflow-y-auto">
      {visible.map(value=><label key={value} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs text-slate-700 hover:bg-slate-50"><input type="checkbox" className="accent-emerald-600" checked={selected.includes(value)} onChange={()=>onSelected(selected.includes(value)?selected.filter(v=>v!==value):[...selected,value])}/><span className="truncate">{value}</span></label>)}
      {!visible.length&&<p className="px-2 py-3 text-slate-400">Sin coincidencias</p>}
@@ -50,6 +51,8 @@ export function FilterableCategoryTable<T>({rows,columns,renderRow,emptyMessage=
  const [search,setSearch]=useState('');
  const [position,setPosition]=useState({top:0,left:0});
  const [sort,setSort]=useState<{key:string;order:'asc'|'desc'}|null>(null);
+ const [page,setPage]=useState(1);
+ const pageSize=25;
  const matches=(row:T,column:FilterColumn<T>)=>!filters[column.key]?.length||filters[column.key].includes(column.value(row));
  const shown=useMemo(()=>{
   const result=rows.filter(row=>columns.every(col=>matches(row,col)));
@@ -60,11 +63,14 @@ export function FilterableCategoryTable<T>({rows,columns,renderRow,emptyMessage=
   return result;
  // columns are defined by the caller for each table, filtering is recomputed whenever parent data changes.
  },[rows,columns,filters,sort]);
+ const totalPages=Math.max(1,Math.ceil(shown.length/pageSize));
+ const currentPage=Math.min(page,totalPages);
+ const pagedRows=shown.slice((currentPage-1)*pageSize,currentPage*pageSize);
  const selectedCol=columns.find(col=>col.key===active);
  const options=useMemo(()=>selectedCol?[...new Set(rows.filter(row=>columns.every(col=>col.key===selectedCol.key||matches(row,col))).map(row=>selectedCol.value(row)))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true})):[],[rows,columns,filters,selectedCol]);
  const selected=draft??(selectedCol&&filters[selectedCol.key]?.length?options.filter(v=>filters[selectedCol.key].includes(v)):options);
  const close=()=>{setActive(null);setDraft(null);setSearch('');};
- const apply=()=>{if(!active)return;setFilters(old=>({...old,[active]:selected.length===options.length?[]:selected}));close();};
+ const apply=()=>{if(!active)return;setFilters(old=>({...old,[active]:selected.length===options.length?[]:selected}));setPage(1);close();};
  const open=(key:string,button:HTMLButtonElement)=>{
   if(active===key){close();return;}
   const rect=button.getBoundingClientRect();
@@ -73,12 +79,15 @@ export function FilterableCategoryTable<T>({rows,columns,renderRow,emptyMessage=
  };
  const hasFilters=Object.values(filters).some(list=>list.length>0);
  return <>
-  {hasFilters&&<div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-700"><span><Filter className="mr-1 inline h-3.5 w-3.5"/>Filtros activos · {shown.length} registros</span><button type="button" onClick={()=>{setFilters({});close();}} className="rounded-lg px-2 py-1 font-medium hover:bg-blue-100">Limpiar todos</button></div>}
+  {hasFilters&&<div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-700"><span><Filter className="mr-1 inline h-3.5 w-3.5"/>Filtros activos · {shown.length} registros</span><button type="button" onClick={()=>{setFilters({});setPage(1);close();}} className="rounded-lg px-2 py-1 font-medium hover:bg-blue-100">Limpiar todos</button></div>}
+  <div className="overflow-x-auto">
   <table className="w-full table-fixed text-left text-[10px] leading-4 xl:text-[11px] max-lg:block">
-   <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 max-lg:hidden"><tr>{columns.map(col=><th key={col.key} className="break-words px-1 py-2 font-medium"><button type="button" onClick={e=>open(col.key,e.currentTarget)} className={`flex w-full items-center justify-between gap-1 rounded-md px-0.5 py-1 text-left transition-colors duration-200 hover:bg-slate-200 ${filters[col.key]?.length?'text-blue-600':''}`}><span className="min-w-0 break-words">{col.label}</span><ChevronDown className="h-3 w-3 shrink-0"/></button></th>)}</tr></thead>
-   <tbody className="max-lg:block">{shown.map((row,i)=><ReactFragment key={i}>{renderRow(row)}</ReactFragment>)}</tbody>
+   <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 max-lg:hidden"><tr>{columns.map(col=><th key={col.key} scope="col" aria-sort={sort?.key===col.key?(sort.order==='asc'?'ascending':'descending'):'none'} className="break-words px-1 py-2 font-medium"><button type="button" onClick={e=>open(col.key,e.currentTarget)} className={`flex w-full items-center justify-between gap-1 rounded-md px-0.5 py-1 text-left transition-colors duration-200 hover:bg-slate-200 ${filters[col.key]?.length?'text-blue-600':''}`}><span className="min-w-0 break-words">{col.label}</span><ChevronDown className="h-3 w-3 shrink-0"/></button></th>)}</tr></thead>
+   <tbody className="max-lg:block">{pagedRows.map((row,i)=><ReactFragment key={(currentPage-1)*pageSize+i}>{renderRow(row)}</ReactFragment>)}</tbody>
   </table>
+  </div>
   {!shown.length&&<p className="px-5 py-8 text-center text-sm text-slate-500">{emptyMessage}</p>}
+  {shown.length>0&&<div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-600"><span className="tabular-nums">{(currentPage-1)*pageSize+1}–{Math.min(currentPage*pageSize,shown.length)} de {shown.length} registros</span><div className="flex items-center gap-2"><button type="button" disabled={currentPage===1} onClick={()=>setPage(currentPage-1)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Anterior</button><span className="min-w-14 text-center tabular-nums">{currentPage} / {totalPages}</span><button type="button" disabled={currentPage===totalPages} onClick={()=>setPage(currentPage+1)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Siguiente</button></div></div>}
   {selectedCol&&<ColumnFilterPopup label={selectedCol.label} position={position} options={options} selected={selected} search={search} onSearch={setSearch} onSelected={setDraft} onSort={order=>{setSort({key:selectedCol.key,order});apply();}} onApply={apply} onClose={close}/>}
  </>;
 }
