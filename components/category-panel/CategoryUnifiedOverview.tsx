@@ -6,7 +6,7 @@ import type {CategoryPanelRow} from '@/lib/categoryPanelExcel';
 import type {KpiProjection} from '@/lib/categoryKpiProjections';
 import WorkCalendar,{useWorkCalendar} from '@/components/category-panel/WorkCalendar';
 import {Popover,PopoverContent,PopoverTrigger} from '@/components/ui/popover';
-import {CalendarDays,Download,ChevronDown} from 'lucide-react';
+import {CalendarDays,Download,ChevronDown,ChevronUp,Table2,Rows3} from 'lucide-react';
 import {exportSellerCategoryPdf} from '@/lib/exportSellerCategoryPdf';
 import SellerDataCalculations from '@/components/category-panel/SellerDataCalculations';
 import {summarizeSigoReasons,type SigoReasonSummary} from '@/lib/categorySigoReasons';
@@ -41,6 +41,10 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
  const [loading,setLoading]=useState(!branchScope);
  const [branchTab,setBranchTab]=useState<string>(branchScope??'corrientes_masivos');
  const [search,setSearch]=useState('');
+ const [overviewDisplay,setOverviewDisplay]=useState<'summary'|'spreadsheet'>('summary');
+ const [expandedSeller,setExpandedSeller]=useState<string|null>(null);
+ const [summaryLimit,setSummaryLimit]=useState(25);
+ useEffect(()=>{setSummaryLimit(25);setExpandedSeller(null);},[month,search,branchScope]);
  const [cardQuery,setCardQuery]=useState('');
  const [cardCategory,setCardCategory]=useState<CategoriaKey|'ALL'>('ALL');
  const [cardSupervisor,setCardSupervisor]=useState<string>('ALL');
@@ -107,6 +111,34 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
   {key:'hours',label:'Horario promedio',value:r=>{const avg=stats.get(r.branchKey+':'+r.sellerId);return loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos';}},
   {key:'days',label:'Días válidos',value:r=>String(stats.get(r.branchKey+':'+r.sellerId)?.days??0)}
  ],[byProjection,stats,counts.elapsed,loading]);
+
+ const compactColumns:FilterColumn<CategoryPanelRow>[]=useMemo(()=>[
+  {key:'seller',label:'Vendedor',value:r=>r.sellerName},
+  {key:'sector',label:'Sector',value:r=>String(r.sector)},
+  {key:'category',label:'Categoría',value:r=>byProjection.get(r.branchKey+':'+r.sellerId)?.projected_category??'—'},
+  {key:'billing',label:'Facturación',value:r=>money.format(r.importeFinalFacturado)},
+  {key:'visited',label:'PDVs visitados',value:r=>String(r.visitados)},
+  {key:'hours',label:'Horario promedio',value:r=>{const avg=stats.get(r.branchKey+':'+r.sellerId);return loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos';}},
+  {key:'actions',label:'Detalle',value:()=>'Ver detalle'},
+ ],[byProjection,stats,loading]);
+ const summaryRows=filtered.slice(0,summaryLimit);
+ const openSellerDetails=(row:CategoryPanelRow)=>{
+  const key=row.branchKey+':'+row.sellerId;
+  const projection=byProjection.get(key);
+  const average=stats.get(key);
+  const input:SellerCategoryInput={
+   dailyBilling:counts.elapsed>0?row.importeFinalFacturado/counts.elapsed:null,
+   efficiency:row.visitados>0?row.cntFac/row.visitados*100:null,
+   effectiveness:row.visitasPlaneadas>0?row.visitados/row.visitasPlaneadas*100:null,
+   pop:projection?.pop_percentage??null,
+   exhibition:projection?.exhibition_percentage??null,
+   volume:projection?.volume_percentage??null,
+   coverage:projection?.coverage_percentage??null,
+   routeHours:average?average.sum/average.days/3600:null,
+  };
+  setDetail({name:row.sellerName,branch:branches.find(b=>b.key===row.branchKey)?.name??row.branchLabel,
+    input,projectedCategory:projection?.projected_category??null,sellerId:row.sellerId,branchKey:row.branchKey,row});
+ };
  const branchRows=useMemo(()=>sellers.filter(p=>{const b=branches.find(item=>item.key===(branchScope??branchTab));return !!b&&p.branch===b.branch&&(b.force==='all'||p.force===b.force)}).sort((a,b)=>a.superior.localeCompare(b.superior,'es')||a.id-b.id),[sellers,branchTab]);
  const cardScope=branchScope??branchTab;
  const categoryCards=branchRows.map(person=>{
@@ -193,7 +225,55 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
     
     </Popover>}
    </div>
-   <div className="border-b border-slate-100 px-5 py-3"><input aria-label="Buscar vendedor" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar vendedor, ID o sucursal" className="h-10 w-full max-w-sm rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-300"/></div>
+   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
+    <input aria-label="Buscar vendedor" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar vendedor, ID o sucursal" className="h-10 min-w-0 w-full max-w-sm rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-slate-400 sm:flex-1"/>
+    <div role="group" aria-label="Visualización de reportes" className="inline-flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+     <button type="button" aria-pressed={overviewDisplay==='summary'} onClick={()=>setOverviewDisplay('summary')} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors duration-200 ${overviewDisplay==='summary'?'bg-white text-slate-950 shadow-sm':'text-slate-600 hover:bg-white/70'}`}><Rows3 className="h-4 w-4"/>Resumen</button>
+     <button type="button" aria-pressed={overviewDisplay==='spreadsheet'} onClick={()=>setOverviewDisplay('spreadsheet')} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors duration-200 ${overviewDisplay==='spreadsheet'?'bg-white text-slate-950 shadow-sm':'text-slate-600 hover:bg-white/70'}`}><Table2 className="h-4 w-4"/>Planilla completa</button>
+    </div>
+   </div>
+   {overviewDisplay==='summary'&&<>
+    <div className="overflow-x-auto">
+     <FilterableCategoryTable rows={summaryRows} columns={compactColumns} renderRow={row=>{
+      const key=row.branchKey+':'+row.sellerId;
+      const projection=byProjection.get(key);
+      const average=stats.get(key);
+      const isExpanded=expandedSeller===key;
+      return <>
+       <tr key={key} className="border-t border-slate-100 text-slate-700 hover:bg-slate-50/70">
+        <td className="px-4 py-3"><div className="font-medium text-slate-950">{row.sellerName}</div><div className="text-[11px] text-slate-500">ID {row.sellerId} · {row.branchLabel}</div></td>
+        <td className="px-3 py-3 text-xs tabular-nums">{row.sector}</td>
+        <td className="px-3 py-3 text-xs font-medium text-slate-700">{projection?.projected_category??'—'}</td>
+        <td className="px-3 py-3 text-right text-xs tabular-nums whitespace-nowrap">{money.format(row.importeFinalFacturado)}</td>
+        <td className="px-3 py-3 text-right text-xs tabular-nums">{fmt.format(row.visitados)}</td>
+        <td className="px-3 py-3 text-right text-xs tabular-nums whitespace-nowrap">{loading?'Cargando…':average?displayDuration(Math.round(average.sum/average.days)):'Sin datos'}</td>
+        <td className="px-3 py-3 text-right"><button type="button" aria-expanded={isExpanded} aria-label={(isExpanded?'Ocultar':'Mostrar')+' indicadores de '+row.sellerName} onClick={()=>setExpandedSeller(isExpanded?null:key)} className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">{isExpanded?'Cerrar':'Expandir'}{isExpanded?<ChevronUp className="h-3.5 w-3.5"/>:<ChevronDown className="h-3.5 w-3.5"/>}</button></td>
+       </tr>
+       {isExpanded&&<tr key={key+'-detail'} className="bg-slate-50/70"><td colSpan={compactColumns.length} className="p-4">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-3 lg:grid-cols-4">
+         {([
+          ['Visitas planeadas',fmt.format(row.visitasPlaneadas)],
+          ['Venta distancia',fmt.format(row.ventaDistancia)],
+          ['Venta PDV',fmt.format(row.ventaPdv)],
+          ['Facturas',fmt.format(row.cntFac)],
+          ['Facturación diaria',counts.elapsed>0?money.format(row.importeFinalFacturado/counts.elapsed):'—'],
+          ['Categoría proyectada',projection?.projected_category??'—'],
+          ['POP',projection?.pop_percentage==null?'—':projection.pop_percentage+'%'],
+          ['Exhibición',projection?.exhibition_percentage==null?'—':projection.exhibition_percentage+'%'],
+          ['Cobertura',projection?.coverage_percentage==null?'—':fmt.format(projection.coverage_percentage)],
+          ['Volumen',projection?.volume_percentage==null?'—':fmt.format(projection.volume_percentage)],
+          ['Días válidos',loading?'—':String(average?.days??0)],
+          ['Sucursal',row.branchLabel],
+         ] as [string,string][]).map(([label,value])=><div key={label} className="min-w-0"><div className="text-[11px] text-slate-500">{label}</div><div className="mt-1 break-words text-sm font-medium tabular-nums text-slate-900">{value}</div></div>)}
+        </div>
+        <div className="mt-3 flex justify-end"><button type="button" onClick={()=>openSellerDetails(row)} disabled={!scaleLoaded} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50">Ver puntajes y cálculos</button></div>
+       </td></tr>}
+      </>;
+     }} />
+    </div>
+    {filtered.length>summaryRows.length&&<div className="flex flex-wrap items-center justify-center gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-600"><span>Mostrando {summaryRows.length} de {filtered.length} vendedores</span><button type="button" onClick={()=>setSummaryLimit(n=>n+25)} className="rounded-lg border border-slate-200 bg-white px-4 py-2 font-medium hover:bg-slate-50">Mostrar 25 más</button></div>}
+   </>}
+   <div hidden={overviewDisplay!=='spreadsheet'} className="max-h-[650px] overflow-y-auto overflow-x-auto"> value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar vendedor, ID o sucursal" className="h-10 w-full max-w-sm rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-300"/></div>
    <div className="max-h-[650px] overflow-y-auto overflow-x-hidden">
     <FilterableCategoryTable rows={filtered} columns={overviewColumns} renderRow={row=>{
      const key=row.branchKey+':'+row.sellerId,proj=byProjection.get(key),avg=stats.get(key);
