@@ -79,7 +79,9 @@ export async function publishMasterPersonnel(file:File,people:CommercialPerson[]
   p_uploaded_by_name:uploaderName,p_people:people
  });
  if(error){
-  await supabase.storage.from(BUCKET).remove([path]);
+  // Si falla la respuesta después de un commit, no borrar la versión activa.
+  const active=await getActivePersonnelMeta().catch(()=>null);
+  if(active?.storage_path!==path)await supabase.storage.from(BUCKET).remove([path]);
   throw error;
  }
  return path;

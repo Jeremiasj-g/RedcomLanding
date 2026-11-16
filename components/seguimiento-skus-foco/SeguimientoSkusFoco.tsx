@@ -253,12 +253,11 @@ export default function SeguimientoSkusFoco() {
     const newUploads:string[]=[];
     try{
       setBusy(true);
-      const [rowsLines,rowsArts,rowsVolume,rowsCoverage,rowsPersonal]=await Promise.all([
+      const [rowsLines,rowsArts,rowsVolume,rowsCoverage]=await Promise.all([
         lineFile?readFile(lineFile):Promise.resolve(state.lineas),
         articleFile?readFile(articleFile):Promise.resolve(state.articulos),
         objectiveVolumeFile?readFile(objectiveVolumeFile):Promise.resolve(null),
         objectiveCoverageFile?readFile(objectiveCoverageFile):Promise.resolve(null),
-        Promise.resolve(null),
       ]);
       const newVolume=rowsVolume ? parseObjectiveMatrix(rowsVolume) : volumeObjectives;
       const newCoverage=rowsCoverage ? parseObjectiveMatrix(rowsCoverage) : coverageObjectives;

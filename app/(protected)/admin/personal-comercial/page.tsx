@@ -3,6 +3,7 @@
 import {useCallback,useEffect,useState} from 'react';
 import {FileSpreadsheet,Upload,Download,History,RefreshCw,CheckCircle2} from 'lucide-react';
 import {motion,useReducedMotion} from 'framer-motion';
+import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
 import {useMe} from '@/hooks/useMe';
 import {notify,errorMessage} from '@/lib/notifications';
 import {parseMasterPersonnel,publishMasterPersonnel,getActivePersonnelMeta,getPersonnelVersions,downloadActivePersonnel,activatePersonnelVersion,type CommercialPerson,type PersonnelVersion} from '@/lib/commercialPersonnelMaster';
@@ -38,7 +39,7 @@ export default function MasterPersonnelAdminPage(){
  };
  const download=async()=>{
   try{setBusy(true);const data=await downloadActivePersonnel();if(!data)throw new Error('No hay archivo activo.');
-   const url=URL.createObjectURL(data);const link=document.createElement('a');link.href=url;link.download=data.name;link.click();URL.revokeObjectURL(url);
+   const url=URL.createObjectURL(data);const link=document.createElement('a');link.href=url;link.download=data.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }catch(e){notify.error(errorMessage(e,'No se pudo descargar el archivo.'));}finally{setBusy(false);}
  };
  const restore=async()=>{
@@ -79,6 +80,11 @@ export default function MasterPersonnelAdminPage(){
     {meta?.storage_path===v.storage_path?<span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 className="h-4 w-4"/>Activa</span>:<button type="button" disabled={busy} onClick={()=>setConfirmVersion(v.id)} className="rounded-lg border border-slate-200 px-3 py-2 text-slate-700 hover:bg-slate-50 disabled:opacity-50">Restaurar</button>}
    </div>)}</div>
   </section>
-  {confirmVersion&&<div className="fixed inset-0 z-[250] grid place-items-center bg-slate-950/40 p-4" role="presentation"><div role="alertdialog" aria-modal="true" aria-labelledby="restore-master-title" className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"><h2 id="restore-master-title" className="text-lg font-semibold">Restaurar versión anterior</h2><p className="mt-2 text-sm text-slate-600">Todos los módulos comenzarán a utilizar esta versión del personal. Los reportes congelados permanecerán intactos.</p><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={()=>setConfirmVersion(null)} className="rounded-lg border px-3 py-2 text-sm">Cancelar</button><button type="button" onClick={()=>void restore()} disabled={busy} className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50">Confirmar</button></div></div></div>}
+  <AlertDialog open={Boolean(confirmVersion)} onOpenChange={open=>{if(!open&&!busy)setConfirmVersion(null);}}>
+   <AlertDialogContent className="max-w-sm rounded-2xl border border-slate-200 bg-white">
+    <AlertDialogHeader><AlertDialogTitle>Restaurar versión anterior</AlertDialogTitle><AlertDialogDescription>Todos los módulos comenzarán a utilizar esta versión del personal. Los reportes congelados permanecerán intactos.</AlertDialogDescription></AlertDialogHeader>
+    <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={event=>{event.preventDefault();void restore();}} className="bg-slate-900 text-white hover:bg-slate-800">Confirmar restauración</AlertDialogAction></AlertDialogFooter>
+   </AlertDialogContent>
+  </AlertDialog>
  </motion.section>;
 }
