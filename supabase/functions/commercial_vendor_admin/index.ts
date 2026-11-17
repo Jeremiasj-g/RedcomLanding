@@ -41,6 +41,7 @@ Deno.serve(async req=>{
   try{body=await req.json()}catch{return json({error:'Solicitud inválida'},400)}
   const branch=clean(body.branch),code=Number(body.person_code),password=String(body.password??'');
   const approveIdentity=body.action==='approve_identity';
+  const replaceIdentity=body.action==='replace_identity';
   if(!branch||branch.length>160||!Number.isSafeInteger(code)||code<1||
       (!approveIdentity&&!PASSWORD.test(password)))
    return json({error:'Datos de vendedor o contraseña inválidos.'},400);
@@ -56,6 +57,43 @@ Deno.serve(async req=>{
   const {data:existing,error:existingError}=await admin.from('commercial_vendor_accounts')
    .select('auth_user_id,login_email,person_name,needs_review').eq('branch',branch).eq('person_code',code).maybeSingle();
   if(existingError)return json({error:'No se pudo consultar el acceso comercial'},503);
+  if(replaceIdentity){
+   if(!existing||existing.needs_review!==true||existing.person_name===person.name)
+    return json({error:'El registro no tiene un reemplazo de identidad pendiente.'},409);
+   const {data:oldProfile,error:oldProfileError}=await admin.from('profiles')
+     .select('is_active').eq('id',existing.auth_user_id).maybeSingle();
+   if(oldProfileError||oldProfile?.is_active!==false)
+    return json({error:'La cuenta anterior debe permanecer inactiva antes de reemplazarla.'},409);
+   // The previous auth user and password are preserved, but remain inactive.
+   // A completely new Auth user is created for the replacement seller.
+   const newEmail='vendor-'+crypto.randomUUID()+'@example.com';
+   const {data:newUser,error:createError}=await admin.auth.admin.createUser({
+     email:newEmail,password,email_confirm:true,user_metadata:{full_name:person.name},
+   });
+   if(createError||!newUser.user)
+    return json({error:'No se pudo crear el acceso nuevo: '+(createError?.message??'Error desconocido')},422);
+   const newId=newUser.user.id;
+   try{
+    const {error:profileError}=await admin.from('profiles').upsert({
+      id:newId,email:newEmail,full_name:person.name,role:'vendedor',
+      is_active:true,branch:profileBranch,
+    },{onConflict:'id'});
+    if(profileError)throw profileError;
+    const {error:userBranchError}=await admin.from('user_branches').upsert({
+      user_id:newId,branch:profileBranch,branch_id:branchInfo.id,
+    },{onConflict:'user_id,branch'});
+    if(userBranchError)throw userBranchError;
+    const {error:swapError}=await admin.rpc('replace_commercial_vendor_account',{
+      p_branch:branch,p_person_code:code,p_expected_old_user:existing.auth_user_id,
+      p_new_user:newId,p_new_name:person.name,p_new_email:newEmail,p_actor:verified.user.id,
+    });
+    if(swapError)throw swapError;
+   }catch(error){
+    await admin.auth.admin.deleteUser(newId).catch(()=>{});
+    return json({error:'No se pudo crear la cuenta nueva: '+(error instanceof Error?error.message:String(error))},422);
+   }
+   return json({ok:true,created:true,replaced:true,person_name:person.name});
+  }
   if(approveIdentity){
    if(!existing||existing.needs_review!==true)
     return json({error:'No existe un cambio de identidad pendiente de revisión'},409);

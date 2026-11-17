@@ -24,6 +24,8 @@ export default function CommercialSellerPasswords({snapshot,loading,importChange
  const [bulkConfirm,setBulkConfirm]=useState(false);
  const [bulkScope,setBulkScope]=useState<'pending'|'all'>('pending');
  const [reviewTarget,setReviewTarget]=useState<SellerIdentity|null>(null);
+ const [replacementTarget,setReplacementTarget]=useState<SellerIdentity|null>(null);
+ const [replacementChoice,setReplacementChoice]=useState(false);
  const [busy,setBusy]=useState(false);
  const [progress,setProgress]=useState({done:0,total:0});
  const [credentials,setCredentials]=useState<Credential[]>([]);
@@ -55,6 +57,7 @@ export default function CommercialSellerPasswords({snapshot,loading,importChange
  const reviewKeys=useMemo(()=>new Set(accounts.filter(a=>a.needs_review).map(a=>sellerKey({branch:a.branch,code:a.person_code}))),[accounts]);
  const pendingSellers=sellers.filter(s=>!accounts.some(a=>sellerKey({branch:a.branch,code:a.person_code})===sellerKey(s)));
  const waiting=pendingSellers.length;
+ const isReplacement=(seller:SellerIdentity)=>replacementTarget!==null&&sellerKey(replacementTarget)===sellerKey(seller);
 
  const setManual=async()=>{
   if(!manualTarget||busy)return;
@@ -62,8 +65,8 @@ export default function CommercialSellerPasswords({snapshot,loading,importChange
   try{
    validateManualPassword(manualPassword);
    setBusy(true);
-   await assignCommercialVendorPassword(manualTarget,manualPassword);
-   setManualTarget(null);setManualPassword('');setManualRepeat('');
+   await assignCommercialVendorPassword(manualTarget,manualPassword,{replaceIdentity:isReplacement(manualTarget)});
+   setManualTarget(null);setReplacementTarget(null);setManualPassword('');setManualRepeat('');
    await load();
    notify.success('Acceso comercial preparado. Ya puede iniciar sesión con su clave.');
   }catch(e){notify.error(errorMessage(e,'No se pudo guardar la contraseña.'));}
@@ -75,9 +78,9 @@ export default function CommercialSellerPasswords({snapshot,loading,importChange
   try{
    setBusy(true);
    const password=randomSecurePassword();
-   await assignCommercialVendorPassword(seller,password);
+   await assignCommercialVendorPassword(seller,password,{replaceIdentity:isReplacement(seller)});
    setCredentials([{seller,password}]);setFailures([]);setCopied(false);
-   setRandomTarget(null);setShowResults(true);await load();
+   setRandomTarget(null);setReplacementTarget(null);setShowResults(true);await load();
   }catch(e){notify.error(errorMessage(e,'No se pudo asignar la contraseña.'));}
   finally{setBusy(false);}
  };
@@ -144,20 +147,20 @@ export default function CommercialSellerPasswords({snapshot,loading,importChange
 
   <Dialog open={!!manualTarget} onOpenChange={open=>{if(!open&&!busy){
    if(manualPassword||manualRepeat)setDiscardManual(true);
-   else setManualTarget(null);
+   else{setManualTarget(null);setReplacementTarget(null);}
   }}}>
    <DialogContent className="rounded-2xl border border-slate-200 bg-white motion-reduce:animate-none">
     <DialogHeader><DialogTitle>Establecer contraseña</DialogTitle>
      <DialogDescription>{manualTarget?.name} · Código {manualTarget?.code} · {manualTarget?.branch}</DialogDescription></DialogHeader>
-    <p className="text-xs text-slate-500">Este acceso es independiente de los usuarios del CRUD. Si aún no existe, se crea exclusivamente para el padrón comercial.</p>
+    <p className="text-xs text-slate-500">{manualTarget&&isReplacement(manualTarget)?'Se creará una cuenta nueva para este vendedor. La cuenta de la persona anterior permanecerá inactiva y su contraseña no se modificará.':'Este acceso es independiente de los usuarios del CRUD. Si aún no existe, se crea exclusivamente para el padrón comercial.'}</p>
     <label className="space-y-1 text-xs text-slate-700"><span>Contraseña</span><input type="password" autoComplete="new-password" value={manualPassword} onChange={e=>setManualPassword(e.target.value)} disabled={busy} className="h-10 w-full rounded-xl border border-slate-200 px-3"/></label>
     <label className="space-y-1 text-xs text-slate-700"><span>Repetir contraseña</span><input type="password" autoComplete="new-password" value={manualRepeat} onChange={e=>setManualRepeat(e.target.value)} disabled={busy} className="h-10 w-full rounded-xl border border-slate-200 px-3"/></label>
     <p className="text-[11px] text-slate-500">12–128 caracteres, con mayúsculas, minúsculas, número y símbolo.</p>
     <DialogFooter><button type="button" disabled={busy||!manualPassword||!manualRepeat} onClick={()=>void setManual()} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs text-white disabled:opacity-40"><KeyRound className="h-4 w-4"/>{busy?'Guardando…':'Guardar contraseña'}</button></DialogFooter>
    </DialogContent>
   </Dialog>
-  <AlertDialog open={!!randomTarget} onOpenChange={open=>{if(!open&&!busy)setRandomTarget(null);}}>
-   <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader><AlertDialogTitle>Generar contraseña aleatoria</AlertDialogTitle><AlertDialogDescription>Se creará o actualizará la contraseña comercial de {randomTarget?.name}. La clave se mostrará una sola vez.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={e=>{e.preventDefault();void randomOne();}}>Confirmar</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+  <AlertDialog open={!!randomTarget} onOpenChange={open=>{if(!open&&!busy){setRandomTarget(null);setReplacementTarget(null);}}}>
+   <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader><AlertDialogTitle>Generar contraseña aleatoria</AlertDialogTitle><AlertDialogDescription>{randomTarget&&isReplacement(randomTarget)?'Se creará una identidad completamente nueva para '+randomTarget.name+'. La cuenta del vendedor anterior seguirá inactiva y no se reutilizará su contraseña.':'Se creará o actualizará la contraseña comercial de '+randomTarget?.name+'.'} La clave se mostrará una sola vez.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={e=>{e.preventDefault();void randomOne();}}>Confirmar</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
   </AlertDialog>
   <AlertDialog open={bulkConfirm} onOpenChange={open=>{if(!busy)setBulkConfirm(open);}}>
    <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader><AlertDialogTitle>{bulkScope==='pending'?'Crear accesos pendientes':'Regenerar contraseñas existentes'}</AlertDialogTitle><AlertDialogDescription>{bulkScope==='pending'?'Se crearán claves únicamente para '+waiting+' vendedores sin acceso. No se modificarán las contraseñas existentes.':'Esta acción REEMPLAZARÁ las contraseñas existentes, incluidas las que cambiaron los vendedores desde Perfil. Se excluyen las identidades pendientes de revisión.'} Copiá los resultados antes de cerrar.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={e=>{e.preventDefault();void bulk();}}>{bulkScope==='pending'?'Crear pendientes':'Reemplazar contraseñas'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
@@ -171,7 +174,12 @@ export default function CommercialSellerPasswords({snapshot,loading,importChange
     <div>Antes: {accounts.find(a=>sellerKey({branch:a.branch,code:a.person_code})===sellerKey(reviewTarget))?.person_name??'Sin registro'}</div>
     <div>Ahora: {reviewTarget.name}</div>
    </div>}
-   <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={e=>{e.preventDefault();void approveReview();}}>Confirmar misma persona</AlertDialogAction></AlertDialogFooter>
+   <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel><button type="button" disabled={busy} onClick={()=>{setReplacementTarget(reviewTarget);setReviewTarget(null);setReplacementChoice(true);}} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 transition-colors duration-200 hover:bg-amber-100 disabled:opacity-50">Es otra persona</button><AlertDialogAction disabled={busy} onClick={e=>{e.preventDefault();void approveReview();}}>Es la misma persona</AlertDialogAction></AlertDialogFooter>
+   </AlertDialogContent>
+  </AlertDialog>
+  <AlertDialog open={replacementChoice} onOpenChange={open=>{if(!open&&!busy){setReplacementChoice(false);setReplacementTarget(null);}}}>
+   <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader><AlertDialogTitle>Crear acceso para otra persona</AlertDialogTitle><AlertDialogDescription>El código {replacementTarget?.code} de {replacementTarget?.branch} ahora corresponde a {replacementTarget?.name}. Se creará una cuenta nueva y la anterior seguirá inactiva. ¿Cómo querés establecer la contraseña?</AlertDialogDescription></AlertDialogHeader>
+    <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel><button type="button" disabled={busy||!replacementTarget} onClick={()=>{setManualTarget(replacementTarget);setManualPassword('');setManualRepeat('');setReplacementChoice(false);}} className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-800 transition-colors duration-200 hover:bg-slate-50">Contraseña manual</button><AlertDialogAction disabled={busy||!replacementTarget} onClick={e=>{e.preventDefault();setRandomTarget(replacementTarget);setReplacementChoice(false);}}>Generar aleatoria</AlertDialogAction></AlertDialogFooter>
    </AlertDialogContent>
   </AlertDialog>
   <Dialog open={showResults} onOpenChange={open=>{if(!open&&!busy)closeResults();}}>
@@ -184,7 +192,7 @@ export default function CommercialSellerPasswords({snapshot,loading,importChange
    </DialogContent>
   </Dialog>
   <AlertDialog open={discardManual} onOpenChange={setDiscardManual}>
-   <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader><AlertDialogTitle>Cambios sin guardar</AlertDialogTitle><AlertDialogDescription>La contraseña introducida se perderá.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Seguir editando</AlertDialogCancel><AlertDialogAction onClick={()=>{setManualTarget(null);setManualPassword('');setManualRepeat('');setDiscardManual(false);}}>Salir sin guardar</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+   <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader><AlertDialogTitle>Cambios sin guardar</AlertDialogTitle><AlertDialogDescription>La contraseña introducida se perderá.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Seguir editando</AlertDialogCancel><AlertDialogAction onClick={()=>{setManualTarget(null);setReplacementTarget(null);setManualPassword('');setManualRepeat('');setDiscardManual(false);}}>Salir sin guardar</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
   </AlertDialog>
   <AlertDialog open={discardResults} onOpenChange={setDiscardResults}>
    <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader><AlertDialogTitle>Descartar contraseñas generadas</AlertDialogTitle><AlertDialogDescription>Las claves no se guardan en el sistema. Si cerrás sin copiarlas, tendrás que generarlas nuevamente.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Seguir viendo</AlertDialogCancel><AlertDialogAction onClick={()=>{setShowResults(false);setCredentials([]);setFailures([]);setCopied(false);setDiscardResults(false);}}>Cerrar sin copiar</AlertDialogAction></AlertDialogFooter></AlertDialogContent>

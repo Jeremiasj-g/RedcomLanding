@@ -58,3 +58,17 @@ La migración `20261117_commercial_roster_diff_and_identity_review.sql` agrega u
 Al seleccionar un nuevo XLSX se muestran cifras de incorporaciones, modificaciones y bajas antes de confirmar. Después de publicar, los cambios quedan resaltados en la tabla, con filtros «Todos», «Nuevos», «Modificados». La acción masiva predeterminada cambia a **«Generar solo para pendientes»** para evitar el reemplazo accidental de contraseñas existentes; «Regenerar todas las claves» queda como acción explícita y confirmada.
 
 **Puesta en marcha:** instalar la migración antes de publicar otro archivo. No ejecutar el generador masivo de todas las contraseñas luego de una importación si se desea preservar las claves de los usuarios actuales. Probar primero con una versión de ensayo o una copia de base y verificar el caso de cambio de nombre y fuerza de venta.
+
+
+## Reemplazo de vendedor con código reutilizado
+Si un código y sucursal continúan iguales, pero el nombre cambia, el acceso antiguo queda bloqueado y se requiere una decisión explícita del administrador. El servidor devuelve **HTTP 409** hasta resolverla, tanto para clave manual como aleatoria; no es un error del generador de contraseñas.
+
+En la fila se muestra **Revisar identidad** con dos opciones:
+- **Es la misma persona:** por una corrección de nombre. Reanuda la cuenta antigua, conserva la clave modificada desde Perfil y sincroniza la sucursal.
+- **Es otra persona:** crea un usuario Auth nuevo con su propia clave manual o aleatoria. La identidad y contraseña antiguas permanecen sin cambios, el usuario anterior sigue inactivo y se registra el reemplazo en `commercial_vendor_identity_replacements`.
+
+Las operaciones de reemplazo requieren administrador activo y solo se admiten para un registro con `needs_review=true` y nombre realmente diferente. La RPC `replace_commercial_vendor_account` intercambia el vínculo e inserta la auditoría **en una única transacción**. Si falla, la Edge Function elimina la nueva identidad temporal y no reutiliza la contraseña antigua.
+
+Los errores HTTP de `commercial_vendor_admin` se leen del JSON de respuesta en el cliente, en lugar de mostrar solamente `Edge Function returned a non-2xx status code`.
+
+La migración `20261117_commercial_vendor_identity_replacements.sql` debe aplicarse antes de desplegar la versión de la función que ofrece «Es otra persona».

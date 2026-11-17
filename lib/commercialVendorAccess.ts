@@ -22,21 +22,36 @@ export async function getCommercialVendorLoginOptions():Promise<VendorLoginOptio
  if(error)throw error;
  return (data??[]) as VendorLoginOption[];
 }
-export async function assignCommercialVendorPassword(seller:SellerIdentity,password:string){
+/** Muestra el cuerpo de error de FunctionsHttpError en vez de 'non-2xx'. */
+async function invokeCommercialAdmin(body:Record<string,unknown>){
+ const {data,error}=await supabase.functions.invoke('commercial_vendor_admin',{body});
+ if(error){
+  let message=error.message||'No se pudo completar la operación.';
+  const context=(error as {context?:unknown}).context;
+  if(context instanceof Response){
+   try{
+    const payload=await context.json() as {error?:unknown};
+    if(typeof payload?.error==='string'&&payload.error.trim())message=payload.error;
+   }catch{/* Mantener el mensaje original cuando no hay JSON. */}
+  }
+  throw new Error(message);
+ }
+ if(!data?.ok)throw new Error(String(data?.error||'La operación no fue confirmada.'));
+ return data;
+}
+export async function assignCommercialVendorPassword(
+ seller:SellerIdentity,password:string,options?:{replaceIdentity?:boolean},
+){
  validateManualPassword(password);
- const {data,error}=await supabase.functions.invoke('commercial_vendor_admin',{
-  body:{branch:seller.branch,person_code:seller.code,password},
- });
- if(error)throw new Error(error.message||'No se pudo preparar el acceso comercial.');
- if(!data?.ok)throw new Error(String(data?.error||'No se confirmó la contraseña comercial.'));
- return data as {ok:true;created:boolean;person_name:string};
+ return invokeCommercialAdmin({
+  branch:seller.branch,person_code:seller.code,password,
+  ...(options?.replaceIdentity?{action:'replace_identity'}:{}),
+ }) as Promise<{ok:true;created:boolean;replaced?:boolean;person_name:string}>;
 }
 
 /** Reanuda un acceso con nombre cambiado solo tras validación explícita del administrador. */
 export async function approveCommercialVendorIdentity(seller:SellerIdentity){
- const {data,error}=await supabase.functions.invoke('commercial_vendor_admin',{
-  body:{action:'approve_identity',branch:seller.branch,person_code:seller.code},
+ await invokeCommercialAdmin({
+  action:'approve_identity',branch:seller.branch,person_code:seller.code,
  });
- if(error)throw new Error(error.message||'No se pudo confirmar la identidad comercial.');
- if(!data?.ok)throw new Error(String(data?.error||'No se confirmó la identidad.'));
 }
