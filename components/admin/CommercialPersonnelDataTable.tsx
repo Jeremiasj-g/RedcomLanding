@@ -1,6 +1,7 @@
 'use client';
 import {useMemo,useState} from 'react';
-import {ArrowDown,ArrowUp,ArrowUpDown,ChevronLeft,ChevronRight,Search} from 'lucide-react';
+import {ColumnFilterPopup} from '@/components/category-panel/CategoryColumnFilters';
+import {ChevronDown,ChevronLeft,ChevronRight,Filter,Search} from 'lucide-react';
 import type {PersonnelTableSnapshot} from '@/lib/commercialPersonnelMaster';
 
 const PAGE_SIZE=25;
@@ -19,15 +20,48 @@ const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').to
 export default function CommercialPersonnelDataTable({snapshot,loading}:{snapshot:PersonnelTableSnapshot|null;loading:boolean}){
  const [search,setSearch]=useState('');
  const [sort,setSort]=useState<{key:string;direction:'asc'|'desc'}|null>(null);
+ const [filters,setFilters]=useState<Record<string,string[]>>({});
+ const [active,setActive]=useState<string|null>(null);
+ const [draft,setDraft]=useState<string[]|null>(null);
+ const [filterSearch,setFilterSearch]=useState('');
+ const [position,setPosition]=useState({top:0,left:0});
  const [page,setPage]=useState(1);
  const grouped=useMemo(()=>groups.map(group=>({...group,cols:(snapshot?.columns??[]).filter(col=>category(col.label)===group.key)})).filter(group=>group.cols.length>0),[snapshot]);
+ const filteredOptions=useMemo(()=>{
+  if(!snapshot||!active)return [];
+  const matching=snapshot.rows.filter(row=>Object.entries(filters).every(([key,values])=>key===active||values.includes(row[key]??'')));
+  return [...new Set(matching.map(row=>row[active]??''))].sort((a,b)=>a.localeCompare(b,'es-AR',{numeric:true,sensitivity:'base'}));
+ },[snapshot,active,filters]);
+ const selected=draft??(active&&filters[active]!==undefined?filteredOptions.filter(value=>filters[active].includes(value)):filteredOptions);
+ const activeColumn=snapshot?.columns.find(col=>col.key===active);
+ const closeFilter=()=>{setActive(null);setDraft(null);setFilterSearch('');};
+ const openFilter=(key:string,button:HTMLButtonElement)=>{
+  if(active===key){closeFilter();return;}
+  const rect=button.getBoundingClientRect();
+  setPosition({top:Math.max(8,Math.min(rect.bottom+6,window.innerHeight-420)),left:Math.max(8,Math.min(rect.left,window.innerWidth-318))});
+  setActive(key);setDraft(null);setFilterSearch('');
+ };
+ const applyFilter=()=>{
+  if(!active)return;
+  setFilters(current=>{
+   const next={...current};
+   if(selected.length===filteredOptions.length)delete next[active];
+   else next[active]=selected;
+   return next;
+  });
+  setPage(1);closeFilter();
+ };
+ const filterCount=Object.keys(filters).length;
  const results=useMemo(()=>{
   if(!snapshot)return [];
   const query=normalize(search.trim());
-  const rows=snapshot.rows.filter(row=>!query||snapshot.columns.some(col=>normalize(row[col.key]??'').includes(query)));
+  const rows=snapshot.rows.filter(row=>
+   (!query||snapshot.columns.some(col=>normalize(row[col.key]??'').includes(query)))&&
+   Object.entries(filters).every(([key,values])=>values.includes(row[key]??''))
+  );
   if(sort)rows.sort((a,b)=>(a[sort.key]??'').localeCompare(b[sort.key]??'','es-AR',{numeric:true,sensitivity:'base'})*(sort.direction==='asc'?1:-1));
   return rows;
- },[snapshot,search,sort]);
+ },[snapshot,search,sort,filters]);
  const totalPages=Math.max(1,Math.ceil(results.length/PAGE_SIZE));
  const currentPage=Math.min(page,totalPages);
  const visible=results.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
@@ -44,11 +78,20 @@ export default function CommercialPersonnelDataTable({snapshot,loading}:{snapsho
     <input aria-label="Buscar en todas las columnas de personal" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Buscar personal, código, sucursal…" className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs outline-none transition-[border-color,box-shadow] duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"/>
    </div>
   </div>
+  {filterCount>0&&<div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-600">
+   <span className="inline-flex items-center gap-2"><Filter className="h-3.5 w-3.5"/>{filterCount} filtros activos · {results.length} resultados</span>
+   <button type="button" onClick={()=>{setFilters({});setPage(1);closeFilter();}} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs transition-colors duration-200 hover:bg-slate-100">Limpiar filtros</button>
+  </div>}
   <div className="max-h-[min(65vh,770px)] min-h-[320px] w-full overflow-y-auto overflow-x-hidden overscroll-contain">
    <table className="w-full table-fixed border-collapse text-left text-xs">
     <colgroup>{grouped.map(group=><col key={group.key} style={{width:group.key==='code'?'8%':group.key==='identity'?'23%':group.key==='branch'?'20%':group.key==='hierarchy'?'24%':'25%'}}/>)}</colgroup>
     <thead className="sticky top-0 z-10 bg-slate-100 text-slate-600 shadow-[0_1px_0_#e2e8f0]">
-     <tr>{grouped.map(group=><th key={group.key} scope="col" aria-sort={sort?.key===group.cols[0]?.key?(sort.direction==='asc'?'ascending':'descending'):'none'} className="border-r border-slate-200 px-2.5 py-2.5 font-medium last:border-r-0"><button type="button" disabled={!group.cols.length} onClick={()=>{const key=group.cols[0].key;setSort(prev=>prev?.key===key&&prev.direction==='asc'?{key,direction:'desc'}:prev?.key===key?null:{key,direction:'asc'});setPage(1);}} className="flex w-full items-center justify-between gap-1 text-left"><span>{group.title}</span>{sort?.key===group.cols[0]?.key?(sort.direction==='asc'?<ArrowUp className="h-3 w-3 shrink-0"/>:<ArrowDown className="h-3 w-3 shrink-0"/>):<ArrowUpDown className="h-3 w-3 shrink-0 text-slate-400"/>}</button></th>)}</tr>
+     <tr>{grouped.map(group=><th key={group.key} scope="col" className="min-w-0 border-r border-slate-200 px-2 py-2.5 align-top font-medium last:border-r-0">
+      <div className="mb-1.5 text-[11px] font-medium">{group.title}</div>
+      <div className="flex flex-wrap gap-1">{group.cols.map(col=><button key={col.key} type="button" onClick={e=>openFilter(col.key,e.currentTarget)} aria-label={'Filtrar '+col.label} aria-haspopup="dialog" aria-expanded={active===col.key} className={'inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] font-normal transition-colors duration-200 '+(filters[col.key]!==undefined?'border-slate-500 bg-slate-200 text-slate-950':'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}>
+       <span className="min-w-0 break-words text-left">{col.label}</span><ChevronDown className="h-3 w-3 shrink-0"/>
+      </button>)}</div>
+     </th>)}</tr>
     </thead>
     <tbody>
      {loading?Array.from({length:10},(_,index)=><tr key={index} className="border-b border-slate-100">{groups.map(group=><td key={group.key} className="px-3 py-3"><div className="h-4 w-full animate-pulse rounded bg-slate-100 motion-reduce:animate-none"/></td>)}</tr>):
@@ -72,5 +115,6 @@ export default function CommercialPersonnelDataTable({snapshot,loading}:{snapsho
     <button type="button" aria-label="Página siguiente" disabled={loading||currentPage===totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 transition-colors duration-200 hover:bg-slate-50 disabled:opacity-40"><ChevronRight className="h-4 w-4"/></button>
    </div>
   </div>
+  {activeColumn&&<ColumnFilterPopup label={activeColumn.label} position={position} options={filteredOptions} selected={selected} search={filterSearch} onSearch={setFilterSearch} onSelected={setDraft} onSort={direction=>{setSort({key:activeColumn.key,direction});setPage(1);closeFilter();}} onApply={applyFilter} onClose={closeFilter}/>}
  </section>;
 }
