@@ -3,7 +3,6 @@
 import {useEffect,useMemo,useState} from 'react';
 import {AnimatePresence,motion,useReducedMotion} from 'framer-motion';
 import {ChevronDown,ChevronRight,LayoutList,Network,Search,UsersRound} from 'lucide-react';
-import Link from 'next/link';
 import {supabase} from '@/lib/supabaseClient';
 import {errorMessage,notify} from '@/lib/notifications';
 import {RedcomSelect} from '@/components/ui/redcom-select';
@@ -107,9 +106,8 @@ export default function CommercialPersonnel(){
   <div className="flex flex-wrap items-start justify-between gap-5 border-b border-slate-200 p-6">
    <div>
     <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">Personal comercial</h2>
-    <p className="mt-2 text-[11px] text-slate-400">{updatedAt?'Guardado: '+new Date(updatedAt).toLocaleString('es-AR'):'Sin importaciones guardadas'}</p>
+    <p className="mt-2 text-[11px] text-slate-400">{updatedAt?'Guardado: '+new Date(updatedAt).toLocaleString('es-AR'):'Sin padrón maestro publicado'}</p>
    </div>
-   <div className="flex flex-wrap items-center gap-2"><Link href="/admin/personal-comercial" className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-50">Administrar DetallePersonal</Link></div>
   </div>
   <div className="grid grid-cols-2 gap-0 border-b border-slate-200 sm:grid-cols-4">
    {[['Sucursales',new Set(current.map(p=>branchKey(p.branch))).size],['Gerentes',current.filter(p=>p.role==='GERENTE').length],['Supervisores',current.filter(p=>p.role==='SUPERVISOR').length],['Vendedores',current.filter(p=>p.role==='VENDEDOR').length]].map(([label,value])=>

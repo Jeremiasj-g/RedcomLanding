@@ -383,8 +383,7 @@ export default function SeguimientoSkusFoco() {
               </div>
               <p className="mt-3 text-xs text-slate-500">{masterMeta
                 ? 'Fuente central: '+masterMeta.original_name+' · '+personalRows.length+' personas'
-                : 'No existe DetallePersonal global. Administración debe cargarlo desde el Panel de Administrador.'}</p>
-              {masterMeta&&<button type="button" onClick={()=>void (async()=>{try{const file=await downloadActivePersonnel();if(!file)return;const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){notify.error(errorMessage(e,'No se pudo descargar DetallePersonal.'));}})()} className="mt-3 inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-50"><Download className="h-4 w-4"/>Descargar archivo maestro</button>}
+                : 'El DetallePersonal maestro se publica desde Administración → Personal comercial.'}</p>
             </div>
             <p className="mt-3 text-xs text-slate-500">Los objetivos se cruzan por ID de vendedor y línea comercial. Las planillas corresponden a Casa Central.</p>
             <div className="mt-6 flex justify-between border-t border-slate-100 pt-5">

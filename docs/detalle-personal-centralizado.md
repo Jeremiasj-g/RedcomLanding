@@ -33,3 +33,14 @@ Una sola importación administrativa para CCC/MIX/DROPSIZE, Seguimiento SKUs FOC
 - [ ] Usuario no admin no puede publicar, restaurar ni leer el historial.
 - [ ] Restauración y exportación del archivo activo.
 - [ ] Lint/build y prueba manual responsive.
+## Consolidación de consumidores (noviembre de 2026)
+
+La publicación de DetallePersonal se realiza exclusivamente en **Administración → Personal comercial**. Ya no se ofrecen importaciones o descargas del archivo de jerarquía en los consumidores.
+
+- **CCC, MIX y DROPSIZE:** la jerarquía del dashboard sigue leyendo el XLSX original activo del registro global `ccc_shared_files` mediante `downloadSharedPersonalDetail`. Se retiraron los tipos obsoletos de carga local `personal_detail` y `seller_supervisor` del servicio de archivos por sucursal, sin eliminar archivos históricos ni cambiar las importaciones de ventas/base de clientes.
+- **Seguimiento SKUs FOCO:** el Excel maestro se descarga automáticamente desde `downloadActivePersonnel` y se procesa como antes; se eliminó el botón adicional «Descargar archivo maestro». Se conservan las cargas y exportaciones de objetivos, líneas y artículos.
+- **Categorías / Categorías V2:** se leen los registros del maestro publicado y, en V2, las versiones históricas asignadas por mes. Se quitó el acceso redundante a «Administrar DetallePersonal» desde el panel de Categorías; el árbol jerárquico, la tabla y los filtros se mantienen.
+
+No se modificaron las tablas SQL, políticas RLS, datos productivos, versiones de archivo ni instantáneas CCC. Las descargas históricas de períodos congelados siguen utilizando los datos archivados originalmente y no deben sustituirse por el maestro actual.
+
+Prueba de regresión requerida antes de fusionar: CCC/MIX/DROPSIZE (actual y congelado), dashboard SKUs FOCO con objetivos y jerarquía, Categorías con histórico mensual, y ausencia de controles locales de importación de DetallePersonal.
