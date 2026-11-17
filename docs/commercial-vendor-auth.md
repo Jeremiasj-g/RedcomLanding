@@ -40,3 +40,21 @@ Las cuentas creadas tienen rol `vendedor`, su sucursal correspondiente y acceso 
 - Dropdowns y diálogos reutilizados; transiciones de 0,2 s y skeletons existentes.
 - Resultados de asignación masiva y claves: aviso antes de cerrar, confirmación para operaciones sensibles y bloqueo de recarga con proceso en curso.
 - Pendiente verificación real en navegador y prueba de autenticación con un vendedor de pruebas. La compilación no sustituye estas comprobaciones.
+
+
+## Actualización segura de DetallePersonal
+Reimportar un archivo no ejecuta `updateUserById(..., password)` y por lo tanto **no cambia las contraseñas** que los vendedores hayan recibido o configurado desde Perfil.
+
+La migración `20261117_commercial_roster_diff_and_identity_review.sql` agrega una comparación del nuevo padrón con el anterior y registra el resultado de **la última publicación o restauración** en `commercial_personnel_import_changes`.
+
+- **Nuevo** (verde suave): código + sucursal inexistentes en la versión anterior. Aparece sin cuenta comercial y se puede configurar la clave por fila o con «Generar solo para pendientes».
+- **Modificado** (ámbar suave): mismo código + sucursal, con cambios en nombre, cargo, superior o fuerza de venta. Los cambios de datos no alteran la clave.
+- **Sin cambios**: se conserva exactamente la cuenta y el hash de contraseña existentes.
+- **Baja**: la persona ya no está en el padrón. Se conserva el registro de acceso histórico y la contraseña, pero el perfil comercial queda inactivo para impedir ingreso.
+- **Cambio de nombre con el mismo código**: podría ser una corrección o código reutilizado. Se bloquea preventivamente el acceso y se muestra «Revisar identidad»; el administrador puede confirmar que es la misma persona y reactivarla **sin cambiar la contraseña**.
+- **Cambio de sucursal (clave compuesta diferente)**: se marca baja + alta nueva; nunca se transfiere una cuenta automáticamente porque la identidad sería ambigua. Requiere revisión administrativa.
+- **Cambio de fuerza de venta dentro de la misma sucursal**: se actualizan sucursal autorizada y `user_branches` cuando corresponde, conservando la contraseña.
+
+Al seleccionar un nuevo XLSX se muestran cifras de incorporaciones, modificaciones y bajas antes de confirmar. Después de publicar, los cambios quedan resaltados en la tabla, con filtros «Todos», «Nuevos», «Modificados». La acción masiva predeterminada cambia a **«Generar solo para pendientes»** para evitar el reemplazo accidental de contraseñas existentes; «Regenerar todas las claves» queda como acción explícita y confirmada.
+
+**Puesta en marcha:** instalar la migración antes de publicar otro archivo. No ejecutar el generador masivo de todas las contraseñas luego de una importación si se desea preservar las claves de los usuarios actuales. Probar primero con una versión de ensayo o una copia de base y verificar el caso de cambio de nombre y fuerza de venta.

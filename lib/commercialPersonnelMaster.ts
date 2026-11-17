@@ -116,3 +116,18 @@ export async function getActivePersonnelTable():Promise<PersonnelTableSnapshot|n
   ),
  };
 }
+
+/** Padrón activo para comparar cambios antes de confirmar otro Excel. */
+export async function getActivePersonnelPeople():Promise<CommercialPerson[]>{
+ const {data,error}=await supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle();
+ if(error)throw error;
+ return (data?.people??[]) as CommercialPerson[];
+}
+
+/** Estado diferencial del último archivo publicado (incluye bajas). */
+export async function getPersonnelImportChanges(){
+ const {data,error}=await supabase.from('commercial_personnel_import_changes')
+  .select('branch,person_code,status,previous_person,current_person');
+ if(error)throw error;
+ return (data??[]) as import('@/lib/commercialPersonnelDiff').PersonnelImportChange[];
+}

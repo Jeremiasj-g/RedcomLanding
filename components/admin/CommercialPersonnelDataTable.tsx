@@ -3,6 +3,7 @@ import {useEffect,useMemo,useState} from 'react';
 import {ColumnFilterPopup} from '@/components/category-panel/CategoryColumnFilters';
 import {ChevronDown,ChevronLeft,ChevronRight,Filter,Search,KeyRound,Shuffle} from 'lucide-react';
 import {sellerFromWorksheet,sellerKey,type SellerIdentity} from '@/lib/commercialPersonnelPasswords';
+import type {PersonnelImportChange,PersonnelChangeStatus} from '@/lib/commercialPersonnelDiff';
 import type {PersonnelTableSnapshot} from '@/lib/commercialPersonnelMaster';
 
 const PAGE_SIZE=25;
@@ -19,10 +20,12 @@ const category=(label:string):GroupKey=>{
 };
 const groups:{key:GroupKey;title:string}[]=[{key:'code',title:'Código'},{key:'identity',title:'Personal'},{key:'branch',title:'Sucursal'},{key:'hierarchy',title:'Jerarquía'},{key:'other',title:'Información adicional'}];
 const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-AR');
-export default function CommercialPersonnelDataTable({snapshot,loading,linkedAccountKeys,onSellerAction}:{
+export default function CommercialPersonnelDataTable({snapshot,loading,linkedAccountKeys,reviewAccountKeys,importChanges,onSellerAction}:{
  snapshot:PersonnelTableSnapshot|null;loading:boolean;
  linkedAccountKeys?:Set<string>;
- onSellerAction?:(seller:SellerIdentity,action:'manual'|'random')=>void;
+ reviewAccountKeys?:Set<string>;
+ importChanges?:PersonnelImportChange[];
+ onSellerAction?:(seller:SellerIdentity,action:'manual'|'random'|'review')=>void;
 }){
  const [search,setSearch]=useState('');
  const [sort,setSort]=useState<{key:string;direction:'asc'|'desc'}|null>(null);
@@ -32,11 +35,13 @@ export default function CommercialPersonnelDataTable({snapshot,loading,linkedAcc
  const [filterSearch,setFilterSearch]=useState('');
  const [position,setPosition]=useState({top:0,left:0});
  const [page,setPage]=useState(1);
+ const [changeFilter,setChangeFilter]=useState<'all'|'new'|'modified'>('all');
+ const changeStatus=useMemo(()=>new Map((importChanges??[]).filter(c=>c.status!=='removed').map(c=>[sellerKey({branch:c.branch,code:c.person_code}),c.status])),[importChanges]);
  const [restored,setRestored]=useState(false);
  useEffect(()=>{
   try{
    const saved=JSON.parse(sessionStorage.getItem(STORAGE_KEY)??'null') as {
-    search?:unknown;sort?:{key?:unknown;direction?:unknown};filters?:Record<string,unknown>;page?:unknown;
+    search?:unknown;sort?:{key?:unknown;direction?:unknown};filters?:Record<string,unknown>;page?:unknown;changeFilter?:unknown;
    }|null;
    if(saved){
     if(typeof saved.search==='string')setSearch(saved.search);
@@ -47,14 +52,15 @@ export default function CommercialPersonnelDataTable({snapshot,loading,linkedAcc
      setFilters(Object.fromEntries(values));
     }
     if(typeof saved.page==='number'&&Number.isSafeInteger(saved.page)&&saved.page>0)setPage(saved.page);
+    if(saved.changeFilter==='all'||saved.changeFilter==='new'||saved.changeFilter==='modified')setChangeFilter(saved.changeFilter);
    }
   }catch{/* Restaurar el valor por defecto si la preferencia quedó dañada. */}
   setRestored(true);
  },[]);
  useEffect(()=>{
   if(!restored)return;
-  try{sessionStorage.setItem(STORAGE_KEY,JSON.stringify({search,sort,filters,page}));}catch{/* Las preferencias no son indispensables. */}
- },[restored,search,sort,filters,page]);
+  try{sessionStorage.setItem(STORAGE_KEY,JSON.stringify({search,sort,filters,page,changeFilter}));}catch{/* Las preferencias no son indispensables. */}
+ },[restored,search,sort,filters,page,changeFilter]);
  const grouped=useMemo(()=>groups.map(group=>({...group,cols:(snapshot?.columns??[]).filter(col=>category(col.label)===group.key)})).filter(group=>group.cols.length>0),[snapshot]);
  const filteredOptions=useMemo(()=>{
   if(!snapshot||!active)return [];
@@ -86,11 +92,12 @@ export default function CommercialPersonnelDataTable({snapshot,loading,linkedAcc
   const query=normalize(search.trim());
   const rows=snapshot.rows.filter(row=>
    (!query||snapshot.columns.some(col=>normalize(row[col.key]??'').includes(query)))&&
-   Object.entries(filters).every(([key,values])=>values.includes(row[key]??''))
+   Object.entries(filters).every(([key,values])=>values.includes(row[key]??''))&&
+   (changeFilter==='all'||(()=>{const seller=sellerFromWorksheet(snapshot.columns,row);return seller!==null&&changeStatus.get(sellerKey(seller))===changeFilter;})())
   );
   if(sort)rows.sort((a,b)=>(a[sort.key]??'').localeCompare(b[sort.key]??'','es-AR',{numeric:true,sensitivity:'base'})*(sort.direction==='asc'?1:-1));
   return rows;
- },[snapshot,search,sort,filters]);
+ },[snapshot,search,sort,filters,changeFilter,changeStatus]);
  const totalPages=Math.max(1,Math.ceil(results.length/PAGE_SIZE));
  const currentPage=Math.min(page,totalPages);
  const visible=results.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
@@ -107,6 +114,17 @@ export default function CommercialPersonnelDataTable({snapshot,loading,linkedAcc
     <input aria-label="Buscar en todas las columnas de personal" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Buscar personal, código, sucursal…" className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs outline-none transition-[border-color,box-shadow] duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"/>
    </div>
   </div>
+  {importChanges&&importChanges.length>0&&<div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2.5 text-xs">
+   {([
+    ['all','Todos'],['new','Nuevos'],['modified','Modificados'],
+   ] as const).map(([value,label])=><button key={value} type="button"
+    aria-pressed={changeFilter===value}
+    onClick={()=>{setChangeFilter(value);setPage(1);}}
+    className={'rounded-lg border px-3 py-1.5 transition-colors duration-200 '+(changeFilter===value?'border-slate-300 bg-slate-100 text-slate-900':'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}>
+    {label}{value!=='all'?' ('+importChanges.filter(c=>c.status===value).length+')':''}
+   </button>)}
+   <span className="ml-auto text-slate-500">{importChanges.filter(c=>c.status==='removed').length} bajas en la última importación</span>
+  </div>}
   {filterCount>0&&<div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-600">
    <span className="inline-flex items-center gap-2"><Filter className="h-3.5 w-3.5"/>{filterCount} filtros activos · {results.length} resultados</span>
    <button type="button" onClick={()=>{setFilters({});setPage(1);closeFilter();}} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs transition-colors duration-200 hover:bg-slate-100">Limpiar filtros</button>
@@ -130,7 +148,11 @@ export default function CommercialPersonnelDataTable({snapshot,loading,linkedAcc
     </thead>
     <tbody className="max-md:block">
      {loading?Array.from({length:10},(_,index)=><tr key={index} className="border-b border-slate-100">{groups.map(group=><td key={group.key} className="px-3 py-3"><div className="h-4 w-full animate-pulse rounded bg-slate-100 motion-reduce:animate-none"/></td>)}{onSellerAction&&<td className="px-2 py-3"><div className="h-8 w-full animate-pulse rounded-lg bg-slate-100 motion-reduce:animate-none"/></td>}</tr>):
-     visible.map((row,index)=><tr key={currentPage+'-'+index} className="border-b border-slate-100 align-top transition-colors duration-200 hover:bg-slate-50 max-md:my-3 max-md:block max-md:rounded-xl max-md:border max-md:border-slate-200 max-md:p-2">
+     visible.map((row,index)=><tr key={currentPage+'-'+index} className={'border-b border-slate-100 align-top transition-colors duration-200 hover:bg-slate-50 max-md:my-3 max-md:block max-md:rounded-xl max-md:border max-md:border-slate-200 max-md:p-2 '+(()=>{
+    const person=snapshot?sellerFromWorksheet(snapshot.columns,row):null;
+    const status=person?changeStatus.get(sellerKey(person)):undefined;
+    return status==='new'?'bg-emerald-50/80':status==='modified'?'bg-amber-50/70':'';
+   })()}>
       {grouped.map(group=><td key={group.key} className="min-w-0 border-r border-slate-100 px-2.5 py-3 text-slate-700 last:border-r-0 max-md:block max-md:border-0 max-md:px-3 max-md:py-2">
        <div className="mb-1 hidden text-xs font-medium text-slate-900 max-md:block">{group.title}</div><div className="space-y-1.5">{group.cols.map((col,i)=><div key={col.key} className="min-w-0 break-words">
         {group.cols.length>1&&<span className="mr-1 text-[10px] text-slate-500">{col.label}:</span>}
@@ -142,11 +164,13 @@ export default function CommercialPersonnelDataTable({snapshot,loading,linkedAcc
          if(seller?.role!=='VENDEDOR')return <td className="px-2 py-3 text-center text-slate-400">—</td>;
          const linked=linkedAccountKeys?.has(sellerKey(seller))??false;
          return <td className="border-l border-slate-100 px-2 py-2 align-top max-md:block max-md:border-0">
+          {(()=>{const status=changeStatus.get(sellerKey(seller));return status==='new'?<span className="mb-2 inline-block rounded-md bg-emerald-100 px-2 py-1 text-[10px] text-emerald-800">Nuevo</span>:status==='modified'?<span className="mb-2 inline-block rounded-md bg-amber-100 px-2 py-1 text-[10px] text-amber-800">Modificado</span>:null;})()}
           <div className="flex flex-wrap items-center gap-1">
-           <button type="button" title="Establecer contraseña manual" aria-label={'Contraseña manual para '+seller.name} onClick={()=>onSellerAction(seller,'manual')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100"><KeyRound className="h-3.5 w-3.5"/></button>
-           <button type="button" title="Generar contraseña aleatoria" aria-label={'Contraseña aleatoria para '+seller.name} onClick={()=>onSellerAction(seller,'random')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100"><Shuffle className="h-3.5 w-3.5"/></button>
+           {reviewAccountKeys?.has(sellerKey(seller))&&<button type="button" title="Verificar identidad, sin cambiar la clave" onClick={()=>onSellerAction(seller,'review')} className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] text-amber-900 hover:bg-amber-100">Revisar identidad</button>}
+           <button type="button" disabled={reviewAccountKeys?.has(sellerKey(seller))} title="Establecer contraseña manual" aria-label={'Contraseña manual para '+seller.name} onClick={()=>onSellerAction(seller,'manual')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100"><KeyRound className="h-3.5 w-3.5"/></button>
+           <button type="button" disabled={reviewAccountKeys?.has(sellerKey(seller))} title="Generar contraseña aleatoria" aria-label={'Contraseña aleatoria para '+seller.name} onClick={()=>onSellerAction(seller,'random')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100"><Shuffle className="h-3.5 w-3.5"/></button>
           </div>
-          <span className="mt-1 block text-[10px] text-slate-500">{linked?'Acceso configurado':'Clave pendiente'}</span>
+          <span className="mt-1 block text-[10px] text-slate-500">{reviewAccountKeys?.has(sellerKey(seller))?'Identidad por verificar':linked?'Acceso configurado':'Clave pendiente'}</span>
          </td>;
         })()}
      </tr>)}

@@ -40,8 +40,10 @@ Deno.serve(async req=>{
   let body:Record<string,unknown>;
   try{body=await req.json()}catch{return json({error:'Solicitud inválida'},400)}
   const branch=clean(body.branch),code=Number(body.person_code),password=String(body.password??'');
-  if(!branch||branch.length>160||!Number.isSafeInteger(code)||code<1||!PASSWORD.test(password))
-   return json({error:'Sucursal, código o contraseña inválidos. Se requieren 12 caracteres con mayúsculas, minúsculas, número y símbolo.'},400);
+  const approveIdentity=body.action==='approve_identity';
+  if(!branch||branch.length>160||!Number.isSafeInteger(code)||code<1||
+      (!approveIdentity&&!PASSWORD.test(password)))
+   return json({error:'Datos de vendedor o contraseña inválidos.'},400);
 
   const {data:master,error:masterError}=await admin.from('category_commercial_personnel').select('people').eq('id',1).single();
   if(masterError||!Array.isArray(master?.people))return json({error:'No está disponible el padrón comercial'},503);
@@ -52,10 +54,30 @@ Deno.serve(async req=>{
   if(branchError||!branchInfo)return json({error:'No se pudo validar la sucursal'},503);
 
   const {data:existing,error:existingError}=await admin.from('commercial_vendor_accounts')
-   .select('auth_user_id,login_email,person_name').eq('branch',branch).eq('person_code',code).maybeSingle();
+   .select('auth_user_id,login_email,person_name,needs_review').eq('branch',branch).eq('person_code',code).maybeSingle();
   if(existingError)return json({error:'No se pudo consultar el acceso comercial'},503);
-  if(existing&&existing.person_name!==person.name)
-   return json({error:'El nombre del vendedor cambió: revisar la identidad antes de restablecer la contraseña'},409);
+  if(approveIdentity){
+   if(!existing||existing.needs_review!==true)
+    return json({error:'No existe un cambio de identidad pendiente de revisión'},409);
+   // The administrator confirms that the person in the new roster is the
+   // same individual as the owner of this existing Auth account.
+   const {error:mapError}=await admin.from('commercial_vendor_accounts').update({
+     person_name:person.name,needs_review:false,updated_at:new Date().toISOString(),
+   }).eq('branch',branch).eq('person_code',code).eq('auth_user_id',existing.auth_user_id);
+   if(mapError)return json({error:'No se pudo confirmar la identidad'},422);
+   const {error:profileError}=await admin.from('profiles').update({
+     full_name:person.name,is_active:true,branch:profileBranch,
+   }).eq('id',existing.auth_user_id);
+   if(profileError){
+    // Leave the access blocked if the profile could not be restored.
+    await admin.from('commercial_vendor_accounts').update({needs_review:true})
+      .eq('auth_user_id',existing.auth_user_id);
+    return json({error:'No se pudo reactivar el perfil'},422);
+   }
+   return json({ok:true,reviewed:true,person_name:person.name});
+  }
+  if(existing&&(existing.person_name!==person.name||existing.needs_review===true))
+   return json({error:'El vendedor tiene una revisión de identidad pendiente. No se cambiaron contraseñas.'},409);
 
   let id=existing?.auth_user_id as string|undefined;
   let internalEmail=existing?.login_email as string|undefined;
@@ -84,7 +106,7 @@ Deno.serve(async req=>{
    if(userBranchError)throw userBranchError;
    const {error:mapError}=await admin.from('commercial_vendor_accounts').upsert({
     branch,person_code:code,person_name:person.name,auth_user_id:id,
-    login_email:internalEmail,updated_at:new Date().toISOString(),
+    login_email:internalEmail,needs_review:false,updated_at:new Date().toISOString(),
    },{onConflict:'branch,person_code'});
    if(mapError)throw mapError;
    // El cambio de contraseña se hace al final, una vez validado el mapeo.

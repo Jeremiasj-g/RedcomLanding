@@ -4,7 +4,7 @@ export {randomSecurePassword,validateManualPassword,sellerKey,sellerFromWorkshee
 export type {SellerIdentity};
 
 export type CommercialVendorAccess={
- branch:string;person_code:number;person_name:string;auth_user_id:string;login_email:string;
+ branch:string;person_code:number;person_name:string;auth_user_id:string;login_email:string;needs_review:boolean;
 };
 export type VendorLoginOption={
  branch:string;person_code:number;person_name:string;login_email:string|null;
@@ -12,7 +12,7 @@ export type VendorLoginOption={
 
 export async function listCommercialVendorAccess():Promise<CommercialVendorAccess[]>{
  const {data,error}=await supabase.from('commercial_vendor_accounts')
-  .select('branch,person_code,person_name,auth_user_id,login_email')
+  .select('branch,person_code,person_name,auth_user_id,login_email,needs_review')
   .order('branch').order('person_code');
  if(error)throw error;
  return data??[];
@@ -30,4 +30,13 @@ export async function assignCommercialVendorPassword(seller:SellerIdentity,passw
  if(error)throw new Error(error.message||'No se pudo preparar el acceso comercial.');
  if(!data?.ok)throw new Error(String(data?.error||'No se confirmó la contraseña comercial.'));
  return data as {ok:true;created:boolean;person_name:string};
+}
+
+/** Reanuda un acceso con nombre cambiado solo tras validación explícita del administrador. */
+export async function approveCommercialVendorIdentity(seller:SellerIdentity){
+ const {data,error}=await supabase.functions.invoke('commercial_vendor_admin',{
+  body:{action:'approve_identity',branch:seller.branch,person_code:seller.code},
+ });
+ if(error)throw new Error(error.message||'No se pudo confirmar la identidad comercial.');
+ if(!data?.ok)throw new Error(String(data?.error||'No se confirmó la identidad.'));
 }

@@ -7,12 +7,13 @@ import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertD
 import CommercialPersonnelDataTable from '@/components/admin/CommercialPersonnelDataTable';
 import {notify,errorMessage} from '@/lib/notifications';
 import type {PersonnelTableSnapshot} from '@/lib/commercialPersonnelMaster';
-import {listCommercialVendorAccess,assignCommercialVendorPassword,randomSecurePassword,validateManualPassword,sellerFromWorksheet,sellerKey,type SellerIdentity,type CommercialVendorAccess} from '@/lib/commercialVendorAccess';
+import type {PersonnelImportChange} from '@/lib/commercialPersonnelDiff';
+import {listCommercialVendorAccess,assignCommercialVendorPassword,approveCommercialVendorIdentity,randomSecurePassword,validateManualPassword,sellerFromWorksheet,sellerKey,type SellerIdentity,type CommercialVendorAccess} from '@/lib/commercialVendorAccess';
 
 type Credential={seller:SellerIdentity;password:string};
 type Failed={seller:SellerIdentity;error:string};
 
-export default function CommercialSellerPasswords({snapshot,loading}:{snapshot:PersonnelTableSnapshot|null;loading:boolean}){
+export default function CommercialSellerPasswords({snapshot,loading,importChanges}:{snapshot:PersonnelTableSnapshot|null;loading:boolean;importChanges:PersonnelImportChange[]}){
  const [accounts,setAccounts]=useState<CommercialVendorAccess[]>([]);
  const [accountsLoading,setAccountsLoading]=useState(true);
  const [loadError,setLoadError]=useState<string|null>(null);
@@ -21,6 +22,8 @@ export default function CommercialSellerPasswords({snapshot,loading}:{snapshot:P
  const [manualRepeat,setManualRepeat]=useState('');
  const [randomTarget,setRandomTarget]=useState<SellerIdentity|null>(null);
  const [bulkConfirm,setBulkConfirm]=useState(false);
+ const [bulkScope,setBulkScope]=useState<'pending'|'all'>('pending');
+ const [reviewTarget,setReviewTarget]=useState<SellerIdentity|null>(null);
  const [busy,setBusy]=useState(false);
  const [progress,setProgress]=useState({done:0,total:0});
  const [credentials,setCredentials]=useState<Credential[]>([]);
@@ -47,9 +50,11 @@ export default function CommercialSellerPasswords({snapshot,loading}:{snapshot:P
   .map(row=>sellerFromWorksheet(snapshot.columns,row))
   .filter((person):person is NonNullable<typeof person>=>person!==null&&person.role==='VENDEDOR')??[],[snapshot]);
  const accountKeys=useMemo(()=>new Set(accounts
-  .filter(a=>sellers.some(s=>sellerKey(s)===sellerKey({branch:a.branch,code:a.person_code})&&s.name===a.person_name))
+  .filter(a=>sellers.some(s=>sellerKey(s)===sellerKey({branch:a.branch,code:a.person_code})&&s.name===a.person_name&&!a.needs_review))
   .map(a=>sellerKey({branch:a.branch,code:a.person_code}))),[accounts,sellers]);
- const waiting=sellers.length-accountKeys.size;
+ const reviewKeys=useMemo(()=>new Set(accounts.filter(a=>a.needs_review).map(a=>sellerKey({branch:a.branch,code:a.person_code}))),[accounts]);
+ const pendingSellers=sellers.filter(s=>!accounts.some(a=>sellerKey({branch:a.branch,code:a.person_code})===sellerKey(s)));
+ const waiting=pendingSellers.length;
 
  const setManual=async()=>{
   if(!manualTarget||busy)return;
@@ -76,17 +81,25 @@ export default function CommercialSellerPasswords({snapshot,loading}:{snapshot:P
   }catch(e){notify.error(errorMessage(e,'No se pudo asignar la contraseña.'));}
   finally{setBusy(false);}
  };
+ const approveReview=async()=>{
+  if(!reviewTarget||busy)return;
+  try{setBusy(true);await approveCommercialVendorIdentity(reviewTarget);await load();
+   setReviewTarget(null);notify.success('Identidad verificada. Se conservó la contraseña anterior.');
+  }catch(e){notify.error(errorMessage(e,'No se pudo reactivar este acceso.'));}
+  finally{setBusy(false);}
+ };
  const bulk=async()=>{
-  if(busy||sellers.length===0)return;
-  setBulkConfirm(false);setBusy(true);setProgress({done:0,total:sellers.length});
+  const targets=bulkScope==='pending'?pendingSellers:sellers.filter(s=>!reviewKeys.has(sellerKey(s)));
+  if(busy||targets.length===0)return;
+  setBulkConfirm(false);setBusy(true);setProgress({done:0,total:targets.length});
   const done:Credential[]=[],failed:Failed[]=[];
-  for(const [index,seller] of sellers.entries()){
+  for(const [index,seller] of targets.entries()){
    try{
     const password=randomSecurePassword();
     await assignCommercialVendorPassword(seller,password);
     done.push({seller,password});
    }catch(e){failed.push({seller,error:errorMessage(e,'No se pudo asignar la contraseña.')});}
-   setProgress({done:index+1,total:sellers.length});
+   setProgress({done:index+1,total:targets.length});
   }
   setCredentials(done);setFailures(failed);setCopied(false);
   setBusy(false);setProgress({done:0,total:0});setShowResults(true);
@@ -106,19 +119,25 @@ export default function CommercialSellerPasswords({snapshot,loading}:{snapshot:P
   <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4">
    <div>
     <h2 className="flex items-center gap-2 text-sm font-medium text-slate-900"><Users className="h-4 w-4"/>Accesos del personal vendedor</h2>
-    <p className="mt-1 text-xs text-slate-500">{accountsLoading?'Consultando…':sellers.length+' vendedores · '+accountKeys.size+' con clave · '+waiting+' pendientes'}</p>
+    <p className="mt-1 text-xs text-slate-500">{accountsLoading?'Consultando…':sellers.length+' vendedores · '+accountKeys.size+' con clave · '+waiting+' sin acceso · '+reviewKeys.size+' por revisar'}</p>
    </div>
-   <button type="button" disabled={busy||accountsLoading||loading||sellers.length===0||!!loadError} onClick={()=>setBulkConfirm(true)}
-    className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-medium text-white transition-colors duration-200 hover:bg-slate-800 disabled:opacity-40">
-    <Shuffle className="h-4 w-4"/>Generar contraseñas para todos ({sellers.length})
-   </button>
+   <div className="flex flex-wrap gap-2">
+    <button type="button" disabled={busy||accountsLoading||loading||waiting===0||!!loadError} onClick={()=>{setBulkScope('pending');setBulkConfirm(true);}}
+     className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-medium text-white transition-colors duration-200 hover:bg-slate-800 disabled:opacity-40">
+     <Shuffle className="h-4 w-4"/>Generar solo para pendientes ({waiting})
+    </button>
+    <button type="button" disabled={busy||accountsLoading||loading||sellers.length===0||!!loadError} onClick={()=>{setBulkScope('all');setBulkConfirm(true);}}
+     className="min-h-10 rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 transition-colors duration-200 hover:bg-slate-50 disabled:opacity-40">Regenerar todas las claves</button>
+   </div>
    {loadError&&<p role="alert" className="w-full text-xs text-rose-600">{loadError}</p>}
    {busy&&progress.total>0&&<p role="status" className="w-full text-xs text-slate-600">Generando accesos: {progress.done} de {progress.total}. No cierres esta página.</p>}
   </section>
 
   <CommercialPersonnelDataTable snapshot={snapshot} loading={loading||accountsLoading}
-   linkedAccountKeys={accountKeys} onSellerAction={(seller,action)=>{
+   linkedAccountKeys={accountKeys} reviewAccountKeys={reviewKeys} importChanges={importChanges}
+   onSellerAction={(seller,action)=>{
     if(busy)return;
+    if(action==='review'){setReviewTarget(seller);return;}
     if(action==='manual'){setManualTarget(seller);setManualPassword('');setManualRepeat('');}
     else setRandomTarget(seller);
    }}/>
@@ -141,7 +160,19 @@ export default function CommercialSellerPasswords({snapshot,loading}:{snapshot:P
    <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader><AlertDialogTitle>Generar contraseña aleatoria</AlertDialogTitle><AlertDialogDescription>Se creará o actualizará la contraseña comercial de {randomTarget?.name}. La clave se mostrará una sola vez.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={e=>{e.preventDefault();void randomOne();}}>Confirmar</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
   </AlertDialog>
   <AlertDialog open={bulkConfirm} onOpenChange={open=>{if(!busy)setBulkConfirm(open);}}>
-   <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader><AlertDialogTitle>Generar claves para todos los vendedores</AlertDialogTitle><AlertDialogDescription>Se generará una clave única para cada uno de los {sellers.length} vendedores del Excel. Se crearán los accesos comerciales que falten; los anteriores quedarán reemplazados. Los usuarios existentes del CRUD no se modificarán. Copiá las contraseñas al terminar.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={e=>{e.preventDefault();void bulk();}}>Generar claves</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+   <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader><AlertDialogTitle>{bulkScope==='pending'?'Crear accesos pendientes':'Regenerar contraseñas existentes'}</AlertDialogTitle><AlertDialogDescription>{bulkScope==='pending'?'Se crearán claves únicamente para '+waiting+' vendedores sin acceso. No se modificarán las contraseñas existentes.':'Esta acción REEMPLAZARÁ las contraseñas existentes, incluidas las que cambiaron los vendedores desde Perfil. Se excluyen las identidades pendientes de revisión.'} Copiá los resultados antes de cerrar.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={e=>{e.preventDefault();void bulk();}}>{bulkScope==='pending'?'Crear pendientes':'Reemplazar contraseñas'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+  </AlertDialog>
+  <AlertDialog open={!!reviewTarget} onOpenChange={open=>{if(!open&&!busy)setReviewTarget(null);}}>
+   <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader>
+    <AlertDialogTitle>Verificar identidad comercial</AlertDialogTitle>
+    <AlertDialogDescription>Confirmá que este vendedor es la misma persona que tenía previamente el código {reviewTarget?.code} en {reviewTarget?.branch}. Un código reutilizado podría pertenecer a otra persona. Se restaurará su cuenta anterior SIN modificar la contraseña.</AlertDialogDescription>
+   </AlertDialogHeader>
+   {reviewTarget&&<div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+    <div>Antes: {accounts.find(a=>sellerKey({branch:a.branch,code:a.person_code})===sellerKey(reviewTarget))?.person_name??'Sin registro'}</div>
+    <div>Ahora: {reviewTarget.name}</div>
+   </div>}
+   <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={e=>{e.preventDefault();void approveReview();}}>Confirmar misma persona</AlertDialogAction></AlertDialogFooter>
+   </AlertDialogContent>
   </AlertDialog>
   <Dialog open={showResults} onOpenChange={open=>{if(!open&&!busy)closeResults();}}>
    <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl bg-white motion-reduce:animate-none">
