@@ -1,6 +1,6 @@
 'use client';
 import {useMemo,useState} from 'react';
-import {ChevronLeft,ChevronRight,Search} from 'lucide-react';
+import {ArrowDown,ArrowUp,ArrowUpDown,ChevronLeft,ChevronRight,Search} from 'lucide-react';
 import type {PersonnelTableSnapshot} from '@/lib/commercialPersonnelMaster';
 
 const PAGE_SIZE=25;
@@ -18,14 +18,16 @@ const groups:{key:GroupKey;title:string}[]=[{key:'code',title:'Código'},{key:'i
 const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-AR');
 export default function CommercialPersonnelDataTable({snapshot,loading}:{snapshot:PersonnelTableSnapshot|null;loading:boolean}){
  const [search,setSearch]=useState('');
+ const [sort,setSort]=useState<{key:string;direction:'asc'|'desc'}|null>(null);
  const [page,setPage]=useState(1);
  const grouped=useMemo(()=>groups.map(group=>({...group,cols:(snapshot?.columns??[]).filter(col=>category(col.label)===group.key)})).filter(group=>group.cols.length>0),[snapshot]);
  const results=useMemo(()=>{
   if(!snapshot)return [];
   const query=normalize(search.trim());
   const rows=snapshot.rows.filter(row=>!query||snapshot.columns.some(col=>normalize(row[col.key]??'').includes(query)));
+  if(sort)rows.sort((a,b)=>(a[sort.key]??'').localeCompare(b[sort.key]??'','es-AR',{numeric:true,sensitivity:'base'})*(sort.direction==='asc'?1:-1));
   return rows;
- },[snapshot,search]);
+ },[snapshot,search,sort]);
  const totalPages=Math.max(1,Math.ceil(results.length/PAGE_SIZE));
  const currentPage=Math.min(page,totalPages);
  const visible=results.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
@@ -46,7 +48,7 @@ export default function CommercialPersonnelDataTable({snapshot,loading}:{snapsho
    <table className="w-full table-fixed border-collapse text-left text-xs">
     <colgroup>{grouped.map(group=><col key={group.key} style={{width:group.key==='code'?'8%':group.key==='identity'?'23%':group.key==='branch'?'20%':group.key==='hierarchy'?'24%':'25%'}}/>)}</colgroup>
     <thead className="sticky top-0 z-10 bg-slate-100 text-slate-600 shadow-[0_1px_0_#e2e8f0]">
-     <tr>{grouped.map(group=><th key={group.key} scope="col" className="border-r border-slate-200 px-2.5 py-2.5 font-medium last:border-r-0">{group.title}</th>)}</tr>
+     <tr>{grouped.map(group=><th key={group.key} scope="col" aria-sort={sort?.key===group.cols[0]?.key?(sort.direction==='asc'?'ascending':'descending'):'none'} className="border-r border-slate-200 px-2.5 py-2.5 font-medium last:border-r-0"><button type="button" disabled={!group.cols.length} onClick={()=>{const key=group.cols[0].key;setSort(prev=>prev?.key===key&&prev.direction==='asc'?{key,direction:'desc'}:prev?.key===key?null:{key,direction:'asc'});setPage(1);}} className="flex w-full items-center justify-between gap-1 text-left"><span>{group.title}</span>{sort?.key===group.cols[0]?.key?(sort.direction==='asc'?<ArrowUp className="h-3 w-3 shrink-0"/>:<ArrowDown className="h-3 w-3 shrink-0"/>):<ArrowUpDown className="h-3 w-3 shrink-0 text-slate-400"/>}</button></th>)}</tr>
     </thead>
     <tbody>
      {loading?Array.from({length:10},(_,index)=><tr key={index} className="border-b border-slate-100">{groups.map(group=><td key={group.key} className="px-3 py-3"><div className="h-4 w-full animate-pulse rounded bg-slate-100 motion-reduce:animate-none"/></td>)}</tr>):
