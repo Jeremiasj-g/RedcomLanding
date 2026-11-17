@@ -74,6 +74,18 @@ Deno.serve(async req=>{
       .eq('auth_user_id',existing.auth_user_id);
     return json({error:'No se pudo reactivar el perfil'},422);
    }
+   const {error:branchesError}=await admin.from('user_branches').delete()
+      .eq('user_id',existing.auth_user_id).neq('branch',profileBranch);
+   const {error:branchLinkError}=branchesError?{error:branchesError}:
+      await admin.from('user_branches').upsert({
+        user_id:existing.auth_user_id,branch:profileBranch,branch_id:branchInfo.id,
+      },{onConflict:'user_id,branch'});
+   if(branchLinkError){
+     await admin.from('commercial_vendor_accounts').update({needs_review:true})
+       .eq('auth_user_id',existing.auth_user_id);
+     await admin.from('profiles').update({is_active:false}).eq('id',existing.auth_user_id);
+     return json({error:'No se pudo sincronizar la sucursal. El acceso permanece bloqueado.'},422);
+   }
    return json({ok:true,reviewed:true,person_name:person.name});
   }
   if(existing&&(existing.person_name!==person.name||existing.needs_review===true))
