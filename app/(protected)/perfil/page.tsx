@@ -22,6 +22,8 @@ import { useMe } from '@/hooks/useMe';
 import DualSpinner from '@/components/ui/DualSpinner';
 import { notify } from '@/lib/notifications';
 import { isMyCommercialVendorAccount } from '@/lib/commercialVendorAccess';
+import CommercialProfileCategories from '@/components/profile/CommercialProfileCategories';
+import {AlertDialog,AlertDialogAction,AlertDialogCancel,AlertDialogContent,AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,AlertDialogTitle} from '@/components/ui/alert-dialog';
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
@@ -66,7 +68,12 @@ export default function MiPerfilPage() {
   const [fullName, setFullName] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [commercialVendor, setCommercialVendor] = useState(false);
+  const [activeTab,setActiveTab]=useState<'profile'|'category'>('profile');
+  const [visitedCategory,setVisitedCategory]=useState(false);
+  const [pendingTab,setPendingTab]=useState<'profile'|'category'|null>(null);
 
+  const [currentPwd,setCurrentPwd]=useState('');
+  const [showCurrentPwd,setShowCurrentPwd]=useState(false);
   const [pwd, setPwd] = useState('');
   const [pwd2, setPwd2] = useState('');
   const [savingPwd, setSavingPwd] = useState(false);
@@ -106,7 +113,7 @@ export default function MiPerfilPage() {
   const nameDirty =
     fullName.trim() !== String(me?.full_name ?? '').trim() && fullName.trim().length > 0;
 
-  const passwordReady = pwd.length >= 8 && pwd === pwd2;
+  const passwordReady = currentPwd.length>0 && pwd.length >= 8 && pwd === pwd2;
 
   const saveName = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -148,6 +155,10 @@ export default function MiPerfilPage() {
   const savePwd = async (event: React.FormEvent) => {
     event.preventDefault();
 
+    if (!currentPwd) {
+      notify.warning('Ingresá la contraseña actual.');
+      return;
+    }
     if (pwd.length < 8) {
       notify.warning('La contraseña debe tener al menos 8 caracteres.');
       return;
@@ -159,14 +170,27 @@ export default function MiPerfilPage() {
     }
 
     setSavingPwd(true);
-    const { error } = await supabase.auth.updateUser({ password: pwd });
-    setSavingPwd(false);
-
-    if (error) {
-      notify.error(error.message);
+    try {
+      const {data:{user},error:userError}=await supabase.auth.getUser();
+      if(userError||!user?.id||!user.email)throw new Error('No se pudo verificar la sesión.');
+      // Validación real contra Supabase Auth; nunca guardar ni registrar la clave actual.
+      const {data:verified,error:verifyError}=await supabase.auth.signInWithPassword({
+        email:user.email,password:currentPwd,
+      });
+      if(verifyError||verified.user?.id!==user.id){
+        notify.error('La contraseña actual no es correcta.');
+        return;
+      }
+      const {error:updateError}=await supabase.auth.updateUser({password:pwd});
+      if(updateError)throw updateError;
+    }catch(error){
+      notify.error(error instanceof Error?error.message:'No se pudo cambiar la contraseña.');
       return;
+    }finally{
+      setSavingPwd(false);
     }
-
+    setCurrentPwd('');
+    setShowCurrentPwd(false);
     setPwd('');
     setPwd2('');
     setShowPwd(false);
@@ -195,6 +219,20 @@ export default function MiPerfilPage() {
   return (
     <main className="min-h-[calc(100vh-72px)] bg-[#F4F5F7]">
       <div className="mx-auto max-w-[1380px] px-4 py-7 sm:px-6 lg:px-8 lg:py-10">
+        {commercialVendor&&<nav aria-label="Secciones de perfil" className="mb-5 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+          {([['profile','Perfil'],['category','Categoría']] as const).map(([key,label])=>
+           <button type="button" key={key} aria-current={activeTab===key?'page':undefined}
+            onClick={()=>{
+             if(activeTab===key)return;
+             if(activeTab==='profile'&&(currentPwd||pwd||pwd2||nameDirty)){setPendingTab(key);return;}
+             setActiveTab(key);if(key==='category')setVisitedCategory(true);
+            }}
+            className={'rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none '+(activeTab===key?'border-slate-950 bg-slate-950 text-white':'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}>
+            {label}
+           </button>
+          )}
+        </nav>}
+        <div hidden={activeTab!=='profile'}>
         <section className="relative overflow-hidden rounded-[30px] border border-black/[0.06] bg-[#17181b] text-white shadow-[0_24px_70px_rgba(15,23,42,.14)]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(90,200,250,.12),transparent_34%),radial-gradient(circle_at_88%_0%,rgba(167,139,250,.10),transparent_30%)]" />
           <div className="relative flex flex-col gap-8 px-6 py-7 sm:px-8 sm:py-8 lg:flex-row lg:items-end lg:justify-between lg:px-10 lg:py-10">
@@ -375,6 +413,14 @@ export default function MiPerfilPage() {
 
               <form onSubmit={savePwd} className="mt-5 space-y-4">
                 <PasswordField
+                  label="Contraseña actual"
+                  value={currentPwd}
+                  onChange={setCurrentPwd}
+                  visible={showCurrentPwd}
+                  onToggle={()=>setShowCurrentPwd(value=>!value)}
+                  placeholder="Ingresá tu contraseña actual"
+                />
+                <PasswordField
                   label="Nueva contraseña"
                   value={pwd}
                   onChange={setPwd}
@@ -446,7 +492,27 @@ export default function MiPerfilPage() {
             </div>
           </section>
         </div>
+        </div>
+        {commercialVendor&&visitedCategory&&<div hidden={activeTab!=='category'}>
+          <CommercialProfileCategories sellerName={me.full_name??''}/>
+        </div>}
       </div>
+      <AlertDialog open={pendingTab!==null} onOpenChange={open=>{if(!open)setPendingTab(null);}}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+           <AlertDialogTitle>Cambios sin guardar</AlertDialogTitle>
+           <AlertDialogDescription>Hay campos modificados en Perfil. ¿Querés descartarlos para cambiar de sección?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+           <AlertDialogCancel>Seguir editando</AlertDialogCancel>
+           <AlertDialogAction onClick={()=>{
+             setCurrentPwd('');setPwd('');setPwd2('');setFullName(me.full_name??'');
+             if(pendingTab){setActiveTab(pendingTab);if(pendingTab==='category')setVisitedCategory(true);}
+             setPendingTab(null);
+           }}>Salir sin guardar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

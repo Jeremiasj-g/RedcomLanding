@@ -346,19 +346,16 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
 }
 
 
-function SellerScoreDialog({name,branch,input,projectedCategory,reasonSummary,row,elapsedDays,month,metrics,gates,onClose}:{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null;reasonSummary:SigoReasonSummary[];row:CategoryPanelRow|null;elapsedDays:number;month:string;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];onClose:()=>void}){
+export function SellerScoreDialog({name,branch,input,projectedCategory,reasonSummary,row,elapsedDays,month,metrics,gates,onClose}:{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null;reasonSummary:SigoReasonSummary[];row:CategoryPanelRow|null;elapsedDays:number;month:string;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];onClose:()=>void}){
  const [view,setView]=useState<'comparison'|'data'>('comparison');
  const [exportOpen,setExportOpen]=useState(false);
  const [exportComparison,setExportComparison]=useState(true);
  const [exportCalculations,setExportCalculations]=useState(true);
  const assessment=assessSellerCategory(input,metrics,gates,projectedCategory);
- const tiers=scoreByCategory(input,projectedCategory,metrics);
  const checks=gateBreakdown(input,gates);
  const fmtNumber=(value:number|null)=>value===null?'—':value.toLocaleString('es-AR',{maximumFractionDigits:2});
  const fmtTime=(value:number|null)=>value===null?'—':displayDuration(Math.round(value*3600));
- const fmtValue=(value:number|null,unit:string)=>value===null?'Sin datos':unit==='currency'?money.format(value):fmtNumber(value)+(unit==='percent'?'%':'');
  const badgeClass=assessment.status==='pending'?'bg-slate-100 text-slate-600':assessment.label==='SENIOR'?'bg-emerald-700 text-white':assessment.label==='SEMI SENIOR'?'bg-emerald-500 text-white':assessment.label==='JUNIOR'?'bg-amber-100 text-amber-800':'bg-rose-100 text-rose-700';
- const colors:{[key:string]:string}={'SENIOR':'bg-emerald-700 text-white','SEMI SENIOR':'bg-emerald-500 text-white','JUNIOR':'bg-amber-400 text-slate-950'};
  return <div role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}} className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-sm">
   <section role="dialog" aria-modal="true" aria-labelledby="seller-score-title" className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[26px] bg-white shadow-[0_24px_70px_rgba(15,23,42,.18)]">
    <header className="shrink-0 border-b border-slate-100 px-5 py-5 sm:px-7">
@@ -410,7 +407,20 @@ function SellerScoreDialog({name,branch,input,projectedCategory,reasonSummary,ro
      <button type="button" onClick={()=>setView('comparison')} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${view==='comparison'?'bg-white text-slate-950 shadow-sm':'text-slate-500'}`}>Comparación</button>
      <button type="button" onClick={()=>setView('data')} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${view==='data'?'bg-white text-slate-950 shadow-sm':'text-slate-500'}`}>Datos + cálculos</button>
     </div></div>
-    {view==='comparison'?<div className="grid gap-4 lg:grid-cols-3">
+    {view==='comparison'?<SellerTierComparison input={input} projectedCategory={projectedCategory} metrics={metrics} gates={gates}/>:<SellerDataCalculations row={row} elapsedDays={elapsedDays} projectedCategory={projectedCategory} reasonSummary={reasonSummary} month={month}/>}
+   </div>
+  </section>
+ </div>;
+}
+
+/** Shared V2 comparison: used in the category panel and the seller profile. */
+export function SellerTierComparison({input,projectedCategory,metrics,gates}:{input:SellerCategoryInput;projectedCategory:string|null;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[]}){
+ const tiers=scoreByCategory(input,projectedCategory,metrics);
+ const fmtNumber=(value:number|null)=>value===null?'—':value.toLocaleString('es-AR',{maximumFractionDigits:2});
+ const fmtValue=(value:number|null,unit:string)=>value===null?'Sin datos':unit==='currency'?money.format(value):fmtNumber(value)+(unit==='percent'?'%':'');
+ const colors:{[key:string]:string}={'SENIOR':'bg-emerald-700 text-white','SEMI SENIOR':'bg-emerald-500 text-white','JUNIOR':'bg-amber-400 text-slate-950'};
+ const assessment=assessSellerCategory(input,metrics,gates,projectedCategory);
+ return <div className="grid gap-4 lg:grid-cols-3">
      {tiers.map(tier=><div key={tier.label} className={`overflow-hidden rounded-[20px] border bg-white shadow-[0_5px_24px_rgba(15,23,42,.04)] ${assessment.label===tier.label?'border-emerald-300':'border-slate-200'}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-4">
        <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${colors[tier.label]}`}>{tier.label}</span>
@@ -427,8 +437,5 @@ function SellerScoreDialog({name,branch,input,projectedCategory,reasonSummary,ro
        </div>
       </div>
      </div>)}
-    </div>:<SellerDataCalculations row={row} elapsedDays={elapsedDays} projectedCategory={projectedCategory} reasonSummary={reasonSummary} month={month}/>}
-   </div>
-  </section>
- </div>;
+    </div>;
 }
