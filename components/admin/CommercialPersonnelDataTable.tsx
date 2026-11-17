@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
 import {ColumnFilterPopup} from '@/components/category-panel/CategoryColumnFilters';
-import {ChevronDown,ChevronLeft,ChevronRight,Filter,Search,KeyRound,Link2,Shuffle} from 'lucide-react';
+import {ChevronDown,ChevronLeft,ChevronRight,Filter,Search,KeyRound,Shuffle} from 'lucide-react';
 import {sellerFromWorksheet,sellerKey,type SellerIdentity} from '@/lib/commercialPersonnelPasswords';
 import type {PersonnelTableSnapshot} from '@/lib/commercialPersonnelMaster';
 
@@ -22,7 +22,7 @@ const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').to
 export default function CommercialPersonnelDataTable({snapshot,loading,linkedAccountKeys,onSellerAction}:{
  snapshot:PersonnelTableSnapshot|null;loading:boolean;
  linkedAccountKeys?:Set<string>;
- onSellerAction?:(seller:SellerIdentity,action:'link'|'manual'|'random')=>void;
+ onSellerAction?:(seller:SellerIdentity,action:'manual'|'random')=>void;
 }){
  const [search,setSearch]=useState('');
  const [sort,setSort]=useState<{key:string;direction:'asc'|'desc'}|null>(null);
@@ -143,11 +143,10 @@ export default function CommercialPersonnelDataTable({snapshot,loading,linkedAcc
          const linked=linkedAccountKeys?.has(sellerKey(seller))??false;
          return <td className="border-l border-slate-100 px-2 py-2 align-top max-md:block max-md:border-0">
           <div className="flex flex-wrap items-center gap-1">
-           <button type="button" title={linked?'Cambiar vínculo':'Vincular cuenta'} aria-label={(linked?'Cambiar cuenta de ':'Vincular cuenta de ')+seller.name} onClick={()=>onSellerAction(seller,'link')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100"><Link2 className="h-3.5 w-3.5"/></button>
-           <button type="button" disabled={!linked} title={linked?'Establecer contraseña manual':'Primero vinculá una cuenta'} aria-label={'Contraseña manual para '+seller.name} onClick={()=>onSellerAction(seller,'manual')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"><KeyRound className="h-3.5 w-3.5"/></button>
-           <button type="button" disabled={!linked} title={linked?'Generar contraseña aleatoria':'Primero vinculá una cuenta'} aria-label={'Contraseña aleatoria para '+seller.name} onClick={()=>onSellerAction(seller,'random')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"><Shuffle className="h-3.5 w-3.5"/></button>
+           <button type="button" title="Establecer contraseña manual" aria-label={'Contraseña manual para '+seller.name} onClick={()=>onSellerAction(seller,'manual')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100"><KeyRound className="h-3.5 w-3.5"/></button>
+           <button type="button" title="Generar contraseña aleatoria" aria-label={'Contraseña aleatoria para '+seller.name} onClick={()=>onSellerAction(seller,'random')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100"><Shuffle className="h-3.5 w-3.5"/></button>
           </div>
-          <span className="mt-1 block text-[10px] text-slate-500">{linked?'Vinculado':'Sin cuenta vinculada'}</span>
+          <span className="mt-1 block text-[10px] text-slate-500">{linked?'Acceso configurado':'Clave pendiente'}</span>
          </td>;
         })()}
      </tr>)}

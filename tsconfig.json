@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -19,9 +23,25 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "components/PageHeader.jsx", "app/(protected)/gerencia/page.jsx", "components/Card.tsx", "components/CardSucursales.tsx", "components/Container.jsx", "app/(protected)/corrientes/masivos/page.jsx"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "components/PageHeader.jsx",
+    "app/(protected)/gerencia/page.jsx",
+    "components/Card.tsx",
+    "components/CardSucursales.tsx",
+    "components/Container.jsx",
+    "app/(protected)/corrientes/masivos/page.jsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "supabase/functions"
+  ]
 }
