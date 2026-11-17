@@ -1,7 +1,7 @@
 'use client';
 
 import {useCallback,useEffect,useState} from 'react';
-import CommercialPersonnelDataTable from '@/components/admin/CommercialPersonnelDataTable';
+import CommercialSellerPasswords from '@/components/admin/CommercialSellerPasswords';
 import {FileSpreadsheet,Upload,Download,History,RefreshCw,CheckCircle2} from 'lucide-react';
 import {motion,useReducedMotion} from 'framer-motion';
 import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
@@ -74,7 +74,7 @@ export default function MasterPersonnelAdminPage(){
     <div className="mt-4 flex justify-end gap-2"><button type="button" onClick={()=>{setFile(null);setPreview(null);}} className="rounded-lg border border-slate-200 px-4 py-2 text-sm">Cancelar</button><button type="button" disabled={busy} onClick={()=>void publish()} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{busy?'Guardando…':'Confirmar y publicar'}</button></div>
    </div>}
   </section>
-  <CommercialPersonnelDataTable snapshot={snapshot} loading={loading}/>
+  <CommercialSellerPasswords snapshot={snapshot} loading={loading}/>
   <section className="rounded-2xl border border-slate-200 bg-white p-5">
    <h2 className="flex items-center gap-2 text-sm font-medium"><History className="h-4 w-4"/>Historial de versiones</h2>
    {!versions.length&&<p className="mt-4 text-xs text-slate-500">No hay versiones registradas. La primera importación creará el historial.</p>}
