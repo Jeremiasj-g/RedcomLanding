@@ -164,7 +164,12 @@ export default function AdminUsersPage() {
     const { data, error } = await supabase.rpc('admin_list_users');
     if (error) setError(error.message);
 
-    setRows((data ?? []) as Row[]);
+    // Los accesos de DetallePersonal se administran exclusivamente en Personal comercial.
+    const {data:commercialAccounts,error:commercialError}=await supabase
+      .from('commercial_vendor_accounts').select('auth_user_id');
+    if(commercialError)setError(commercialError.message);
+    const commercialIds=new Set((commercialAccounts??[]).map(account=>account.auth_user_id));
+    setRows(((data??[]) as Row[]).filter(user=>!commercialIds.has(user.id)));
     setLoading(false);
 
     // (opcional) debug

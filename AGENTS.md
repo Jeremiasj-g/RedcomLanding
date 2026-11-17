@@ -1,5 +1,21 @@
 # AGENTS.md — RedcomWeb
 
+## 0. Protocolo obligatorio antes de responder o modificar código
+Este archivo **no se carga automáticamente en todas las integraciones de ChatGPT/GitHub**. Cualquier asistente o desarrollador que trabaje en este repositorio debe **abrir el `AGENTS.md` de la rama activa en cada pedido de cambios**; no esperar a que el usuario lo recuerde ni a recibir un comando `/agents.md`.
+
+1. **Leer y delimitar:** leer este `AGENTS.md`, identificar la rama solicitada y examinar el código real, sus componentes reutilizables y las reglas aplicables. Si se cambia un componente compartido, localizar sus consumidores.
+2. **Preparar la verificación:** definir antes de editar qué debe funcionar y cómo comprobarlo. No confundir una captura, un build correcto o el texto de `AGENTS.md` con una prueba funcional.
+3. **Implementar respetando contratos:** preservar cálculos, permisos, persistencia y rutas no solicitadas. Para cambios de UI, comprobar expresamente:
+   - Tablas: filtros individuales en cada dato pertinente (también dentro de grupos), combinación con búsqueda, ordenamiento, paginación, estados vacío/error/carga y lectura sin scroll horizontal en escritorio **cuando sea viable**.
+   - Dropdowns y calendarios: usar componentes existentes, posición y teclado correctos, colores neutros y apertura/cierre en ~200 ms.
+   - Modales, tabs y secciones expandibles: transiciones discretas en entrada y salida de ~200 ms, con `prefers-reduced-motion`.
+   - Skeletons ajustados a las dimensiones del contenido, sin saltos de layout.
+   - Formularios: validaciones, doble envío y confirmación de cambios pendientes.
+   - Responsive y accesibilidad: foco visible, labels, contraste y pantallas móviles.
+   Si una regla no aplica, explicarlo brevemente al revisar; no omitirla por olvido.
+4. **Auditar antes del push:** revisar el diff contra estas reglas; ejecutar los controles disponibles de tipos, lint, tests y build (si el entorno lo permite), además de pruebas manuales relacionadas. **No marcar como comprobado aquello que no se ejecutó.**
+5. **Publicación controlada:** respetar el límite de un commit/push por pedido, salvo una corrección excepcional; no hacer merge a `main` por iniciativa propia. Al abrir un PR, completar el checklist de `.github/pull_request_template.md`. GitHub Actions controla lint/tipos y exige ese checklist en PR listos para revisión; las reglas visuales requieren además inspección humana.
+
 Estas reglas aplican a todo el repositorio (pantallas, modales, componentes y cambios nuevos). Antes de modificar una interfaz, revisar los componentes existentes y seguir estas pautas. Si una indicación explícita del pedido exige otra solución, respetarla sin cambiar funcionalidades ajenas.
 
 ## 1. Identidad visual
@@ -66,7 +82,7 @@ Estas reglas aplican a todo el repositorio (pantallas, modales, componentes y ca
 - **Un control, una identidad visual:** antes de crear selectores, popovers, menús, tooltips, modales, confirmaciones, avisos o calendarios, buscar el componente compartido real. Mejorar o añadir una variante explícita y probar sus consumidores; no crear alternativas locales ni usar `alert()`, `confirm()` o `prompt()` como sustituto de los diálogos existentes.
 - Menús, dropdowns y tooltips deben estar sobre modales/tablas sin quedar cortados, colocarse dentro del viewport y cerrarse al seleccionar, con Escape o clic exterior cuando corresponda. Cuidar foco, lector de pantalla, teclado, contraste y áreas táctiles.
 - **Tablas uniformes:** encabezados neutros, divisores y alturas consistentes, números alineados a la derecha con `tabular-nums`, acciones accesibles y chips discretos. Ordenar desde encabezados donde tenga sentido, con estados asc/desc y `aria-sort`; valores numéricos y fechas se ordenan por su valor real, no como texto.
-- Incluir sólo filtros pertinentes, combinables, con búsqueda insensible a mayúsculas y tildes; cuando corresponda, ofrecer restauración y total de resultados. **Paginar listados** (con total, rango y navegación) usando el patrón existente; corregir página si cambian filtros. Evitar scroll horizontal en escritorio cuando sea viable; usar scroll controlado en móvil si es necesario para preservar datos.
+- **En toda tabla de datos, incluir filtros individuales para cada columna relevante**, incluso cuando varias columnas originales se agrupen visualmente. Los filtros deben poder combinarse entre sí y con la búsqueda general (insensible a mayúsculas y tildes), permitir ordenar por cada campo, indicar los filtros activos y ofrecer una acción para limpiarlos, sin perder columnas ni datos. Omitir filtros sólo en columnas exclusivamente decorativas o de acciones, o cuando se justifique expresamente. Cuando corresponda, mostrar el total de resultados. **Paginar listados** (con total, rango y navegación) usando el patrón existente; corregir página si cambian filtros. Evitar scroll horizontal en escritorio cuando sea viable; usar scroll controlado en móvil si es necesario para preservar datos.
 - Mantener **filtros, búsquedas, orden, página, mes y selecciones** al alternar pestañas, sin reinicios por remount; comprobar permisos al entrar y revalidar sólo cuando corresponda, sin bloquear toda navegación por tab innecesariamente.
 - Usar **skeletons con la forma y dimensiones reales** de cards, métricas, cabeceras, filas y formularios; evitar saltos de layout y no sustituirlos indiscriminadamente por spinners. Contemplar estados loading, vacío, sin resultados y error.
 - Proteger **cualquier edición con cambios reales pendientes** (no simples filtros): al salir por tab, ruta, sidebar o cierre de modal, mostrar «Cambios sin guardar», «Seguir editando» y «Salir sin guardar», reutilizando los diálogos existentes. Al recargar/cerrar pestaña, `beforeunload` nativo; al guardar correctamente, limpiar el estado pendiente y prevenir doble envío.

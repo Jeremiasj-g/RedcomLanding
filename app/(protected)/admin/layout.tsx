@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, UserPlus, ClipboardList, Smartphone, ShieldCheck, UserCog, ChartNoAxesCombined, Megaphone, type LucideIcon } from 'lucide-react';
+import { Users, UserPlus, ClipboardList, Smartphone, ShieldCheck, UserCog, ChartNoAxesCombined, Megaphone, Network, type LucideIcon } from 'lucide-react';
 import RequireAdmin from '@/app/auth/RequireAdmin';
 
 type Tab = {
@@ -20,6 +20,7 @@ const TABS: Tab[] = [
   { href: '/admin/roles', label: 'Roles', icon: UserCog, match: (p) => p.startsWith('/admin/roles') },
   { href: '/admin/permisos', label: 'Permisos', icon: ShieldCheck, match: (p) => p.startsWith('/admin/permisos') },
   { href: '/admin/analitica', label: 'Analítica', icon: ChartNoAxesCombined, match: (p) => p.startsWith('/admin/analitica') },
+  { href: '/admin/personal-comercial', label: 'Personal comercial', icon: Network },
 ];
 
 function isActiveTab(tab: Tab, pathname: string) {

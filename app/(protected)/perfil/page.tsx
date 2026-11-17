@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  BadgeCheck,
   Building2,
   Check,
   Copy,
@@ -13,14 +12,15 @@ import {
   Mail,
   Save,
   ShieldCheck,
-  Sparkles,
   UserRound,
 } from 'lucide-react';
 
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
-import DualSpinner from '@/components/ui/DualSpinner';
 import { notify } from '@/lib/notifications';
+import { isMyCommercialVendorAccount } from '@/lib/commercialVendorAccess';
+import CommercialProfileCategories from '@/components/profile/CommercialProfileCategories';
+import {AlertDialog,AlertDialogAction,AlertDialogCancel,AlertDialogContent,AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,AlertDialogTitle} from '@/components/ui/alert-dialog';
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
@@ -42,29 +42,19 @@ function roleLabel(role?: string) {
   return role ?? 'Rol';
 }
 
-function roleTone(role?: string) {
-  const normalized = (role ?? '').toLowerCase();
-  if (normalized === 'admin') {
-    return 'border-amber-300/20 bg-amber-300/10 text-amber-200';
-  }
-  if (normalized === 'jdv') {
-    return 'border-violet-300/20 bg-violet-300/10 text-violet-200';
-  }
-  if (normalized === 'rrhh') {
-    return 'border-fuchsia-300/20 bg-fuchsia-300/10 text-fuchsia-200';
-  }
-  if (normalized === 'supervisor') {
-    return 'border-sky-300/20 bg-sky-300/10 text-sky-200';
-  }
-  return 'border-white/[0.10] bg-white/[0.06] text-white/[0.72]';
-}
-
 export default function MiPerfilPage() {
-  const { me } = useMe();
+  const { me, refetch } = useMe();
 
   const [fullName, setFullName] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [commercialVendor, setCommercialVendor] = useState(false);
+  const [vendorStatusLoading,setVendorStatusLoading]=useState(true);
+  const [activeTab,setActiveTab]=useState<'profile'|'category'>('profile');
+  const [visitedCategory,setVisitedCategory]=useState(false);
+  const [pendingTab,setPendingTab]=useState<'profile'|'category'|null>(null);
 
+  const [currentPwd,setCurrentPwd]=useState('');
+  const [showCurrentPwd,setShowCurrentPwd]=useState(false);
   const [pwd, setPwd] = useState('');
   const [pwd2, setPwd2] = useState('');
   const [savingPwd, setSavingPwd] = useState(false);
@@ -74,6 +64,20 @@ export default function MiPerfilPage() {
   useEffect(() => {
     if (me?.full_name) setFullName(me.full_name);
   }, [me?.full_name]);
+
+  useEffect(() => {
+    if (!me?.id) return;
+    let active = true;
+    setVendorStatusLoading(true);
+    void isMyCommercialVendorAccount().then(value => {
+      if (active){setCommercialVendor(value);setVendorStatusLoading(false);}
+    }).catch(() => {
+      // Conservador ante errores: un vendedor no debe poder editar su
+      // nombre hasta resolver la consulta de identidad comercial.
+      if (active){if(me.role === 'vendedor')setCommercialVendor(true);setVendorStatusLoading(false);}
+    });
+    return () => { active = false; };
+  }, [me?.id, me?.role]);
 
   const initials = useMemo(() => {
     const name = (me?.full_name ?? '').trim();
@@ -88,13 +92,29 @@ export default function MiPerfilPage() {
     [me?.branches],
   );
 
+  const isTechnicalEmail=/^vendor-[0-9a-f-]+@example\.com$/i.test(me?.email??'');
+  const displayEmail=Boolean(me?.email)&&!commercialVendor&&!isTechnicalEmail;
+  const lockCommercialName=commercialVendor||(me?.role==='vendedor'&&vendorStatusLoading);
+
   const nameDirty =
     fullName.trim() !== String(me?.full_name ?? '').trim() && fullName.trim().length > 0;
 
-  const passwordReady = pwd.length >= 8 && pwd === pwd2;
+  const passwordReady = currentPwd.length>0 && pwd.length >= 8 && pwd === pwd2;
+  const hasPendingEdits=Boolean(currentPwd||pwd||pwd2||(!lockCommercialName&&nameDirty));
+  useEffect(()=>{
+    if(!hasPendingEdits)return;
+    const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};
+    window.addEventListener('beforeunload',warn);
+    return()=>window.removeEventListener('beforeunload',warn);
+  },[hasPendingEdits]);
 
   const saveName = async (event: React.FormEvent) => {
     event.preventDefault();
+    if(savingName)return;
+    if (lockCommercialName) {
+      notify.warning('Tu nombre se administra desde DetallePersonal.');
+      return;
+    }
     if (!fullName.trim()) {
       notify.warning('El nombre no puede estar vacío.');
       return;
@@ -123,12 +143,18 @@ export default function MiPerfilPage() {
       return;
     }
 
+    await refetch();
     notify.success('Nombre actualizado.');
   };
 
   const savePwd = async (event: React.FormEvent) => {
     event.preventDefault();
+    if(savingPwd)return;
 
+    if (!currentPwd) {
+      notify.warning('Ingresá la contraseña actual.');
+      return;
+    }
     if (pwd.length < 8) {
       notify.warning('La contraseña debe tener al menos 8 caracteres.');
       return;
@@ -140,14 +166,27 @@ export default function MiPerfilPage() {
     }
 
     setSavingPwd(true);
-    const { error } = await supabase.auth.updateUser({ password: pwd });
-    setSavingPwd(false);
-
-    if (error) {
-      notify.error(error.message);
+    try {
+      const {data:{user},error:userError}=await supabase.auth.getUser();
+      if(userError||!user?.id||!user.email)throw new Error('No se pudo verificar la sesión.');
+      // Validación real contra Supabase Auth; nunca guardar ni registrar la clave actual.
+      const {data:verified,error:verifyError}=await supabase.auth.signInWithPassword({
+        email:user.email,password:currentPwd,
+      });
+      if(verifyError||verified.user?.id!==user.id){
+        notify.error('La contraseña actual no es correcta.');
+        return;
+      }
+      const {error:updateError}=await supabase.auth.updateUser({password:pwd});
+      if(updateError)throw updateError;
+    }catch(error){
+      notify.error(error instanceof Error?error.message:'No se pudo cambiar la contraseña.');
       return;
+    }finally{
+      setSavingPwd(false);
     }
-
+    setCurrentPwd('');
+    setShowCurrentPwd(false);
     setPwd('');
     setPwd2('');
     setShowPwd(false);
@@ -168,128 +207,98 @@ export default function MiPerfilPage() {
   if (!me) {
     return (
       <div className="grid min-h-[80vh] place-items-center bg-[#F4F5F7]">
-        <DualSpinner size={60} thickness={4} />
+        <div className="w-full max-w-3xl space-y-6 px-5" role="status" aria-label="Cargando perfil">
+  <div className="flex items-center gap-5"><div className="h-24 w-24 shrink-0 animate-pulse rounded-full bg-slate-200 motion-reduce:animate-none"/><div className="flex-1 space-y-3"><div className="h-7 w-44 max-w-full animate-pulse rounded-lg bg-slate-200 motion-reduce:animate-none"/><div className="h-4 w-28 animate-pulse rounded bg-slate-200 motion-reduce:animate-none"/></div></div>
+  <div className="h-10 animate-pulse rounded-xl bg-slate-200 motion-reduce:animate-none"/>
+  <div className="grid gap-5 md:grid-cols-2"><div className="h-60 animate-pulse rounded-2xl bg-slate-200 motion-reduce:animate-none"/><div className="h-60 animate-pulse rounded-2xl bg-slate-200 motion-reduce:animate-none"/></div>
+ </div>
       </div>
     );
   }
 
   return (
     <main className="min-h-[calc(100vh-72px)] bg-[#F4F5F7]">
-      <div className="mx-auto max-w-[1380px] px-4 py-7 sm:px-6 lg:px-8 lg:py-10">
-        <section className="relative overflow-hidden rounded-[30px] border border-black/[0.06] bg-[#17181b] text-white shadow-[0_24px_70px_rgba(15,23,42,.14)]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(90,200,250,.12),transparent_34%),radial-gradient(circle_at_88%_0%,rgba(167,139,250,.10),transparent_30%)]" />
-          <div className="relative flex flex-col gap-8 px-6 py-7 sm:px-8 sm:py-8 lg:flex-row lg:items-end lg:justify-between lg:px-10 lg:py-10">
-            <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center">
-              <div className="relative grid h-24 w-24 shrink-0 place-items-center rounded-[28px] border border-white/[0.09] bg-white/[0.07] text-3xl font-semibold tracking-[-0.04em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.06)]">
-                {initials}
-                <span
-                  className={cn(
-                    'absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-[4px] border-[#17181b]',
-                    me.is_active ? 'bg-emerald-400' : 'bg-rose-400',
-                  )}
-                />
-              </div>
-
-              <div className="min-w-0">
-                <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/[0.30]">
-                  Cuenta personal
-                </div>
-                <h1 className="mt-1.5 truncate text-[28px] font-medium tracking-[-0.035em] text-white/[0.96] sm:text-[34px]">
-                  {me.full_name || 'Sin nombre'}
-                </h1>
-
-                <div className="mt-2 flex flex-wrap items-center gap-2.5">
-                  <span className="inline-flex items-center gap-1.5 text-[12px] text-white/[0.46]">
-                    <Mail className="h-3.5 w-3.5" />
-                    {me.email}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={copyEmail}
-                    className="inline-flex h-7 items-center gap-1.5 rounded-[9px] border border-white/[0.08] bg-white/[0.04] px-2.5 text-[10px] font-medium text-white/[0.52] transition hover:bg-white/[0.08] hover:text-white/[0.80]"
-                  >
-                    <Copy className="h-3 w-3" />
-                    Copiar
-                  </button>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-medium',
-                      roleTone(me.role),
-                    )}
-                  >
-                    <BadgeCheck className="h-3.5 w-3.5" />
-                    {roleLabel(me.role)}
-                  </span>
-
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-medium',
-                      me.is_active
-                        ? 'border-emerald-300/20 bg-emerald-300/10 text-emerald-200'
-                        : 'border-rose-300/20 bg-rose-300/10 text-rose-200',
-                    )}
-                  >
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    {me.is_active ? 'Cuenta activa' : 'Cuenta inactiva'}
-                  </span>
-                </div>
-              </div>
+      <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+        {commercialVendor&&<nav aria-label="Secciones de perfil" className="mb-6 flex items-center justify-center gap-1 border-b border-slate-200 pb-2">
+          {([['profile','Perfil'],['category','Categoría']] as const).map(([key,label])=>
+           <button type="button" key={key} aria-current={activeTab===key?'page':undefined}
+            onClick={()=>{
+             if(activeTab===key)return;
+             if(activeTab==='profile'&&hasPendingEdits){setPendingTab(key);return;}
+             setActiveTab(key);if(key==='category')setVisitedCategory(true);
+            }}
+            className={'min-w-28 rounded-xl px-5 py-2.5 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none '+(activeTab===key?'bg-slate-900 text-white':'text-slate-500 hover:bg-slate-100 hover:text-slate-900')}>
+            {label}
+           </button>
+          )}
+        </nav>}
+        <div hidden={activeTab!=='profile'}>
+        <section className="border-b border-slate-200 pb-6 sm:pb-8">
+          <div className="flex items-center gap-4 sm:gap-8">
+            <div aria-label={'Iniciales de '+(me.full_name||'usuario')} className="relative grid h-24 w-24 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-2xl font-semibold text-slate-800 sm:h-32 sm:w-32 sm:text-4xl">
+              {initials}
+              <span className={cn('absolute bottom-1 right-1 h-4 w-4 rounded-full border-[3px] border-white sm:h-5 sm:w-5',me.is_active?'bg-emerald-500':'bg-rose-500')}/>
             </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:min-w-[360px]">
-              <HeroStat
-                label="Sucursales"
-                value={branches.length ? String(branches.length) : '0'}
-              />
-              <HeroStat label="Rol" value={roleLabel(me.role)} />
-              <HeroStat
-                label="Estado"
-                value={me.is_active ? 'Activo' : 'Inactivo'}
-                className="col-span-2 sm:col-span-1"
-              />
+            <div className="min-w-0 flex-1">
+              <h1 className="break-words text-xl font-semibold tracking-tight text-slate-950 sm:text-3xl">{me.full_name||'Sin nombre'}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 sm:text-sm">
+                <span className="rounded-lg bg-slate-200/70 px-2.5 py-1 font-medium">{roleLabel(me.role)}</span>
+                <span className="inline-flex items-center gap-1.5"><span className={cn('h-1.5 w-1.5 rounded-full',me.is_active?'bg-emerald-500':'bg-rose-500')}/>{me.is_active?'Cuenta activa':'Cuenta inactiva'}</span>
+              </div>
+              {displayEmail&&<div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-xs text-slate-500">
+                <Mail className="h-4 w-4 shrink-0"/><span className="max-w-full break-all">{me.email}</span>
+                <button type="button" onClick={copyEmail} aria-label="Copiar correo" className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-600"><Copy className="h-3.5 w-3.5"/>Copiar</button>
+              </div>}
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                <span>{branches.length} {branches.length===1?'sucursal asignada':'sucursales asignadas'}</span>
+                {commercialVendor&&<span>Acceso comercial</span>}
+              </div>
             </div>
           </div>
         </section>
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+        <div className="mt-6 grid items-start gap-5 lg:grid-cols-[0.9fr_1.1fr]">
           <section className="space-y-5">
             <CardShell>
               <CardHeader
                 icon={<UserRound className="h-4 w-4" />}
                 eyebrow="Identidad"
                 title="Información personal"
-                description="El nombre que se muestra en asignaciones, comentarios y actividad."
+                description=""
               />
 
+              {lockCommercialName ? (
+                <div className="mt-5 space-y-2">
+                  <label className="block text-[10px] font-medium uppercase tracking-[0.09em] text-slate-400">Nombre del titular</label>
+                  <div className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm text-slate-900">
+                    {me.full_name || 'Sin nombre'}
+                  </div>
+                  <p className="text-[11px] text-slate-500">Administrado desde Personal comercial.</p>
+                </div>
+              ) : (
               <form onSubmit={saveName} className="mt-5">
-                <label className="mb-2 block text-[10px] font-medium uppercase tracking-[0.09em] text-slate-400">
+                <label htmlFor="profile-display-name" className="mb-2 block text-xs font-medium text-slate-600">
                   Nombre completo
                 </label>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
-                    value={fullName}
+                     id="profile-display-name"
+                     value={fullName}
                     onChange={(event) => setFullName(event.target.value)}
                     placeholder="Ej: Juan Pérez"
-                    className="h-11 min-w-0 flex-1 rounded-[13px] border border-slate-200 bg-[#F8F9FA] px-3.5 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:bg-white focus:ring-4 focus:ring-slate-200/60"
+                    className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none transition-colors duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-100"
                   />
                   <button
                     type="submit"
                     disabled={savingName || !nameDirty}
-                    className="inline-flex h-11 min-w-[130px] items-center justify-center gap-2 rounded-[13px] bg-[#17181b] px-4 text-[11px] font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-30"
+                    className="inline-flex h-11 min-w-[130px] items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white transition-colors duration-200 hover:bg-slate-800 disabled:opacity-40"
                   >
                     <Save className="h-3.5 w-3.5" />
                     {savingName ? 'Guardando...' : 'Guardar cambios'}
                   </button>
                 </div>
-
-                <div className="mt-3 flex items-start gap-2 text-[10px] leading-4 text-slate-400">
-                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                  El cambio se refleja en el resto de los módulos donde aparezca tu nombre.
-                </div>
               </form>
+              )}
             </CardShell>
 
             <CardShell>
@@ -297,7 +306,7 @@ export default function MiPerfilPage() {
                 icon={<Building2 className="h-4 w-4" />}
                 eyebrow="Alcance"
                 title="Sucursales asignadas"
-                description="Estos accesos son administrados centralmente y no se modifican desde el perfil."
+                description=""
               />
 
               <div className="mt-5">
@@ -306,31 +315,20 @@ export default function MiPerfilPage() {
                     No tenés sucursales asignadas.
                   </div>
                 ) : (
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="flex flex-wrap gap-2">
                     {branches.map((branch) => (
                       <div
                         key={branch}
-                        className="flex items-center gap-3 rounded-[14px] border border-slate-200 bg-[#F8F9FA] px-3.5 py-3"
+                        className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-100 px-3 py-2"
                       >
-                        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-slate-200 bg-white text-slate-500">
-                          <Building2 className="h-3.5 w-3.5" />
-                        </div>
-                        <div>
-                          <div className="text-[12px] font-medium text-slate-800">
-                            {cap(branch)}
-                          </div>
-                          <div className="mt-0.5 text-[9px] text-slate-400">
-                            Acceso asignado
-                          </div>
-                        </div>
+                        <Building2 className="h-4 w-4 text-slate-500"/>
+                        <span className="text-xs font-medium text-slate-800">{cap(branch)}</span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                <div className="mt-3 rounded-[13px] border border-sky-100 bg-sky-50/60 px-3.5 py-3 text-[10px] leading-4 text-sky-800/70">
-                  Si necesitás acceso a otra sucursal, solicitá el cambio a un administrador.
-                </div>
+                <p className="mt-3 text-xs text-slate-500">Para cambiar sucursales, contactá a un administrador.</p>
               </div>
             </CardShell>
           </section>
@@ -340,11 +338,19 @@ export default function MiPerfilPage() {
               <CardHeader
                 icon={<LockKeyhole className="h-4 w-4" />}
                 eyebrow="Seguridad"
-                title="Contraseña"
-                description="Actualizá tu contraseña sin salir de tu cuenta."
+                title="Cambiar contraseña"
+                description=""
               />
 
               <form onSubmit={savePwd} className="mt-5 space-y-4">
+                <PasswordField
+                  label="Contraseña actual"
+                  value={currentPwd}
+                  onChange={setCurrentPwd}
+                  visible={showCurrentPwd}
+                  onToggle={()=>setShowCurrentPwd(value=>!value)}
+                  placeholder="Ingresá tu contraseña actual"
+                />
                 <PasswordField
                   label="Nueva contraseña"
                   value={pwd}
@@ -363,7 +369,7 @@ export default function MiPerfilPage() {
                   placeholder="Repetí la contraseña"
                 />
 
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="flex flex-wrap gap-2">
                   <SecurityCheck
                     label="8+ caracteres"
                     active={pwd.length >= 8}
@@ -379,7 +385,7 @@ export default function MiPerfilPage() {
                 </div>
 
                 <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex max-w-md items-start gap-2 text-[10px] leading-4 text-slate-400">
+                  <div className="flex max-w-md items-start gap-2 text-xs leading-5 text-slate-500">
                     <KeyRound className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     Usá una contraseña única que no reutilices en otros servicios.
                   </div>
@@ -387,7 +393,7 @@ export default function MiPerfilPage() {
                   <button
                     type="submit"
                     disabled={savingPwd || !passwordReady}
-                    className="inline-flex h-11 min-w-[166px] items-center justify-center gap-2 rounded-[13px] bg-[#17181b] px-4 text-[11px] font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-30"
+                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white transition-colors duration-200 hover:bg-slate-800 disabled:opacity-40 sm:w-auto"
                   >
                     <LockKeyhole className="h-3.5 w-3.5" />
                     {savingPwd ? 'Actualizando...' : 'Cambiar contraseña'}
@@ -396,95 +402,48 @@ export default function MiPerfilPage() {
               </form>
             </CardShell>
 
-            <div className="grid gap-5 sm:grid-cols-2">
-              <MiniCard
-                icon={<ShieldCheck className="h-4 w-4" />}
-                title="Estado de cuenta"
-                value={me.is_active ? 'Activa' : 'Inactiva'}
-                detail={
-                  me.is_active
-                    ? 'Tu acceso se encuentra habilitado.'
-                    : 'Tu acceso está restringido.'
-                }
-              />
-
-              <MiniCard
-                icon={<Sparkles className="h-4 w-4" />}
-                title="Tipo de acceso"
-                value={roleLabel(me.role)}
-                detail="Determina permisos base y herramientas visibles."
-              />
-            </div>
-          </section>
+           </section>
         </div>
+        </div>
+        {commercialVendor&&visitedCategory&&<div hidden={activeTab!=='category'}>
+          <CommercialProfileCategories sellerName={me.full_name??''}/>
+        </div>}
       </div>
+      <AlertDialog open={pendingTab!==null} onOpenChange={open=>{if(!open)setPendingTab(null);}}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+           <AlertDialogTitle>Cambios sin guardar</AlertDialogTitle>
+           <AlertDialogDescription>Hay campos modificados en Perfil. ¿Querés descartarlos para cambiar de sección?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+           <AlertDialogCancel>Seguir editando</AlertDialogCancel>
+           <AlertDialogAction onClick={()=>{
+             setCurrentPwd('');setPwd('');setPwd2('');setFullName(me.full_name??'');
+             if(pendingTab){setActiveTab(pendingTab);if(pendingTab==='category')setVisitedCategory(true);}
+             setPendingTab(null);
+           }}>Salir sin guardar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
-  );
-}
-
-function HeroStat({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value: string;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-[16px] border border-white/[0.07] bg-white/[0.035] px-3.5 py-3',
-        className,
-      )}
-    >
-      <div className="text-[9px] font-medium uppercase tracking-[0.09em] text-white/[0.28]">
-        {label}
-      </div>
-      <div className="mt-1 truncate text-[12px] font-medium text-white/[0.82]">
-        {value}
-      </div>
-    </div>
   );
 }
 
 function CardShell({ children }: { children: React.ReactNode }) {
   return (
-    <section className="rounded-[24px] border border-black/[0.06] bg-white p-5 shadow-[0_12px_35px_rgba(15,23,42,.045)] sm:p-6">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
       {children}
     </section>
   );
 }
 
-function CardHeader({
-  icon,
-  eyebrow,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  eyebrow: string;
-  title: string;
-  description: string;
+function CardHeader({ icon,title }: {
+  icon: React.ReactNode; eyebrow: string; title: string; description: string;
 }) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-slate-200 bg-[#F8F9FA] text-slate-500">
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <div className="text-[9px] font-medium uppercase tracking-[0.11em] text-slate-400">
-          {eyebrow}
-        </div>
-        <h2 className="mt-0.5 text-[16px] font-medium tracking-[-0.015em] text-slate-900">
-          {title}
-        </h2>
-        <p className="mt-1 text-[11px] leading-5 text-slate-500">
-          {description}
-        </p>
-      </div>
-    </div>
-  );
+  return <div className="flex items-center gap-2.5">
+    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">{icon}</span>
+    <h2 className="text-base font-medium text-slate-900">{title}</h2>
+  </div>;
 }
 
 function PasswordField({
@@ -513,12 +472,13 @@ function PasswordField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
-          className="h-11 w-full rounded-[13px] border border-slate-200 bg-[#F8F9FA] px-3.5 pr-11 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:bg-white focus:ring-4 focus:ring-slate-200/60"
+          autoComplete={label==='Contraseña actual'?'current-password':'new-password'}
+          className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 pr-11 text-sm text-slate-900 outline-none transition-colors duration-200 placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-100"
         />
         <button
           type="button"
           onClick={onToggle}
-          className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-[9px] text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-slate-500 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-600"
           aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
         >
           {visible ? (
@@ -542,7 +502,7 @@ function SecurityCheck({
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-[11px] border px-3 py-2 text-[9px] font-medium transition',
+        'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors duration-200',
         active
           ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
           : 'border-slate-200 bg-[#F8F9FA] text-slate-400',
@@ -561,29 +521,3 @@ function SecurityCheck({
   );
 }
 
-function MiniCard({
-  icon,
-  title,
-  value,
-  detail,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <section className="rounded-[22px] border border-black/[0.06] bg-white p-5 shadow-[0_10px_28px_rgba(15,23,42,.04)]">
-      <div className="flex items-start gap-3">
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] border border-slate-200 bg-[#F8F9FA] text-slate-500">
-          {icon}
-        </div>
-        <div>
-          <div className="text-[10px] font-medium text-slate-400">{title}</div>
-          <div className="mt-1 text-[13px] font-medium text-slate-900">{value}</div>
-          <p className="mt-1 text-[10px] leading-4 text-slate-500">{detail}</p>
-        </div>
-      </div>
-    </section>
-  );
-}

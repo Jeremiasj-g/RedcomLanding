@@ -104,8 +104,6 @@ const CCC_WORKSPACE_FILE_LABELS: Record<CccWorkspaceFileKind, string> = {
   sales: "Archivo de ventas",
   dropsize_sales: "Reporte de comprobantes DROPSIZE",
   dropsize_isolated: "Reporte aislado DROPSIZE",
-  seller_supervisor: "Listado Vendedor–Supervisor",
-  personal_detail: "Detalle personal",
 };
 
 type DashboardUser = {
@@ -1301,7 +1299,7 @@ function DashboardContent({ me }: { me: DashboardUser }) {
           )}
           {!sharedPersonalDetailLoading && !sharedPersonalDetailMeta && (
             <div className="database-message neutral">
-              Administración debe cargar Detalle personal global desde el Panel de configuración.
+              El DetallePersonal maestro se publica desde Administración → Personal comercial.
             </div>
           )}
           {clientBaseMessage && <div className="database-message success">{clientBaseMessage}</div>}

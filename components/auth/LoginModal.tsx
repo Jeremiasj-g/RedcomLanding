@@ -15,6 +15,9 @@ import {
 } from 'lucide-react';
 
 import { supabase } from '@/lib/supabaseClient';
+import { Switch } from '@/components/ui/switch';
+import { RedcomSearchableSelect } from '@/components/ui/redcom-select';
+import {getCommercialVendorLoginOptions,type VendorLoginOption} from '@/lib/commercialVendorAccess';
 
 type Branch = { name: string };
 
@@ -28,6 +31,11 @@ export default function LoginModal({
   const router = useRouter();
 
   const [email, setEmail] = useState('');
+  const [vendorMode,setVendorMode]=useState(false);
+  const [vendorOptions,setVendorOptions]=useState<VendorLoginOption[]>([]);
+  const [vendorBranch,setVendorBranch]=useState('');
+  const [vendorCode,setVendorCode]=useState('');
+  const [vendorLoading,setVendorLoading]=useState(false);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -77,6 +85,22 @@ export default function LoginModal({
       .then(({ data }) => setBranches((data ?? []) as Branch[]));
   }, [branches.length, open]);
 
+  useEffect(()=>{
+    if(!open||!vendorMode)return;
+    let current=true;
+    setVendorLoading(true);
+    void getCommercialVendorLoginOptions().then(items=>{
+      if(current)setVendorOptions(items);
+    }).catch(()=>{
+      if(current)setError('No se pudo consultar el padrón de vendedores.');
+    }).finally(()=>{if(current)setVendorLoading(false);});
+    return()=>{current=false;};
+  },[open,vendorMode]);
+
+  const vendorBranchChoices=[...new Set(vendorOptions.map(p=>p.branch))].sort((a,b)=>a.localeCompare(b,'es-AR'));
+  const vendorChoices=vendorOptions.filter(p=>p.branch===vendorBranch);
+  const selectedVendor=vendorChoices.find(p=>String(p.person_code)===vendorCode);
+
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -84,11 +108,14 @@ export default function LoginModal({
     setForgotMsg(null);
     setSubmitting(true);
 
+    if(vendorMode&&!selectedVendor?.login_email){
+      setSubmitting(false);
+      setError('Seleccioná un vendedor que tenga una contraseña configurada desde Personal comercial.');
+      return;
+    }
+    const loginEmail=vendorMode?selectedVendor!.login_email!:email.trim().toLowerCase();
     const { data: signInData, error: signInError } =
-      await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
+      await supabase.auth.signInWithPassword({email:loginEmail,password});
 
     if (signInError) {
       setSubmitting(false);
@@ -99,7 +126,7 @@ export default function LoginModal({
     const userId = signInData.user?.id;
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('is_active')
+      .select('is_active,role')
       .eq('id', userId)
       .single();
 
@@ -117,6 +144,17 @@ export default function LoginModal({
       return;
     }
 
+    if(vendorMode){
+      const {data:membership,error:membershipError}=await supabase.rpc(
+        'commercial_vendor_membership_active',{p_user_id:userId}
+      );
+      if(membershipError||membership!==true||profile.role!=='vendedor'){
+        await supabase.auth.signOut();
+        setSubmitting(false);
+        setError('Este vendedor no tiene un acceso comercial vigente.');
+        return;
+      }
+    }
     onOpenChange(false);
     router.replace('/app');
     router.refresh();
@@ -256,7 +294,33 @@ export default function LoginModal({
                   </p>
                 </div>
 
+                <div className="mt-7 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <label htmlFor="vendor-login-mode" className="cursor-pointer text-[12px] font-medium text-slate-700">Vendedor</label>
+                  <Switch id="vendor-login-mode" checked={vendorMode} onCheckedChange={checked=>{
+                    setVendorMode(checked);setVendorBranch('');setVendorCode('');setError(null);
+                    setPassword('');setForgotErr(null);setForgotMsg(null);
+                  }} className="data-[state=checked]:bg-slate-900 data-[state=unchecked]:bg-slate-200"/>
+                </div>
+
                 <form onSubmit={onSubmit} className="mt-8 space-y-4">
+                  {vendorMode?(
+                    <motion.div key="vendor-selector" initial={{opacity:0,y:5}} animate={{opacity:1,y:0}} transition={{duration:0.2}} className="space-y-3">
+                      <div>
+                        <label className="mb-1.5 block text-[11px] font-medium text-slate-600">Sucursal</label>
+                        <RedcomSearchableSelect accent="neutral" value={vendorBranch} onValueChange={value=>{setVendorBranch(value);setVendorCode('');}}
+                          disabled={vendorLoading} placeholder={vendorLoading?'Cargando sucursales…':'Seleccionar sucursal'}
+                          searchPlaceholder="Buscar sucursal" aria-label="Sucursal del vendedor"
+                          options={vendorBranchChoices.map(branch=>({value:branch,label:branch}))}/>
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[11px] font-medium text-slate-600">Vendedor</label>
+                        <RedcomSearchableSelect accent="neutral" value={vendorCode} onValueChange={setVendorCode}
+                          disabled={!vendorBranch||vendorLoading} placeholder="Seleccionar vendedor"
+                          searchPlaceholder="Buscar por nombre o código" aria-label="Vendedor"
+                          options={vendorChoices.map(person=>({value:String(person.person_code),label:String(person.person_code).padStart(2,'0')+' '+person.person_name}))}/>
+                      </div>
+                    </motion.div>
+                  ):(
                   <div>
                     <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                       Correo
@@ -275,7 +339,7 @@ export default function LoginModal({
                       />
                     </div>
                   </div>
-
+                  )}
                   <div>
                     <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                       Contraseña
@@ -317,7 +381,7 @@ export default function LoginModal({
                       Recordarme
                     </label>
 
-                    <button
+                    {!vendorMode&&<button
                       type="button"
                       onClick={() => void handleForgotPassword()}
                       disabled={forgotSending}
@@ -326,7 +390,7 @@ export default function LoginModal({
                       {forgotSending
                         ? 'Enviando...'
                         : '¿Olvidaste tu contraseña?'}
-                    </button>
+                    </button>}
                   </div>
 
                   {error || forgotErr || forgotMsg ? (
@@ -343,7 +407,7 @@ export default function LoginModal({
 
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting||(vendorMode&&(!selectedVendor||vendorLoading))}
                     className="group mt-1 inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-[#17181b] px-5 text-[12px] font-semibold text-white transition hover:bg-[#242529] disabled:cursor-wait disabled:opacity-60"
                   >
                     {submitting ? (

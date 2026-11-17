@@ -609,7 +609,7 @@ export default function TaskChecklistSection({
                     const isEditing = editingId === item.id;
 
                     return (
-                      <DraggableItem itemId={item.id} disabled={!editable || isEditing || !!activeDragId}>
+                      <DraggableItem key={item.id} itemId={item.id} disabled={!editable || isEditing || !!activeDragId}>
                         {({ setNodeRef, transformStyle, attributes, listeners, isDragging }) => (
                           <li
                             key={item.id}
@@ -732,7 +732,7 @@ export default function TaskChecklistSection({
               const isCollapsed = collapsedGroups[g] ?? false;
 
               return (
-                <GroupDropZone groupKey={g} disabled={!editable}>
+                <GroupDropZone key={g} groupKey={g} disabled={!editable}>
                 <div key={g} className="rounded-[14px] border border-white/[0.065] bg-white/[0.025] p-2.5">
                   <button
                     type="button"
@@ -767,7 +767,7 @@ export default function TaskChecklistSection({
                         const isEditing = editingId === item.id;
 
                         return (
-                          <DraggableItem itemId={item.id} disabled={!editable || isEditing || !!activeDragId}>
+                          <DraggableItem key={item.id} itemId={item.id} disabled={!editable || isEditing || !!activeDragId}>
                             {({ setNodeRef, transformStyle, attributes, listeners, isDragging }) => (
                               <li
                                 key={item.id}

@@ -17,7 +17,7 @@ import CategoriasSummaryCards from '@/components/categoria/CategoriasSummaryCard
 import {getCategoriaByKey,normalizeCategoriaKey,type CategoriaKey} from '@/utils/categories';
 import {FilterableCategoryTable,type FilterColumn} from '@/components/category-panel/CategoryColumnFilters';
 import {fetchCategoryScaleConfig,type CategoryScaleMetric,type CategoryScaleGate} from '@/lib/categoryScale';
-import {assessSellerCategory,gateBreakdown,scoreByCategory,CATEGORY_PASS_SCORE,CATEGORY_PERCENT_TOLERANCE,type SellerCategoryInput} from '@/lib/categoryReached';
+import {assessSellerCategory,gateBreakdown,scoreByCategory,type SellerCategoryInput} from '@/lib/categoryReached';
 type Daily={visit_date:string;branch:string;sales_force:string;seller_id:number|null;seller_name:string;first_visit:string|null;last_visit:string|null;corrected_start:string|null;corrected_end:string|null;reason:string|null};
 const branches=[
  {key:'corrientes_masivos',name:'Corrientes',branch:'CASA CENTRAL',force:'ESQUEMA 1'},
@@ -346,27 +346,22 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
 }
 
 
-function SellerScoreDialog({name,branch,input,projectedCategory,reasonSummary,row,elapsedDays,month,metrics,gates,onClose}:{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null;reasonSummary:SigoReasonSummary[];row:CategoryPanelRow|null;elapsedDays:number;month:string;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];onClose:()=>void}){
+export function SellerScoreDialog({name,branch,input,projectedCategory,reasonSummary,row,elapsedDays,month,metrics,gates,onClose}:{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null;reasonSummary:SigoReasonSummary[];row:CategoryPanelRow|null;elapsedDays:number;month:string;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];onClose:()=>void}){
  const [view,setView]=useState<'comparison'|'data'>('comparison');
  const [exportOpen,setExportOpen]=useState(false);
  const [exportComparison,setExportComparison]=useState(true);
  const [exportCalculations,setExportCalculations]=useState(true);
  const assessment=assessSellerCategory(input,metrics,gates,projectedCategory);
- const tiers=scoreByCategory(input,projectedCategory,metrics);
  const checks=gateBreakdown(input,gates);
  const fmtNumber=(value:number|null)=>value===null?'—':value.toLocaleString('es-AR',{maximumFractionDigits:2});
  const fmtTime=(value:number|null)=>value===null?'—':displayDuration(Math.round(value*3600));
- const fmtValue=(value:number|null,unit:string)=>value===null?'Sin datos':unit==='currency'?money.format(value):fmtNumber(value)+(unit==='percent'?'%':'');
  const badgeClass=assessment.status==='pending'?'bg-slate-100 text-slate-600':assessment.label==='SENIOR'?'bg-emerald-700 text-white':assessment.label==='SEMI SENIOR'?'bg-emerald-500 text-white':assessment.label==='JUNIOR'?'bg-amber-100 text-amber-800':'bg-rose-100 text-rose-700';
- const colors:{[key:string]:string}={'SENIOR':'bg-emerald-700 text-white','SEMI SENIOR':'bg-emerald-500 text-white','JUNIOR':'bg-amber-400 text-slate-950'};
  return <div role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}} className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-sm">
   <section role="dialog" aria-modal="true" aria-labelledby="seller-score-title" className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[26px] bg-white shadow-[0_24px_70px_rgba(15,23,42,.18)]">
    <header className="shrink-0 border-b border-slate-100 px-5 py-5 sm:px-7">
     <div className="flex flex-wrap items-start justify-between gap-4">
      <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-3"><h2 id="seller-score-title" className="text-xl font-semibold tracking-tight text-slate-950">Análisis de {name}</h2><span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${badgeClass}`}>{assessment.label}</span></div>
-      <p className="mt-1 text-sm text-slate-500">{branch} · Cuadro de escalas · mínimo {CATEGORY_PASS_SCORE}/100 por categoría</p>
-      <p className="mt-1 text-xs text-slate-500">Tolerancia de {CATEGORY_PERCENT_TOLERANCE} punto porcentual en Efectividad, Eficiencia, POP y Exhibición. Volumen, Cobertura y Horarios sin tolerancia.</p>
      </div>
      <div className="flex shrink-0 items-center gap-2">
       <Popover open={exportOpen} onOpenChange={setExportOpen}>
@@ -403,14 +398,26 @@ function SellerScoreDialog({name,branch,input,projectedCategory,reasonSummary,ro
       <div className="text-right"><p className="text-xs text-slate-500">Alcanzado</p><p className={`mt-1 text-sm font-semibold ${check.passed===true?'text-emerald-700':check.passed===false?'text-rose-600':'text-slate-500'}`}>{check.kind==='route'?fmtTime(check.actual):check.actual===null?'Sin datos':fmtNumber(check.actual)+'%'} {check.passed===true?'✓':check.passed===false?'✕':'· Sin evaluar'}</p></div>
      </div>)}
     </div>
-    {assessment.status!=='qualified'&&<p className="mt-3 text-xs leading-5 text-slate-500">{assessment.details}. Los puntos se muestran igualmente para que puedas analizar cada nivel.</p>}
    </header>
    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7">
     <div className="mb-5 flex justify-center"><div className="inline-flex gap-1 rounded-xl bg-slate-100 p-1">
      <button type="button" onClick={()=>setView('comparison')} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${view==='comparison'?'bg-white text-slate-950 shadow-sm':'text-slate-500'}`}>Comparación</button>
      <button type="button" onClick={()=>setView('data')} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${view==='data'?'bg-white text-slate-950 shadow-sm':'text-slate-500'}`}>Datos + cálculos</button>
     </div></div>
-    {view==='comparison'?<div className="grid gap-4 lg:grid-cols-3">
+    {view==='comparison'?<SellerTierComparison input={input} projectedCategory={projectedCategory} metrics={metrics} gates={gates}/>:<SellerDataCalculations row={row} elapsedDays={elapsedDays} projectedCategory={projectedCategory} reasonSummary={reasonSummary} month={month}/>}
+   </div>
+  </section>
+ </div>;
+}
+
+/** Shared V2 comparison: used in the category panel and the seller profile. */
+export function SellerTierComparison({input,projectedCategory,metrics,gates}:{input:SellerCategoryInput;projectedCategory:string|null;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[]}){
+ const tiers=scoreByCategory(input,projectedCategory,metrics);
+ const fmtNumber=(value:number|null)=>value===null?'—':value.toLocaleString('es-AR',{maximumFractionDigits:2});
+ const fmtValue=(value:number|null,unit:string)=>value===null?'Sin datos':unit==='currency'?money.format(value):fmtNumber(value)+(unit==='percent'?'%':'');
+ const colors:{[key:string]:string}={'SENIOR':'bg-emerald-700 text-white','SEMI SENIOR':'bg-emerald-500 text-white','JUNIOR':'bg-amber-400 text-slate-950'};
+ const assessment=assessSellerCategory(input,metrics,gates,projectedCategory);
+ return <div className="grid gap-4 lg:grid-cols-3">
      {tiers.map(tier=><div key={tier.label} className={`overflow-hidden rounded-[20px] border bg-white shadow-[0_5px_24px_rgba(15,23,42,.04)] ${assessment.label===tier.label?'border-emerald-300':'border-slate-200'}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-4">
        <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${colors[tier.label]}`}>{tier.label}</span>
@@ -427,8 +434,5 @@ function SellerScoreDialog({name,branch,input,projectedCategory,reasonSummary,ro
        </div>
       </div>
      </div>)}
-    </div>:<SellerDataCalculations row={row} elapsedDays={elapsedDays} projectedCategory={projectedCategory} reasonSummary={reasonSummary} month={month}/>}
-   </div>
-  </section>
- </div>;
+    </div>;
 }
