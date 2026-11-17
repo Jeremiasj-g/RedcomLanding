@@ -17,7 +17,7 @@ import CategoriasSummaryCards from '@/components/categoria/CategoriasSummaryCard
 import {getCategoriaByKey,normalizeCategoriaKey,type CategoriaKey} from '@/utils/categories';
 import {FilterableCategoryTable,type FilterColumn} from '@/components/category-panel/CategoryColumnFilters';
 import {fetchCategoryScaleConfig,type CategoryScaleMetric,type CategoryScaleGate} from '@/lib/categoryScale';
-import {assessSellerCategory,gateBreakdown,scoreByCategory,CATEGORY_PASS_SCORE,CATEGORY_PERCENT_TOLERANCE,type SellerCategoryInput} from '@/lib/categoryReached';
+import {assessSellerCategory,gateBreakdown,scoreByCategory,type SellerCategoryInput} from '@/lib/categoryReached';
 type Daily={visit_date:string;branch:string;sales_force:string;seller_id:number|null;seller_name:string;first_visit:string|null;last_visit:string|null;corrected_start:string|null;corrected_end:string|null;reason:string|null};
 const branches=[
  {key:'corrientes_masivos',name:'Corrientes',branch:'CASA CENTRAL',force:'ESQUEMA 1'},
@@ -362,8 +362,6 @@ export function SellerScoreDialog({name,branch,input,projectedCategory,reasonSum
     <div className="flex flex-wrap items-start justify-between gap-4">
      <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-3"><h2 id="seller-score-title" className="text-xl font-semibold tracking-tight text-slate-950">Análisis de {name}</h2><span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${badgeClass}`}>{assessment.label}</span></div>
-      <p className="mt-1 text-sm text-slate-500">{branch} · Cuadro de escalas · mínimo {CATEGORY_PASS_SCORE}/100 por categoría</p>
-      <p className="mt-1 text-xs text-slate-500">Tolerancia de {CATEGORY_PERCENT_TOLERANCE} punto porcentual en Efectividad, Eficiencia, POP y Exhibición. Volumen, Cobertura y Horarios sin tolerancia.</p>
      </div>
      <div className="flex shrink-0 items-center gap-2">
       <Popover open={exportOpen} onOpenChange={setExportOpen}>
@@ -400,7 +398,6 @@ export function SellerScoreDialog({name,branch,input,projectedCategory,reasonSum
       <div className="text-right"><p className="text-xs text-slate-500">Alcanzado</p><p className={`mt-1 text-sm font-semibold ${check.passed===true?'text-emerald-700':check.passed===false?'text-rose-600':'text-slate-500'}`}>{check.kind==='route'?fmtTime(check.actual):check.actual===null?'Sin datos':fmtNumber(check.actual)+'%'} {check.passed===true?'✓':check.passed===false?'✕':'· Sin evaluar'}</p></div>
      </div>)}
     </div>
-    {assessment.status!=='qualified'&&<p className="mt-3 text-xs leading-5 text-slate-500">{assessment.details}. Los puntos se muestran igualmente para que puedas analizar cada nivel.</p>}
    </header>
    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7">
     <div className="mb-5 flex justify-center"><div className="inline-flex gap-1 rounded-xl bg-slate-100 p-1">
