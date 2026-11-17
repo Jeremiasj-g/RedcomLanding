@@ -91,3 +91,28 @@ export async function activatePersonnelVersion(versionId:string){
  const {error}=await supabase.rpc('activate_commercial_personnel_version',{p_version_id:versionId});
  if(error)throw error;
 }
+
+
+export type PersonnelTableSnapshot={
+ columns:{key:string;label:string}[];
+ rows:Record<string,string>[];
+};
+/** Conserva todas las columnas del Excel original, incluso las no usadas por los cálculos. */
+export async function getActivePersonnelTable():Promise<PersonnelTableSnapshot|null>{
+ const file=await downloadActivePersonnel();
+ if(!file)return null;
+ const matrix=await readFirstWorksheet(file);
+ const headerIndex=matrix.slice(0,40).findIndex(row=>{
+  const headings=row.map(normalize);
+  return ['CODIGO','DESCRIPCION','SUCURSAL','CARGO','SUPERIOR'].every(name=>headings.includes(name));
+ });
+ if(headerIndex<0)throw new Error('El archivo publicado no contiene los encabezados de DetallePersonal.');
+ const cols=matrix[headerIndex].map((item,index)=>({key:'c'+index,label:clean(item)}))
+  .filter(column=>column.label.length>0);
+ return {
+  columns:cols,
+  rows:matrix.slice(headerIndex+1).filter(row=>row.some(cell=>clean(cell)!=='')).map(row=>
+   Object.fromEntries(cols.map(col=>[col.key,clean(row[Number(col.key.slice(1))])]))
+  ),
+ };
+}
