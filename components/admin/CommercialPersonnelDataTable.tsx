@@ -1,33 +1,34 @@
 'use client';
 import {useMemo,useState} from 'react';
-import {ArrowDown,ArrowUp,ArrowUpDown,ChevronLeft,ChevronRight,Search} from 'lucide-react';
+import {ChevronLeft,ChevronRight,Search} from 'lucide-react';
 import type {PersonnelTableSnapshot} from '@/lib/commercialPersonnelMaster';
 
 const PAGE_SIZE=25;
-const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-AR');
-const compare=(a:string,b:string)=>{
- const an=Number(a.replace(/\./g,'').replace(',','.')),bn=Number(b.replace(/\./g,'').replace(',','.'));
- if(a.trim()&&b.trim()&&Number.isFinite(an)&&Number.isFinite(bn))return an-bn;
- return a.localeCompare(b,'es-AR',{numeric:true,sensitivity:'base'});
+const canonical=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
+type GroupKey='code'|'identity'|'branch'|'hierarchy'|'other';
+const category=(label:string):GroupKey=>{
+ const v=canonical(label);
+ if(v==='CODIGO'||v==='COD')return 'code';
+ if(['DESCRIPCION','NOMBRE','USUARIO','TIPO'].includes(v))return 'identity';
+ if(['SUCURSAL','FUERZA DE VENTA','FUERZA VENTA'].includes(v))return 'branch';
+ if(['CARGO','SUPERIOR'].includes(v))return 'hierarchy';
+ return 'other';
 };
+const groups:{key:GroupKey;title:string}[]=[{key:'code',title:'Código'},{key:'identity',title:'Personal'},{key:'branch',title:'Sucursal'},{key:'hierarchy',title:'Jerarquía'},{key:'other',title:'Información adicional'}];
+const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-AR');
 export default function CommercialPersonnelDataTable({snapshot,loading}:{snapshot:PersonnelTableSnapshot|null;loading:boolean}){
  const [search,setSearch]=useState('');
- const [sort,setSort]=useState<{key:string;direction:'asc'|'desc'}|null>(null);
  const [page,setPage]=useState(1);
+ const grouped=useMemo(()=>groups.map(group=>({...group,cols:(snapshot?.columns??[]).filter(col=>category(col.label)===group.key)})).filter(group=>group.cols.length>0),[snapshot]);
  const results=useMemo(()=>{
   if(!snapshot)return [];
   const query=normalize(search.trim());
   const rows=snapshot.rows.filter(row=>!query||snapshot.columns.some(col=>normalize(row[col.key]??'').includes(query)));
-  if(sort)rows.sort((a,b)=>compare(a[sort.key]??'',b[sort.key]??'')*(sort.direction==='asc'?1:-1));
   return rows;
- },[snapshot,search,sort]);
+ },[snapshot,search]);
  const totalPages=Math.max(1,Math.ceil(results.length/PAGE_SIZE));
  const currentPage=Math.min(page,totalPages);
  const visible=results.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
- const toggleSort=(key:string)=>{
-  setSort(prev=>prev?.key===key&&prev.direction==='asc'?{key,direction:'desc'}:prev?.key===key?null:{key,direction:'asc'});
-  setPage(1);
- };
  const rangeStart=results.length?(currentPage-1)*PAGE_SIZE+1:0;
  const rangeEnd=Math.min(currentPage*PAGE_SIZE,results.length);
  return <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -41,21 +42,20 @@ export default function CommercialPersonnelDataTable({snapshot,loading}:{snapsho
     <input aria-label="Buscar en todas las columnas de personal" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Buscar personal, código, sucursal…" className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs outline-none transition-[border-color,box-shadow] duration-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"/>
    </div>
   </div>
-  <div className="max-h-[min(65vh,770px)] min-h-[320px] w-full overflow-auto overscroll-contain">
-   <table className="w-max min-w-full border-collapse text-left text-xs">
+  <div className="max-h-[min(65vh,770px)] min-h-[320px] w-full overflow-y-auto overflow-x-hidden overscroll-contain">
+   <table className="w-full table-fixed border-collapse text-left text-xs">
+    <colgroup>{grouped.map(group=><col key={group.key} style={{width:group.key==='code'?'8%':group.key==='identity'?'23%':group.key==='branch'?'20%':group.key==='hierarchy'?'24%':'25%'}}/>)}</colgroup>
     <thead className="sticky top-0 z-10 bg-slate-100 text-slate-600 shadow-[0_1px_0_#e2e8f0]">
-     <tr>{(snapshot?.columns??[]).map(col=><th key={col.key} scope="col" aria-sort={sort?.key===col.key?(sort.direction==='asc'?'ascending':'descending'):'none'} className="whitespace-nowrap border-r border-slate-200 px-3 py-2.5 font-medium last:border-r-0">
-      <button type="button" onClick={()=>toggleSort(col.key)} className="inline-flex w-full items-center justify-between gap-3 rounded-md text-left transition-colors duration-200 hover:text-slate-950" aria-label={'Ordenar por '+col.label}>
-       <span>{col.label}</span>
-       {sort?.key===col.key?(sort.direction==='asc'?<ArrowUp className="h-3 w-3 shrink-0"/>:<ArrowDown className="h-3 w-3 shrink-0"/>):<ArrowUpDown className="h-3 w-3 shrink-0 text-slate-400"/>}
-      </button>
-     </th>)}</tr>
+     <tr>{grouped.map(group=><th key={group.key} scope="col" className="border-r border-slate-200 px-2.5 py-2.5 font-medium last:border-r-0">{group.title}</th>)}</tr>
     </thead>
     <tbody>
-     {loading?Array.from({length:10},(_,index)=><tr key={index} className="border-b border-slate-100">{Array.from({length:Math.max(7,snapshot?.columns.length??0)},(_,cell)=><td key={cell} className="px-3 py-3"><div className="h-4 w-24 animate-pulse rounded bg-slate-100 motion-reduce:animate-none"/></td>)}</tr>):
-     visible.map((row,index)=><tr key={currentPage+'-'+index} className="border-b border-slate-100 transition-colors duration-200 hover:bg-slate-50">
-      {snapshot?.columns.map(col=><td key={col.key} className="max-w-[290px] whitespace-nowrap border-r border-slate-100 px-3 py-2.5 tabular-nums text-slate-700 last:border-r-0" title={row[col.key]??''}>
-       {row[col.key]||'—'}
+     {loading?Array.from({length:10},(_,index)=><tr key={index} className="border-b border-slate-100">{groups.map(group=><td key={group.key} className="px-3 py-3"><div className="h-4 w-full animate-pulse rounded bg-slate-100 motion-reduce:animate-none"/></td>)}</tr>):
+     visible.map((row,index)=><tr key={currentPage+'-'+index} className="border-b border-slate-100 align-top transition-colors duration-200 hover:bg-slate-50">
+      {grouped.map(group=><td key={group.key} className="min-w-0 border-r border-slate-100 px-2.5 py-3 text-slate-700 last:border-r-0">
+       <div className="space-y-1.5">{group.cols.map((col,i)=><div key={col.key} className="min-w-0 break-words">
+        {group.cols.length>1&&<span className="mr-1 text-[10px] text-slate-500">{col.label}:</span>}
+        <span className={i===0&&group.key==='identity'?'font-medium text-slate-900':'tabular-nums'}>{row[col.key]||'—'}</span>
+       </div>)}</div>
       </td>)}
      </tr>)}
     </tbody>
