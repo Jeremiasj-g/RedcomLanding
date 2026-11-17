@@ -1,26 +1,28 @@
 'use client';
 
 import {useCallback,useEffect,useState} from 'react';
+import CommercialPersonnelDataTable from '@/components/admin/CommercialPersonnelDataTable';
 import {FileSpreadsheet,Upload,Download,History,RefreshCw,CheckCircle2} from 'lucide-react';
 import {motion,useReducedMotion} from 'framer-motion';
 import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
 import {useMe} from '@/hooks/useMe';
 import {notify,errorMessage} from '@/lib/notifications';
-import {parseMasterPersonnel,publishMasterPersonnel,getActivePersonnelMeta,getPersonnelVersions,downloadActivePersonnel,activatePersonnelVersion,type CommercialPerson,type PersonnelVersion} from '@/lib/commercialPersonnelMaster';
+import {parseMasterPersonnel,publishMasterPersonnel,getActivePersonnelMeta,getPersonnelVersions,downloadActivePersonnel,activatePersonnelVersion,type CommercialPerson,type PersonnelVersion,getActivePersonnelTable,type PersonnelTableSnapshot} from '@/lib/commercialPersonnelMaster';
 
 export default function MasterPersonnelAdminPage(){
  const {me}=useMe();
  const reduced=useReducedMotion();
  const [meta,setMeta]=useState<Awaited<ReturnType<typeof getActivePersonnelMeta>>>(null);
  const [versions,setVersions]=useState<PersonnelVersion[]>([]);
+ const [snapshot,setSnapshot]=useState<PersonnelTableSnapshot|null>(null);
  const [file,setFile]=useState<File|null>(null);
  const [preview,setPreview]=useState<CommercialPerson[]|null>(null);
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
  const [confirmVersion,setConfirmVersion]=useState<string|null>(null);
  const load=useCallback(async()=>{
-  const [m,v]=await Promise.all([getActivePersonnelMeta(),getPersonnelVersions()]);
-  setMeta(m);setVersions(v);
+  const [m,v,table]=await Promise.all([getActivePersonnelMeta(),getPersonnelVersions(),getActivePersonnelTable()]);
+  setMeta(m);setVersions(v);setSnapshot(table);
  },[]);
  useEffect(()=>{let alive=true;void load().catch(e=>{if(alive)notify.error(errorMessage(e,'No se pudo consultar DetallePersonal. ¿Aplicaste la migración SQL?'));}).finally(()=>{if(alive)setLoading(false);});return()=>{alive=false;};},[load]);
  const selectFile=async(next:File|null)=>{
@@ -53,7 +55,7 @@ export default function MasterPersonnelAdminPage(){
   {label:'Supervisores',count:people.filter(p=>p.role==='SUPERVISOR').length},
   {label:'Vendedores',count:people.filter(p=>p.role==='VENDEDOR').length},
  ];
- return <motion.section initial={reduced?false:{opacity:0,y:6}} animate={{opacity:1,y:0}} transition={{duration:reduced?0:0.2}} className="mx-auto max-w-5xl space-y-5 px-3 pb-12">
+ return <motion.section initial={reduced?false:{opacity:0,y:6}} animate={{opacity:1,y:0}} transition={{duration:reduced?0:0.2}} className="w-full min-w-0 space-y-5 pb-12">
   <div className="flex flex-wrap items-center justify-between gap-3">
    <h1 className="text-2xl font-semibold text-slate-950">Personal comercial</h1>
    <button type="button" onClick={()=>void load().catch(e=>notify.error(errorMessage(e,'No se pudo actualizar.')))} className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 transition-colors duration-200 hover:bg-slate-50"><RefreshCw className="mr-2 inline h-4 w-4"/>Actualizar</button>
@@ -72,6 +74,7 @@ export default function MasterPersonnelAdminPage(){
     <div className="mt-4 flex justify-end gap-2"><button type="button" onClick={()=>{setFile(null);setPreview(null);}} className="rounded-lg border border-slate-200 px-4 py-2 text-sm">Cancelar</button><button type="button" disabled={busy} onClick={()=>void publish()} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{busy?'Guardando…':'Confirmar y publicar'}</button></div>
    </div>}
   </section>
+  <CommercialPersonnelDataTable snapshot={snapshot} loading={loading}/>
   <section className="rounded-2xl border border-slate-200 bg-white p-5">
    <h2 className="flex items-center gap-2 text-sm font-medium"><History className="h-4 w-4"/>Historial de versiones</h2>
    {!versions.length&&<p className="mt-4 text-xs text-slate-500">No hay versiones registradas. La primera importación creará el historial.</p>}
