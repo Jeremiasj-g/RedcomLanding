@@ -51,7 +51,7 @@ La migración `20261117_commercial_roster_diff_and_identity_review.sql` agrega u
 - **Modificado** (ámbar suave): mismo código + sucursal, con cambios en nombre, cargo, superior o fuerza de venta. Los cambios de datos no alteran la clave.
 - **Sin cambios**: se conserva exactamente la cuenta y el hash de contraseña existentes.
 - **Baja**: la persona ya no está en el padrón. Se conserva el registro de acceso histórico y la contraseña, pero el perfil comercial queda inactivo para impedir ingreso.
-- **Cambio de nombre con el mismo código**: podría ser una corrección o código reutilizado. Se bloquea preventivamente el acceso y se muestra «Revisar identidad»; el administrador puede confirmar que es la misma persona y reactivarla **sin cambiar la contraseña**.
+- **Cambio de nombre con el mismo código**: indica rotación del titular del puesto. Se bloquea la cuenta y se exige una contraseña nueva administrada antes de reactivarla; se mantiene el mismo Auth user asociado al código.
 - **Cambio de sucursal (clave compuesta diferente)**: se marca baja + alta nueva; nunca se transfiere una cuenta automáticamente porque la identidad sería ambigua. Requiere revisión administrativa.
 - **Cambio de fuerza de venta dentro de la misma sucursal**: se actualizan sucursal autorizada y `user_branches` cuando corresponde, conservando la contraseña.
 
@@ -60,15 +60,19 @@ Al seleccionar un nuevo XLSX se muestran cifras de incorporaciones, modificacion
 **Puesta en marcha:** instalar la migración antes de publicar otro archivo. No ejecutar el generador masivo de todas las contraseñas luego de una importación si se desea preservar las claves de los usuarios actuales. Probar primero con una versión de ensayo o una copia de base y verificar el caso de cambio de nombre y fuerza de venta.
 
 
-## Reemplazo de vendedor con código reutilizado
-Si un código y sucursal continúan iguales, pero el nombre cambia, el acceso antiguo queda bloqueado y se requiere una decisión explícita del administrador. El servidor devuelve **HTTP 409** hasta resolverla, tanto para clave manual como aleatoria; no es un error del generador de contraseñas.
 
-En la fila se muestra **Revisar identidad** con dos opciones:
-- **Es la misma persona:** por una corrección de nombre. Reanuda la cuenta antigua, conserva la clave modificada desde Perfil y sincroniza la sucursal.
-- **Es otra persona:** crea un usuario Auth nuevo con su propia clave manual o aleatoria. La identidad y contraseña antiguas permanecen sin cambios, el usuario anterior sigue inactivo y se registra el reemplazo en `commercial_vendor_identity_replacements`.
+## Cuenta comercial por código, no por nombre (noviembre de 2026)
 
-Las operaciones de reemplazo requieren administrador activo y solo se admiten para un registro con `needs_review=true` y nombre realmente diferente. La RPC `replace_commercial_vendor_account` intercambia el vínculo e inserta la auditoría **en una única transacción**. Si falla, la Edge Function elimina la nueva identidad temporal y no reutiliza la contraseña antigua.
+**Clave de identidad:** `(sucursal, código comercial)`. Los nombres son atributos del titular de turno. Por ejemplo, si el código 01 pasa de una persona a otra, existe **una sola cuenta de Supabase Auth para ese código**, no una cuenta nueva para cada empleado. Las 87 cuentas existentes no se duplican ni eliminan al importar un nuevo padrón.
 
-Los errores HTTP de `commercial_vendor_admin` se leen del JSON de respuesta en el cliente, en lugar de mostrar solamente `Edge Function returned a non-2xx status code`.
+**Rotación de titular:**
+1. Publicar el nuevo Excel. El cambio de nombre marca el código como **Rotación pendiente** y desactiva temporalmente el acceso.
+2. El administrador pulsa **Rotar titular** y elige contraseña manual o aleatoria. No hay opción de reactivar manteniendo la contraseña vieja.
+3. La Edge Function `commercial_vendor_admin` cambia la contraseña y el `user_metadata.full_name` de la **misma cuenta Auth**; la RPC `finalize_commercial_vendor_holder_rotation` sincroniza `profiles.full_name`, sucursales, el nombre visible del padrón y borra sesiones persistentes. Registra el titular anterior y el nuevo en `commercial_vendor_holder_rotations`.
+4. La nueva contraseña solo se enseña al administrador una vez, para entregarla al nuevo vendedor. El titular anterior no podrá renovar su sesión y no podrá usar su contraseña previa.
 
-La migración `20261117_commercial_vendor_identity_replacements.sql` debe aplicarse antes de desplegar la versión de la función que ofrece «Es otra persona».
+**Seguridad:** La revocación de sesiones impide renovar tokens anteriores, pero los JWT ya emitidos pueden seguir siendo técnicamente válidos hasta vencer. Es importante revisar las políticas de acceso/RLS para datos sensibles ligados al usuario técnico antes de habilitar rotaciones en producción y considerar un control por `session_id` en todas las rutas que dependan de ese acceso. Los datos históricos vinculados al `auth_user_id` siguen asociados al código: no se borran ni se transfieren al nombre nuevo. Si un módulo contiene información personal ajena al puesto, debe segmentarse por titular para impedir exposición entre empleados.
+
+**Perfil:** Para los accesos comerciales el nombre se muestra en solo lectura. Además, una función/trigger en PostgreSQL bloquea las modificaciones directas a `profiles.full_name`, rol, estado y sucursal desde el JWT del vendedor. Administradores y otros roles conservan su funcionalidad.
+
+**Migración:** `supabase/migrations/20261117_commercial_vendor_code_holder_rotation.sql`. No ejecuta ninguna rotación automáticamente; los cuatro códigos anteriormente bloqueados permanecen pendientes hasta que el administrador les establezca una clave.

@@ -21,6 +21,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
 import DualSpinner from '@/components/ui/DualSpinner';
 import { notify } from '@/lib/notifications';
+import { isMyCommercialVendorAccount } from '@/lib/commercialVendorAccess';
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
@@ -64,6 +65,7 @@ export default function MiPerfilPage() {
 
   const [fullName, setFullName] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [commercialVendor, setCommercialVendor] = useState(false);
 
   const [pwd, setPwd] = useState('');
   const [pwd2, setPwd2] = useState('');
@@ -74,6 +76,19 @@ export default function MiPerfilPage() {
   useEffect(() => {
     if (me?.full_name) setFullName(me.full_name);
   }, [me?.full_name]);
+
+  useEffect(() => {
+    if (!me?.id) return;
+    let active = true;
+    void isMyCommercialVendorAccount().then(value => {
+      if (active) setCommercialVendor(value);
+    }).catch(() => {
+      // Conservador ante errores: un vendedor no debe poder editar su
+      // nombre hasta resolver la consulta de identidad comercial.
+      if (active && me.role === 'vendedor') setCommercialVendor(true);
+    });
+    return () => { active = false; };
+  }, [me?.id, me?.role]);
 
   const initials = useMemo(() => {
     const name = (me?.full_name ?? '').trim();
@@ -95,6 +110,10 @@ export default function MiPerfilPage() {
 
   const saveName = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (commercialVendor) {
+      notify.warning('Tu nombre se administra desde DetallePersonal.');
+      return;
+    }
     if (!fullName.trim()) {
       notify.warning('El nombre no puede estar vacío.');
       return;
@@ -264,6 +283,15 @@ export default function MiPerfilPage() {
                 description="El nombre que se muestra en asignaciones, comentarios y actividad."
               />
 
+              {commercialVendor ? (
+                <div className="mt-5 space-y-2">
+                  <label className="block text-[10px] font-medium uppercase tracking-[0.09em] text-slate-400">Nombre del titular</label>
+                  <div className="flex min-h-11 items-center rounded-[13px] border border-slate-200 bg-[#F8F9FA] px-3.5 text-[13px] text-slate-900">
+                    {me.full_name || 'Sin nombre'}
+                  </div>
+                  <p className="text-[11px] text-slate-500">El nombre proviene de DetallePersonal y solo puede actualizarse desde la administración comercial.</p>
+                </div>
+              ) : (
               <form onSubmit={saveName} className="mt-5">
                 <label className="mb-2 block text-[10px] font-medium uppercase tracking-[0.09em] text-slate-400">
                   Nombre completo
@@ -290,6 +318,7 @@ export default function MiPerfilPage() {
                   El cambio se refleja en el resto de los módulos donde aparezca tu nombre.
                 </div>
               </form>
+              )}
             </CardShell>
 
             <CardShell>

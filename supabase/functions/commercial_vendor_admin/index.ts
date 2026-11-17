@@ -40,10 +40,9 @@ Deno.serve(async req=>{
   let body:Record<string,unknown>;
   try{body=await req.json()}catch{return json({error:'Solicitud inválida'},400)}
   const branch=clean(body.branch),code=Number(body.person_code),password=String(body.password??'');
-  const approveIdentity=body.action==='approve_identity';
-  const replaceIdentity=body.action==='replace_identity';
+  const rotateHolder=body.action==='rotate_holder';
   if(!branch||branch.length>160||!Number.isSafeInteger(code)||code<1||
-      (!approveIdentity&&!PASSWORD.test(password)))
+      !PASSWORD.test(password))
    return json({error:'Datos de vendedor o contraseña inválidos.'},400);
 
   const {data:master,error:masterError}=await admin.from('category_commercial_personnel').select('people').eq('id',1).single();
@@ -57,74 +56,32 @@ Deno.serve(async req=>{
   const {data:existing,error:existingError}=await admin.from('commercial_vendor_accounts')
    .select('auth_user_id,login_email,person_name,needs_review').eq('branch',branch).eq('person_code',code).maybeSingle();
   if(existingError)return json({error:'No se pudo consultar el acceso comercial'},503);
-  if(replaceIdentity){
+  if(rotateHolder){
    if(!existing||existing.needs_review!==true||existing.person_name===person.name)
-    return json({error:'El registro no tiene un reemplazo de identidad pendiente.'},409);
-   const {data:oldProfile,error:oldProfileError}=await admin.from('profiles')
-     .select('is_active').eq('id',existing.auth_user_id).maybeSingle();
-   if(oldProfileError||oldProfile?.is_active!==false)
-    return json({error:'La cuenta anterior debe permanecer inactiva antes de reemplazarla.'},409);
-   // The previous auth user and password are preserved, but remain inactive.
-   // A completely new Auth user is created for the replacement seller.
-   const newEmail='vendor-'+crypto.randomUUID()+'@example.com';
-   const {data:newUser,error:createError}=await admin.auth.admin.createUser({
-     email:newEmail,password,email_confirm:true,user_metadata:{full_name:person.name},
+    return json({error:'No hay una rotación de titular pendiente para este código.'},409);
+   const {data:currentProfile,error:profileError}=await admin.from('profiles')
+    .select('is_active,role').eq('id',existing.auth_user_id).maybeSingle();
+   if(profileError||currentProfile?.is_active!==false||currentProfile.role!=='vendedor')
+    return json({error:'El acceso anterior debe estar inactivo antes de rotarlo.'},409);
+
+   // El mismo Auth user sigue representando el puesto. Se restablece
+   // su contraseña: nunca se reutiliza la que tenía el titular anterior.
+   const {error:passwordError}=await admin.auth.admin.updateUserById(existing.auth_user_id,{
+    password,user_metadata:{full_name:person.name},
    });
-   if(createError||!newUser.user)
-    return json({error:'No se pudo crear el acceso nuevo: '+(createError?.message??'Error desconocido')},422);
-   const newId=newUser.user.id;
-   try{
-    const {error:profileError}=await admin.from('profiles').upsert({
-      id:newId,email:newEmail,full_name:person.name,role:'vendedor',
-      is_active:true,branch:profileBranch,
-    },{onConflict:'id'});
-    if(profileError)throw profileError;
-    const {error:userBranchError}=await admin.from('user_branches').upsert({
-      user_id:newId,branch:profileBranch,branch_id:branchInfo.id,
-    },{onConflict:'user_id,branch'});
-    if(userBranchError)throw userBranchError;
-    const {error:swapError}=await admin.rpc('replace_commercial_vendor_account',{
-      p_branch:branch,p_person_code:code,p_expected_old_user:existing.auth_user_id,
-      p_new_user:newId,p_new_name:person.name,p_new_email:newEmail,p_actor:verified.user.id,
-    });
-    if(swapError)throw swapError;
-   }catch(error){
-    await admin.auth.admin.deleteUser(newId).catch(()=>{});
-    return json({error:'No se pudo crear la cuenta nueva: '+(error instanceof Error?error.message:String(error))},422);
+   if(passwordError)return json({error:'No se pudo restablecer la contraseña del código comercial.'},422);
+
+   const {error:finalizeError}=await admin.rpc('finalize_commercial_vendor_holder_rotation',{
+    p_branch:branch,p_person_code:code,p_auth_user_id:existing.auth_user_id,
+    p_new_name:person.name,p_profile_branch:profileBranch,p_branch_id:branchInfo.id,
+    p_actor:verified.user.id,
+   });
+   if(finalizeError){
+    // Si falla, el acceso permanece inactivo. No hacer rollback de la nueva
+    // contraseña a una que conocería el titular que ya dejó la empresa.
+    return json({error:'La contraseña fue renovada, pero no se activó el código. Reintentá la rotación. '+finalizeError.message},422);
    }
-   return json({ok:true,created:true,replaced:true,person_name:person.name});
-  }
-  if(approveIdentity){
-   if(!existing||existing.needs_review!==true)
-    return json({error:'No existe un cambio de identidad pendiente de revisión'},409);
-   // The administrator confirms that the person in the new roster is the
-   // same individual as the owner of this existing Auth account.
-   const {error:mapError}=await admin.from('commercial_vendor_accounts').update({
-     person_name:person.name,needs_review:false,updated_at:new Date().toISOString(),
-   }).eq('branch',branch).eq('person_code',code).eq('auth_user_id',existing.auth_user_id);
-   if(mapError)return json({error:'No se pudo confirmar la identidad'},422);
-   const {error:profileError}=await admin.from('profiles').update({
-     full_name:person.name,is_active:true,branch:profileBranch,
-   }).eq('id',existing.auth_user_id);
-   if(profileError){
-    // Leave the access blocked if the profile could not be restored.
-    await admin.from('commercial_vendor_accounts').update({needs_review:true})
-      .eq('auth_user_id',existing.auth_user_id);
-    return json({error:'No se pudo reactivar el perfil'},422);
-   }
-   const {error:branchesError}=await admin.from('user_branches').delete()
-      .eq('user_id',existing.auth_user_id).neq('branch',profileBranch);
-   const {error:branchLinkError}=branchesError?{error:branchesError}:
-      await admin.from('user_branches').upsert({
-        user_id:existing.auth_user_id,branch:profileBranch,branch_id:branchInfo.id,
-      },{onConflict:'user_id,branch'});
-   if(branchLinkError){
-     await admin.from('commercial_vendor_accounts').update({needs_review:true})
-       .eq('auth_user_id',existing.auth_user_id);
-     await admin.from('profiles').update({is_active:false}).eq('id',existing.auth_user_id);
-     return json({error:'No se pudo sincronizar la sucursal. El acceso permanece bloqueado.'},422);
-   }
-   return json({ok:true,reviewed:true,person_name:person.name});
+   return json({ok:true,rotated:true,person_name:person.name});
   }
   if(existing&&(existing.person_name!==person.name||existing.needs_review===true))
    return json({error:'El vendedor tiene una revisión de identidad pendiente. No se cambiaron contraseñas.'},409);

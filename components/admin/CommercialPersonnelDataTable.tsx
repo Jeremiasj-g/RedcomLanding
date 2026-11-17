@@ -166,11 +166,11 @@ export default function CommercialPersonnelDataTable({snapshot,loading,linkedAcc
          return <td className="border-l border-slate-100 px-2 py-2 align-top max-md:block max-md:border-0">
           {(()=>{const status=changeStatus.get(sellerKey(seller));return status==='new'?<span className="mb-2 inline-block rounded-md bg-emerald-100 px-2 py-1 text-[10px] text-emerald-800">Nuevo</span>:status==='modified'?<span className="mb-2 inline-block rounded-md bg-amber-100 px-2 py-1 text-[10px] text-amber-800">Modificado</span>:null;})()}
           <div className="flex flex-wrap items-center gap-1">
-           {reviewAccountKeys?.has(sellerKey(seller))&&<button type="button" title="Verificar identidad, sin cambiar la clave" onClick={()=>onSellerAction(seller,'review')} className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] text-amber-900 hover:bg-amber-100">Revisar identidad</button>}
+           {reviewAccountKeys?.has(sellerKey(seller))&&<button type="button" title="Rotar titular del código comercial" onClick={()=>onSellerAction(seller,'review')} className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] text-amber-900 hover:bg-amber-100">Rotar titular</button>}
            <button type="button" disabled={reviewAccountKeys?.has(sellerKey(seller))} title="Establecer contraseña manual" aria-label={'Contraseña manual para '+seller.name} onClick={()=>onSellerAction(seller,'manual')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100"><KeyRound className="h-3.5 w-3.5"/></button>
            <button type="button" disabled={reviewAccountKeys?.has(sellerKey(seller))} title="Generar contraseña aleatoria" aria-label={'Contraseña aleatoria para '+seller.name} onClick={()=>onSellerAction(seller,'random')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100"><Shuffle className="h-3.5 w-3.5"/></button>
           </div>
-          <span className="mt-1 block text-[10px] text-slate-500">{reviewAccountKeys?.has(sellerKey(seller))?'Identidad por verificar':linked?'Acceso configurado':'Clave pendiente'}</span>
+          <span className="mt-1 block text-[10px] text-slate-500">{reviewAccountKeys?.has(sellerKey(seller))?'Rotación pendiente':linked?'Acceso configurado':'Clave pendiente'}</span>
          </td>;
         })()}
      </tr>)}

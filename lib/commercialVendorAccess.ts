@@ -40,18 +40,18 @@ async function invokeCommercialAdmin(body:Record<string,unknown>){
  return data;
 }
 export async function assignCommercialVendorPassword(
- seller:SellerIdentity,password:string,options?:{replaceIdentity?:boolean},
+ seller:SellerIdentity,password:string,options?:{rotateHolder?:boolean},
 ){
  validateManualPassword(password);
  return invokeCommercialAdmin({
   branch:seller.branch,person_code:seller.code,password,
-  ...(options?.replaceIdentity?{action:'replace_identity'}:{}),
- }) as Promise<{ok:true;created:boolean;replaced?:boolean;person_name:string}>;
+  ...(options?.rotateHolder?{action:'rotate_holder'}:{}),
+ }) as Promise<{ok:true;created:boolean;rotated?:boolean;person_name:string}>;
 }
 
-/** Reanuda un acceso con nombre cambiado solo tras validación explícita del administrador. */
-export async function approveCommercialVendorIdentity(seller:SellerIdentity){
- await invokeCommercialAdmin({
-  action:'approve_identity',branch:seller.branch,person_code:seller.code,
- });
+/** Cuenta técnica del código comercial vigente; nunca depende del nombre. */
+export async function isMyCommercialVendorAccount(){
+ const {data,error}=await supabase.rpc('is_current_commercial_vendor');
+ if(error)throw error;
+ return data===true;
 }
