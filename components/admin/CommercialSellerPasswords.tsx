@@ -109,7 +109,7 @@ export default function CommercialSellerPasswords({snapshot,loading}:{snapshot:P
    if(!account){failed.push({seller,error:'Cuenta no disponible'});setProgress({done:index+1,total:linkedSellers.length});continue;}
    try{
     const newPassword=randomSecurePassword();
-    await updateAuthPassword(account.id,newPassword);
+    await updateAuthPassword(seller,account.id,newPassword);
     done.push({seller,email:account.email??'',password:newPassword});
    }catch(error){failed.push({seller,error:errorMessage(error,'No se pudo cambiar la contraseña.')});}
    setCredentials([...done]);setFailures([...failed]);setProgress({done:index+1,total:linkedSellers.length});
