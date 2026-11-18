@@ -20,6 +20,7 @@ import { useMe } from '@/hooks/useMe';
 import { notify } from '@/lib/notifications';
 import { isMyCommercialVendorAccount } from '@/lib/commercialVendorAccess';
 import CommercialProfileCategories from '@/components/profile/CommercialProfileCategories';
+import MyVendorActionPlans from '@/components/profile/MyVendorActionPlans';
 import {AlertDialog,AlertDialogAction,AlertDialogCancel,AlertDialogContent,AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,AlertDialogTitle} from '@/components/ui/alert-dialog';
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -49,9 +50,10 @@ export default function MiPerfilPage() {
   const [savingName, setSavingName] = useState(false);
   const [commercialVendor, setCommercialVendor] = useState(false);
   const [vendorStatusLoading,setVendorStatusLoading]=useState(true);
-  const [activeTab,setActiveTab]=useState<'profile'|'category'>('profile');
+  const [activeTab,setActiveTab]=useState<'profile'|'category'|'plan'>('profile');
   const [visitedCategory,setVisitedCategory]=useState(false);
-  const [pendingTab,setPendingTab]=useState<'profile'|'category'|null>(null);
+  const [visitedPlan,setVisitedPlan]=useState(false);
+  const [pendingTab,setPendingTab]=useState<'profile'|'category'|'plan'|null>(null);
 
   const [currentPwd,setCurrentPwd]=useState('');
   const [showCurrentPwd,setShowCurrentPwd]=useState(false);
@@ -220,12 +222,12 @@ export default function MiPerfilPage() {
     <main className="min-h-[calc(100vh-72px)] bg-[#F4F5F7]">
       <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
         {commercialVendor&&<nav aria-label="Secciones de perfil" className="mb-6 flex items-center justify-center gap-1 border-b border-slate-200 pb-2">
-          {([['profile','Perfil'],['category','Categoría']] as const).map(([key,label])=>
+          {([['profile','Perfil'],['category','Categoría'],['plan','Mi plan']] as const).map(([key,label])=>
            <button type="button" key={key} aria-current={activeTab===key?'page':undefined}
             onClick={()=>{
              if(activeTab===key)return;
              if(activeTab==='profile'&&hasPendingEdits){setPendingTab(key);return;}
-             setActiveTab(key);if(key==='category')setVisitedCategory(true);
+             setActiveTab(key);if(key==='category')setVisitedCategory(true);if(key==='plan')setVisitedPlan(true);
             }}
             className={'min-w-28 rounded-xl px-5 py-2.5 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none '+(activeTab===key?'bg-slate-900 text-white':'text-slate-500 hover:bg-slate-100 hover:text-slate-900')}>
             {label}
@@ -408,6 +410,9 @@ export default function MiPerfilPage() {
         {commercialVendor&&visitedCategory&&<div hidden={activeTab!=='category'}>
           <CommercialProfileCategories sellerName={me.full_name??''}/>
         </div>}
+        {commercialVendor&&visitedPlan&&<div hidden={activeTab!=='plan'}>
+          <MyVendorActionPlans/>
+        </div>}
       </div>
       <AlertDialog open={pendingTab!==null} onOpenChange={open=>{if(!open)setPendingTab(null);}}>
         <AlertDialogContent>
@@ -419,7 +424,7 @@ export default function MiPerfilPage() {
            <AlertDialogCancel>Seguir editando</AlertDialogCancel>
            <AlertDialogAction onClick={()=>{
              setCurrentPwd('');setPwd('');setPwd2('');setFullName(me.full_name??'');
-             if(pendingTab){setActiveTab(pendingTab);if(pendingTab==='category')setVisitedCategory(true);}
+             if(pendingTab){setActiveTab(pendingTab);if(pendingTab==='category')setVisitedCategory(true);if(pendingTab==='plan')setVisitedPlan(true);}
              setPendingTab(null);
            }}>Salir sin guardar</AlertDialogAction>
           </AlertDialogFooter>

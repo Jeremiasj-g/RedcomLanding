@@ -5,6 +5,8 @@ export type ProjectTaskActionPlan = {
   task_id: number;
   branch_key: string;
   seller_id: string;
+  viewer_auth_user_id: string | null;
+  assigned_holder_name: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -58,4 +60,20 @@ export async function clearProjectTaskActionPlan(taskId: number) {
     .eq('task_id', taskId);
 
   if (error) throw error;
+}
+
+/** Las opciones provienen del padrón comercial actual, no del histórico. */
+export type ActionPlanVendorCandidate={
+ auth_user_id:string; person_code:number; person_name:string;
+};
+export async function fetchActionPlanVendorCandidates(taskId:number){
+ const {data,error}=await supabase.rpc('action_plan_vendor_candidates',{p_task_id:taskId});
+ if(error)throw error;
+ return (data??[]) as ActionPlanVendorCandidate[];
+}
+export async function assignActionPlanVendor(taskId:number,authUserId:string|null){
+ const {error}=await supabase.rpc('assign_action_plan_vendor',{
+  p_task_id:taskId,p_vendor_auth_user_id:authUserId,
+ });
+ if(error)throw error;
 }
