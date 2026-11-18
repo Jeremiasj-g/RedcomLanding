@@ -70,18 +70,15 @@ function PlanOverview({plan}:{plan:MyVendorActionPlan}){
    <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5"/>Vence: {dateText(plan.task_due_date??plan.project_due_date)}</span>
    <span className="inline-flex items-center gap-1.5"><LockKeyhole className="h-3.5 w-3.5"/>Solo lectura</span>
   </div>
-  <div className="mt-5 border-t border-slate-100 pt-4">
+  {(plan.project_description||plan.assignees.length>0)&&<div className="mt-5 border-t border-slate-100 pt-4">
    <h4 className="text-sm font-medium text-slate-900">Detalles del proyecto</h4>
-   <div className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
-    <div><p className="text-slate-500">Inicio</p><p className="mt-1 font-medium text-slate-800">{dateText(plan.project_start_date)}</p></div>
-    <div><p className="text-slate-500">Fecha límite del proyecto</p><p className="mt-1 font-medium text-slate-800">{dateText(plan.project_due_date)}</p></div>
-   </div>
+
    {plan.project_description&&<p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">{plan.project_description}</p>}
    {plan.assignees.length>0&&<div className="mt-4">
     <p className="flex items-center gap-1.5 text-xs font-medium text-slate-700"><UsersRound className="h-3.5 w-3.5"/>Responsables</p>
     <div className="mt-2 flex flex-wrap gap-2">{plan.assignees.map((person,index)=><span key={index} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs text-slate-700">{person.name}</span>)}</div>
    </div>}
-  </div>
+  </div>}
   {plan.task_description&&<div className="mt-5 border-t border-slate-100 pt-4">
     <p className="text-xs font-medium text-slate-900">Descripción general</p>
     <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">{plan.task_description}</p>
