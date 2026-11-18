@@ -1,5 +1,6 @@
 'use client';
 
+import { decodeTodoLabel } from '@/lib/projectActionPlanGroups';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
@@ -93,18 +94,6 @@ function isOverdue(row: RRHHActionPlanRow) {
   return due.getTime() < Date.now();
 }
 
-function decodeTodoLabel(text?: string) {
-  const raw = String(text ?? '').trim();
-  if (!raw.startsWith('§§')) return { group: null as string | null, label: raw };
-
-  const second = raw.indexOf('§§', 2);
-  if (second < 0) return { group: null as string | null, label: raw };
-
-  return {
-    group: raw.slice(2, second).trim() || null,
-    label: raw.slice(second + 2).trim(),
-  };
-}
 
 export default function RRHHActionPlansPanel() {
   const [items, setItems] = useState<RRHHActionPlanRow[]>([]);

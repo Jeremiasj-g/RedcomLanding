@@ -32,3 +32,12 @@
 - SQL: usuarios anónimos no tienen permiso EXECUTE; candidatos requieren rol autorizado y permiso de edición.
 - Verificar visualmente en localhost: vista móvil, edición de histórico → asignación de cuenta, cambio de histórico invalida vinculación, lectura del avance en Perfil, actualización de checklist desde Proyectos y refresco desde Perfil.
 - Antes de fusionar a main: TypeScript, ESLint, build de Vercel y prueba de un vendedor real.
+
+## Vista ampliada y grupos del checklist (18-11-2026)
+
+- La tarjeta de `Perfil → Mi plan` incorpora estado del proyecto, prioridad, sucursal, código, inicio, vencimiento, descripción del proyecto y responsables (solo nombres y roles autorizados; nunca correos técnicos).
+- Los checklist agrupados usan el **mismo decodificador** `decodeTodoLabel` que RRHH; se extrajo a `lib/projectActionPlanGroups.ts`. El formato persistido `§§RUTAS§§ 101` se muestra como el grupo **RUTAS** y el ítem **101**. No se reescribe información guardada.
+- Cada grupo calcula su progreso a partir de los estados `done` de sus acciones. El progreso general mantiene la fórmula actual compartida con RRHH.
+- El RPC `my_vendor_action_plans` sigue identificado por `auth.uid()` y la misma validación de código, sucursal y titular; se amplían únicamente campos existentes del proyecto y nombres de responsables de roles administrativos. Ninguna tabla de Proyectos concede SELECT/UPDATE directo a vendedores.
+- Migración aditiva `20261118_vendor_action_plan_more_details.sql` aplicada y validada en Supabase. Prueba con un vendedor vinculado: campos presentes, JSON de grupos/responsables correcto; otra cuenta no tiene acceso a su plan. No hubo cambios en planes reales.
+- La vista mantiene mobile-first, skeletons, estados vacío/error y solo lectura. Falta validación visual con cuenta real.

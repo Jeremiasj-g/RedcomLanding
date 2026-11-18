@@ -1,7 +1,8 @@
 'use client';
 
 import {useEffect,useMemo,useState} from 'react';
-import {CalendarDays,CheckCircle2,ClipboardList,LockKeyhole} from 'lucide-react';
+import {CalendarDays,CheckCircle2,ClipboardList,LockKeyhole,UsersRound,FolderKanban} from 'lucide-react';
+import {decodeTodoLabel} from '@/lib/projectActionPlanGroups';
 import {errorMessage} from '@/lib/notifications';
 import {fetchMyVendorActionPlans,type MyVendorActionPlan} from '@/lib/myVendorActionPlans';
 
@@ -12,6 +13,12 @@ const statusTones:Record<string,string>={
  not_started:'bg-slate-100 text-slate-700',in_progress:'bg-sky-50 text-sky-700',
  done:'bg-emerald-50 text-emerald-700',cancelled:'bg-rose-50 text-rose-700',
 };
+const priorityLabels:Record<string,string>={low:'Baja',medium:'Media',high:'Alta'};
+const projectStatusLabels:Record<string,string>={active:'Activo',closed:'Cerrado',completed:'Completado',archived:'Archivado'};
+const branchLabels:Record<string,string>={
+ corrientes_masivos:'Corrientes · Masivos',corrientes_refrigerados:'Corrientes · Refrigerados',
+ chaco_masivos:'Chaco',misiones_masivos:'Misiones',obera_masivos:'Oberá',
+};
 const pct=(p:MyVendorActionPlan)=>p.checklist_total>0?
  Math.min(100,Math.max(0,Math.round(p.checklist_done/p.checklist_total*100))):0;
 const dateText=(date:string|null)=>date?
@@ -19,10 +26,19 @@ const dateText=(date:string|null)=>date?
 
 function PlanOverview({plan}:{plan:MyVendorActionPlan}){
  const progress=pct(plan);
+ const groups=new Map<string,Array<{id?:string;text?:string;done?:boolean;label:string}>>();
+ for(const todo of plan.checklist_items){
+   const decoded=decodeTodoLabel(todo.text);
+   const name=decoded.group||'Sin grupo';
+   const list=groups.get(name)??[];
+   list.push({...todo,label:decoded.label});
+   groups.set(name,list);
+ }
+ const grouped=Array.from(groups.entries());
  return <article className="rounded-2xl border border-slate-200 bg-white px-4 py-5 sm:px-6">
   <div className="flex flex-wrap items-start justify-between gap-3">
    <div className="min-w-0">
-    <p className="text-xs text-slate-500">{plan.project_name}</p>
+    <p className="flex items-center gap-1.5 text-xs text-slate-500"><FolderKanban className="h-3.5 w-3.5"/>{plan.project_name}</p>
     <h3 className="mt-1 text-base font-medium text-slate-950">{plan.task_title}</h3>
     {plan.task_summary&&<p className="mt-1 text-sm text-slate-600">{plan.task_summary}</p>}
    </div>
@@ -30,6 +46,12 @@ function PlanOverview({plan}:{plan:MyVendorActionPlan}){
     {statusLabels[plan.task_status]??plan.task_status}
    </span>
   </div>
+  <div className="mt-4 grid gap-3 border-y border-slate-100 py-4 text-xs sm:grid-cols-2">
+    <div><span className="text-slate-500">Proyecto</span><p className="mt-1 font-medium text-slate-800">{projectStatusLabels[plan.project_status]??plan.project_status}</p></div>
+    <div><span className="text-slate-500">Prioridad</span><p className="mt-1 font-medium text-slate-800">{priorityLabels[plan.task_priority]??plan.task_priority}</p></div>
+    <div><span className="text-slate-500">Sucursal</span><p className="mt-1 font-medium text-slate-800">{branchLabels[plan.branch_key]??plan.branch_key}</p></div>
+    <div><span className="text-slate-500">Código comercial</span><p className="mt-1 font-medium tabular-nums text-slate-800">{plan.seller_id}</p></div>
+   </div>
   <div className="mt-5 flex items-end justify-between gap-3">
    <div>
     <p className="text-xs text-slate-500">Avance de acciones</p>
@@ -48,21 +70,45 @@ function PlanOverview({plan}:{plan:MyVendorActionPlan}){
    <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5"/>Vence: {dateText(plan.task_due_date??plan.project_due_date)}</span>
    <span className="inline-flex items-center gap-1.5"><LockKeyhole className="h-3.5 w-3.5"/>Solo lectura</span>
   </div>
+  <div className="mt-5 border-t border-slate-100 pt-4">
+   <h4 className="text-sm font-medium text-slate-900">Detalles del proyecto</h4>
+   <div className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
+    <div><p className="text-slate-500">Inicio</p><p className="mt-1 font-medium text-slate-800">{dateText(plan.project_start_date)}</p></div>
+    <div><p className="text-slate-500">Fecha límite del proyecto</p><p className="mt-1 font-medium text-slate-800">{dateText(plan.project_due_date)}</p></div>
+   </div>
+   {plan.project_description&&<p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">{plan.project_description}</p>}
+   {plan.assignees.length>0&&<div className="mt-4">
+    <p className="flex items-center gap-1.5 text-xs font-medium text-slate-700"><UsersRound className="h-3.5 w-3.5"/>Responsables</p>
+    <div className="mt-2 flex flex-wrap gap-2">{plan.assignees.map((person,index)=><span key={index} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs text-slate-700">{person.name}</span>)}</div>
+   </div>}
+  </div>
   {plan.task_description&&<div className="mt-5 border-t border-slate-100 pt-4">
     <p className="text-xs font-medium text-slate-900">Descripción general</p>
     <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">{plan.task_description}</p>
    </div>}
   <div className="mt-5 border-t border-slate-100 pt-4">
    <h4 className="text-sm font-medium text-slate-900">Acciones del plan</h4>
-   {plan.checklist_items.length?<ul className="mt-3 space-y-3">
-    {plan.checklist_items.map((item,index)=><li key={item.id??index} className="flex items-start gap-3 text-sm">
-     <CheckCircle2 className={'mt-0.5 h-4 w-4 shrink-0 '+(item.done?'text-emerald-600':'text-slate-300')}/>
-     <span className={'min-w-0 break-words '+(item.done?'text-slate-500':'text-slate-800')}>
-      {item.text?.trim()||'Acción sin descripción'}
-     </span>
-     <span className="ml-auto shrink-0 text-xs text-slate-500">{item.done?'Cumplida':'Pendiente'}</span>
-    </li>)}
-   </ul>:<p className="mt-3 text-sm text-slate-500">Este plan todavía no tiene acciones registradas.</p>}
+   {grouped.length?<div className="mt-4 space-y-5">
+    {grouped.map(([name,items])=>{
+      const completed=items.filter(item=>item.done).length;
+      const groupProgress=Math.round(completed/items.length*100);
+      const priority=plan.todo_groups.find(group=>group.name===name)?.priority;
+      return <section key={name} aria-label={'Grupo '+name} className="min-w-0">
+       <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h5 className="text-xs font-medium text-slate-800">{name}</h5>
+        <span className="text-xs tabular-nums text-slate-500">{completed}/{items.length} · {groupProgress}%{priority?' · '+(priorityLabels[priority]??priority):''}</span>
+       </div>
+       <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-600 transition-[width] duration-200 motion-reduce:transition-none" style={{width:groupProgress+'%'}}/></div>
+       <ul className="mt-2 divide-y divide-slate-100">
+       {items.map((item,index)=><li key={item.id??index} className="flex min-w-0 items-start gap-2.5 py-3 text-sm">
+        <CheckCircle2 className={'mt-0.5 h-4 w-4 shrink-0 '+(item.done?'text-emerald-600':'text-slate-300')}/>
+        <span className={'min-w-0 flex-1 break-words '+(item.done?'text-slate-500':'text-slate-800')}>{item.label||'Acción sin descripción'}</span>
+        <span className="shrink-0 text-xs text-slate-500">{item.done?'Cumplida':'Pendiente'}</span>
+       </li>)}
+       </ul>
+      </section>;
+    })}
+   </div>:<p className="mt-3 text-sm text-slate-500">Este plan todavía no tiene acciones registradas.</p>}
   </div>
  </article>;
 }
