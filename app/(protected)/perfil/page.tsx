@@ -18,7 +18,8 @@ import {
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
 import { notify } from '@/lib/notifications';
-import { isMyCommercialVendorAccount } from '@/lib/commercialVendorAccess';
+import {isMyCommercialVendorAccount,getMyCommercialEmployment} from '@/lib/commercialVendorAccess';
+import {intervalToDuration,parseISO,format} from 'date-fns';
 import CommercialProfileCategories from '@/components/profile/CommercialProfileCategories';
 import MyVendorActionPlans from '@/components/profile/MyVendorActionPlans';
 import {AlertDialog,AlertDialogAction,AlertDialogCancel,AlertDialogContent,AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,AlertDialogTitle} from '@/components/ui/alert-dialog';
@@ -49,7 +50,20 @@ export default function MiPerfilPage() {
   const [fullName, setFullName] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [commercialVendor, setCommercialVendor] = useState(false);
+  const [hireDate,setHireDate]=useState<string|null>(null);
+  const [hireLoading,setHireLoading]=useState(false);
   const [vendorStatusLoading,setVendorStatusLoading]=useState(true);
+  useEffect(()=>{
+    if(!commercialVendor)return;
+    let active=true;
+    setHireLoading(true);
+    void getMyCommercialEmployment().then(data=>{
+      if(active)setHireDate(data.hire_date);
+    }).catch(()=>{if(active)setHireDate(null);}).finally(()=>{
+      if(active)setHireLoading(false);
+    });
+    return()=>{active=false;};
+  },[commercialVendor]);
   const [activeTab,setActiveTab]=useState<'profile'|'category'|'plan'>('profile');
   const [visitedCategory,setVisitedCategory]=useState(false);
   const [visitedPlan,setVisitedPlan]=useState(false);
@@ -94,6 +108,18 @@ export default function MiPerfilPage() {
     [me?.branches],
   );
 
+  const tenure=useMemo(()=>{
+    if(!hireDate)return null;
+    const start=parseISO(hireDate);
+    const today=new Date();
+    if(Number.isNaN(start.getTime())||start>today)return null;
+    const elapsed=intervalToDuration({start,end:today});
+    const years=elapsed.years??0,months=elapsed.months??0,days=elapsed.days??0;
+    const parts=[years?years+' '+(years===1?'año':'años'):null,
+      months?months+' '+(months===1?'mes':'meses'):null].filter(Boolean);
+    if(!parts.length)parts.push(days+' '+(days===1?'día':'días'));
+    return {label:parts.join(' y '),date:format(start,'dd/MM/yyyy')};
+  },[hireDate]);
   const isTechnicalEmail=/^vendor-[0-9a-f-]+@example\.com$/i.test(me?.email??'');
   const displayEmail=Boolean(me?.email)&&!commercialVendor&&!isTechnicalEmail;
   const lockCommercialName=commercialVendor||(me?.role==='vendedor'&&vendorStatusLoading);
@@ -276,6 +302,13 @@ export default function MiPerfilPage() {
                     {me.full_name || 'Sin nombre'}
                   </div>
                   <p className="text-[11px] text-slate-500">Administrado desde Personal comercial.</p>
+                  {commercialVendor&&<div className="mt-4 border-t border-slate-100 pt-4">
+                    <p className="text-xs text-slate-500">Antigüedad en la empresa</p>
+                    {hireLoading?<div className="mt-2 h-7 w-36 animate-pulse rounded-lg bg-slate-100 motion-reduce:animate-none"/>:
+                      tenure?<><p className="mt-1 text-lg font-semibold text-slate-900">{tenure.label}</p>
+                        <p className="mt-1 text-xs text-slate-500">Fecha de ingreso: {tenure.date}</p></>:
+                      <p className="mt-1 text-sm text-slate-500">Fecha de ingreso pendiente de registrar</p>}
+                  </div>}
                 </div>
               ) : (
               <form onSubmit={saveName} className="mt-5">
