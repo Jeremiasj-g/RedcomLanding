@@ -129,6 +129,47 @@ export default function MiPerfilPage() {
 
   const passwordReady = currentPwd.length>0 && pwd.length >= 8 && pwd === pwd2;
   const hasPendingEdits=Boolean(currentPwd||pwd||pwd2||(!lockCommercialName&&nameDirty));
+  // La navegación se inicia desde el menú de usuario del header.
+  // Solo cambia la sección del Perfil; preserva componentes montados y filtros.
+  useEffect(()=>{
+    if(!commercialVendor)return;
+    const parseSection=(): 'profile'|'category'|'plan' =>{
+      const value=new URLSearchParams(window.location.search).get('seccion');
+      return value==='category'||value==='plan'?value:'profile';
+    };
+    const activate=(section:'profile'|'category'|'plan')=>{
+      setActiveTab(section);
+      if(section==='category')setVisitedCategory(true);
+      if(section==='plan')setVisitedPlan(true);
+    };
+    const navigate=(section:'profile'|'category'|'plan')=>{
+      if(section===activeTab)return;
+      if(activeTab==='profile'&&hasPendingEdits){setPendingTab(section);return;}
+      activate(section);
+      const url=section==='profile'?'/perfil':'/perfil?seccion='+section;
+      window.history.pushState(null,'',url);
+    };
+    const onRequest=(event:Event)=>{
+      const section=(event as CustomEvent<string>).detail;
+      if(section==='profile'||section==='category'||section==='plan')navigate(section);
+    };
+    const onHistory=()=>{
+      const section=parseSection();
+      if(section===activeTab)return;
+      if(activeTab==='profile'&&hasPendingEdits){
+        window.history.replaceState(null,'',activeTab==='profile'?'/perfil':'/perfil?seccion='+activeTab);
+        setPendingTab(section);
+      }else activate(section);
+    };
+    // Aceptar deep links al llegar desde otra página.
+    activate(parseSection());
+    window.addEventListener('redcom:profile-navigate',onRequest);
+    window.addEventListener('popstate',onHistory);
+    return()=>{
+      window.removeEventListener('redcom:profile-navigate',onRequest);
+      window.removeEventListener('popstate',onHistory);
+    };
+  },[commercialVendor,activeTab,hasPendingEdits]);
   useEffect(()=>{
     if(!hasPendingEdits)return;
     const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};
@@ -247,19 +288,7 @@ export default function MiPerfilPage() {
   return (
     <main className="min-h-[calc(100vh-72px)] bg-[#F4F5F7]">
       <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-        {commercialVendor&&<nav aria-label="Secciones de perfil" className="mb-6 flex items-center justify-center gap-1 border-b border-slate-200 pb-2">
-          {([['profile','Perfil'],['category','Categoría'],['plan','Mi plan']] as const).map(([key,label])=>
-           <button type="button" key={key} aria-current={activeTab===key?'page':undefined}
-            onClick={()=>{
-             if(activeTab===key)return;
-             if(activeTab==='profile'&&hasPendingEdits){setPendingTab(key);return;}
-             setActiveTab(key);if(key==='category')setVisitedCategory(true);if(key==='plan')setVisitedPlan(true);
-            }}
-            className={'min-w-28 rounded-xl px-5 py-2.5 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none '+(activeTab===key?'bg-slate-900 text-white':'text-slate-500 hover:bg-slate-100 hover:text-slate-900')}>
-            {label}
-           </button>
-          )}
-        </nav>}
+
         <div hidden={activeTab!=='profile'}>
         <section className="border-b border-slate-200 pb-6 sm:pb-8">
           <div className="flex items-center gap-4 sm:gap-8">
@@ -457,7 +486,12 @@ export default function MiPerfilPage() {
            <AlertDialogCancel>Seguir editando</AlertDialogCancel>
            <AlertDialogAction onClick={()=>{
              setCurrentPwd('');setPwd('');setPwd2('');setFullName(me.full_name??'');
-             if(pendingTab){setActiveTab(pendingTab);if(pendingTab==='category')setVisitedCategory(true);if(pendingTab==='plan')setVisitedPlan(true);}
+             if(pendingTab){
+               setActiveTab(pendingTab);
+               if(pendingTab==='category')setVisitedCategory(true);
+               if(pendingTab==='plan')setVisitedPlan(true);
+               window.history.pushState(null,'',pendingTab==='profile'?'/perfil':'/perfil?seccion='+pendingTab);
+             }
              setPendingTab(null);
            }}>Salir sin guardar</AlertDialogAction>
           </AlertDialogFooter>

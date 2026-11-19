@@ -139,10 +139,19 @@ export default function MyVendorActionPlans(){
   {error?<div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>:
    loading?<div className="grid gap-4 md:grid-cols-2">{[0,1].map(i=><div key={i} className="h-72 animate-pulse rounded-2xl bg-slate-100 motion-reduce:animate-none"/>)}</div>:
    plans.length?<>
-    <div className="flex flex-wrap items-end gap-5 border-b border-slate-200 pb-4">
-      <div><p className="text-xs text-slate-500">Planes asignados</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{plans.length}</p></div>
-      <div><p className="text-xs text-slate-500">Acciones completadas</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{done}/{total}</p></div>
-      <div><p className="text-xs text-slate-500">Progreso general</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{total?Math.round(done/total*100)+'%':'—'}</p></div>
+    <div className="grid grid-cols-3 gap-0 overflow-hidden rounded-2xl border border-slate-200 bg-white py-4 sm:py-5">
+      <div className="min-w-0 border-r border-slate-100 px-2.5 text-center sm:px-5">
+        <p className="text-[10px] leading-tight text-slate-500 sm:text-xs">Planes asignados</p>
+        <p className="mt-2 text-xl font-semibold tabular-nums text-slate-900 sm:text-2xl">{plans.length}</p>
+      </div>
+      <div className="min-w-0 border-r border-slate-100 px-2.5 text-center sm:px-5">
+        <p className="text-[10px] leading-tight text-slate-500 sm:text-xs">Acciones completadas</p>
+        <p className="mt-2 text-xl font-semibold tabular-nums text-slate-900 sm:text-2xl">{done}/{total}</p>
+      </div>
+      <div className="min-w-0 px-2.5 text-center sm:px-5">
+        <p className="text-[10px] leading-tight text-slate-500 sm:text-xs">Progreso general</p>
+        <p className="mt-2 text-xl font-semibold tabular-nums text-slate-900 sm:text-2xl">{total?Math.round(done/total*100)+'%':'—'}</p>
+      </div>
     </div>
     <div className="grid items-start gap-4 lg:grid-cols-2">{plans.map(plan=><PlanOverview key={plan.action_plan_id} plan={plan}/>)}</div>
    </>:<div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center">
