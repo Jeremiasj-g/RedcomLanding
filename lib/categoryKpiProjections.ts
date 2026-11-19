@@ -1,5 +1,6 @@
 import type {CategoryPanelRow,CategoryPanelBranchKey} from '@/lib/categoryPanelExcel';
 import {readFirstWorksheet} from '@/lib/categoryPanelExcel';
+import type {CommercialPerson} from '@/lib/commercialPersonnelMaster';
 export type KpiProjection={branch_key:string;seller_id:number;projected_category:string|null;pop_percentage:number|null;exhibition_percentage:number|null;coverage_percentage:number|null;volume_percentage:number|null};
 const branches:[CategoryPanelBranchKey,string][]=[['corrientes_masivos','Corrientes'],['corrientes_refrigerados','Refrigerados'],['chaco','Chaco'],['misiones','Misiones'],['obera','Oberá']];
 const escapeXml=(s:unknown)=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
@@ -20,9 +21,38 @@ function zip(files:{name:string;data:string}[]):Blob{
  u32(e,0,0x06054b50);u16(e,8,files.length);u16(e,10,files.length);u32(e,12,centralSize);u32(e,16,offset);
  return new Blob([...locals,...central,end] as BlobPart[],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 }
-export function exportKpiProjectionTemplate(rows:CategoryPanelRow[],existing:KpiProjection[]):void{
+
+type KpiTemplateSeller=Pick<CategoryPanelRow,'branchKey'|'sellerId'|'sellerName'>;
+const normalized=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toUpperCase();
+function sellerBranch(person:CommercialPerson):CategoryPanelBranchKey|null{
+ const branch=normalized(person.branch);
+ const force=normalized(person.force);
+ if(branch==='CASA CENTRAL'){
+  if(force.includes('REFRIGERAD')||force.includes('REGRIGERAD'))return 'corrientes_refrigerados';
+  if(force==='ESQUEMA 1')return 'corrientes_masivos';
+  return null;
+ }
+ if(branch==='SUCURSAL RESISTENCIA')return 'chaco';
+ if(branch==='SUCURSAL POSADAS')return 'misiones';
+ if(branch==='SUCURSAL OBERA')return 'obera';
+ return null;
+}
+/** Combina el padrón comercial vigente con el KPI mensual sin perder los vendedores históricos del mes. */
+export function getKpiTemplateSellers(rows:CategoryPanelRow[],personnel:CommercialPerson[]):KpiTemplateSeller[]{
+ const all=new Map<string,KpiTemplateSeller>();
+ for(const row of rows)all.set(row.branchKey+':'+row.sellerId,{branchKey:row.branchKey,sellerId:row.sellerId,sellerName:row.sellerName});
+ for(const person of personnel){
+  if(normalized(person.role)!=='VENDEDOR'||!Number.isSafeInteger(person.id)||person.id<=0)continue;
+  const branchKey=sellerBranch(person);
+  if(!branchKey)continue;
+  all.set(branchKey+':'+person.id,{branchKey,sellerId:person.id,sellerName:person.name});
+ }
+ return [...all.values()];
+}
+
+export function exportKpiProjectionTemplate(rows:CategoryPanelRow[],existing:KpiProjection[],personnel:CommercialPerson[]):void{
  const saved=new Map(existing.map(p=>[p.branch_key+':'+p.seller_id,p]));
- const byBranch=branches.map(([key,label])=>({key,label,rows:rows.filter(r=>r.branchKey===key).sort((a,b)=>a.sellerId-b.sellerId)}));
+ const byBranch=branches.map(([key,label])=>({key,label,rows:getKpiTemplateSellers(rows,personnel).filter(r=>r.branchKey===key).sort((a,b)=>a.sellerId-b.sellerId)}));
  const max=Math.max(0,...byBranch.map(b=>b.rows.length));
  const cells:string[]=[];const merge:string[]=[];
  const put=(row:number,column:number,value:unknown,style=0)=>{
@@ -65,7 +95,7 @@ const parseQuantity=(value:unknown):number|null=>{
  if(!Number.isSafeInteger(n)||n<0)throw new Error('Cobertura y Volumen requieren números enteros no negativos: '+value);
  return n;
 };
-export async function parseKpiProjectionFile(file:File,sellers:CategoryPanelRow[]):Promise<KpiProjection[]>{
+export async function parseKpiProjectionFile(file:File,sellers:KpiTemplateSeller[]):Promise<KpiProjection[]>{
  const matrix=await readFirstWorksheet(file);const result:KpiProjection[]=[];
  const valid=new Map(sellers.map(row=>[row.branchKey+':'+row.sellerId,row]));
  for(let i=0;i<branches.length;i++){

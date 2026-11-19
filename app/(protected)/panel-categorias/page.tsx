@@ -45,7 +45,8 @@ import {
 } from '@/lib/categoryPanelExcel';
 import { errorMessage, notify } from '@/lib/notifications';
 import { supabase } from '@/lib/supabaseClient';
-import { exportKpiProjectionTemplate, parseKpiProjectionFile, type KpiProjection } from '@/lib/categoryKpiProjections';
+import { exportKpiProjectionTemplate, getKpiTemplateSellers, parseKpiProjectionFile, type KpiProjection } from '@/lib/categoryKpiProjections';
+import {getActivePersonnelPeople} from '@/lib/commercialPersonnelMaster';
 import SellerConsiderations from '@/components/category-panel/SellerConsiderations';
 import CommercialPersonnel from '@/components/category-panel/CommercialPersonnel';
 import CategorySigoHistory from '@/components/category-panel/CategorySigoHistory';
@@ -163,12 +164,21 @@ export default function CategoryPanelPage() {
     if(!monthlyRows.length){notify.error('Guardá primero los KPIs unificados correspondientes al mes que querés importar.');return;}
     setImportingKpi(true);
     try{
-      const entries=await parseKpiProjectionFile(file,monthlyRows);
+      const personnel=await getActivePersonnelPeople();
+      if(!personnel.some(person=>person.role==='VENDEDOR'))throw new Error('No hay vendedores en Personal comercial. Actualizá el padrón antes de importar.');
+      const entries=await parseKpiProjectionFile(file,getKpiTemplateSellers(monthlyRows,personnel));
       if(!entries.length)throw new Error('No hay vendedores reconocidos en la planilla.');
       setKpiDraft(entries);
       notify.success('Archivo leído. Revisá las proyecciones antes de confirmar.');
     }catch(error){setKpiDraft(null);notify.error(errorMessage(error,'No se pudo interpretar la planilla de proyecciones.'));}
     finally{setImportingKpi(false);if(kpiImportRef.current)kpiImportRef.current.value='';}
+  };
+  const exportKpi=async()=>{
+    try{
+      const personnel=await getActivePersonnelPeople();
+      if(!personnel.some(person=>person.role==='VENDEDOR'))throw new Error('No hay vendedores en Personal comercial. Actualizá el padrón antes de exportar.');
+      exportKpiProjectionTemplate(monthlyRows,kpiProjections,personnel);
+    }catch(error){notify.error(errorMessage(error,'No se pudo generar la plantilla de proyecciones.'));}
   };
   const saveKpiDraft=async()=>{
     if(!kpiDraft||importingKpi)return;
@@ -572,7 +582,7 @@ export default function CategoryPanelPage() {
               <div className="mt-5 flex min-h-[58px] flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
                 <span className="text-[11px] font-medium text-slate-500">Plantilla de proyecciones XLSX</span>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button type="button" disabled={!monthlyRows.length} onClick={()=>exportKpiProjectionTemplate(monthlyRows,kpiProjections)} className="inline-flex h-9 items-center rounded-xl border border-sky-200 bg-sky-50 px-3 text-[10px] font-semibold text-sky-700 transition hover:bg-sky-100 disabled:opacity-50">Exportar</button>
+                  <button type="button" disabled={!monthlyRows.length} onClick={()=>void exportKpi()} className="inline-flex h-9 items-center rounded-xl border border-sky-200 bg-sky-50 px-3 text-[10px] font-semibold text-sky-700 transition hover:bg-sky-100 disabled:opacity-50">Exportar</button>
                   <input ref={kpiImportRef} type="file" accept=".xlsx" className="hidden" onChange={event=>{const file=event.target.files?.[0];if(file)void importKpi(file);}}/>
                   <button type="button" disabled={importingKpi||!monthlyRows.length||Boolean(preview)} onClick={()=>kpiImportRef.current?.click()} className="inline-flex h-9 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"><Upload className="h-3.5 w-3.5"/>{importingKpi?'Procesando…':'Seleccionar'}</button>
                 </div>
