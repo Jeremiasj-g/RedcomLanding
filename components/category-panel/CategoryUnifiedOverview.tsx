@@ -392,10 +392,10 @@ export function SellerScoreDialog({name,branch,input,projectedCategory,reasonSum
       <button type="button" onClick={onClose} aria-label="Cerrar detalle" className="h-10 rounded-xl bg-slate-100 px-4 text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200">Cerrar</button>
      </div>
     </div>
-    <div className="mt-5 grid gap-3 sm:grid-cols-2">
-     {checks.map(check=><div key={check.kind} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-4 py-3">
-      <div><p className="text-xs text-slate-500">{check.label} requerido</p><p className="mt-1 text-sm font-medium text-slate-900">{check.kind==='route'?fmtTime(check.required):fmtNumber(check.required)+'%'}</p></div>
-      <div className="text-right"><p className="text-xs text-slate-500">Alcanzado</p><p className={`mt-1 text-sm font-semibold ${check.passed===true?'text-emerald-700':check.passed===false?'text-rose-600':'text-slate-500'}`}>{check.kind==='route'?fmtTime(check.actual):check.actual===null?'Sin datos':fmtNumber(check.actual)+'%'} {check.passed===true?'✓':check.passed===false?'✕':'· Sin evaluar'}</p></div>
+    <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3">
+     {checks.map(check=><div key={check.kind} className="flex min-w-0 flex-col justify-between gap-2 rounded-xl bg-slate-50 px-2.5 py-2.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4 sm:py-3">
+      <div className="min-w-0"><p className="text-[10px] leading-tight text-slate-500 sm:text-xs">{check.label} requerido</p><p className="mt-1 text-xs font-medium text-slate-900 sm:text-sm">{check.kind==='route'?fmtTime(check.required):fmtNumber(check.required)+'%'}</p></div>
+      <div className="min-w-0 sm:text-right"><p className="text-[10px] leading-tight text-slate-500 sm:text-xs">Alcanzado</p><p className={`mt-1 break-words text-xs font-semibold sm:text-sm ${check.passed===true?'text-emerald-700':check.passed===false?'text-rose-600':'text-slate-500'}`}>{check.kind==='route'?fmtTime(check.actual):check.actual===null?'Sin datos':fmtNumber(check.actual)+'%'} {check.passed===true?'✓':check.passed===false?'✕':'· Sin evaluar'}</p></div>
      </div>)}
     </div>
    </header>

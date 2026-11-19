@@ -28,6 +28,9 @@ import {
 import {
   fetchProjectTaskActionPlan,
   upsertProjectTaskActionPlan,
+  fetchActionPlanVendorCandidates,
+  assignActionPlanVendor,
+  type ActionPlanVendorCandidate,
 } from '@/lib/projectTaskActionPlan';
 import { errorMessage, notify } from '@/lib/notifications';
 import { RedcomSelect } from '@/components/ui/redcom-select';
@@ -185,6 +188,40 @@ export default function ProjectTaskActionPlan({
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [savingSelection, setSavingSelection] = useState(false);
+  const [vendorCandidates,setVendorCandidates]=useState<ActionPlanVendorCandidate[]>([]);
+  const [assignedVendor,setAssignedVendor]=useState('');
+  const [loadingVendors,setLoadingVendors]=useState(false);
+  const [savingVendor,setSavingVendor]=useState(false);
+  const [vendorError,setVendorError]=useState<string|null>(null);
+
+  useEffect(()=>{
+    if(!selected||!canEdit)return;
+    let active=true;
+    setLoadingVendors(true);setVendorError(null);
+    void Promise.all([
+      fetchActionPlanVendorCandidates(taskId),
+      fetchProjectTaskActionPlan(taskId),
+    ]).then(([candidates,plan])=>{
+      if(!active)return;
+      setVendorCandidates(candidates.filter(c=>String(c.person_code)===String(Number(selected.id))));
+      setAssignedVendor(plan?.viewer_auth_user_id??'');
+    }).catch(error=>{
+      if(active)setVendorError(errorMessage(error,'No se pudo consultar Personal comercial.'));
+    }).finally(()=>{if(active)setLoadingVendors(false);});
+    return()=>{active=false;};
+  },[taskId,selected?.identityKey,canEdit]);
+
+  async function selectCommercialVendor(authUserId:string){
+    if(!selected||savingVendor)return;
+    setSavingVendor(true);setVendorError(null);
+    try{
+      await assignActionPlanVendor(taskId,authUserId||null);
+      setAssignedVendor(authUserId);
+      notify.success(authUserId?'Vendedor vinculado al Plan de acción.':'Acceso del vendedor desvinculado.');
+    }catch(error){
+      setVendorError(errorMessage(error,'No se pudo vincular el vendedor.'));
+    }finally{setSavingVendor(false);}
+  }
 
   const fetchHistory = useCallback(
     async (
@@ -451,6 +488,8 @@ export default function ProjectTaskActionPlan({
           branchKey: seller.branchKey,
           sellerId: seller.id,
         });
+        setAssignedVendor('');
+        setVendorCandidates([]);
       }
 
       setSelected(seller);
@@ -726,6 +765,33 @@ export default function ProjectTaskActionPlan({
             </div>
           </div>
         </div>
+
+
+        {canEdit&&<section className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h3 className="text-sm font-medium text-white">Vendedor con acceso al plan</h3>
+              <p className="mt-1 text-xs text-white/45">Seleccioná la cuenta comercial correspondiente al código histórico. Solo podrá consultar el progreso.</p>
+            </div>
+            <div className="w-full sm:w-72">
+              {loadingVendors?<div className="h-10 animate-pulse rounded-xl bg-white/10 motion-reduce:animate-none"/>:
+               <RedcomSelect
+                 aria-label="Cuenta comercial del vendedor" surface="dark" accent="indigo"
+                 value={assignedVendor||'none'}
+                 onValueChange={value=>void selectCommercialVendor(value==='none'?'':value)}
+                 disabled={savingVendor||!vendorCandidates.length&&!assignedVendor}
+                 options={[{value:'none',label:'Sin cuenta asignada'},...vendorCandidates.map(v=>({
+                   value:v.auth_user_id,label:String(v.person_code).padStart(2,'0')+' '+v.person_name,
+                 }))]}
+                 placeholder="Seleccionar vendedor" className="h-10 rounded-xl"
+               />}
+            </div>
+          </div>
+          {!loadingVendors&&!vendorCandidates.length&&
+           <p className="mt-2 text-xs text-amber-200">Este código no tiene una cuenta comercial activa en Personal comercial. Revisá la sucursal y el titular.</p>}
+          {vendorError&&<p role="alert" className="mt-2 text-xs text-rose-300">{vendorError}</p>}
+          {assignedVendor&&<p className="mt-2 text-xs text-emerald-300">Acceso de solo lectura habilitado para el titular seleccionado.</p>}
+        </section>}
 
         {loadingHistory ? (
           <div className="grid min-h-[420px] place-items-center">

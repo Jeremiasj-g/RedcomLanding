@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import {usePathname} from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMe } from '@/hooks/useMe';
 import { supabase } from '@/lib/supabaseClient';
@@ -17,6 +18,8 @@ import {
   ArrowUpRight,
   Inbox,
   Sparkles,
+  BarChart3,
+  ListChecks,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -25,6 +28,8 @@ import { getNavModel } from './getNavModel';
 import { useModulePermissions } from '@/components/permissions/ModulePermissionsProvider';
 
 import { Skeleton } from '@/components/ui/skeleton';
+import {isMyCommercialVendorAccount} from '@/lib/commercialVendorAccess';
+import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from '@/components/ui/dropdown-menu';
 
 type VendoPendingSummary = { total: number; altas: number; bajas: number };
 
@@ -96,7 +101,9 @@ function roleChipClass(role: string) {
 
 export default function Navbar() {
   const { me, loading } = useMe();
-  const { canAccessModule, overrides } = useModulePermissions();
+  const pathname=usePathname();
+  const [commercialVendor,setCommercialVendor]=useState(false);
+    const { canAccessModule, overrides } = useModulePermissions();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [roleDisplayName, setRoleDisplayName] = useState<string>('');
@@ -117,6 +124,14 @@ export default function Navbar() {
   const role = me?.role ?? 'vendedor';
   const isActive = !!me?.is_active;
   const isVendor = role === 'vendedor';
+  useEffect(()=>{
+    if(!me?.id||!isActive||!isVendor){setCommercialVendor(false);return;}
+    let live=true;
+    void isMyCommercialVendorAccount().then(ok=>{if(live)setCommercialVendor(ok);})
+     .catch(()=>{if(live)setCommercialVendor(false);});
+    return()=>{live=false;};
+  },[me?.id,isActive,isVendor]);
+
   const isAdmin = role === 'admin';
   const canSeeProjects = canAccessModule('projects');
   const bellCount =
@@ -681,14 +696,40 @@ export default function Navbar() {
               ) : null}
 
               {logged ? (
-                <Link
-                  href="/perfil"
-                  className="grid h-10 w-10 place-items-center rounded-[13px] border border-white/[0.08] bg-white/[0.04] text-white/[0.60] transition duration-150 hover:bg-white/[0.075] hover:text-white active:scale-[0.97]"
-                  aria-label="Ir a perfil"
-                  title="Perfil"
-                >
-                  <User className="h-[18px] w-[18px]" />
-                </Link>
+                commercialVendor ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" aria-label="Abrir opciones de usuario"
+                        className="grid h-10 w-10 place-items-center rounded-[13px] border border-white/[0.08] bg-white/[0.04] text-white/[0.70] transition-colors duration-200 hover:bg-white/[0.075] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none">
+                        <User className="h-[18px] w-[18px]"/>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" sideOffset={8} className="w-48 rounded-xl border-slate-200 bg-white p-1.5 text-slate-800 shadow-xl motion-reduce:animate-none">
+                      {([
+                        {key:'profile',label:'Mi perfil',icon:User},
+                        {key:'category',label:'Categoría',icon:BarChart3},
+                        {key:'plan',label:'Mi plan',icon:ListChecks},
+                      ] as const).map(({key,label,icon:Icon})=>(
+                        <DropdownMenuItem key={key} asChild className="cursor-pointer rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors duration-200 focus:bg-slate-100 focus:text-slate-900">
+                          <Link href={key==='profile'?'/perfil':'/perfil?seccion='+key}
+                            onClick={event=>{
+                              if(pathname!=='/perfil')return;
+                              event.preventDefault();
+                              window.dispatchEvent(new CustomEvent('redcom:profile-navigate',{detail:key}));
+                            }}>
+                            <Icon className="mr-2 h-4 w-4 text-slate-500"/>{label}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Link href="/perfil"
+                    className="grid h-10 w-10 place-items-center rounded-[13px] border border-white/[0.08] bg-white/[0.04] text-white/[0.60] transition-colors duration-200 hover:bg-white/[0.075] hover:text-white"
+                    aria-label="Ir a perfil" title="Perfil">
+                    <User className="h-[18px] w-[18px]"/>
+                  </Link>
+                )
               ) : null}
 
               {logged ? (

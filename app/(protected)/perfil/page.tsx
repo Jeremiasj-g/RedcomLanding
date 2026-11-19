@@ -18,8 +18,10 @@ import {
 import { supabase } from '@/lib/supabaseClient';
 import { useMe } from '@/hooks/useMe';
 import { notify } from '@/lib/notifications';
-import { isMyCommercialVendorAccount } from '@/lib/commercialVendorAccess';
+import {isMyCommercialVendorAccount,getMyCommercialEmployment} from '@/lib/commercialVendorAccess';
+import {intervalToDuration,parseISO,format} from 'date-fns';
 import CommercialProfileCategories from '@/components/profile/CommercialProfileCategories';
+import MyVendorActionPlans from '@/components/profile/MyVendorActionPlans';
 import {AlertDialog,AlertDialogAction,AlertDialogCancel,AlertDialogContent,AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,AlertDialogTitle} from '@/components/ui/alert-dialog';
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -48,10 +50,24 @@ export default function MiPerfilPage() {
   const [fullName, setFullName] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [commercialVendor, setCommercialVendor] = useState(false);
+  const [hireDate,setHireDate]=useState<string|null>(null);
+  const [hireLoading,setHireLoading]=useState(false);
   const [vendorStatusLoading,setVendorStatusLoading]=useState(true);
-  const [activeTab,setActiveTab]=useState<'profile'|'category'>('profile');
+  useEffect(()=>{
+    if(!commercialVendor)return;
+    let active=true;
+    setHireLoading(true);
+    void getMyCommercialEmployment().then(data=>{
+      if(active)setHireDate(data.hire_date);
+    }).catch(()=>{if(active)setHireDate(null);}).finally(()=>{
+      if(active)setHireLoading(false);
+    });
+    return()=>{active=false;};
+  },[commercialVendor]);
+  const [activeTab,setActiveTab]=useState<'profile'|'category'|'plan'>('profile');
   const [visitedCategory,setVisitedCategory]=useState(false);
-  const [pendingTab,setPendingTab]=useState<'profile'|'category'|null>(null);
+  const [visitedPlan,setVisitedPlan]=useState(false);
+  const [pendingTab,setPendingTab]=useState<'profile'|'category'|'plan'|null>(null);
 
   const [currentPwd,setCurrentPwd]=useState('');
   const [showCurrentPwd,setShowCurrentPwd]=useState(false);
@@ -92,6 +108,18 @@ export default function MiPerfilPage() {
     [me?.branches],
   );
 
+  const tenure=useMemo(()=>{
+    if(!hireDate)return null;
+    const start=parseISO(hireDate);
+    const today=new Date();
+    if(Number.isNaN(start.getTime())||start>today)return null;
+    const elapsed=intervalToDuration({start,end:today});
+    const years=elapsed.years??0,months=elapsed.months??0,days=elapsed.days??0;
+    const parts=[years?years+' '+(years===1?'año':'años'):null,
+      months?months+' '+(months===1?'mes':'meses'):null].filter(Boolean);
+    if(!parts.length)parts.push(days+' '+(days===1?'día':'días'));
+    return {label:parts.join(' y '),date:format(start,'dd/MM/yyyy')};
+  },[hireDate]);
   const isTechnicalEmail=/^vendor-[0-9a-f-]+@example\.com$/i.test(me?.email??'');
   const displayEmail=Boolean(me?.email)&&!commercialVendor&&!isTechnicalEmail;
   const lockCommercialName=commercialVendor||(me?.role==='vendedor'&&vendorStatusLoading);
@@ -101,6 +129,47 @@ export default function MiPerfilPage() {
 
   const passwordReady = currentPwd.length>0 && pwd.length >= 8 && pwd === pwd2;
   const hasPendingEdits=Boolean(currentPwd||pwd||pwd2||(!lockCommercialName&&nameDirty));
+  // La navegación se inicia desde el menú de usuario del header.
+  // Solo cambia la sección del Perfil; preserva componentes montados y filtros.
+  useEffect(()=>{
+    if(!commercialVendor)return;
+    const parseSection=(): 'profile'|'category'|'plan' =>{
+      const value=new URLSearchParams(window.location.search).get('seccion');
+      return value==='category'||value==='plan'?value:'profile';
+    };
+    const activate=(section:'profile'|'category'|'plan')=>{
+      setActiveTab(section);
+      if(section==='category')setVisitedCategory(true);
+      if(section==='plan')setVisitedPlan(true);
+    };
+    const navigate=(section:'profile'|'category'|'plan')=>{
+      if(section===activeTab)return;
+      if(activeTab==='profile'&&hasPendingEdits){setPendingTab(section);return;}
+      activate(section);
+      const url=section==='profile'?'/perfil':'/perfil?seccion='+section;
+      window.history.pushState(null,'',url);
+    };
+    const onRequest=(event:Event)=>{
+      const section=(event as CustomEvent<string>).detail;
+      if(section==='profile'||section==='category'||section==='plan')navigate(section);
+    };
+    const onHistory=()=>{
+      const section=parseSection();
+      if(section===activeTab)return;
+      if(activeTab==='profile'&&hasPendingEdits){
+        window.history.replaceState(null,'',activeTab==='profile'?'/perfil':'/perfil?seccion='+activeTab);
+        setPendingTab(section);
+      }else activate(section);
+    };
+    // Aceptar deep links al llegar desde otra página.
+    activate(parseSection());
+    window.addEventListener('redcom:profile-navigate',onRequest);
+    window.addEventListener('popstate',onHistory);
+    return()=>{
+      window.removeEventListener('redcom:profile-navigate',onRequest);
+      window.removeEventListener('popstate',onHistory);
+    };
+  },[commercialVendor,activeTab,hasPendingEdits]);
   useEffect(()=>{
     if(!hasPendingEdits)return;
     const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};
@@ -219,19 +288,7 @@ export default function MiPerfilPage() {
   return (
     <main className="min-h-[calc(100vh-72px)] bg-[#F4F5F7]">
       <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-        {commercialVendor&&<nav aria-label="Secciones de perfil" className="mb-6 flex items-center justify-center gap-1 border-b border-slate-200 pb-2">
-          {([['profile','Perfil'],['category','Categoría']] as const).map(([key,label])=>
-           <button type="button" key={key} aria-current={activeTab===key?'page':undefined}
-            onClick={()=>{
-             if(activeTab===key)return;
-             if(activeTab==='profile'&&hasPendingEdits){setPendingTab(key);return;}
-             setActiveTab(key);if(key==='category')setVisitedCategory(true);
-            }}
-            className={'min-w-28 rounded-xl px-5 py-2.5 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none '+(activeTab===key?'bg-slate-900 text-white':'text-slate-500 hover:bg-slate-100 hover:text-slate-900')}>
-            {label}
-           </button>
-          )}
-        </nav>}
+
         <div hidden={activeTab!=='profile'}>
         <section className="border-b border-slate-200 pb-6 sm:pb-8">
           <div className="flex items-center gap-4 sm:gap-8">
@@ -274,6 +331,13 @@ export default function MiPerfilPage() {
                     {me.full_name || 'Sin nombre'}
                   </div>
                   <p className="text-[11px] text-slate-500">Administrado desde Personal comercial.</p>
+                  {commercialVendor&&<div className="mt-4 border-t border-slate-100 pt-4">
+                    <p className="text-xs text-slate-500">Antigüedad en la empresa</p>
+                    {hireLoading?<div className="mt-2 h-7 w-36 animate-pulse rounded-lg bg-slate-100 motion-reduce:animate-none"/>:
+                      tenure?<><p className="mt-1 text-lg font-semibold text-slate-900">{tenure.label}</p>
+                        <p className="mt-1 text-xs text-slate-500">Fecha de ingreso: {tenure.date}</p></>:
+                      <p className="mt-1 text-sm text-slate-500">Fecha de ingreso pendiente de registrar</p>}
+                  </div>}
                 </div>
               ) : (
               <form onSubmit={saveName} className="mt-5">
@@ -408,6 +472,9 @@ export default function MiPerfilPage() {
         {commercialVendor&&visitedCategory&&<div hidden={activeTab!=='category'}>
           <CommercialProfileCategories sellerName={me.full_name??''}/>
         </div>}
+        {commercialVendor&&visitedPlan&&<div hidden={activeTab!=='plan'}>
+          <MyVendorActionPlans/>
+        </div>}
       </div>
       <AlertDialog open={pendingTab!==null} onOpenChange={open=>{if(!open)setPendingTab(null);}}>
         <AlertDialogContent>
@@ -419,7 +486,12 @@ export default function MiPerfilPage() {
            <AlertDialogCancel>Seguir editando</AlertDialogCancel>
            <AlertDialogAction onClick={()=>{
              setCurrentPwd('');setPwd('');setPwd2('');setFullName(me.full_name??'');
-             if(pendingTab){setActiveTab(pendingTab);if(pendingTab==='category')setVisitedCategory(true);}
+             if(pendingTab){
+               setActiveTab(pendingTab);
+               if(pendingTab==='category')setVisitedCategory(true);
+               if(pendingTab==='plan')setVisitedPlan(true);
+               window.history.pushState(null,'',pendingTab==='profile'?'/perfil':'/perfil?seccion='+pendingTab);
+             }
              setPendingTab(null);
            }}>Salir sin guardar</AlertDialogAction>
           </AlertDialogFooter>

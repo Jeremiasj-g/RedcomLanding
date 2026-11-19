@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
 import {ColumnFilterPopup} from '@/components/category-panel/CategoryColumnFilters';
-import {ChevronDown,ChevronLeft,ChevronRight,Filter,Search,KeyRound,Shuffle} from 'lucide-react';
+import {ChevronDown,ChevronLeft,ChevronRight,Filter,Search,KeyRound,Shuffle,CalendarDays} from 'lucide-react';
 import {sellerFromWorksheet,sellerKey,type SellerIdentity} from '@/lib/commercialPersonnelPasswords';
 import type {PersonnelImportChange,PersonnelChangeStatus} from '@/lib/commercialPersonnelDiff';
 import type {PersonnelTableSnapshot} from '@/lib/commercialPersonnelMaster';
@@ -20,12 +20,13 @@ const category=(label:string):GroupKey=>{
 };
 const groups:{key:GroupKey;title:string}[]=[{key:'code',title:'Código'},{key:'identity',title:'Personal'},{key:'branch',title:'Sucursal'},{key:'hierarchy',title:'Jerarquía'},{key:'other',title:'Información adicional'}];
 const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-AR');
-export default function CommercialPersonnelDataTable({snapshot,loading,linkedAccountKeys,reviewAccountKeys,importChanges,onSellerAction}:{
+export default function CommercialPersonnelDataTable({snapshot,loading,linkedAccountKeys,reviewAccountKeys,importChanges,hireDates,onSellerAction}:{
  snapshot:PersonnelTableSnapshot|null;loading:boolean;
  linkedAccountKeys?:Set<string>;
  reviewAccountKeys?:Set<string>;
  importChanges?:PersonnelImportChange[];
- onSellerAction?:(seller:SellerIdentity,action:'manual'|'random'|'review')=>void;
+ hireDates?:Map<string,string|null>;
+ onSellerAction?:(seller:SellerIdentity,action:'manual'|'random'|'review'|'hire-date')=>void;
 }){
  const [search,setSearch]=useState('');
  const [sort,setSort]=useState<{key:string;direction:'asc'|'desc'}|null>(null);
@@ -169,8 +170,10 @@ export default function CommercialPersonnelDataTable({snapshot,loading,linkedAcc
            {reviewAccountKeys?.has(sellerKey(seller))&&<button type="button" title="Rotar titular del código comercial" onClick={()=>onSellerAction(seller,'review')} className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] text-amber-900 hover:bg-amber-100">Rotar titular</button>}
            <button type="button" disabled={reviewAccountKeys?.has(sellerKey(seller))} title="Establecer contraseña manual" aria-label={'Contraseña manual para '+seller.name} onClick={()=>onSellerAction(seller,'manual')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100"><KeyRound className="h-3.5 w-3.5"/></button>
            <button type="button" disabled={reviewAccountKeys?.has(sellerKey(seller))} title="Generar contraseña aleatoria" aria-label={'Contraseña aleatoria para '+seller.name} onClick={()=>onSellerAction(seller,'random')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100"><Shuffle className="h-3.5 w-3.5"/></button>
+           <button type="button" disabled={reviewAccountKeys?.has(sellerKey(seller))||!linked} title="Establecer fecha de ingreso" aria-label={'Fecha de ingreso para '+seller.name} onClick={()=>onSellerAction(seller,'hire-date')} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-200 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"><CalendarDays className="h-3.5 w-3.5"/></button>
           </div>
           <span className="mt-1 block text-[10px] text-slate-500">{reviewAccountKeys?.has(sellerKey(seller))?'Rotación pendiente':linked?'Acceso configurado':'Clave pendiente'}</span>
+          {linked&&<span className="mt-1 block text-[10px] text-slate-500">{hireDates?.get(sellerKey(seller))?'Ingreso: '+new Intl.DateTimeFormat('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',timeZone:'UTC'}).format(new Date(hireDates.get(sellerKey(seller))+'T12:00:00Z')):'Ingreso sin registrar'}</span>}
          </td>;
         })()}
      </tr>)}

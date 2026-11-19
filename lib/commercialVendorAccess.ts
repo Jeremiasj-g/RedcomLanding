@@ -4,7 +4,7 @@ export {randomSecurePassword,validateManualPassword,sellerKey,sellerFromWorkshee
 export type {SellerIdentity};
 
 export type CommercialVendorAccess={
- branch:string;person_code:number;person_name:string;auth_user_id:string;login_email:string;needs_review:boolean;
+ branch:string;person_code:number;person_name:string;auth_user_id:string;login_email:string;needs_review:boolean;hire_date:string|null;
 };
 export type VendorLoginOption={
  branch:string;person_code:number;person_name:string;login_email:string|null;
@@ -12,7 +12,7 @@ export type VendorLoginOption={
 
 export async function listCommercialVendorAccess():Promise<CommercialVendorAccess[]>{
  const {data,error}=await supabase.from('commercial_vendor_accounts')
-  .select('branch,person_code,person_name,auth_user_id,login_email,needs_review')
+  .select('branch,person_code,person_name,auth_user_id,login_email,needs_review,hire_date')
   .order('branch').order('person_code');
  if(error)throw error;
  return data??[];
@@ -54,4 +54,20 @@ export async function isMyCommercialVendorAccount(){
  const {data,error}=await supabase.rpc('is_current_commercial_vendor');
  if(error)throw error;
  return data===true;
+}
+
+/** Administración: guarda la fecha de ingreso del titular del código (o null para limpiar). */
+export async function setCommercialVendorHireDate(seller:SellerIdentity,hireDate:string|null){
+ const {data,error}=await supabase.rpc('set_commercial_vendor_hire_date',{
+  p_branch:seller.branch,p_person_code:seller.code,p_hire_date:hireDate,
+ });
+ if(error)throw error;
+ return data as string|null;
+}
+export type CommercialEmployment={hire_date:string|null;person_code:number;branch:string};
+export async function getMyCommercialEmployment():Promise<CommercialEmployment>{
+ const {data,error}=await supabase.rpc('my_commercial_vendor_employment');
+ if(error)throw error;
+ if(!data||typeof data!=='object')throw new Error('No se pudo consultar la antigüedad comercial.');
+ return data as CommercialEmployment;
 }

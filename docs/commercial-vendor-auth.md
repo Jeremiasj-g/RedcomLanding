@@ -76,3 +76,14 @@ Al seleccionar un nuevo XLSX se muestran cifras de incorporaciones, modificacion
 **Perfil:** Para los accesos comerciales el nombre se muestra en solo lectura. Además, una función/trigger en PostgreSQL bloquea las modificaciones directas a `profiles.full_name`, rol, estado y sucursal desde el JWT del vendedor. Administradores y otros roles conservan su funcionalidad.
 
 **Migración:** `supabase/migrations/20261117_commercial_vendor_code_holder_rotation.sql`. No ejecuta ninguna rotación automáticamente; los cuatro códigos anteriormente bloqueados permanecen pendientes hasta que el administrador les establezca una clave.
+
+## Fecha de ingreso y antigüedad (2026-11-18)
+
+La fecha de ingreso corresponde al **titular actual**, no al código comercial. Se guarda en `commercial_vendor_accounts.hire_date` (`DATE`, nullable), con migración `20261118_commercial_vendor_hire_date.sql`.
+
+- **Administración → Personal comercial:** botón de calendario junto a las acciones de contraseña para vendedores con cuenta vigente. Reutiliza `RedcomDatePicker` con selección de mes/año; permite establecer, corregir o limpiar la fecha, con confirmación al descartar cambios.
+- **Perfil comercial:** muestra la antigüedad (años, meses y, cuando corresponde, días) y la fecha de ingreso, en solo lectura. Sin fecha registrada, muestra «Fecha de ingreso pendiente de registrar». No se infiere a partir de la creación de Auth ni de los históricos.
+- **Seguridad:** RPC de escritura `set_commercial_vendor_hire_date` exige administrador activo y que el padrón actual coincida con la identidad comercial, sin revisión pendiente. RPC de lectura `my_commercial_vendor_employment` deriva el acceso de `auth.uid()` y solo devuelve los datos del vendedor autenticado. La UI no puede editar la fecha directamente en tablas.
+- **Rotación:** trigger `clear_commercial_vendor_hire_date_on_holder_change` borra la fecha cuando cambia el titular del código; se debe asignar la fecha correspondiente a la nueva persona.
+- **Compatibilidad:** no cambia contraseñas, permisos de proyectos, importaciones, códigos ni históricos. No se cargaron fechas reales automáticamente.
+- **Prueba SQL reversible:** vendedor no puede editar, administrador puede, vendedor consulta la suya, rotación borra fecha y la transacción de prueba revierte todo.
