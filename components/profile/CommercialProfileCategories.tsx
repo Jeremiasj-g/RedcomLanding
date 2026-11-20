@@ -5,6 +5,7 @@ import {BarChart3,ChevronRight,History,Layers3} from 'lucide-react';
 import {RedcomSearchableSelect} from '@/components/ui/redcom-select';
 import {SellerScoreDialog,SellerTierComparison} from '@/components/category-panel/CategoryUnifiedOverview';
 import {errorMessage} from '@/lib/notifications';
+import {hasMonthlyRecognition} from '@/lib/categoryMonthlyConsiderations';
 import {
  buildMyCommercialCategory,fetchMyCommercialCategory,previousCategoryMonth,
  type CommercialProfileV2Snapshot,
@@ -100,6 +101,7 @@ export default function CommercialProfileCategories({sellerName}:{sellerName:str
    <CategoryPreview title="Categoría del mes" month={month} category={categoryLabel} loading={busy}/>
    <CategoryPreview title="Mes anterior" month={priorMonth} category={previousLabel} loading={busy}/>
   </div>
+  {hasMonthlyRecognition(category?.consideration)&&<div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><p className="font-medium">Consideración mensual aplicada</p><p className="mt-1 text-xs">{category?.consideration?.reason}</p><p className="mt-1 text-xs text-amber-700">Los KPI originales se mantienen sin modificaciones.</p></div>}
   <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
    <div className="flex flex-wrap items-center justify-between gap-3">
     <div>
@@ -113,14 +115,14 @@ export default function CommercialProfileCategories({sellerName}:{sellerName:str
    </div>
    {busy?<div className="mt-5 grid gap-3 lg:grid-cols-3">{[0,1,2].map(i=><div key={i} className="h-72 animate-pulse rounded-2xl bg-slate-100 motion-reduce:animate-none"/>)}</div>:
     category?.row?<div className="mt-5">
-     <SellerTierComparison input={category.input} projectedCategory={category.projection?.projected_category??null} metrics={category.metrics} gates={category.gates}/>
+     <SellerTierComparison input={category.input} projectedCategory={category.projection?.projected_category??null} metrics={category.metrics} gates={category.gates} consideration={category.consideration}/>
     </div>:<div className="mt-5 rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm text-slate-500">
      No hay indicadores de Categorías V2 para este código durante {monthLabel(month)}.
     </div>}
   </div>
   {category?.row&&detailsOpen&&<SellerScoreDialog
    name={selectedName} branch={branch} input={category.input}
-   projectedCategory={category.projection?.projected_category??null}
+   projectedCategory={category.projection?.projected_category??null} consideration={category.consideration}
    reasonSummary={category.reasonSummary} row={category.row}
    elapsedDays={category.elapsedDays} month={month}
    metrics={category.metrics} gates={category.gates}

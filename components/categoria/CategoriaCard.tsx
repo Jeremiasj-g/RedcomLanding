@@ -7,6 +7,7 @@ type Props = {
   id: string;
   vendedor: string;
   categoriaLabel: string;
+  considerationNote?:string;
   categoriaColor: { bg: string; text: string; border: string };
 
   eficiencia: number | null;
@@ -24,6 +25,7 @@ export default function CategoriaCard({
   id,
   vendedor,
   categoriaLabel,
+  considerationNote,
   categoriaColor,
   eficiencia,
   cobertura,
@@ -49,6 +51,7 @@ export default function CategoriaCard({
               <div className="font-semibold text-slate-900 leading-tight">
                 {vendedor}
               </div>
+              {considerationNote&&<span title={considerationNote} className="mb-1 inline-flex rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">Consideración mensual</span>}
               <div className="text-xs text-slate-500 uppercase tracking-wide">
                 {categoriaLabel}
               </div>

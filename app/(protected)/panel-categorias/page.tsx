@@ -48,6 +48,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { exportKpiProjectionTemplate, getKpiTemplateSellers, parseKpiProjectionFile, type KpiProjection } from '@/lib/categoryKpiProjections';
 import {getActivePersonnelPeople} from '@/lib/commercialPersonnelMaster';
 import SellerConsiderations from '@/components/category-panel/SellerConsiderations';
+import CategoryMonthlyConsiderations from '@/components/category-panel/CategoryMonthlyConsiderations';
 import CommercialPersonnel from '@/components/category-panel/CommercialPersonnel';
 import CategorySigoHistory from '@/components/category-panel/CategorySigoHistory';
 import CategoryUnifiedOverview from '@/components/category-panel/CategoryUnifiedOverview';
@@ -208,7 +209,8 @@ export default function CategoryPanelPage() {
   const [branchFilter, setBranchFilter] = useState('all');
   const [activeTab, setActiveTab] = useState<'kpis' | 'sigo' | 'scales' | 'personnel' | 'categories'>('kpis');
   const [pendingLeave,setPendingLeave]=useState<{kind:'tab';value:typeof activeTab}|{kind:'month';value:string}|null>(null);
-  const unsavedImport=Boolean(kpiDraft||preview||pivotFile||tmpFile);
+  const [monthlyDirty,setMonthlyDirty]=useState(false);
+  const unsavedImport=Boolean(kpiDraft||preview||pivotFile||tmpFile||monthlyDirty);
   const requestTab=(tab:typeof activeTab)=>{
     if(tab===activeTab)return;
     if(unsavedImport){setPendingLeave({kind:'tab',value:tab});return;}
@@ -221,7 +223,7 @@ export default function CategoryPanelPage() {
   };
   const discardImportAndContinue=()=>{
     if(!pendingLeave)return;
-    setKpiDraft(null);setPreview(null);setPivotFile(null);setTmpFile(null);
+    setKpiDraft(null);setPreview(null);setPivotFile(null);setTmpFile(null);setMonthlyDirty(false);
     setConfirmSaveOpen(false);setInputVersion(version=>version+1);
     if(pendingLeave.kind==='tab')setActiveTab(pendingLeave.value);
     else setSelectedMonth(pendingLeave.value);
@@ -821,7 +823,7 @@ export default function CategoryPanelPage() {
           ) : activeTab === 'sigo' ? (
             <CategorySigoHistory month={selectedMonth} onMonthChange={setSelectedMonth} />
           ) : (
-            <CategoryScaleTab />
+            <CategoryScaleTab month={selectedMonth} onDirtyChange={setMonthlyDirty}/>
           )}
         </div>
       </main>
@@ -1396,7 +1398,7 @@ function PanelTab({
   );
 }
 
-function CategoryScaleTab() {
+function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dirty:boolean)=>void}) {
   const [settings, setSettings] = useState<CategoryScaleSettings>({
     title: 'Escalas categorización preventa',
     validYear: 2026,
@@ -1868,6 +1870,7 @@ function CategoryScaleTab() {
       </section>
 
       <SellerConsiderations metrics={metrics} gates={gates} />
+      <CategoryMonthlyConsiderations month={month} metrics={metrics} gates={gates} onDirtyChange={onDirtyChange}/>
       <AlertDialog open={deleteScaleTarget!==null} onOpenChange={open=>{if(!open&&!deletingScale)setDeleteScaleTarget(null);}}>
         <AlertDialogContent className="w-[calc(100%-32px)] max-w-[430px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,.18)]">
           <AlertDialogHeader className="space-y-2 p-6 text-left">
