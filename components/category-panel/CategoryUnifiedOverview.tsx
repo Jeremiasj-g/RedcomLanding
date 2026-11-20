@@ -168,7 +168,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
      routeHours:average?average.sum/average.days/3600:null
    };
    const assessment=assessSellerCategory(input,scaleMetrics,scaleGates,extra?.projected_category??null);
-   const categoriaKey=assessment.status==='pending'?'PENDIENTE' as const:normalizeCategoriaKey(assessment.label);
+   const categoriaKey=assessment.status==='pending'?'PLAN_MEJORA' as const:normalizeCategoriaKey(assessment.label);
    return {person,row,extra,input,assessment,categoriaKey,
      vendedor:person.name,Supervisor:person.superior??'',id:cardScope+':'+person.id};
  });
@@ -210,11 +210,11 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
     {filteredCards.length===0?<p className="py-16 text-center text-sm text-slate-500">No hay vendedores que coincidan con los filtros.</p>:
     <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
       {filteredCards.map(card=>{
-       const category=card.categoriaKey==='PENDIENTE'?null:getCategoriaByKey(card.categoriaKey);
+       const category=getCategoriaByKey(card.categoriaKey);
        return <CategoriaCard key={card.id} id={String(card.person.id)}
-         vendedor={card.vendedor} categoriaLabel={category?.label??'Pendiente'}
-         categoriaColor={category?.color??{bg:'bg-slate-400',text:'text-slate-600',border:'border-slate-200'}}
-         accentColor={category?.color.bg??'#94a3b8'}
+         vendedor={card.vendedor} categoriaLabel={category.label}
+         categoriaColor={category.color}
+         accentColor={category.color.bg}
          eficiencia={card.input.efficiency} cobertura={card.input.coverage}
          volumen={card.input.volume} pop={card.input.pop} exhibicion={card.input.exhibition}
          onDetails={()=>setDetail({name:card.person.name,
