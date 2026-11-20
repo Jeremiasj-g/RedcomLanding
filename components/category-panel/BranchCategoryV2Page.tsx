@@ -53,8 +53,8 @@ export default function BranchCategoryV2Page({scope,children}:{scope:Scope;child
  useEffect(()=>{
   if(!canConfirm)return;
   let active=true;setClosureLoading(true);setClosure(null);
-  void supabase.from('category_v2_confirmed_closures').select('revision,confirmed_at')
-   .eq('branch_key',scope.key).eq('month',month).order('revision',{ascending:false}).limit(1)
+  void Promise.resolve(supabase.from('category_v2_confirmed_closures').select('revision,confirmed_at')
+   .eq('branch_key',scope.key).eq('month',month).order('revision',{ascending:false}).limit(1))
    .then(({data,error})=>{if(error)throw error;if(active)setClosure(data?.[0]??null);})
    .catch(e=>{if(active)notify.error(errorMessage(e,'No se pudo consultar el cierre del mes.'));})
    .finally(()=>{if(active)setClosureLoading(false);});
