@@ -4,6 +4,7 @@ import type {CategoryPanelRow} from '@/lib/categoryPanelExcel';
 import type {KpiProjection} from '@/lib/categoryKpiProjections';
 import {assessSellerCategory,type SellerCategoryInput,type CategoryAssessment} from '@/lib/categoryReached';
 import type {CategoryScaleMetric,CategoryScaleGate} from '@/lib/categoryScale';
+import type {MonthlyConsideration} from '@/lib/categoryMonthlyConsiderations';
 import {summarizeSigoReasons,type SigoReasonSummary} from '@/lib/categorySigoReasons';
 
 type Daily={
@@ -15,13 +16,13 @@ export type CommercialProfileV2Snapshot={
  branch:string;code:number;scope:string;month:string;months:string[];
  row:Record<string,unknown>|null;projection:KpiProjection|null;
  daily:Daily[];metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];
- excludedDays:string[];
+ excludedDays:string[];monthlyConsideration:MonthlyConsideration|null;
 };
 export type CommercialProfileCategory={
  month:string;scope:string;row:CategoryPanelRow|null;
  input:SellerCategoryInput;projection:KpiProjection|null;
  assessment:CategoryAssessment;elapsedDays:number;
- reasonSummary:SigoReasonSummary[];metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];
+ reasonSummary:SigoReasonSummary[];metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];consideration:MonthlyConsideration|null;
 };
 export const previousCategoryMonth=(month:string)=>{
  const [year,m]=month.split('-').map(Number);
@@ -81,8 +82,8 @@ export function buildMyCommercialCategory(data:CommercialProfileV2Snapshot):Comm
   data.scope==='corrientes_refrigerados'?'ESQUEMA REGRIGERADOS':'all';
  return {
   month:data.month,scope:data.scope,row,input,projection:projected,
-  assessment:assessSellerCategory(input,data.metrics??[],data.gates??[],projected?.projected_category??null),
-  elapsedDays:days,metrics:data.metrics??[],gates:data.gates??[],
+  assessment:assessSellerCategory(input,data.metrics??[],data.gates??[],projected?.projected_category??null,data.monthlyConsideration),
+  elapsedDays:days,metrics:data.metrics??[],gates:data.gates??[],consideration:data.monthlyConsideration??null,
   reasonSummary:summarizeSigoReasons(data.daily??[],data.code,data.branch,force),
  };
 }
