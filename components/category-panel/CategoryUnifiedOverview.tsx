@@ -206,7 +206,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
        categoria={cardCategory} onCategoriaChange={setCardCategory}
        supervisor={cardSupervisor} onSupervisorChange={setCardSupervisor} supervisors={supervisors}/>
     </div>
-    <div className="mt-6"><CategoriasSummaryCards rows={filteredCards.filter(card=>card.categoriaKey!=='PENDIENTE')}/></div>
+    <div className="mt-6"><CategoriasSummaryCards rows={filteredCards}/></div>
     {filteredCards.length===0?<p className="py-16 text-center text-sm text-slate-500">No hay vendedores que coincidan con los filtros.</p>:
     <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
       {filteredCards.map(card=>{
