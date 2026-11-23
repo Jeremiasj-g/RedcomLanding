@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient';
 
+export type CategoryScaleKey='general'|'refrigerados';
 export type CategoryScaleSettings = {
   title: string;
   validYear: number;
@@ -31,7 +32,7 @@ export type CategoryScaleGate = {
 export type CategoryScaleMetricInput = Omit<CategoryScaleMetric, 'id'>;
 export type CategoryScaleGateInput = Omit<CategoryScaleGate, 'id'>;
 
-export async function fetchCategoryScaleConfig(): Promise<{
+export async function fetchCategoryScaleConfig(scaleKey:CategoryScaleKey='general'): Promise<{
   settings: CategoryScaleSettings;
   metrics: CategoryScaleMetric[];
   gates: CategoryScaleGate[];
@@ -44,7 +45,7 @@ export async function fetchCategoryScaleConfig(): Promise<{
     supabase
       .from('category_scale_settings')
       .select('title,valid_year,percent_tolerance')
-      .eq('id', 1)
+      .eq('id',scaleKey==='refrigerados'?2:1)
       .single(),
     supabase
       .from('category_scale_metrics')
@@ -52,12 +53,14 @@ export async function fetchCategoryScaleConfig(): Promise<{
         'id,section_name,metric_name,value_type,senior_value,semi_senior_value,junior_value,improvement_value,weight_percent,sort_order',
       )
       .eq('is_active', true)
+      .eq('scale_key',scaleKey)
       .order('sort_order', { ascending: true })
       .order('id', { ascending: true }),
     supabase
       .from('category_scale_gates')
       .select('id,label,value_text,sort_order')
       .eq('is_active', true)
+      .eq('scale_key',scaleKey)
       .order('sort_order', { ascending: true })
       .order('id', { ascending: true }),
   ]);
@@ -97,6 +100,7 @@ export async function fetchCategoryScaleConfig(): Promise<{
 
 export async function updateCategoryScaleSettings(
   settings: CategoryScaleSettings,
+  scaleKey:CategoryScaleKey='general',
 ): Promise<void> {
   if(!Number.isFinite(settings.percentTolerance)||settings.percentTolerance<0||settings.percentTolerance>10)throw new Error('La tolerancia debe estar entre 0 y 10 puntos porcentuales.');
   const { error } = await supabase
@@ -106,18 +110,20 @@ export async function updateCategoryScaleSettings(
       valid_year: settings.validYear,
       percent_tolerance: settings.percentTolerance,
     })
-    .eq('id', 1);
+    .eq('id',scaleKey==='refrigerados'?2:1);
 
   if (error) throw error;
 }
 
 export async function createCategoryScaleMetric(
   input: CategoryScaleMetricInput,
+  scaleKey:CategoryScaleKey='general',
 ): Promise<CategoryScaleMetric> {
   const { data, error } = await supabase
     .from('category_scale_metrics')
     .insert({
       section_name: input.sectionName.trim(),
+      scale_key:scaleKey,
       metric_name: input.metricName.trim(),
       value_type: input.valueType,
       senior_value: input.seniorValue,
@@ -151,11 +157,13 @@ export async function createCategoryScaleMetric(
 export async function updateCategoryScaleMetric(
   id: number,
   input: CategoryScaleMetricInput,
+  scaleKey:CategoryScaleKey='general',
 ): Promise<CategoryScaleMetric> {
   const { data, error } = await supabase
     .from('category_scale_metrics')
     .update({
       section_name: input.sectionName.trim(),
+      scale_key:scaleKey,
       metric_name: input.metricName.trim(),
       value_type: input.valueType,
       senior_value: input.seniorValue,
@@ -166,6 +174,7 @@ export async function updateCategoryScaleMetric(
       sort_order: input.sortOrder,
     })
     .eq('id', id)
+    .eq('scale_key',scaleKey)
     .select('*')
     .single();
 
@@ -187,22 +196,25 @@ export async function updateCategoryScaleMetric(
   };
 }
 
-export async function deleteCategoryScaleMetric(id: number): Promise<void> {
+export async function deleteCategoryScaleMetric(id: number,scaleKey:CategoryScaleKey='general'): Promise<void> {
   const { error } = await supabase
     .from('category_scale_metrics')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('scale_key',scaleKey);
 
   if (error) throw error;
 }
 
 export async function createCategoryScaleGate(
   input: CategoryScaleGateInput,
+  scaleKey:CategoryScaleKey='general',
 ): Promise<CategoryScaleGate> {
   const { data, error } = await supabase
     .from('category_scale_gates')
     .insert({
       label: input.label.trim(),
+      scale_key:scaleKey,
       value_text: input.valueText.trim(),
       sort_order: input.sortOrder,
     })
@@ -222,15 +234,18 @@ export async function createCategoryScaleGate(
 export async function updateCategoryScaleGate(
   id: number,
   input: CategoryScaleGateInput,
+  scaleKey:CategoryScaleKey='general',
 ): Promise<CategoryScaleGate> {
   const { data, error } = await supabase
     .from('category_scale_gates')
     .update({
       label: input.label.trim(),
+      scale_key:scaleKey,
       value_text: input.valueText.trim(),
       sort_order: input.sortOrder,
     })
     .eq('id', id)
+    .eq('scale_key',scaleKey)
     .select('*')
     .single();
 
@@ -244,11 +259,12 @@ export async function updateCategoryScaleGate(
   };
 }
 
-export async function deleteCategoryScaleGate(id: number): Promise<void> {
+export async function deleteCategoryScaleGate(id: number,scaleKey:CategoryScaleKey='general'): Promise<void> {
   const { error } = await supabase
     .from('category_scale_gates')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('scale_key',scaleKey);
 
   if (error) throw error;
 }

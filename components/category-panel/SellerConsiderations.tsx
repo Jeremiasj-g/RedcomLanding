@@ -50,14 +50,15 @@ function RuleEditor({rule, inherited, onChange}: {
 }
 
 export default function SellerConsiderations({
-  metrics, gates,
-}: {metrics: CategoryScaleMetric[]; gates: CategoryScaleGate[]}) {
+  metrics, gates,branchScope='general',onDirtyChange,
+}: {metrics: CategoryScaleMetric[]; gates: CategoryScaleGate[];branchScope?:'general'|'corrientes_refrigerados';onDirtyChange?:(dirty:boolean)=>void}) {
   const [sellers,setSellers]=useState<Seller[]>([]);
   const [entries,setEntries]=useState<SellerConsideration[]>([]);
   const [loading,setLoading]=useState(true);
   const [query,setQuery]=useState('');
   const [selected,setSelected]=useState<string>('');
   const [editing,setEditing]=useState(false);
+  useEffect(()=>{onDirtyChange?.(editing);return()=>onDirtyChange?.(false);},[editing,onDirtyChange]);
   const [reason,setReason]=useState('');
   const [metricRules,setMetricRules]=useState<MetricRules>({});
   const [gateRules,setGateRules]=useState<GateRules>({});
@@ -83,12 +84,14 @@ export default function SellerConsiderations({
     return ()=>{mounted=false;};
   },[]);
 
-  const byKey=useMemo(()=>new Map(sellers.map(s=>[s.branch_key+':'+s.seller_id,s])),[sellers]);
+  const scopedSellers=useMemo(()=>sellers.filter(s=>branchScope==='corrientes_refrigerados'?s.branch_key==='corrientes_refrigerados':s.branch_key!=='corrientes_refrigerados'),[sellers,branchScope]);
+  const scopedEntries=useMemo(()=>entries.filter(e=>branchScope==='corrientes_refrigerados'?e.branch_key==='corrientes_refrigerados':e.branch_key!=='corrientes_refrigerados'),[entries,branchScope]);
+  const byKey=useMemo(()=>new Map(scopedSellers.map(s=>[s.branch_key+':'+s.seller_id,s])),[scopedSellers]);
   const selectedSeller=byKey.get(selected);
   const current=entries.find(e=>e.branch_key+':'+e.seller_id===selected);
-  const listed=useMemo(()=>sellers.filter(s=>
+  const listed=useMemo(()=>scopedSellers.filter(s=>
     (s.branch_key+' '+s.branch_label+' '+s.seller_id+' '+s.seller_name).toLowerCase().includes(query.toLowerCase())
-  ),[sellers,query]);
+  ),[scopedSellers,query]);
 
   function openSeller(key:string) {
     const entry=entries.find(e=>e.branch_key+':'+e.seller_id===key);
@@ -171,7 +174,7 @@ export default function SellerConsiderations({
                 searchPlaceholder="Buscar vendedor..."
                 className="h-11 w-full rounded-xl"
               />
-              {!sellers.length && <p className="mt-3 text-xs text-amber-700">Primero importá y guardá los KPIs para poder seleccionar vendedores.</p>}
+              {!scopedSellers.length && <p className="mt-3 text-xs text-amber-700">Primero importá y guardá los KPIs para poder seleccionar vendedores.</p>}
               {selectedSeller && <>
                 <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-slate-900"><UserRound className="h-4 w-4 text-blue-600"/>ID {selectedSeller.seller_id} · {selectedSeller.seller_name} <span className="text-xs font-normal text-slate-400">({selectedSeller.branch_label})</span></div>
                 <label className="mt-4 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Motivo / observación</label>
@@ -210,9 +213,9 @@ export default function SellerConsiderations({
             </div>
           )}
           <div className="mt-6 border-t border-slate-100 pt-4">
-            {!entries.length?<p className="py-5 text-center text-xs text-slate-400">Todavía no se configuraron excepciones individuales.</p>:
+            {!scopedEntries.length?<p className="py-5 text-center text-xs text-slate-400">Todavía no se configuraron excepciones individuales.</p>:
             <div className="grid gap-2 md:grid-cols-2">
-              {entries.map(entry=>{
+              {scopedEntries.map(entry=>{
                 const k=entry.branch_key+':'+entry.seller_id;
                 const seller=byKey.get(k);
                 return <div key={k} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">

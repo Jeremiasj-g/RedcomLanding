@@ -4,7 +4,7 @@ import {CheckCircle2,Save,ShieldCheck} from 'lucide-react';
 import CategoryMonthPicker from '@/components/category-panel/CategoryMonthPicker';
 import {getActivePersonnelPeople,type CommercialPerson} from '@/lib/commercialPersonnelMaster';
 import {fetchMonthlyConsiderations,saveMonthlyConsideration,hasMonthlyRecognition,type MonthlyConsideration,type MonthlyLevel} from '@/lib/categoryMonthlyConsiderations';
-import type {CategoryScaleMetric,CategoryScaleGate} from '@/lib/categoryScale';
+import {fetchCategoryScaleConfig,type CategoryScaleMetric,type CategoryScaleGate,type CategoryScaleKey} from '@/lib/categoryScale';
 import {RedcomSearchableSelect,RedcomSelect} from '@/components/ui/redcom-select';
 import {errorMessage,notify} from '@/lib/notifications';
 import {AlertDialog,AlertDialogContent,AlertDialogTitle,AlertDialogDescription,AlertDialogHeader,AlertDialogFooter,AlertDialogAction,AlertDialogCancel} from '@/components/ui/alert-dialog';
@@ -19,9 +19,18 @@ const branches=[
 type Choice={key:string;label:string;person:CommercialPerson};
 const levels=[{value:'none',label:'Sin consideración'},{value:'junior',label:'Reconocer Junior'},{value:'semi',label:'Reconocer Semi Senior'},{value:'senior',label:'Reconocer Senior'}];
 export default function CategoryMonthlyConsiderations({
- month,metrics,gates,onDirtyChange
-}:{month:string;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];onDirtyChange?:(dirty:boolean)=>void}){
+ month,metrics,gates,scaleKey='general',onDirtyChange
+}:{month:string;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];scaleKey?:CategoryScaleKey;onDirtyChange?:(dirty:boolean)=>void}){
  const [selectedMonth,setSelectedMonth]=useState(()=>month||new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0'));
+ const [otherScale,setOtherScale]=useState<{metrics:CategoryScaleMetric[];gates:CategoryScaleGate[]}|null>(null);
+ const [scaleError,setScaleError]=useState('');
+ useEffect(()=>{
+  let live=true;setOtherScale(null);setScaleError('');
+  void fetchCategoryScaleConfig(scaleKey==='general'?'refrigerados':'general')
+   .then(config=>{if(live)setOtherScale({metrics:config.metrics,gates:config.gates});})
+   .catch(error=>{if(live)setScaleError(errorMessage(error,'No se pudo cargar la escala complementaria.'));});
+  return()=>{live=false;};
+ },[scaleKey]);
  const [people,setPeople]=useState<CommercialPerson[]>([]);
  const [records,setRecords]=useState<MonthlyConsideration[]>([]);
  const [loading,setLoading]=useState(true);
@@ -75,10 +84,16 @@ export default function CategoryMonthlyConsiderations({
   setSelectedMonth(next);
  }
  const selectedChoice=choices.find(c=>c.key===selected);
+ const selectedScale:CategoryScaleKey=selected.startsWith('corrientes_refrigerados:')?'refrigerados':'general';
+ const matchingScale=selectedScale===scaleKey;
+ const selectedMetrics=matchingScale?metrics:(otherScale?.metrics??[]);
+ const selectedGates=matchingScale?gates:(otherScale?.gates??[]);
+ const scaleReady=matchingScale||Boolean(otherScale);
+
  const configured=Object.keys(metricLevels).length>0||Object.values(gateExemptions).some(Boolean);
  const validReason=reason.trim().length>=10&&reason.trim().length<=500;
- const canSave=Boolean(selectedChoice)&&dirty&&!saving&&!loading&&validReason&&(configured||Boolean(record));
- const saveHint=!dirty?'No hay cambios para guardar.':!configured&&!record?'Seleccioná al menos un indicador o condición.':!validReason?'Escribí un motivo de al menos 10 caracteres.':'';
+ const canSave=Boolean(selectedChoice)&&scaleReady&&dirty&&!saving&&!loading&&validReason&&(configured||Boolean(record));
+ const saveHint=!scaleReady?'Cargando el cuadro correspondiente a la sucursal…':!dirty?'No hay cambios para guardar.':!configured&&!record?'Seleccioná al menos un indicador o condición.':!validReason?'Escribí un motivo de al menos 10 caracteres.':'';
  async function save(){
   if(!selectedChoice||!canSave)return;
   const [branchKey,sellerId]=selected.split(':');
@@ -115,12 +130,13 @@ export default function CategoryMonthlyConsiderations({
     <input aria-label="Filtrar padrón" value={search} onChange={e=>setSearch(e.target.value)}
      placeholder="Filtrar padrón" className="h-11 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:border-slate-400"/>
    </div>
+   {scaleError&&<p role="alert" className="mt-3 text-xs text-rose-600">{scaleError}</p>}
    {selectedChoice&&<>
     <div className="mt-5 border-t border-slate-100 pt-4">
      <p className="text-sm font-semibold text-slate-900">Indicadores ponderados</p>
      <p className="mt-1 text-xs text-slate-500">Podés reconocer varios indicadores en una sola operación; el puntaje se toma del peso de cada indicador.</p>
      <div className="mt-3 grid gap-2 md:grid-cols-2">
-      {metrics.filter(m=>m.weightPercent>0).map(metric=><div key={metric.id} className="flex flex-col gap-2 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between">
+      {selectedMetrics.filter(m=>m.weightPercent>0).map(metric=><div key={metric.id} className="flex flex-col gap-2 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between">
        <div className="min-w-0"><p className="text-sm font-medium text-slate-800">{metric.metricName}</p><p className="text-xs text-slate-500">{metric.weightPercent} puntos</p></div>
        <RedcomSelect aria-label={'Reconocimiento de '+metric.metricName}
         value={metricLevels[String(metric.id)]??'none'}
@@ -134,7 +150,7 @@ export default function CategoryMonthlyConsiderations({
      <p className="mt-1 text-xs text-slate-500">Reconocer el cumplimiento no cambia el horario o la efectividad real.</p>
      <div className="mt-3 grid gap-2 md:grid-cols-2">
       {(['route','effectiveness'] as const).map((gate,i)=><label key={gate} className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-sm">
-       <span>{gates.find(g=>gate==='route'?/hora|ruta/i.test(g.label):/efectividad/i.test(g.label))?.label??(i===0?'Horario de ruta':'Efectividad')}</span>
+       <span>{selectedGates.find(g=>gate==='route'?/hora|ruta/i.test(g.label):/efectividad/i.test(g.label))?.label??(i===0?'Horario de ruta':'Efectividad')}</span>
        <input type="checkbox" checked={Boolean(gateExemptions[gate])}
         onChange={e=>setGateExemptions(curr=>({...curr,[gate]:e.target.checked}))}
         className="h-4 w-4 accent-slate-800"/>

@@ -63,13 +63,17 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
  const [detail,setDetail]=useState<{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null;sellerId:number;branchKey:string;row:CategoryPanelRow|null}|null>(null);
  const [scaleMetrics,setScaleMetrics]=useState<CategoryScaleMetric[]>([]);
  const [scaleGates,setScaleGates]=useState<CategoryScaleGate[]>([]);
+ const [refrigeratedScale,setRefrigeratedScale]=useState<{metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];tolerance:number}|null>(null);
  const [percentTolerance,setPercentTolerance]=useState(1);
  const [scaleLoaded,setScaleLoaded]=useState(Boolean(branchScope));
  useEffect(()=>{
   if(branchScope){setScaleMetrics(scopedMetrics??[]);setScaleGates(scopedGates??[]);setPercentTolerance(scopedTolerance??1);setScaleLoaded(true);return;}
-  let active=true;void fetchCategoryScaleConfig().then(config=>{if(active){setScaleMetrics(config.metrics);setScaleGates(config.gates);setPercentTolerance(config.settings.percentTolerance);setScaleLoaded(true);}}).catch(error=>notify.error(errorMessage(error,'No se pudieron cargar las escalas.')));
+  let active=true;void Promise.all([fetchCategoryScaleConfig('general'),fetchCategoryScaleConfig('refrigerados')]).then(([general,refrigerados])=>{if(active){setScaleMetrics(general.metrics);setScaleGates(general.gates);setPercentTolerance(general.settings.percentTolerance);setRefrigeratedScale({metrics:refrigerados.metrics,gates:refrigerados.gates,tolerance:refrigerados.settings.percentTolerance});setScaleLoaded(true);}}).catch(error=>notify.error(errorMessage(error,'No se pudieron cargar las escalas.')));
   return()=>{active=false;};
  },[branchScope,scopedMetrics,scopedGates,scopedTolerance]);
+ const scaleFor=(key:string)=>!branchScope&&key==='corrientes_refrigerados'&&refrigeratedScale
+  ?{metrics:refrigeratedScale.metrics,gates:refrigeratedScale.gates,tolerance:refrigeratedScale.tolerance}
+  :{metrics:scaleMetrics,gates:scaleGates,tolerance:percentTolerance};
  const {counts,excluded,loading:calendarLoading,toggle}=useWorkCalendar(month);
  const [personnel,setPersonnel]=useState<Array<{id:number;name:string;branch:string;role:string;superior:string;force:string}>>([]);
  useEffect(()=>{
@@ -136,7 +140,8 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
    pop:projection?.pop_percentage??null,exhibition:projection?.exhibition_percentage??null,
    volume:projection?.volume_percentage??null,coverage:projection?.coverage_percentage??null,
    routeHours:average?average.sum/average.days/3600:null};
-  return assessSellerCategory(input,scaleMetrics,scaleGates,projection?.projected_category??null,considerationFor(row.branchKey,row.sellerId),percentTolerance).label;
+  const scale=scaleFor(row.branchKey);
+  return assessSellerCategory(input,scale.metrics,scale.gates,projection?.projected_category??null,considerationFor(row.branchKey,row.sellerId),scale.tolerance).label;
  };
  const compactColumns:FilterColumn<CategoryPanelRow>[]=useMemo(()=>[
   {key:'seller',label:'Vendedor',value:r=>r.sellerName},
@@ -146,7 +151,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
   {key:'visited',label:'PDVs visitados',value:r=>String(r.visitados)},
   {key:'hours',label:'Horario promedio',value:r=>{const avg=stats.get(r.branchKey+':'+r.sellerId);return loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos';}},
   {key:'actions',label:'Detalle',value:()=>'Ver detalle'},
- ],[byProjection,stats,loading,scaleMetrics,scaleGates,scaleLoaded,counts.elapsed,percentTolerance,considerationMap]);
+ ],[byProjection,stats,loading,scaleMetrics,scaleGates,scaleLoaded,counts.elapsed,percentTolerance,considerationMap,refrigeratedScale]);
  const summaryRows=filtered;
  const openSellerDetails=(row:CategoryPanelRow)=>{
   const key=row.branchKey+':'+row.sellerId;
@@ -179,7 +184,8 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
      volume:extra?.volume_percentage??null,coverage:extra?.coverage_percentage??null,
      routeHours:average?average.sum/average.days/3600:null
    };
-   const assessment=assessSellerCategory(input,scaleMetrics,scaleGates,extra?.projected_category??null,considerationFor(cardScope,person.id),percentTolerance);
+   const scale=scaleFor(cardScope);
+   const assessment=assessSellerCategory(input,scale.metrics,scale.gates,extra?.projected_category??null,considerationFor(cardScope,person.id),scale.tolerance);
    const categoriaKey=assessment.status==='pending'?'PLAN_MEJORA' as const:normalizeCategoriaKey(assessment.label);
    return {person,row,extra,input,assessment,categoriaKey,
      vendedor:person.name,Supervisor:person.superior??'',id:cardScope+':'+person.id};
@@ -205,7 +211,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
    {key:'pop',label:'% POP',value:p=>String(get(p).extra?.pop_percentage??'—')},
    {key:'exhibition',label:'% Exhibición',value:p=>String(get(p).extra?.exhibition_percentage??'—')},
    {key:'projected',label:'Categoría proyectada',value:p=>get(p).extra?.projected_category??'—'},
-   {key:'reached',label:'Categoría alcanzada',value:p=>{const {r,extra,avg}=get(p);return assessSellerCategory({dailyBilling:r&&counts.elapsed>0?r.importeFinalFacturado/counts.elapsed:null,efficiency:r&&r.visitados>0?r.cntFac/r.visitados*100:null,effectiveness:r&&r.visitasPlaneadas>0?r.visitados/r.visitasPlaneadas*100:null,pop:extra?.pop_percentage??null,exhibition:extra?.exhibition_percentage??null,volume:extra?.volume_percentage??null,coverage:extra?.coverage_percentage??null,routeHours:avg?avg.sum/avg.days/3600:null},scaleMetrics,scaleGates,extra?.projected_category??null,considerationFor(branchTab,p.id),percentTolerance).label;}},
+   {key:'reached',label:'Categoría alcanzada',value:p=>{const {r,extra,avg}=get(p);const scale=scaleFor(branchTab);return assessSellerCategory({dailyBilling:r&&counts.elapsed>0?r.importeFinalFacturado/counts.elapsed:null,efficiency:r&&r.visitados>0?r.cntFac/r.visitados*100:null,effectiveness:r&&r.visitasPlaneadas>0?r.visitados/r.visitasPlaneadas*100:null,pop:extra?.pop_percentage??null,exhibition:extra?.exhibition_percentage??null,volume:extra?.volume_percentage??null,coverage:extra?.coverage_percentage??null,routeHours:avg?avg.sum/avg.days/3600:null},scale.metrics,scale.gates,extra?.projected_category??null,considerationFor(branchTab,p.id),scale.tolerance).label;}},
    {key:'detail',label:'Desglose',value:()=>'Ver puntaje'}
   ];
  },[rows,branchTab,byProjection,stats,loading,counts.elapsed,scaleMetrics,scaleGates,considerationMap,percentTolerance]);
@@ -339,7 +345,8 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
            volume:extra?.volume_percentage??null,coverage:extra?.coverage_percentage??null,
            routeHours:avg?avg.sum/avg.days/3600:null
          };
-         const assessment=assessSellerCategory(input,scaleMetrics,scaleGates,extra?.projected_category??null,considerationFor(branchTab,p.id),percentTolerance);
+         const scale=scaleFor(branchTab);
+         const assessment=assessSellerCategory(input,scale.metrics,scale.gates,extra?.projected_category??null,considerationFor(branchTab,p.id),scale.tolerance);
          const percent=(n:number|null|undefined)=>n==null?'—':n.toLocaleString('es-AR',{maximumFractionDigits:2})+'%';
          const quantity=(n:number|null|undefined)=>n==null?'—':fmt.format(n);
          return <tr key={p.branch+':'+p.force+':'+p.id} className="border-b border-slate-100 text-slate-700 hover:bg-slate-50 max-lg:my-3 max-lg:grid max-lg:grid-cols-2 max-lg:rounded-xl max-lg:border max-lg:border-slate-200 max-lg:p-2">
@@ -353,7 +360,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
     </div>
   </section>
   </>}
-  {detail&&<SellerScoreDialog name={detail.name} branch={detail.branch} input={detail.input} projectedCategory={detail.projectedCategory} consideration={considerationFor(detail.branchKey,detail.sellerId)} reasonSummary={summarizeSigoReasons(daily,detail.sellerId,branches.find(item=>item.key===detail.branchKey)?.branch??'',branches.find(item=>item.key===detail.branchKey)?.force??'')} row={detail.row} elapsedDays={counts.elapsed} month={month} metrics={scaleMetrics} gates={scaleGates} percentTolerance={percentTolerance} onClose={()=>setDetail(null)}/>}
+  {detail&&<SellerScoreDialog name={detail.name} branch={detail.branch} input={detail.input} projectedCategory={detail.projectedCategory} consideration={considerationFor(detail.branchKey,detail.sellerId)} reasonSummary={summarizeSigoReasons(daily,detail.sellerId,branches.find(item=>item.key===detail.branchKey)?.branch??'',branches.find(item=>item.key===detail.branchKey)?.force??'')} row={detail.row} elapsedDays={counts.elapsed} month={month} metrics={scaleFor(detail.branchKey).metrics} gates={scaleFor(detail.branchKey).gates} percentTolerance={scaleFor(detail.branchKey).tolerance} onClose={()=>setDetail(null)}/>}
  </div>;
 }
 

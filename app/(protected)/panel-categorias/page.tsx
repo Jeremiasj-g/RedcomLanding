@@ -67,6 +67,7 @@ import {
   type CategoryScaleMetric,
   type CategoryScaleMetricInput,
   type CategoryScaleSettings,
+  type CategoryScaleKey,
   type CategoryScaleValueType,
 } from '@/lib/categoryScale';
 
@@ -1399,6 +1400,8 @@ function PanelTab({
 }
 
 function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dirty:boolean)=>void}) {
+  const [scaleKey,setScaleKey]=useState<CategoryScaleKey>('general');
+  const [pendingScale,setPendingScale]=useState<CategoryScaleKey|null>(null);
   const [settings, setSettings] = useState<CategoryScaleSettings>({
     title: 'Escalas categorización preventa',
     validYear: 2026,
@@ -1407,11 +1410,11 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
   const [savedSettings,setSavedSettings]=useState<CategoryScaleSettings|null>(null);
   const [toleranceDraft,setToleranceDraft]=useState('1');
   const [monthlyConsiderationsDirty,setMonthlyConsiderationsDirty]=useState(false);
+  const settingsDirty=Boolean(savedSettings&&(toleranceDraft!==String(savedSettings.percentTolerance)||settings.title!==savedSettings.title||settings.validYear!==savedSettings.validYear));
   const toleranceValid=toleranceDraft.trim()!==''&&Number.isFinite(Number(toleranceDraft))&&Number(toleranceDraft)>=0&&Number(toleranceDraft)<=10;
-  useEffect(()=>{
-    onDirtyChange(monthlyConsiderationsDirty||Boolean(savedSettings&&(toleranceDraft!==String(savedSettings.percentTolerance)||settings.title!==savedSettings.title||settings.validYear!==savedSettings.validYear)));
-  },[monthlyConsiderationsDirty,toleranceDraft,savedSettings,settings,onDirtyChange]);
   const [metrics, setMetrics] = useState<CategoryScaleMetric[]>([]);
+  const [permanentDirty,setPermanentDirty]=useState(false);
+
   const [gates, setGates] = useState<CategoryScaleGate[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -1422,15 +1425,23 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
   const [savingRow, setSavingRow] = useState(false);
   const [deleteScaleTarget,setDeleteScaleTarget]=useState<{kind:'metric'|'gate';id:number;label:string}|null>(null);
   const [deletingScale,setDeletingScale]=useState(false);
+  useEffect(()=>{
+    onDirtyChange(monthlyConsiderationsDirty||settingsDirty||permanentDirty||editingMetricId!==null||editingGateId!==null);
+  },[monthlyConsiderationsDirty,settingsDirty,permanentDirty,editingMetricId,editingGateId,onDirtyChange]);
+  const requestScale=(next:CategoryScaleKey)=>{
+    if(next===scaleKey)return;
+    if(settingsDirty||monthlyConsiderationsDirty||permanentDirty||editingMetricId!==null||editingGateId!==null){setPendingScale(next);return;}
+    setScaleKey(next);
+  };
   const confirmScaleDeletion=async()=>{
     if(!deleteScaleTarget||deletingScale)return;
     setDeletingScale(true);
     try{
       if(deleteScaleTarget.kind==='metric'){
-        await deleteCategoryScaleMetric(deleteScaleTarget.id);
+        await deleteCategoryScaleMetric(deleteScaleTarget.id,scaleKey);
         setMetrics(current=>current.filter(item=>item.id!==deleteScaleTarget.id));
       }else{
-        await deleteCategoryScaleGate(deleteScaleTarget.id);
+        await deleteCategoryScaleGate(deleteScaleTarget.id,scaleKey);
         setGates(current=>current.filter(item=>item.id!==deleteScaleTarget.id));
       }
       setDeleteScaleTarget(null);
@@ -1444,7 +1455,7 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
     void (async () => {
       try {
         setLoading(true);
-        const config = await fetchCategoryScaleConfig();
+        const config = await fetchCategoryScaleConfig(scaleKey);
         if (cancelled) return;
         setSettings(config.settings);
         setSavedSettings(config.settings);
@@ -1462,8 +1473,9 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [scaleKey]);
 
+  useEffect(()=>{setEditingMetricId(null);setEditingGateId(null);setMetricDraft(null);setPermanentDirty(false);setMonthlyConsiderationsDirty(false);},[scaleKey]);
   const totalWeight = metrics.reduce(
     (sum, metric) => sum + metric.weightPercent,
     0,
@@ -1519,7 +1531,7 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
     try {
       setSavingRow(true);
       if (editingMetricId === 'new') {
-        const created = await createCategoryScaleMetric(metricDraft);
+        const created = await createCategoryScaleMetric(metricDraft,scaleKey);
         setMetrics((current) =>
           [...current, created].sort(
             (a, b) => a.sortOrder - b.sortOrder || a.id - b.id,
@@ -1529,6 +1541,7 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
         const updated = await updateCategoryScaleMetric(
           editingMetricId,
           metricDraft,
+          scaleKey,
         );
         setMetrics((current) =>
           current
@@ -1572,14 +1585,14 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
     try {
       setSavingRow(true);
       if (editingGateId === 'new') {
-        const created = await createCategoryScaleGate(gateDraft);
+        const created = await createCategoryScaleGate(gateDraft,scaleKey);
         setGates((current) =>
           [...current, created].sort(
             (a, b) => a.sortOrder - b.sortOrder || a.id - b.id,
           ),
         );
       } else if (typeof editingGateId === 'number') {
-        const updated = await updateCategoryScaleGate(editingGateId, gateDraft);
+        const updated = await updateCategoryScaleGate(editingGateId,gateDraft,scaleKey);
         setGates((current) =>
           current
             .map((gate) => (gate.id === updated.id ? updated : gate))
@@ -1608,6 +1621,10 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
 
   return (
     <div className="mt-6 space-y-5">
+      <div role="tablist" aria-label="Cuadro de escalas" className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+       {([{key:'general',label:'Escala general'},{key:'refrigerados',label:'Refrigerados'}] as const).map(item=><button key={item.key} type="button" role="tab" aria-selected={scaleKey===item.key} onClick={()=>requestScale(item.key)}
+        className={'rounded-xl px-4 py-2.5 text-sm font-medium transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-600 motion-reduce:transition-none '+(scaleKey===item.key?'bg-slate-900 text-white':'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}>{item.label}</button>)}
+      </div>
       <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,.04)]">
         <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
@@ -1667,7 +1684,7 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
                     try {
                       setSavingSettings(true);
                       const next={...settings,percentTolerance:Number(toleranceDraft)};
-                      await updateCategoryScaleSettings(next);
+                      await updateCategoryScaleSettings(next,scaleKey);
                       setSettings(next);setSavedSettings(next);
                       notify.success('Configuración actualizada.');
                     } catch (error) {
@@ -1890,8 +1907,13 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
         </div>
       </section>
 
-      <SellerConsiderations metrics={metrics} gates={gates} />
-      <CategoryMonthlyConsiderations month={month} metrics={metrics} gates={gates} onDirtyChange={setMonthlyConsiderationsDirty}/>
+      <SellerConsiderations key={scaleKey} metrics={metrics} gates={gates} branchScope={scaleKey==='refrigerados'?'corrientes_refrigerados':'general'} onDirtyChange={setPermanentDirty}/>
+      <CategoryMonthlyConsiderations key={scaleKey} month={month} metrics={metrics} gates={gates} scaleKey={scaleKey} onDirtyChange={setMonthlyConsiderationsDirty}/>
+      <AlertDialog open={pendingScale!==null} onOpenChange={open=>{if(!open)setPendingScale(null);}}>
+       <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader><AlertDialogTitle>Cambios sin guardar</AlertDialogTitle><AlertDialogDescription>Hay modificaciones pendientes en este cuadro. Si cambiás de escala, se descartarán.</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogFooter><AlertDialogCancel>Seguir editando</AlertDialogCancel><AlertDialogAction className="bg-slate-900 text-white" onClick={()=>{if(pendingScale)setScaleKey(pendingScale);setPendingScale(null);}}>Cambiar sin guardar</AlertDialogAction></AlertDialogFooter>
+       </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={deleteScaleTarget!==null} onOpenChange={open=>{if(!open&&!deletingScale)setDeleteScaleTarget(null);}}>
         <AlertDialogContent className="w-[calc(100%-32px)] max-w-[430px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,.18)]">
           <AlertDialogHeader className="space-y-2 p-6 text-left">
