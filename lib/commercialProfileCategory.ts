@@ -16,13 +16,13 @@ export type CommercialProfileV2Snapshot={
  branch:string;code:number;scope:string;month:string;months:string[];
  row:Record<string,unknown>|null;projection:KpiProjection|null;
  daily:Daily[];metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];
- excludedDays:string[];monthlyConsideration:MonthlyConsideration|null;
+ excludedDays:string[];percentTolerance:number;monthlyConsideration:MonthlyConsideration|null;
 };
 export type CommercialProfileCategory={
  month:string;scope:string;row:CategoryPanelRow|null;
  input:SellerCategoryInput;projection:KpiProjection|null;
  assessment:CategoryAssessment;elapsedDays:number;
- reasonSummary:SigoReasonSummary[];metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];consideration:MonthlyConsideration|null;
+ reasonSummary:SigoReasonSummary[];metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];percentTolerance:number;consideration:MonthlyConsideration|null;
 };
 export const previousCategoryMonth=(month:string)=>{
  const [year,m]=month.split('-').map(Number);
@@ -82,8 +82,8 @@ export function buildMyCommercialCategory(data:CommercialProfileV2Snapshot):Comm
   data.scope==='corrientes_refrigerados'?'ESQUEMA REGRIGERADOS':'all';
  return {
   month:data.month,scope:data.scope,row,input,projection:projected,
-  assessment:assessSellerCategory(input,data.metrics??[],data.gates??[],projected?.projected_category??null,data.monthlyConsideration),
-  elapsedDays:days,metrics:data.metrics??[],gates:data.gates??[],consideration:data.monthlyConsideration??null,
+  assessment:assessSellerCategory(input,data.metrics??[],data.gates??[],projected?.projected_category??null,data.monthlyConsideration,data.percentTolerance??1),
+  elapsedDays:days,metrics:data.metrics??[],gates:data.gates??[],percentTolerance:data.percentTolerance??1,consideration:data.monthlyConsideration??null,
   reasonSummary:summarizeSigoReasons(data.daily??[],data.code,data.branch,force),
  };
 }

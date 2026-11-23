@@ -26,8 +26,8 @@ import {AlertDialog,AlertDialogAction,AlertDialogCancel,AlertDialogContent,Alert
 type Scope={key:string;userBranch:string;branch:string;force:string;label:string;basePath:string};
 type Daily={visit_date:string;branch:string;sales_force:string;seller_id:number|null;seller_name:string;first_visit:string|null;last_visit:string|null;corrected_start:string|null;corrected_end:string|null;reason:string|null};
 type Person={id:number;name:string;branch:string;role:string;superior:string;force:string};
-type Snapshot={months:string[];rows:Record<string,unknown>[];projections:KpiProjection[];daily:Daily[];personnel:Person[];metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];considerations:MonthlyConsideration[]};
-const EMPTY:Snapshot={months:[],rows:[],projections:[],daily:[],personnel:[],metrics:[],gates:[],considerations:[]};
+type Snapshot={percentTolerance:number;months:string[];rows:Record<string,unknown>[];projections:KpiProjection[];daily:Daily[];personnel:Person[];metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];considerations:MonthlyConsideration[]};
+const EMPTY:Snapshot={percentTolerance:1,months:[],rows:[],projections:[],daily:[],personnel:[],metrics:[],gates:[],considerations:[]};
 export default function BranchCategoryV2Page({scope,children}:{scope:Scope;children?:ReactNode}){
  const pathname=usePathname();
  const view=pathname.endsWith('/horarios-sigo')?'horarios-sigo':pathname.endsWith('/detalle-categorias')?'detalle-categorias':'categorias';
@@ -81,7 +81,7 @@ export default function BranchCategoryV2Page({scope,children}:{scope:Scope;child
    const results=getCategoryV2ClosureResults({
     rows:data.rows.map(row=>fromDbRow(row as Parameters<typeof fromDbRow>[0])),
     projections:data.projections,personnel:data.personnel,daily:data.daily,
-    metrics:data.metrics,gates:data.gates,considerations
+    metrics:data.metrics,gates:data.gates,considerations,percentTolerance:data.percentTolerance
    },scope.key,scope.branch,scope.force,elapsed);
    const {data:confirmed,error:confirmError}=await supabase.rpc('confirm_category_v2_closure',{
     p_branch_key:scope.key,p_month:month,p_results:results,
@@ -149,7 +149,7 @@ export default function BranchCategoryV2Page({scope,children}:{scope:Scope;child
       {error&&<div role="alert" className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}
       <div hidden={loadedMonth!==month||Boolean(error)}>
        <CategoryUnifiedOverview rows={rows} projections={snapshot.projections} month={month} availableMonths={snapshot.months} loadingMonth={busy} mode={view==='detalle-categorias'?'detail':'cards'}
-        branchScope={scope.key} scopedDaily={snapshot.daily} scopedPersonnel={snapshot.personnel} scopedMetrics={snapshot.metrics} scopedGates={snapshot.gates} scopedConsiderations={snapshot.considerations}/>
+        branchScope={scope.key} scopedDaily={snapshot.daily} scopedPersonnel={snapshot.personnel} scopedMetrics={snapshot.metrics} scopedGates={snapshot.gates} scopedConsiderations={snapshot.considerations} scopedTolerance={snapshot.percentTolerance}/>
       </div>
     </div>}
     <AlertDialog open={confirmationOpen} onOpenChange={open=>{if(!confirming)setConfirmationOpen(open);}}>

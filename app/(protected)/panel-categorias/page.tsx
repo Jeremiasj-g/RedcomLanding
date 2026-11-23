@@ -1402,7 +1402,15 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
   const [settings, setSettings] = useState<CategoryScaleSettings>({
     title: 'Escalas categorización preventa',
     validYear: 2026,
+    percentTolerance: 1,
   });
+  const [savedSettings,setSavedSettings]=useState<CategoryScaleSettings|null>(null);
+  const [toleranceDraft,setToleranceDraft]=useState('1');
+  const [monthlyConsiderationsDirty,setMonthlyConsiderationsDirty]=useState(false);
+  const toleranceValid=toleranceDraft.trim()!==''&&Number.isFinite(Number(toleranceDraft))&&Number(toleranceDraft)>=0&&Number(toleranceDraft)<=10;
+  useEffect(()=>{
+    onDirtyChange(monthlyConsiderationsDirty||Boolean(savedSettings&&(toleranceDraft!==String(savedSettings.percentTolerance)||settings.title!==savedSettings.title||settings.validYear!==savedSettings.validYear)));
+  },[monthlyConsiderationsDirty,toleranceDraft,savedSettings,settings,onDirtyChange]);
   const [metrics, setMetrics] = useState<CategoryScaleMetric[]>([]);
   const [gates, setGates] = useState<CategoryScaleGate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1439,6 +1447,8 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
         const config = await fetchCategoryScaleConfig();
         if (cancelled) return;
         setSettings(config.settings);
+        setSavedSettings(config.settings);
+        setToleranceDraft(String(config.settings.percentTolerance));
         setMetrics(config.metrics);
         setGates(config.gates);
       } catch (error) {
@@ -1625,6 +1635,14 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
                   className="h-10 w-24 rounded-xl border border-slate-200 bg-[#fafbfc] px-3 text-[12px] outline-none"
                 />
               </label>
+              <label className="w-[140px]">
+                <span className="mb-1 block text-[9px] font-medium text-slate-400">Tolerancia (p.p.)</span>
+                <input type="number" min="0" max="10" step="0.1" inputMode="decimal"
+                  aria-label="Tolerancia porcentual para eficiencia, efectividad, POP y exhibición"
+                  value={toleranceDraft} onChange={event=>setToleranceDraft(event.target.value)}
+                  aria-invalid={!toleranceValid}
+                  className={'h-10 w-full rounded-xl border bg-[#fafbfc] px-3 text-[12px] outline-none '+(toleranceValid?'border-slate-200':'border-rose-400')}/>
+              </label>
               <label className="w-[250px]">
                 <span className="mb-1 block text-[9px] font-medium text-slate-400">
                   Título
@@ -1642,12 +1660,15 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
               </label>
               <button
                 type="button"
-                disabled={savingSettings}
+                disabled={savingSettings||!toleranceValid}
+                title={!toleranceValid?'Ingresá una tolerancia entre 0 y 10 puntos porcentuales.':undefined}
                 onClick={() =>
                   void (async () => {
                     try {
                       setSavingSettings(true);
-                      await updateCategoryScaleSettings(settings);
+                      const next={...settings,percentTolerance:Number(toleranceDraft)};
+                      await updateCategoryScaleSettings(next);
+                      setSettings(next);setSavedSettings(next);
                       notify.success('Configuración actualizada.');
                     } catch (error) {
                       notify.error(
@@ -1870,7 +1891,7 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
       </section>
 
       <SellerConsiderations metrics={metrics} gates={gates} />
-      <CategoryMonthlyConsiderations month={month} metrics={metrics} gates={gates} onDirtyChange={onDirtyChange}/>
+      <CategoryMonthlyConsiderations month={month} metrics={metrics} gates={gates} onDirtyChange={setMonthlyConsiderationsDirty}/>
       <AlertDialog open={deleteScaleTarget!==null} onOpenChange={open=>{if(!open&&!deletingScale)setDeleteScaleTarget(null);}}>
         <AlertDialogContent className="w-[calc(100%-32px)] max-w-[430px] gap-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,.18)]">
           <AlertDialogHeader className="space-y-2 p-6 text-left">

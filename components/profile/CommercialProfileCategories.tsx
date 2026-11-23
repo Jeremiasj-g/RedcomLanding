@@ -115,7 +115,7 @@ export default function CommercialProfileCategories({sellerName}:{sellerName:str
    </div>
    {busy?<div className="mt-5 grid gap-3 lg:grid-cols-3">{[0,1,2].map(i=><div key={i} className="h-72 animate-pulse rounded-2xl bg-slate-100 motion-reduce:animate-none"/>)}</div>:
     category?.row?<div className="mt-5">
-     <SellerTierComparison input={category.input} projectedCategory={category.projection?.projected_category??null} metrics={category.metrics} gates={category.gates} consideration={category.consideration}/>
+     <SellerTierComparison input={category.input} projectedCategory={category.projection?.projected_category??null} metrics={category.metrics} gates={category.gates} consideration={category.consideration} percentTolerance={category.percentTolerance}/>
     </div>:<div className="mt-5 rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm text-slate-500">
      No hay indicadores de Categorías V2 para este código durante {monthLabel(month)}.
     </div>}
@@ -125,7 +125,7 @@ export default function CommercialProfileCategories({sellerName}:{sellerName:str
    projectedCategory={category.projection?.projected_category??null} consideration={category.consideration}
    reasonSummary={category.reasonSummary} row={category.row}
    elapsedDays={category.elapsedDays} month={month}
-   metrics={category.metrics} gates={category.gates}
+   metrics={category.metrics} gates={category.gates} percentTolerance={category.percentTolerance}
    onClose={()=>setDetailsOpen(false)}
   />}
  </section>;

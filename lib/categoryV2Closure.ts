@@ -16,7 +16,7 @@ export type CategoryV2ClosureResult={
 };
 export type CategoryV2ClosureSource={
  rows:CategoryPanelRow[];projections:KpiProjection[];personnel:CategoryV2ClosurePerson[];
- daily:CategoryV2ClosureDaily[];metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];considerations?:MonthlyConsideration[];
+ daily:CategoryV2ClosureDaily[];metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];percentTolerance:number;considerations?:MonthlyConsideration[];
 };
 const timeSeconds=(value:string|null)=>{
  if(!value)return null;
@@ -54,7 +54,7 @@ export function getCategoryV2ClosureResults(
    routeHours:hour&&hour.days>0?hour.seconds/hour.days/3600:null
   };
   const consideration=source.considerations?.find(c=>c.branch_key===branchKey&&c.seller_id===person.id);
-  const assessment=assessSellerCategory(input,source.metrics,source.gates,projection?.projected_category??null,consideration);
+  const assessment=assessSellerCategory(input,source.metrics,source.gates,projection?.projected_category??null,consideration,source.percentTolerance);
   return {seller_id:person.id,seller_name:person.name,supervisor:person.superior,
    category:assessment.status==='pending'?'PLAN DE MEJORA':assessment.label,status:assessment.status,score:assessment.score,details:assessment.details,input,
    consideration:consideration?{metric_levels:consideration.metric_levels,gate_exemptions:consideration.gate_exemptions,

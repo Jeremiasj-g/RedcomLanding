@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabaseClient';
 export type CategoryScaleSettings = {
   title: string;
   validYear: number;
+  percentTolerance: number;
 };
 
 export type CategoryScaleValueType = 'number' | 'percent' | 'currency' | 'count';
@@ -42,7 +43,7 @@ export async function fetchCategoryScaleConfig(): Promise<{
   ] = await Promise.all([
     supabase
       .from('category_scale_settings')
-      .select('title,valid_year')
+      .select('title,valid_year,percent_tolerance')
       .eq('id', 1)
       .single(),
     supabase
@@ -69,6 +70,7 @@ export async function fetchCategoryScaleConfig(): Promise<{
     settings: {
       title: String(settings?.title ?? 'Escalas categorización preventa'),
       validYear: Number(settings?.valid_year ?? new Date().getFullYear()),
+      percentTolerance: Number(settings?.percent_tolerance ?? 1),
     },
     metrics: (metrics ?? []).map((row: any) => ({
       id: Number(row.id),
@@ -96,11 +98,13 @@ export async function fetchCategoryScaleConfig(): Promise<{
 export async function updateCategoryScaleSettings(
   settings: CategoryScaleSettings,
 ): Promise<void> {
+  if(!Number.isFinite(settings.percentTolerance)||settings.percentTolerance<0||settings.percentTolerance>10)throw new Error('La tolerancia debe estar entre 0 y 10 puntos porcentuales.');
   const { error } = await supabase
     .from('category_scale_settings')
     .update({
       title: settings.title.trim(),
       valid_year: settings.validYear,
+      percent_tolerance: settings.percentTolerance,
     })
     .eq('id', 1);
 
