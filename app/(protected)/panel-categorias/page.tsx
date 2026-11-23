@@ -1907,8 +1907,8 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
         </div>
       </section>
 
-      <SellerConsiderations key={scaleKey} metrics={metrics} gates={gates} branchScope={scaleKey==='refrigerados'?'corrientes_refrigerados':'general'} onDirtyChange={setPermanentDirty}/>
-      <CategoryMonthlyConsiderations key={scaleKey} month={month} metrics={metrics} gates={gates} scaleKey={scaleKey} onDirtyChange={setMonthlyConsiderationsDirty}/>
+      <SellerConsiderations metrics={metrics} gates={gates} branchScope={scaleKey==='refrigerados'?'corrientes_refrigerados':'general'} onDirtyChange={setPermanentDirty}/>
+      <CategoryMonthlyConsiderations month={month} metrics={metrics} gates={gates} scaleKey={scaleKey} onDirtyChange={setMonthlyConsiderationsDirty}/>
       <AlertDialog open={pendingScale!==null} onOpenChange={open=>{if(!open)setPendingScale(null);}}>
        <AlertDialogContent className="rounded-2xl bg-white"><AlertDialogHeader><AlertDialogTitle>Cambios sin guardar</AlertDialogTitle><AlertDialogDescription>Hay modificaciones pendientes en este cuadro. Si cambiás de escala, se descartarán.</AlertDialogDescription></AlertDialogHeader>
         <AlertDialogFooter><AlertDialogCancel>Seguir editando</AlertDialogCancel><AlertDialogAction className="bg-slate-900 text-white" onClick={()=>{if(pendingScale)setScaleKey(pendingScale);setPendingScale(null);}}>Cambiar sin guardar</AlertDialogAction></AlertDialogFooter>

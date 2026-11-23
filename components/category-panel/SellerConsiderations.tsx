@@ -65,6 +65,11 @@ export default function SellerConsiderations({
   const [saving,setSaving]=useState(false);
   const [pendingRemoval,setPendingRemoval]=useState<SellerConsideration|null>(null);
   const [deleting,setDeleting]=useState(false);
+  // Un único editor permanece montado mientras cambia la escala; sólo cambia su contexto.
+  useEffect(()=>{
+    setSelected('');setEditing(false);setQuery('');setReason('');
+    setMetricRules({});setGateRules({});setPendingRemoval(null);
+  },[branchScope]);
 
   useEffect(()=>{
     let mounted=true;

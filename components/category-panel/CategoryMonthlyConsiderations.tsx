@@ -42,6 +42,11 @@ export default function CategoryMonthlyConsiderations({
  const [reason,setReason]=useState('');
  const [baseline,setBaseline]=useState('');
  const [pendingChange,setPendingChange]=useState<{kind:'seller'|'month';value:string}|null>(null);
+ // Reutilizar el formulario evita remontajes repetidos al alternar las dos escalas.
+ useEffect(()=>{
+  setSelected('');setSearch('');setMetricLevels({});setGateExemptions({});
+  setReason('');setBaseline('');setPendingChange(null);
+ },[scaleKey]);
  const choices=useMemo(()=>people.flatMap(person=>{
   if(person.role!=='VENDEDOR')return [];
   const branch=branches.find(b=>b.name===person.branch&&(b.force==='all'||b.force===person.force));
