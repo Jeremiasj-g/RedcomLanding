@@ -2,6 +2,7 @@ import type {CategoryPanelRow} from '@/lib/categoryPanelExcel';
 import type {KpiProjection} from '@/lib/categoryKpiProjections';
 import type {CategoryScaleGate,CategoryScaleMetric} from '@/lib/categoryScale';
 import {assessSellerCategory,type SellerCategoryInput} from '@/lib/categoryReached';
+import type {MonthlyConsideration} from '@/lib/categoryMonthlyConsiderations';
 
 export type CategoryV2ClosurePerson={id:number;name:string;branch:string;role:string;superior:string;force:string};
 export type CategoryV2ClosureDaily={
@@ -11,10 +12,11 @@ export type CategoryV2ClosureDaily={
 export type CategoryV2ClosureResult={
  seller_id:number;seller_name:string;supervisor:string;category:string;
  status:'qualified'|'pending'|'blocked';score:number|null;details:string;input:SellerCategoryInput;
+ consideration:{metric_levels:MonthlyConsideration['metric_levels'];gate_exemptions:MonthlyConsideration['gate_exemptions'];reason:string;revision:number;updated_by:string}|null;
 };
 export type CategoryV2ClosureSource={
  rows:CategoryPanelRow[];projections:KpiProjection[];personnel:CategoryV2ClosurePerson[];
- daily:CategoryV2ClosureDaily[];metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];
+ daily:CategoryV2ClosureDaily[];metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];percentTolerance:number;considerations?:MonthlyConsideration[];
 };
 const timeSeconds=(value:string|null)=>{
  if(!value)return null;
@@ -51,9 +53,12 @@ export function getCategoryV2ClosureResults(
    volume:projection?.volume_percentage??null,coverage:projection?.coverage_percentage??null,
    routeHours:hour&&hour.days>0?hour.seconds/hour.days/3600:null
   };
-  const assessment=assessSellerCategory(input,source.metrics,source.gates,projection?.projected_category??null);
+  const consideration=source.considerations?.find(c=>c.branch_key===branchKey&&c.seller_id===person.id);
+  const assessment=assessSellerCategory(input,source.metrics,source.gates,projection?.projected_category??null,consideration,source.percentTolerance);
   return {seller_id:person.id,seller_name:person.name,supervisor:person.superior,
-   category:assessment.status==='pending'?'PLAN DE MEJORA':assessment.label,status:assessment.status,score:assessment.score,details:assessment.details,input};
+   category:assessment.status==='pending'?'PLAN DE MEJORA':assessment.label,status:assessment.status,score:assessment.score,details:assessment.details,input,
+   consideration:consideration?{metric_levels:consideration.metric_levels,gate_exemptions:consideration.gate_exemptions,
+    reason:consideration.reason,revision:consideration.revision,updated_by:consideration.updated_by}:null};
  });
 }
 export function countCategoryV2ElapsedDays(month:string,excludedDays:string[],now=new Date()):number{

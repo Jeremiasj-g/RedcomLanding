@@ -2,11 +2,12 @@
 import type {CategoryPanelRow} from '@/lib/categoryPanelExcel';
 import type {SellerCategoryInput,CategoryAssessment} from '@/lib/categoryReached';
 import type {SigoReasonSummary} from '@/lib/categorySigoReasons';
+import {hasMonthlyRecognition,type MonthlyConsideration} from '@/lib/categoryMonthlyConsiderations';
 
 type Options={
  name:string;branch:string;month:string;projectedCategory:string|null;reasonSummary:SigoReasonSummary[];
  row:CategoryPanelRow|null;elapsedDays:number;input:SellerCategoryInput;
- assessment:CategoryAssessment;comparison:boolean;calculations:boolean;
+ assessment:CategoryAssessment;consideration?:MonthlyConsideration|null;comparison:boolean;calculations:boolean;
 };
 type PdfDoc=import('jspdf').jsPDF;
 const fmt=(n:number|null,digits=2)=>n===null||!Number.isFinite(n)?'Sin datos':n.toLocaleString('es-AR',{maximumFractionDigits:digits});
@@ -70,6 +71,10 @@ export async function exportSellerCategoryPdf(o:Options):Promise<void>{
   color(rgb.ink);pdf.setFont('helvetica','normal');
   labelText('Vendedor',o.name);labelText('Sucursal',o.branch);
   labelText('Período',o.month||'Sin período');labelText('Categoría alcanzada',o.assessment.label);
+  if(hasMonthlyRecognition(o.consideration)){
+   labelText('Consideración mensual',o.consideration?.reason??'');
+   labelText('Revisión',String(o.consideration?.revision??1));
+  }
   y+=2;rule();
  };
  const metric=(label:string,value:string,details:string)=>{
@@ -88,7 +93,7 @@ export async function exportSellerCategoryPdf(o:Options):Promise<void>{
   for(const gate of o.assessment.gates){
    const required=gate.kind==='route'?hours(gate.required):percent(gate.required);
    const actual=gate.kind==='route'?hours(gate.actual):percent(gate.actual);
-   labelText(gate.label,required+' requeridos / '+actual+' alcanzados / '+(gate.passed===null?'Sin evaluar':gate.passed?'Cumple':'No cumple'));
+   labelText(gate.label,required+' requeridos / '+actual+' alcanzados / '+(gate.passed===null?'Sin evaluar':gate.passed?'Cumple':'No cumple')+(gate.considered?' (consideración mensual)':''));
   }
   y+=2;
   for(const tier of o.assessment.tiers){
@@ -97,8 +102,9 @@ export async function exportSellerCategoryPdf(o:Options):Promise<void>{
    for(const item of tier.lines){
     const required=item.required===null?'Sin configurar':typeof item.required==='number'?fmt(item.required):item.required;
     const actual=item.projected?o.projectedCategory??'Sin cargar':item.actual===null?'Sin datos':fmt(item.actual);
-    tableRow([item.projected?'Categoría proyectada':item.name,required,actual,item.passed===null?'—':(item.passed?'+':'')+fmt(item.passed?item.weight:0,0)], [68,37,43,28], {tones:['neutral','neutral',item.passed===true?'ok':item.passed===false?'bad':'neutral','neutral']});
+    tableRow([(item.projected?'Categoría proyectada':item.name)+(item.considered?' *':''),required,actual,item.passed===null?'—':(item.passed?'+':'')+fmt(item.passed?item.weight:0,0)], [68,37,43,28], {tones:['neutral','neutral',item.passed===true?'ok':item.passed===false?'bad':'neutral','neutral']});
    }
+   if(tier.lines.some(item=>item.considered))labelText('*','Puntos reconocidos por consideración mensual. KPI reales sin modificar.');
    labelText('Resultado',tier.passed?'Alcanza el mínimo de 75':'No alcanza el mínimo de 75');
    rule();
   }

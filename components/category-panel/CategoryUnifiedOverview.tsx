@@ -18,6 +18,7 @@ import {getCategoriaByKey,normalizeCategoriaKey,type CategoriaKey} from '@/utils
 import {FilterableCategoryTable,type FilterColumn} from '@/components/category-panel/CategoryColumnFilters';
 import {fetchCategoryScaleConfig,type CategoryScaleMetric,type CategoryScaleGate} from '@/lib/categoryScale';
 import {assessSellerCategory,gateBreakdown,scoreByCategory,type SellerCategoryInput} from '@/lib/categoryReached';
+import {fetchMonthlyConsiderations,hasMonthlyRecognition,type MonthlyConsideration} from '@/lib/categoryMonthlyConsiderations';
 type Daily={visit_date:string;branch:string;sales_force:string;seller_id:number|null;seller_name:string;first_visit:string|null;last_visit:string|null;corrected_start:string|null;corrected_end:string|null;reason:string|null};
 const branches=[
  {key:'corrientes_masivos',name:'Corrientes',branch:'CASA CENTRAL',force:'ESQUEMA 1'},
@@ -36,9 +37,19 @@ const duration=(start:string|null,end:string|null)=>{
  return Number.isFinite(result)&&result>=0?result:null;
 };
 const displayDuration=(v:number)=>[Math.floor(v/3600),Math.floor(v%3600/60),Math.round(v%60)].map(x=>String(x).padStart(2,'0')).join(':');
-type BranchScopeProps={mode?:'cards'|'detail';branchScope?:string;scopedDaily?:Daily[];scopedPersonnel?:Array<{id:number;name:string;branch:string;role:string;superior:string;force:string}>;scopedMetrics?:CategoryScaleMetric[];scopedGates?:CategoryScaleGate[]};
-export default function CategoryUnifiedOverview({rows,projections,month,availableMonths,loadingMonth,mode='detail',branchScope,scopedDaily,scopedPersonnel,scopedMetrics,scopedGates}:{rows:CategoryPanelRow[];projections:KpiProjection[];month:string;onMonthChange?:(month:string)=>void;availableMonths:string[];loadingMonth:boolean}&BranchScopeProps){
+type BranchScopeProps={mode?:'cards'|'detail';branchScope?:string;scopedDaily?:Daily[];scopedPersonnel?:Array<{id:number;name:string;branch:string;role:string;superior:string;force:string}>;scopedMetrics?:CategoryScaleMetric[];scopedGates?:CategoryScaleGate[];scopedConsiderations?:MonthlyConsideration[];scopedTolerance?:number};
+export default function CategoryUnifiedOverview({rows,projections,month,availableMonths,loadingMonth,mode='detail',branchScope,scopedDaily,scopedPersonnel,scopedMetrics,scopedGates,scopedConsiderations,scopedTolerance}:{rows:CategoryPanelRow[];projections:KpiProjection[];month:string;onMonthChange?:(month:string)=>void;availableMonths:string[];loadingMonth:boolean}&BranchScopeProps){
  const [daily,setDaily]=useState<Daily[]>([]);
+ const [monthlyConsiderations,setMonthlyConsiderations]=useState<MonthlyConsideration[]>([]);
+ useEffect(()=>{
+  if(scopedConsiderations){setMonthlyConsiderations(scopedConsiderations);return;}
+  let live=true;
+  void fetchMonthlyConsiderations(month,branchScope).then(records=>{if(live)setMonthlyConsiderations(records);})
+   .catch(e=>{if(live)notify.error(errorMessage(e,'No se pudieron consultar las consideraciones del mes.'));});
+  return()=>{live=false;};
+ },[month,branchScope,scopedConsiderations]);
+ const considerationMap=useMemo(()=>new Map(monthlyConsiderations.map(r=>[r.branch_key+':'+r.seller_id,r])),[monthlyConsiderations]);
+ const considerationFor=(key:string,id:number)=>considerationMap.get(key+':'+id)??null;
  const [loading,setLoading]=useState(!branchScope);
  const [branchTab,setBranchTab]=useState<string>(branchScope??'corrientes_masivos');
  const [search,setSearch]=useState('');
@@ -52,12 +63,17 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
  const [detail,setDetail]=useState<{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null;sellerId:number;branchKey:string;row:CategoryPanelRow|null}|null>(null);
  const [scaleMetrics,setScaleMetrics]=useState<CategoryScaleMetric[]>([]);
  const [scaleGates,setScaleGates]=useState<CategoryScaleGate[]>([]);
+ const [refrigeratedScale,setRefrigeratedScale]=useState<{metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];tolerance:number}|null>(null);
+ const [percentTolerance,setPercentTolerance]=useState(1);
  const [scaleLoaded,setScaleLoaded]=useState(Boolean(branchScope));
  useEffect(()=>{
-  if(branchScope){setScaleMetrics(scopedMetrics??[]);setScaleGates(scopedGates??[]);setScaleLoaded(true);return;}
-  let active=true;void fetchCategoryScaleConfig().then(config=>{if(active){setScaleMetrics(config.metrics);setScaleGates(config.gates);setScaleLoaded(true);}}).catch(error=>notify.error(errorMessage(error,'No se pudieron cargar las escalas.')));
+  if(branchScope){setScaleMetrics(scopedMetrics??[]);setScaleGates(scopedGates??[]);setPercentTolerance(scopedTolerance??1);setScaleLoaded(true);return;}
+  let active=true;void Promise.all([fetchCategoryScaleConfig('general'),fetchCategoryScaleConfig('refrigerados')]).then(([general,refrigerados])=>{if(active){setScaleMetrics(general.metrics);setScaleGates(general.gates);setPercentTolerance(general.settings.percentTolerance);setRefrigeratedScale({metrics:refrigerados.metrics,gates:refrigerados.gates,tolerance:refrigerados.settings.percentTolerance});setScaleLoaded(true);}}).catch(error=>notify.error(errorMessage(error,'No se pudieron cargar las escalas.')));
   return()=>{active=false;};
- },[branchScope,scopedMetrics,scopedGates]);
+ },[branchScope,scopedMetrics,scopedGates,scopedTolerance]);
+ const scaleFor=(key:string)=>!branchScope&&key==='corrientes_refrigerados'&&refrigeratedScale
+  ?{metrics:refrigeratedScale.metrics,gates:refrigeratedScale.gates,tolerance:refrigeratedScale.tolerance}
+  :{metrics:scaleMetrics,gates:scaleGates,tolerance:percentTolerance};
  const {counts,excluded,loading:calendarLoading,toggle}=useWorkCalendar(month);
  const [personnel,setPersonnel]=useState<Array<{id:number;name:string;branch:string;role:string;superior:string;force:string}>>([]);
  useEffect(()=>{
@@ -124,7 +140,8 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
    pop:projection?.pop_percentage??null,exhibition:projection?.exhibition_percentage??null,
    volume:projection?.volume_percentage??null,coverage:projection?.coverage_percentage??null,
    routeHours:average?average.sum/average.days/3600:null};
-  return assessSellerCategory(input,scaleMetrics,scaleGates,projection?.projected_category??null).label;
+  const scale=scaleFor(row.branchKey);
+  return assessSellerCategory(input,scale.metrics,scale.gates,projection?.projected_category??null,considerationFor(row.branchKey,row.sellerId),scale.tolerance).label;
  };
  const compactColumns:FilterColumn<CategoryPanelRow>[]=useMemo(()=>[
   {key:'seller',label:'Vendedor',value:r=>r.sellerName},
@@ -134,7 +151,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
   {key:'visited',label:'PDVs visitados',value:r=>String(r.visitados)},
   {key:'hours',label:'Horario promedio',value:r=>{const avg=stats.get(r.branchKey+':'+r.sellerId);return loading?'Cargando…':avg?displayDuration(Math.round(avg.sum/avg.days)):'Sin datos';}},
   {key:'actions',label:'Detalle',value:()=>'Ver detalle'},
- ],[byProjection,stats,loading,scaleMetrics,scaleGates,scaleLoaded,counts.elapsed]);
+ ],[byProjection,stats,loading,scaleMetrics,scaleGates,scaleLoaded,counts.elapsed,percentTolerance,considerationMap,refrigeratedScale]);
  const summaryRows=filtered;
  const openSellerDetails=(row:CategoryPanelRow)=>{
   const key=row.branchKey+':'+row.sellerId;
@@ -167,7 +184,8 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
      volume:extra?.volume_percentage??null,coverage:extra?.coverage_percentage??null,
      routeHours:average?average.sum/average.days/3600:null
    };
-   const assessment=assessSellerCategory(input,scaleMetrics,scaleGates,extra?.projected_category??null);
+   const scale=scaleFor(cardScope);
+   const assessment=assessSellerCategory(input,scale.metrics,scale.gates,extra?.projected_category??null,considerationFor(cardScope,person.id),scale.tolerance);
    const categoriaKey=assessment.status==='pending'?'PLAN_MEJORA' as const:normalizeCategoriaKey(assessment.label);
    return {person,row,extra,input,assessment,categoriaKey,
      vendedor:person.name,Supervisor:person.superior??'',id:cardScope+':'+person.id};
@@ -193,10 +211,10 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
    {key:'pop',label:'% POP',value:p=>String(get(p).extra?.pop_percentage??'—')},
    {key:'exhibition',label:'% Exhibición',value:p=>String(get(p).extra?.exhibition_percentage??'—')},
    {key:'projected',label:'Categoría proyectada',value:p=>get(p).extra?.projected_category??'—'},
-   {key:'reached',label:'Categoría alcanzada',value:p=>{const {r,extra,avg}=get(p);return assessSellerCategory({dailyBilling:r&&counts.elapsed>0?r.importeFinalFacturado/counts.elapsed:null,efficiency:r&&r.visitados>0?r.cntFac/r.visitados*100:null,effectiveness:r&&r.visitasPlaneadas>0?r.visitados/r.visitasPlaneadas*100:null,pop:extra?.pop_percentage??null,exhibition:extra?.exhibition_percentage??null,volume:extra?.volume_percentage??null,coverage:extra?.coverage_percentage??null,routeHours:avg?avg.sum/avg.days/3600:null},scaleMetrics,scaleGates,extra?.projected_category??null).label;}},
+   {key:'reached',label:'Categoría alcanzada',value:p=>{const {r,extra,avg}=get(p);const scale=scaleFor(branchTab);return assessSellerCategory({dailyBilling:r&&counts.elapsed>0?r.importeFinalFacturado/counts.elapsed:null,efficiency:r&&r.visitados>0?r.cntFac/r.visitados*100:null,effectiveness:r&&r.visitasPlaneadas>0?r.visitados/r.visitasPlaneadas*100:null,pop:extra?.pop_percentage??null,exhibition:extra?.exhibition_percentage??null,volume:extra?.volume_percentage??null,coverage:extra?.coverage_percentage??null,routeHours:avg?avg.sum/avg.days/3600:null},scale.metrics,scale.gates,extra?.projected_category??null,considerationFor(branchTab,p.id),scale.tolerance).label;}},
    {key:'detail',label:'Desglose',value:()=>'Ver puntaje'}
   ];
- },[rows,branchTab,byProjection,stats,loading,counts.elapsed,scaleMetrics,scaleGates]);
+ },[rows,branchTab,byProjection,stats,loading,counts.elapsed,scaleMetrics,scaleGates,considerationMap,percentTolerance]);
  return <div className="mt-6 space-y-6">
   {month&&!availableMonths.includes(month)&&<p className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800">No hay KPIs unificados guardados para {month}. Los horarios SIGO se consultan por separado; seleccioná o importá el mes correspondiente.</p>}
   {loadingMonth&&<p className="text-xs text-slate-500">Cargando KPIs del mes…</p>}
@@ -212,7 +230,7 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
       {filteredCards.map(card=>{
        const category=getCategoriaByKey(card.categoriaKey);
        return <CategoriaCard key={card.id} id={String(card.person.id)}
-         vendedor={card.vendedor} categoriaLabel={category.label}
+         vendedor={card.vendedor} categoriaLabel={category.label} considerationNote={hasMonthlyRecognition(considerationFor(cardScope,card.person.id))?considerationFor(cardScope,card.person.id)?.reason:undefined}
          categoriaColor={category.color}
          accentColor={category.color.bg}
          eficiencia={card.input.efficiency} cobertura={card.input.coverage}
@@ -327,7 +345,8 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
            volume:extra?.volume_percentage??null,coverage:extra?.coverage_percentage??null,
            routeHours:avg?avg.sum/avg.days/3600:null
          };
-         const assessment=assessSellerCategory(input,scaleMetrics,scaleGates,extra?.projected_category??null);
+         const scale=scaleFor(branchTab);
+         const assessment=assessSellerCategory(input,scale.metrics,scale.gates,extra?.projected_category??null,considerationFor(branchTab,p.id),scale.tolerance);
          const percent=(n:number|null|undefined)=>n==null?'—':n.toLocaleString('es-AR',{maximumFractionDigits:2})+'%';
          const quantity=(n:number|null|undefined)=>n==null?'—':fmt.format(n);
          return <tr key={p.branch+':'+p.force+':'+p.id} className="border-b border-slate-100 text-slate-700 hover:bg-slate-50 max-lg:my-3 max-lg:grid max-lg:grid-cols-2 max-lg:rounded-xl max-lg:border max-lg:border-slate-200 max-lg:p-2">
@@ -341,18 +360,18 @@ export default function CategoryUnifiedOverview({rows,projections,month,availabl
     </div>
   </section>
   </>}
-  {detail&&<SellerScoreDialog name={detail.name} branch={detail.branch} input={detail.input} projectedCategory={detail.projectedCategory} reasonSummary={summarizeSigoReasons(daily,detail.sellerId,branches.find(item=>item.key===detail.branchKey)?.branch??'',branches.find(item=>item.key===detail.branchKey)?.force??'')} row={detail.row} elapsedDays={counts.elapsed} month={month} metrics={scaleMetrics} gates={scaleGates} onClose={()=>setDetail(null)}/>}
+  {detail&&<SellerScoreDialog name={detail.name} branch={detail.branch} input={detail.input} projectedCategory={detail.projectedCategory} consideration={considerationFor(detail.branchKey,detail.sellerId)} reasonSummary={summarizeSigoReasons(daily,detail.sellerId,branches.find(item=>item.key===detail.branchKey)?.branch??'',branches.find(item=>item.key===detail.branchKey)?.force??'')} row={detail.row} elapsedDays={counts.elapsed} month={month} metrics={scaleFor(detail.branchKey).metrics} gates={scaleFor(detail.branchKey).gates} percentTolerance={scaleFor(detail.branchKey).tolerance} onClose={()=>setDetail(null)}/>}
  </div>;
 }
 
 
-export function SellerScoreDialog({name,branch,input,projectedCategory,reasonSummary,row,elapsedDays,month,metrics,gates,onClose}:{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null;reasonSummary:SigoReasonSummary[];row:CategoryPanelRow|null;elapsedDays:number;month:string;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];onClose:()=>void}){
+export function SellerScoreDialog({name,branch,input,projectedCategory,consideration,reasonSummary,row,elapsedDays,month,metrics,gates,percentTolerance=1,onClose}:{name:string;branch:string;input:SellerCategoryInput;projectedCategory:string|null;consideration?:MonthlyConsideration|null;reasonSummary:SigoReasonSummary[];row:CategoryPanelRow|null;elapsedDays:number;month:string;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];percentTolerance?:number;onClose:()=>void}){
  const [view,setView]=useState<'comparison'|'data'>('comparison');
  const [exportOpen,setExportOpen]=useState(false);
  const [exportComparison,setExportComparison]=useState(true);
  const [exportCalculations,setExportCalculations]=useState(true);
- const assessment=assessSellerCategory(input,metrics,gates,projectedCategory);
- const checks=gateBreakdown(input,gates);
+ const assessment=assessSellerCategory(input,metrics,gates,projectedCategory,consideration,percentTolerance);
+ const checks=gateBreakdown(input,gates,consideration,percentTolerance);
  const fmtNumber=(value:number|null)=>value===null?'—':value.toLocaleString('es-AR',{maximumFractionDigits:2});
  const fmtTime=(value:number|null)=>value===null?'—':displayDuration(Math.round(value*3600));
  const badgeClass=assessment.status==='pending'?'bg-slate-100 text-slate-600':assessment.label==='SENIOR'?'bg-emerald-700 text-white':assessment.label==='SEMI SENIOR'?'bg-emerald-500 text-white':assessment.label==='JUNIOR'?'bg-amber-100 text-amber-800':'bg-rose-100 text-rose-700';
@@ -383,7 +402,7 @@ export function SellerScoreDialog({name,branch,input,projectedCategory,reasonSum
          </label>
         </div>
         <button type="button" disabled={!exportComparison&&!exportCalculations} onClick={()=>{
-         void exportSellerCategoryPdf({name,branch,month,projectedCategory,reasonSummary,row,elapsedDays,input,assessment,comparison:exportComparison,calculations:exportCalculations})
+         void exportSellerCategoryPdf({name,branch,month,projectedCategory,reasonSummary,row,elapsedDays,input,assessment,consideration,comparison:exportComparison,calculations:exportCalculations})
           .then(()=>setExportOpen(false))
           .catch(error=>notify.error(errorMessage(error,'No se pudo generar el PDF.')));
         }} className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-medium text-white transition-colors duration-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"><Download className="h-4 w-4"/>Descargar PDF</button>
@@ -394,7 +413,7 @@ export function SellerScoreDialog({name,branch,input,projectedCategory,reasonSum
     </div>
     <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3">
      {checks.map(check=><div key={check.kind} className="flex min-w-0 flex-col justify-between gap-2 rounded-xl bg-slate-50 px-2.5 py-2.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4 sm:py-3">
-      <div className="min-w-0"><p className="text-[10px] leading-tight text-slate-500 sm:text-xs">{check.label} requerido</p><p className="mt-1 text-xs font-medium text-slate-900 sm:text-sm">{check.kind==='route'?fmtTime(check.required):fmtNumber(check.required)+'%'}</p></div>
+      <div className="min-w-0"><p className="text-[10px] leading-tight text-slate-500 sm:text-xs">{check.label} requerido</p><p className="mt-1 text-xs font-medium text-slate-900 sm:text-sm">{check.kind==='route'?fmtTime(check.required):fmtNumber(check.required)+'%'}</p>{check.considered&&<span className="mt-1 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">Cumplido por consideración</span>}</div>
       <div className="min-w-0 sm:text-right"><p className="text-[10px] leading-tight text-slate-500 sm:text-xs">Alcanzado</p><p className={`mt-1 break-words text-xs font-semibold sm:text-sm ${check.passed===true?'text-emerald-700':check.passed===false?'text-rose-600':'text-slate-500'}`}>{check.kind==='route'?fmtTime(check.actual):check.actual===null?'Sin datos':fmtNumber(check.actual)+'%'} {check.passed===true?'✓':check.passed===false?'✕':'· Sin evaluar'}</p></div>
      </div>)}
     </div>
@@ -404,19 +423,20 @@ export function SellerScoreDialog({name,branch,input,projectedCategory,reasonSum
      <button type="button" onClick={()=>setView('comparison')} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${view==='comparison'?'bg-white text-slate-950 shadow-sm':'text-slate-500'}`}>Comparación</button>
      <button type="button" onClick={()=>setView('data')} className={`rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${view==='data'?'bg-white text-slate-950 shadow-sm':'text-slate-500'}`}>Datos + cálculos</button>
     </div></div>
-    {view==='comparison'?<SellerTierComparison input={input} projectedCategory={projectedCategory} metrics={metrics} gates={gates}/>:<SellerDataCalculations row={row} elapsedDays={elapsedDays} projectedCategory={projectedCategory} reasonSummary={reasonSummary} month={month}/>}
+    {hasMonthlyRecognition(consideration)&&<div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><p className="font-semibold">Consideración mensual · revisión {consideration?.revision}</p><p className="mt-1">{consideration?.reason}</p><p className="mt-1">Los KPI reales permanecen intactos.</p></div>}
+    {view==='comparison'?<SellerTierComparison input={input} projectedCategory={projectedCategory} metrics={metrics} gates={gates} consideration={consideration} percentTolerance={percentTolerance}/>:<SellerDataCalculations row={row} elapsedDays={elapsedDays} projectedCategory={projectedCategory} reasonSummary={reasonSummary} month={month}/>}
    </div>
   </section>
  </div>;
 }
 
 /** Shared V2 comparison: used in the category panel and the seller profile. */
-export function SellerTierComparison({input,projectedCategory,metrics,gates}:{input:SellerCategoryInput;projectedCategory:string|null;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[]}){
- const tiers=scoreByCategory(input,projectedCategory,metrics);
+export function SellerTierComparison({input,projectedCategory,metrics,gates,consideration,percentTolerance=1}:{input:SellerCategoryInput;projectedCategory:string|null;metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];consideration?:MonthlyConsideration|null;percentTolerance?:number}){
+ const tiers=scoreByCategory(input,projectedCategory,metrics,consideration,percentTolerance);
  const fmtNumber=(value:number|null)=>value===null?'—':value.toLocaleString('es-AR',{maximumFractionDigits:2});
  const fmtValue=(value:number|null,unit:string)=>value===null?'Sin datos':unit==='currency'?money.format(value):fmtNumber(value)+(unit==='percent'?'%':'');
  const colors:{[key:string]:string}={'SENIOR':'bg-emerald-700 text-white','SEMI SENIOR':'bg-emerald-500 text-white','JUNIOR':'bg-amber-400 text-slate-950'};
- const assessment=assessSellerCategory(input,metrics,gates,projectedCategory);
+ const assessment=assessSellerCategory(input,metrics,gates,projectedCategory,consideration,percentTolerance);
  return <div className="grid gap-4 lg:grid-cols-3">
      {tiers.map(tier=><div key={tier.label} className={`overflow-hidden rounded-[20px] border bg-white shadow-[0_5px_24px_rgba(15,23,42,.04)] ${assessment.label===tier.label?'border-emerald-300':'border-slate-200'}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-4">
@@ -428,7 +448,8 @@ export function SellerTierComparison({input,projectedCategory,metrics,gates}:{in
        <div className="divide-y divide-slate-100">
         {tier.lines.map(item=><div key={item.id} className="py-3">
          <div className="flex items-start justify-between gap-3"><span className="text-sm font-medium text-slate-900">{item.projected?'Categoría proyectada':item.name}</span><span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${item.passed?'bg-blue-50 text-blue-700':item.passed===false?'bg-slate-100 text-slate-500':'bg-amber-50 text-amber-700'}`}>{item.passed===null?'—':item.passed?'+'+fmtNumber(item.weight):'0'}</span></div>
-         <p className="mt-1 text-xs text-slate-500">Requerido: {item.projected?item.required:item.required===null?'Sin configurar':fmtValue(item.required as number,item.unit)}</p>
+         {item.considered&&<span className="mt-1 inline-flex rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">Puntaje reconocido por consideración mensual</span>}
+          <p className="mt-1 text-xs text-slate-500">Requerido: {item.projected?item.required:item.required===null?'Sin configurar':fmtValue(item.required as number,item.unit)}</p>
          <p className={`mt-0.5 text-xs ${item.passed===true?'text-emerald-700':item.passed===false?'text-rose-600':'text-slate-500'}`}>Alcanzado: {item.projected?projectedCategory??'Sin cargar':fmtValue(item.actual,item.unit)}</p>
         </div>)}
        </div>

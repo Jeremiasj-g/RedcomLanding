@@ -1,4 +1,5 @@
 import type { CategoryScaleGate, CategoryScaleMetric } from '@/lib/categoryScale';
+import type {MonthlyConsideration} from '@/lib/categoryMonthlyConsiderations';
 
 export type SellerCategoryInput = {
  dailyBilling:number|null; efficiency:number|null; effectiveness:number|null;
@@ -10,11 +11,15 @@ export const DEFAULT_ROUTE_MINUTES=5*60+20;
 export const DEFAULT_EFFECTIVENESS=90;
 /** Tolerancia comercial en puntos porcentuales, sin modificar el dato real. */
 export const CATEGORY_PERCENT_TOLERANCE=1;
+/** Tolerancia editable en puntos porcentuales; nunca modifica el valor real. */
+export function resolveCategoryTolerance(value:number|undefined):number{
+ return typeof value==='number'&&Number.isFinite(value)&&value>=0&&value<=10?value:CATEGORY_PERCENT_TOLERANCE;
+}
 export type CategoryLevel='JUNIOR'|'SEMI SENIOR'|'SENIOR';
 export type CategoryAssessment={label:string;status:'qualified'|'pending'|'blocked';score:number|null;details:string;tiers:TierAssessment[];gates:GateAssessment[]};
 export type TierAssessment={label:CategoryLevel;score:number;maximum:number;passed:boolean;missing:string[];lines:TierMetricAssessment[]};
-export type TierMetricAssessment={id:number;name:string;unit:string;weight:number;actual:number|null;required:number|string|null;passed:boolean|null;projected:boolean};
-export type GateAssessment={label:string;actual:number|null;required:number;unit:string;passed:boolean|null;kind:'route'|'effectiveness'};
+export type TierMetricAssessment={id:number;name:string;unit:string;weight:number;actual:number|null;required:number|string|null;passed:boolean|null;projected:boolean;considered:boolean;rawPassed:boolean|null};
+export type GateAssessment={label:string;actual:number|null;required:number;unit:string;passed:boolean|null;considered:boolean;rawPassed:boolean|null;kind:'route'|'effectiveness'};
 
 const normalized=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
 const tierKeys=[
@@ -59,7 +64,7 @@ function parseRequirement(value:string,kind:'route'|'effectiveness'):number|null
  const raw=text.match(/\d+(?:\.\d+)?/);
  return raw?Number(raw[0]):null;
 }
-export function gateBreakdown(input:SellerCategoryInput,gates:CategoryScaleGate[]):GateAssessment[]{
+export function gateBreakdown(input:SellerCategoryInput,gates:CategoryScaleGate[],consideration?:MonthlyConsideration|null,percentTolerance=CATEGORY_PERCENT_TOLERANCE):GateAssessment[]{
  const defs=[
   {kind:'route' as const,label:'Horario de ruta',fallback:DEFAULT_ROUTE_MINUTES/60,actual:input.routeHours,unit:'h'},
   {kind:'effectiveness' as const,label:'Efectividad',fallback:DEFAULT_EFFECTIVENESS,actual:input.effectiveness,unit:'%'},
@@ -69,10 +74,12 @@ export function gateBreakdown(input:SellerCategoryInput,gates:CategoryScaleGate[
   const parsed=configured?parseRequirement(configured.valueText,def.kind):null;
   const required=parsed??def.fallback;
   const actual=def.actual!==null&&Number.isFinite(def.actual)?def.actual:null;
-  return {kind:def.kind,label:def.label,unit:def.unit,required,actual,passed:actual===null?null:meetsRequirement(actual,required,def.kind==='effectiveness'?CATEGORY_PERCENT_TOLERANCE:0)};
+  const rawPassed=actual===null?null:meetsRequirement(actual,required,def.kind==='effectiveness'?resolveCategoryTolerance(percentTolerance):0);
+  const considered=Boolean(consideration?.gate_exemptions?.[def.kind])&&rawPassed!==true;
+  return {kind:def.kind,label:def.label,unit:def.unit,required,actual,rawPassed,considered,passed:considered?true:rawPassed};
  });
 }
-export function scoreByCategory(input:SellerCategoryInput,projectedCategory:string|null,metrics:CategoryScaleMetric[]):TierAssessment[]{
+export function scoreByCategory(input:SellerCategoryInput,projectedCategory:string|null,metrics:CategoryScaleMetric[],consideration?:MonthlyConsideration|null,percentTolerance=CATEGORY_PERCENT_TOLERANCE):TierAssessment[]{
  const active=metrics.filter(m=>m.weightPercent>0);
  const projectedRank=categoryRank(projectedCategory);
  return tierKeys.map(tier=>{
@@ -80,19 +87,23 @@ export function scoreByCategory(input:SellerCategoryInput,projectedCategory:stri
    const projected=projectedMetric(metric.metricName);
    const actual=projected?null:measure(metric.metricName,input);
    const required=projected?tier.label:metric[tier.key];
-   const passed=projected
+   const rawPassed=projected
     ?projectedRank===null?null:projectedRank>=tier.rank
-    :actual===null||!Number.isFinite(actual)||typeof required!=='number'?null:meetsRequirement(actual,required,hasPercentageTolerance(metric.metricName,metric.valueType)?CATEGORY_PERCENT_TOLERANCE:0);
-   return {id:metric.id,name:metric.metricName,unit:metric.valueType,weight:metric.weightPercent,actual,required,passed,projected} satisfies TierMetricAssessment;
+    :actual===null||!Number.isFinite(actual)||typeof required!=='number'?null:meetsRequirement(actual,required,hasPercentageTolerance(metric.metricName,metric.valueType)?resolveCategoryTolerance(percentTolerance):0);
+   const level=consideration?.metric_levels?.[String(metric.id)];
+   const recognizedRank=level==='senior'?3:level==='semi'?2:level==='junior'?1:0;
+   const considered=recognizedRank>=tier.rank&&rawPassed!==true;
+   const passed=considered?true:rawPassed;
+   return {id:metric.id,name:metric.metricName,unit:metric.valueType,weight:metric.weightPercent,actual,required,passed,rawPassed,considered,projected} satisfies TierMetricAssessment;
   });
   const score=lines.reduce((sum,line)=>sum+(line.passed===true?line.weight:0),0);
   const maximum=lines.reduce((sum,line)=>sum+line.weight,0);
   return {label:tier.label,score,maximum,passed:score+1e-9>=CATEGORY_PASS_SCORE,missing:lines.filter(line=>line.passed===null).map(line=>line.name),lines};
  });
 }
-export function assessSellerCategory(input:SellerCategoryInput,metrics:CategoryScaleMetric[],gates:CategoryScaleGate[],projectedCategory:string|null=null):CategoryAssessment{
- const tiers=scoreByCategory(input,projectedCategory,metrics);
- const checks=gateBreakdown(input,gates);
+export function assessSellerCategory(input:SellerCategoryInput,metrics:CategoryScaleMetric[],gates:CategoryScaleGate[],projectedCategory:string|null=null,consideration?:MonthlyConsideration|null,percentTolerance=CATEGORY_PERCENT_TOLERANCE):CategoryAssessment{
+ const tiers=scoreByCategory(input,projectedCategory,metrics,consideration,percentTolerance);
+ const checks=gateBreakdown(input,gates,consideration,percentTolerance);
  if(!metrics.some(m=>m.weightPercent>0))
   return {label:'Sin escala',status:'pending',score:null,details:'No hay indicadores ponderados',tiers,gates:checks};
  const eligible=tiers.find(t=>t.passed);
@@ -111,11 +122,11 @@ export type MetricScoreDetail={
  thresholds:{senior:number|null;semiSenior:number|null;junior:number|null;improvement:number|null};
  weight:number;rank:number|null;points:number|null;maximumPoints:number;matchedCategory:string|null;note:string;
 };
-export function scoreBreakdown(input:SellerCategoryInput,metrics:CategoryScaleMetric[]):MetricScoreDetail[]{
+export function scoreBreakdown(input:SellerCategoryInput,metrics:CategoryScaleMetric[],percentTolerance=CATEGORY_PERCENT_TOLERANCE):MetricScoreDetail[]{
  return metrics.filter(m=>m.weightPercent>0).map(m=>{
   const actual=measure(m.metricName,input);
   const available=[m.seniorValue,m.semiSeniorValue,m.juniorValue].every(v=>v!==null);
-  const tolerance=hasPercentageTolerance(m.metricName,m.valueType)?CATEGORY_PERCENT_TOLERANCE:0;
+  const tolerance=hasPercentageTolerance(m.metricName,m.valueType)?resolveCategoryTolerance(percentTolerance):0;
   const rank=available&&actual!==null?([m.seniorValue,m.semiSeniorValue,m.juniorValue].findIndex(v=>meetsRequirement(actual,Number(v),tolerance))):null;
   const normalizedRank=rank===null?null:rank===-1?0:3-rank;
   return {id:m.id,section:m.sectionName,name:m.metricName,unit:m.valueType,actual,
