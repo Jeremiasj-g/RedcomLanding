@@ -529,17 +529,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
  };
  const monthLabel=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'));
  const datesInPreview=[...new Set(preview?.map(item=>item.visit_date)??[])];
- const previewTeams=useMemo(()=>{
-  const grouped=new Map<string,{name:string;month:string;force:string;count:number}>();
-  for(const item of preview??[]){
-   const team=TEAM_CARDS.find(team=>team.branch===item.branch&&(team.force===item.sales_force||team.force==='all'));
-   const month=item.visit_date.slice(0,7);
-   const key=item.branch+'|'+item.sales_force+'|'+month;
-   const current=grouped.get(key)??{name:team?.name??item.branch,month,force:item.sales_force,count:0};
-   current.count++;grouped.set(key,current);
-  }
-  return [...grouped.values()].sort((a,b)=>a.name.localeCompare(b.name,'es')||b.month.localeCompare(a.month));
- },[preview]);
+
  return <div className="mt-6">
   {!branchScope&&<div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
    {TEAM_CARDS.map(team=>{
@@ -596,7 +586,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   {!branchScope&&preview&&<div role="status" className="border-b border-amber-200 bg-amber-50 px-6 py-3 text-xs text-amber-950">
    <p className="font-semibold">Excel procesado · PENDIENTE DE GUARDAR EN SUPABASE</p>
    <p className="mt-1">{preview.length} registros de vendedor/día · {datesInPreview.length} fechas. Verificá el equipo y período antes de guardar.</p>
-   <div className="mt-2 flex flex-wrap gap-2">{previewTeams.map(team=><span key={team.name+'|'+team.force+'|'+team.month} className="rounded-lg border border-amber-200 bg-white px-2.5 py-1 text-slate-700">{team.name} · {team.month} · {team.force} · {team.count} registros</span>)}</div>
+   <p className="mt-2 font-medium">Equipos del Excel: {[...new Set(preview.map(item=>(TEAM_CARDS.find(team=>team.branch===item.branch&&(team.force===item.sales_force||team.force==='all'))?.name??item.branch)+' · '+item.sales_force+' · '+item.visit_date.slice(0,7)))].join(' / ')}</p>
   </div>
   <div className="sticky top-[72px] z-30 flex flex-wrap gap-2 border-b border-slate-200 bg-[#fafbfc] px-5 py-3" role="tablist" aria-label="Vistas de Horarios SIGO">
    <button type="button" role="tab" aria-selected={view==='daily'} onClick={()=>{setView('daily');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-200 '+(view==='daily'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Detalle diario</button>
