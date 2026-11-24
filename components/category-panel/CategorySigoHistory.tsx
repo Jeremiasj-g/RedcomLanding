@@ -335,7 +335,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    // Comparar con el padrón actual antes de intentar escribir. La RPC valida nombre, ID, sucursal y fuerza.
    const {data:master,error:masterError}=await supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle();
    if(masterError)throw masterError;
-   const currentPeople=Array.isArray(master?.people)?master.people as Person[]:[];
+   const currentPeople=Array.isArray(master?.people)?master!.people as Person[]:[];
    const mismatches=new Map<string,string>();
    for(const row of preview){
     const key=[row.branch,row.sales_force,row.seller_id,row.seller_name].join('|');
