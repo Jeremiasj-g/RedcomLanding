@@ -587,7 +587,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    <p className="font-semibold">Excel procesado · PENDIENTE DE GUARDAR EN SUPABASE</p>
    <p className="mt-1">{preview.length} registros de vendedor/día · {datesInPreview.length} fechas. Verificá el equipo y período antes de guardar.</p>
    <p className="mt-2 font-medium">Equipos del Excel: {[...new Set(preview.map(item=>(TEAM_CARDS.find(team=>team.branch===item.branch&&(team.force===item.sales_force||team.force==='all'))?.name??item.branch)+' · '+item.sales_force+' · '+item.visit_date.slice(0,7)))].join(' / ')}</p>
-  </div>
+  </div>}
   <div className="sticky top-[72px] z-30 flex flex-wrap gap-2 border-b border-slate-200 bg-[#fafbfc] px-5 py-3" role="tablist" aria-label="Vistas de Horarios SIGO">
    <button type="button" role="tab" aria-selected={view==='daily'} onClick={()=>{setView('daily');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-200 '+(view==='daily'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Detalle diario</button>
    <button type="button" role="tab" aria-selected={view==='averages'} onClick={()=>{setView('averages');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-200 '+(view==='averages'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Promedios mensuales</button>
