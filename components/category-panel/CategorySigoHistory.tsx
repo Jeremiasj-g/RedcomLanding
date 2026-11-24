@@ -161,7 +161,7 @@ function SigoTimeInput({value,disabled,onSave}:{value:string|null;disabled:boole
 
 class PersonnelMismatchError extends Error {
  names:string[];
- constructor(names:string[]){super('Hay vendedores sin coincidencia única en Personal comercial.');this.name='PersonnelMismatchError';this.names=names;}
+ constructor(names:string[]){super('Hay vendedores que no coinciden con Personal comercial.');this.name='PersonnelMismatchError';this.names=names;}
 }
 function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[]):Daily[]{
  const byName=new Map<string,Person[]>();
@@ -181,7 +181,7 @@ function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[])
   const person=teams[0];
   const key=date+'|'+norm(person.branch)+'|'+norm(person.force)+'|'+norm(name);
   let item=result.get(key);
-  if(!item){item={visit_date:date,seller_name:norm(name),seller_id:person.id,corrected_start:null,corrected_end:null,reason:null,comments:null,branch:person.branch,sales_force:person.force!,total_clients:0,visited_clients:0,unvisited_clients:0,first_visit:null,last_visit:null};result.set(key,item);}
+  if(!item){item={visit_date:date,seller_name:clean(person.name),seller_id:person.id,corrected_start:null,corrected_end:null,reason:null,comments:null,branch:person.branch,sales_force:person.force!,total_clients:0,visited_clients:0,unvisited_clients:0,first_visit:null,last_visit:null};result.set(key,item);}
   item.total_clients++;
   if(status==='SI')item.visited_clients++;else item.unvisited_clients++;
   const time=normalizeTime(row?.[10]);
@@ -330,6 +330,26 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    if(duplicates.length&&!confirmed){
     setDuplicateScopes(duplicates);
     setConfirmReplace(true);
+    return;
+   }
+   // Comparar con el padrón actual antes de intentar escribir. La RPC valida nombre, ID, sucursal y fuerza.
+   const {data:master,error:masterError}=await supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle();
+   if(masterError)throw masterError;
+   const currentPeople=Array.isArray(master?.people)?master.people as Person[]:[];
+   const mismatches=new Map<string,string>();
+   for(const row of preview){
+    const key=[row.branch,row.sales_force,row.seller_id,row.seller_name].join('|');
+    if(mismatches.has(key))continue;
+    const sameId=currentPeople.filter(p=>norm(p.role)==='VENDEDOR'&&p.branch===row.branch&&p.force===row.sales_force&&Number(p.id)===row.seller_id);
+    const exact=sameId.some(p=>clean(p.name).toUpperCase()===clean(row.seller_name).toUpperCase());
+    if(exact)continue;
+    const sameName=currentPeople.find(p=>norm(p.role)==='VENDEDOR'&&p.branch===row.branch&&p.force===row.sales_force&&norm(p.name)===norm(row.seller_name));
+    const expected=sameId.length?'Nombre registrado: '+sameId.map(p=>p.name).join(' / '):sameName?'ID registrado: '+sameName.id:'No figura en este equipo';
+    mismatches.set(key,'ID '+row.seller_id+' · '+row.seller_name+' · '+row.branch+' / '+row.sales_force+' · '+expected);
+   }
+   if(mismatches.size){
+    setMissingNames([...mismatches.values()].sort((a,b)=>a.localeCompare(b,'es')));
+    notify.error(mismatches.size+' vendedor(es) no coinciden con Personal comercial. Revisá el detalle.');
     return;
    }
    const {error}=await supabase.rpc('replace_category_sigo_days',{p_rows:preview,p_confirm_replace:confirmed});
@@ -553,10 +573,10 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   {!branchScope&&missingNames.length>0&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-missing-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
    <div className="w-full max-w-lg rounded-[24px] bg-white p-6 shadow-2xl">
     
-    <h3 id="sigo-missing-title" className="mt-2 text-xl font-semibold text-slate-950">Actualizá Personal comercial</h3>
-    <p className="mt-2 text-sm leading-6 text-slate-600">Los siguientes nombres no tienen una coincidencia única de sucursal y fuerza de venta en el detalle de personal. Actualizá ese archivo en la pestaña <strong>Personal comercial</strong> y volvé a importar SIGO. No se guardó ningún dato.</p>
-    <div className="mt-4 max-h-48 overflow-y-auto rounded-xl bg-amber-50 p-3 text-sm text-amber-950">{missingNames.map(name=><div key={name} className="border-b border-amber-100 py-1.5 last:border-0">{name}</div>)}</div>
-    <div className="mt-5 flex justify-end"><button type="button" onClick={()=>setMissingNames([])} className="rounded-xl bg-slate-950 px-5 py-2.5 text-xs font-semibold text-white">Entendido</button></div>
+    <h3 id="sigo-missing-title" className="mt-2 text-xl font-semibold text-slate-950">Discrepancias de vendedores ({missingNames.length})</h3>
+    <p className="mt-2 text-sm leading-6 text-slate-600">Estos vendedores no coinciden exactamente con el padrón actual por nombre, ID, sucursal o fuerza de ventas. Revisá los detalles y comparalos con <strong>Personal comercial</strong>. El archivo sigue en vista previa y no se guardó ningún dato.</p>
+    <div className="mt-4 max-h-64 overflow-y-auto rounded-xl bg-amber-50 p-3 text-sm text-amber-950">{missingNames.map(name=><div key={name} className="border-b border-amber-100 py-1.5 last:border-0">{name}</div>)}</div>
+    <div className="mt-5 flex flex-wrap justify-end gap-2"><button type="button" onClick={()=>void navigator.clipboard.writeText(missingNames.join('\n'))} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-medium text-slate-700">Copiar detalle</button><button type="button" onClick={()=>setMissingNames([])} className="rounded-xl bg-slate-950 px-5 py-2.5 text-xs font-semibold text-white">Entendido</button></div>
    </div>
   </div>}
   {!branchScope&&confirmReplace&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-duplicate-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
