@@ -308,7 +308,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    const duplicated=scopes.filter(scope=>keys.has(scope.visit_date+'|'+scope.branch+'|'+scope.sales_force));
    setDuplicateScopes(duplicated);
    if(duplicated.length)notify.error('Algunas fechas y equipos ya tienen datos. Se solicitará confirmación antes de reemplazarlos.');
-   else notify.success(nextFiles.length+' archivo(s) procesados. Revisá los resultados antes de guardar.');
+   else notify.warning('Excel procesado, todavía NO guardado. Revisá la sucursal y el mes y presioná «Guardar en Supabase».');
   }catch(e){
    setPreview(null);
    if(e instanceof PersonnelMismatchError)setMissingNames(e.names);
@@ -334,11 +334,33 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    }
    const {error}=await supabase.rpc('replace_category_sigo_days',{p_rows:preview,p_confirm_replace:confirmed});
    if(error)throw error;
-   // Read the persisted rows back: the RPC preserves manual corrections during re-imports.
-   try{if(preview[0]?.visit_date.slice(0,7)!==selectedMonth)setSelectedMonth(preview[0].visit_date.slice(0,7));else await reloadHistory();}
-   catch(e){notify.error('Se guardaron los horarios, pero no se pudo refrescar la tabla. Recargá la página para ver las correcciones conservadas.');}
+   // La RPC no devuelve filas: comprobar cada equipo y fecha antes de informar éxito.
+   const groups=new Map<string,{branch:string;force:string;dates:Set<string>;expected:number}>();
+   for(const item of preview){
+    const key=item.branch+'|'+item.sales_force;
+    const group=groups.get(key)??{branch:item.branch,force:item.sales_force,dates:new Set<string>(),expected:0};
+    group.dates.add(item.visit_date);group.expected++;
+    groups.set(key,group);
+   }
+   for(const group of groups.values()){
+    const {count,error:verifyError}=await supabase.from('category_sigo_daily')
+      .select('visit_date',{count:'exact',head:true})
+      .eq('branch',group.branch).eq('sales_force',group.force)
+      .in('visit_date',[...group.dates]);
+    if(verifyError)throw new Error('El guardado se procesó, pero no se pudo verificar su persistencia: '+verifyError.message);
+    if(count!==group.expected)throw new Error('La verificación encontró '+(count??0)+' de '+group.expected+' registros en '+group.branch+' / '+group.force+'. Revisá Supabase antes de volver a importar.');
+   }
+   const first=preview[0];
+   const targetMonth=first.visit_date.slice(0,7);
+   setSelectedBranch(first.branch);setSelectedForce('all');setColumnFilters({});setQuery('');
+   try{
+    if(targetMonth!==selectedMonth)setSelectedMonth(targetMonth);
+    else await reloadHistory();
+   }catch(e){notify.error('Los horarios están confirmados en Supabase, pero no se pudo actualizar la tabla. Recargá la página.');}
+   const savedCount=preview.length;
+   const labels=[...groups.values()].map(group=>TEAM_CARDS.find(team=>team.branch===group.branch&&(team.force===group.force||team.force==='all'))?.name??group.branch);
    setPreview(null);setFiles([]);setDuplicateScopes([]);setConfirmReplace(false);
-   notify.success('Histórico SIGO guardado. Los demás días y equipos se conservaron.');
+   notify.success(savedCount+' registros verificados en Supabase · '+[...new Set(labels)].join(', ')+'.');
   }catch(e){notify.error(errorMessage(e,'No se pudo guardar el histórico.'));}
   finally{setBusy(false);}
  };
@@ -507,6 +529,17 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
  };
  const monthLabel=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'));
  const datesInPreview=[...new Set(preview?.map(item=>item.visit_date)??[])];
+ const previewTeams=useMemo(()=>{
+  const grouped=new Map<string,{name:string;month:string;force:string;count:number}>();
+  for(const item of preview??[]){
+   const team=TEAM_CARDS.find(team=>team.branch===item.branch&&(team.force===item.sales_force||team.force==='all'));
+   const month=item.visit_date.slice(0,7);
+   const key=item.branch+'|'+item.sales_force+'|'+month;
+   const current=grouped.get(key)??{name:team?.name??item.branch,month,force:item.sales_force,count:0};
+   current.count++;grouped.set(key,current);
+  }
+  return [...grouped.values()].sort((a,b)=>a.name.localeCompare(b.name,'es')||b.month.localeCompare(a.month));
+ },[preview]);
  return <div className="mt-6">
   {!branchScope&&<div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
    {TEAM_CARDS.map(team=>{
@@ -556,11 +589,15 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
      <label className="inline-flex h-full cursor-pointer items-center gap-2 rounded-l-xl px-4 hover:bg-slate-50"><Upload className="h-4 w-4"/>{files.length?files.length+' Excel seleccionados':'Importar Excel SIGO'}<input type="file" multiple accept=".xlsx" className="sr-only" disabled={busy} onChange={e=>{const selected=Array.from(e.target.files??[]);e.target.value='';if(selected.length)void upload([...files,...selected]);}}/></label>
      {files.length>0&&<button type="button" aria-label="Quitar todos los archivos importados" title="Quitar todos" disabled={busy} onClick={discardUpload} className="flex h-full w-10 items-center justify-center rounded-r-xl border-l border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"><X className="h-4 w-4"/></button>}
     </div>}
-    {!branchScope&&preview&&<button disabled={busy} onClick={()=>void save(false)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-medium text-white transition-colors duration-200 motion-reduce:transition-none hover:bg-emerald-700 disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar días</button>}
+    {!branchScope&&preview&&<button disabled={busy} onClick={()=>void save(false)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-medium text-white transition-colors duration-200 motion-reduce:transition-none hover:bg-emerald-700 disabled:opacity-50">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Guardar en Supabase</button>}
    </div>
   </div>
   {!branchScope&&files.length>0&&<div className="flex flex-wrap gap-2 border-b border-slate-200 px-6 py-3">{files.map((item,index)=><span key={item.name+'-'+index} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700">{item.name}<button type="button" aria-label={'Quitar '+item.name} disabled={busy} onClick={()=>void upload(files.filter((_,i)=>i!==index))} className="rounded text-slate-400 hover:text-red-600 disabled:opacity-40"><X className="h-3.5 w-3.5"/></button></span>)}</div>}
-  {!branchScope&&preview&&<div className="border-b border-blue-100 bg-blue-50 px-6 py-3 text-xs text-blue-700"><strong>Vista previa sin guardar:</strong> {preview.length} registros de vendedor/día · {datesInPreview.map(displayDate).join(', ')}. Al guardar se actualizan solo estas fechas.</div>}
+  {!branchScope&&preview&&<div role="status" className="border-b border-amber-200 bg-amber-50 px-6 py-3 text-xs text-amber-950">
+   <p className="font-semibold">Excel procesado · PENDIENTE DE GUARDAR EN SUPABASE</p>
+   <p className="mt-1">{preview.length} registros de vendedor/día · {datesInPreview.length} fechas. Verificá el equipo y período antes de guardar.</p>
+   <div className="mt-2 flex flex-wrap gap-2">{previewTeams.map(team=><span key={team.name+'|'+team.force+'|'+team.month} className="rounded-lg border border-amber-200 bg-white px-2.5 py-1 text-slate-700">{team.name} · {team.month} · {team.force} · {team.count} registros</span>)}</div>
+  </div>
   <div className="sticky top-[72px] z-30 flex flex-wrap gap-2 border-b border-slate-200 bg-[#fafbfc] px-5 py-3" role="tablist" aria-label="Vistas de Horarios SIGO">
    <button type="button" role="tab" aria-selected={view==='daily'} onClick={()=>{setView('daily');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-200 '+(view==='daily'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Detalle diario</button>
    <button type="button" role="tab" aria-selected={view==='averages'} onClick={()=>{setView('averages');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-200 '+(view==='averages'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Promedios mensuales</button>
