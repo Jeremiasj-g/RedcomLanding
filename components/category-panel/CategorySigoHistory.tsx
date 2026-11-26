@@ -18,15 +18,29 @@ type ImportIssue={
 };
 type ReportIssue=Omit<ImportIssue,'file'>;
 type CorrectionField='corrected_start'|'corrected_end'|'reason'|'comments';
+type ImportScope={visit_date:string;branch:string;sales_force:string};
+type ScopeCount=ImportScope&{records:number};
+type TeamCount={branch:string;sales_force:string;records:number};
+const uniqueImportScopes=(rows:Daily[]):ImportScope[]=>[...new Map(rows.map(row=>[
+ [row.visit_date,row.branch,row.sales_force].join('|'),
+ {visit_date:row.visit_date,branch:row.branch,sales_force:row.sales_force}
+])).values()];
+async function getImportScopeCounts(scopes:ImportScope[]):Promise<ScopeCount[]>{
+ if(!scopes.length)return [];
+ const {data,error}=await supabase.rpc('sigo_import_scope_counts',{p_scopes:scopes});
+ if(error)throw error;
+ if(!Array.isArray(data))throw new Error('No se pudieron comprobar los días y equipos de SIGO.');
+ return data as ScopeCount[];
+}
 const nextMonth=(month:string)=>{const [year,m]=month.split('-').map(Number);const d=new Date(year,m,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
 const currentMonth=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
 
-async function loadSigoRows(month:string,branchScope?:{branch:string;force:string}):Promise<Daily[]>{
+async function loadSigoRows(month:string,team:{branch:string;force:string}):Promise<Daily[]>{
  const rows:Daily[]=[];let offset=0;
  while(true){
   let request=supabase.from('category_sigo_daily').select('visit_date,seller_name,seller_id,corrected_start,corrected_end,reason,comments,branch,sales_force,total_clients,visited_clients,unvisited_clients,first_visit,last_visit');
   request=request.gte('visit_date',month+'-01').lt('visit_date',nextMonth(month)+'-01');
-  if(branchScope){request=request.eq('branch',branchScope.branch);if(branchScope.force!=='all')request=request.eq('sales_force',branchScope.force);}
+  request=request.eq('branch',team.branch);if(team.force!=='all')request=request.eq('sales_force',team.force);
   const {data,error}=await request.order('visit_date',{ascending:false}).order('seller_name',{ascending:true}).range(offset,offset+999);
   if(error)throw error;
   rows.push(...(data??[]));if((data??[]).length<1000)break;offset+=1000;
@@ -214,6 +228,7 @@ function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[])
 }
 export default function CategorySigoHistory({branchScope,month:externalMonth,onMonthChange}:{branchScope?:{branch:string;force:string;editorRole:string;editorName:string};month?:string;onMonthChange?:(month:string)=>void}={}){
  const [history,setHistory]=useState<Daily[]>([]);
+ const [teamCounts,setTeamCounts]=useState<Record<string,number>>({});
  const [personnel,setPersonnel]=useState<Person[]>([]);
  const [selectedBranch,setSelectedBranch]=useState<string>(branchScope?.branch??'CASA CENTRAL');
  const [selectedForce,setSelectedForce]=useState<string>(branchScope?.force??'ESQUEMA 1');
@@ -253,11 +268,30 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
  const syncTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const loadSequence=useRef(0);
  const localWriteUntil=useRef(0);
- const reloadHistory=useCallback(async()=>{const sequence=++loadSequence.current;const rows=await loadSigoRows(selectedMonth,branchScope);if(sequence===loadSequence.current)setHistory(rows);},[selectedMonth,branchScope?.branch,branchScope?.force]);
- useEffect(()=>{let active=true;setLoading(true);
-  void reloadHistory().catch(e=>{if(active)notify.error(errorMessage(e,'No se pudo cargar el histórico SIGO.'));}).finally(()=>{if(active)setLoading(false);});
+ const reloadHistory=useCallback(async()=>{
+  const sequence=++loadSequence.current;
+  const team=branchScope?{branch:branchScope.branch,force:branchScope.force}:{branch:selectedBranch,force:selectedForce};
+  const rows=await loadSigoRows(selectedMonth,team);
+  if(sequence===loadSequence.current)setHistory(rows);
+ },[selectedMonth,selectedBranch,selectedForce,branchScope?.branch,branchScope?.force]);
+ const reloadTeamCounts=useCallback(async()=>{
+  if(branchScope)return;
+  const {data,error}=await supabase.rpc('sigo_month_team_counts',{p_month:selectedMonth});
+  if(error)throw error;
+  if(!Array.isArray(data))throw new Error('No se pudieron leer los contadores SIGO.');
+  const next:Record<string,number>={};
+  for(const item of data as TeamCount[])next[item.branch+'|'+item.sales_force]=item.records;
+  setTeamCounts(next);
+ },[selectedMonth,branchScope?.branch]);
+ useEffect(()=>{let active=true;setLoading(true);setHistory([]);
+  void reloadHistory().catch(e=>{if(active)notify.error(errorMessage(e,'No se pudieron cargar los horarios de '+selectedBranch+'.'));})
+   .finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;++loadSequence.current;};
  },[reloadHistory]);
+ useEffect(()=>{let active=true;
+  void reloadTeamCounts().catch(e=>{if(active&&!branchScope)notify.error(errorMessage(e,'No se pudieron cargar los contadores SIGO.'));});
+  return()=>{active=false;};
+ },[reloadTeamCounts]);
  useEffect(()=>{let active=true;void(async()=>{
   const {data,error}=branchScope
     ?await supabase.rpc('sigo_personnel_for_team',{p_branch:branchScope.branch,p_force:branchScope.force})
@@ -267,18 +301,19 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   if(active)setPersonnel(Array.isArray(people)?people as Person[]:[]);
  })();return()=>{active=false;};},[branchScope?.branch,branchScope?.force]);
  useEffect(()=>{
-  const channel=supabase.channel('sigo-daily-sync-'+(branchScope?.branch??'all')+'-'+(branchScope?.force??'all'))
-  .on('postgres_changes',{event:'*',schema:'public',table:'category_sigo_daily'},()=>{
+  const teamBranch=branchScope?.branch??selectedBranch;
+  const channel=supabase.channel('sigo-daily-sync-'+teamBranch+'-'+(branchScope?.force??selectedForce))
+  .on('postgres_changes',{event:'*',schema:'public',table:'category_sigo_daily',filter:'branch=eq.'+teamBranch},()=>{
    // Coalesce bursts and do not race the optimistic update from this tab.
    if(syncTimer.current)clearTimeout(syncTimer.current);
    syncTimer.current=setTimeout(()=>{
     const remaining=localWriteUntil.current-Date.now();
     if(remaining>0){syncTimer.current=setTimeout(()=>{void reloadHistory().catch(()=>{});},remaining+250);}
-    else void reloadHistory().catch(()=>{});
+    else {void reloadHistory().catch(()=>{});void reloadTeamCounts().catch(()=>{});}
    },900);
   }).subscribe();
   return()=>{if(syncTimer.current)clearTimeout(syncTimer.current);void supabase.removeChannel(channel);};
- },[reloadHistory,branchScope?.branch,branchScope?.force]);
+ },[reloadHistory,reloadTeamCounts,selectedBranch,selectedForce,branchScope?.branch,branchScope?.force]);
  const sellerDetails=useMemo(()=>{
   const map=new Map<string,{code:string;supervisor:string}>();
   for(const seller of personnel.filter(p=>norm(p.role)==='VENDEDOR'&&norm(p.branch)===norm(selectedBranch)&&(selectedForce==='all'||p.force===selectedForce))){
@@ -304,12 +339,9 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    unique.set(key,item);
   }
   const combined=[...unique.values()];
-  const scopes=[...new Map(combined.map(p=>[p.visit_date+'|'+p.branch+'|'+p.sales_force,{visit_date:p.visit_date,branch:p.branch,sales_force:p.sales_force}])).values()];
-  const {data:existing,error}=await supabase.from('category_sigo_daily')
-   .select('visit_date,branch,sales_force').in('visit_date',[...new Set(scopes.map(scope=>scope.visit_date))]);
-  if(error)throw error;
-  const keys=new Set((existing??[]).map(p=>p.visit_date+'|'+p.branch+'|'+p.sales_force));
-  const duplicated=scopes.filter(scope=>keys.has(scope.visit_date+'|'+scope.branch+'|'+scope.sales_force));
+  const scopes=uniqueImportScopes(combined);
+  const found=await getImportScopeCounts(scopes);
+  const duplicated=found.filter(scope=>scope.records>0).map(({visit_date,branch,sales_force})=>({visit_date,branch,sales_force}));
   setPreview(combined);setOmittedIssues(omitted);
   if(new Set(combined.map(p=>p.branch)).size===1)setSelectedBranch(combined[0].branch);
   setSelectedForce('all');setDuplicateScopes(duplicated);
@@ -366,13 +398,9 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   try{
    setBusy(true);
    // Always recheck in Supabase before writing, including when imported from another session.
-   const scopes=[...new Map(preview.map(p=>[p.visit_date+'|'+p.branch+'|'+p.sales_force,{visit_date:p.visit_date,branch:p.branch,sales_force:p.sales_force}])).values()];
-   const {data:existing,error:checkError}=await supabase.from('category_sigo_daily')
-    .select('visit_date,branch,sales_force')
-    .in('visit_date',[...new Set(scopes.map(s=>s.visit_date))]);
-   if(checkError)throw checkError;
-   const existingKeys=new Set((existing??[]).map(p=>p.visit_date+'|'+p.branch+'|'+p.sales_force));
-   const duplicates=scopes.filter(scope=>existingKeys.has(scope.visit_date+'|'+scope.branch+'|'+scope.sales_force));
+   const scopes=uniqueImportScopes(preview);
+   const found=await getImportScopeCounts(scopes);
+   const duplicates=found.filter(scope=>scope.records>0).map(({visit_date,branch,sales_force})=>({visit_date,branch,sales_force}));
    if(duplicates.length&&!confirmed){
     setDuplicateScopes(duplicates);
     setConfirmReplace(true);
@@ -407,29 +435,29 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    }
    const {error}=await supabase.rpc('replace_category_sigo_days',{p_rows:preview,p_confirm_replace:confirmed});
    if(error)throw error;
-   // La RPC no devuelve filas: comprobar cada equipo y fecha antes de informar éxito.
-   const groups=new Map<string,{branch:string;force:string;dates:Set<string>;expected:number}>();
-   for(const item of preview){
-    const key=item.branch+'|'+item.sales_force;
-    const group=groups.get(key)??{branch:item.branch,force:item.sales_force,dates:new Set<string>(),expected:0};
-    group.dates.add(item.visit_date);group.expected++;
-    groups.set(key,group);
+   // Verificar de forma indexada únicamente las fechas y equipos de la importación.
+   const expectedByScope=new Map<string,number>();
+   for(const row of preview){
+    const key=[row.visit_date,row.branch,row.sales_force].join('|');
+    expectedByScope.set(key,(expectedByScope.get(key)??0)+1);
    }
-   for(const group of groups.values()){
-    const {count,error:verifyError}=await supabase.from('category_sigo_daily')
-      .select('visit_date',{count:'exact',head:true})
-      .eq('branch',group.branch).eq('sales_force',group.force)
-      .in('visit_date',[...group.dates]);
-    if(verifyError)throw new Error('El guardado se procesó, pero no se pudo verificar su persistencia: '+verifyError.message);
-    if(count!==group.expected)throw new Error('La verificación encontró '+(count??0)+' de '+group.expected+' registros en '+group.branch+' / '+group.force+'. Revisá Supabase antes de volver a importar.');
+   const verified=await getImportScopeCounts(scopes);
+   for(const scope of verified){
+    const key=[scope.visit_date,scope.branch,scope.sales_force].join('|');
+    const expected=expectedByScope.get(key)??0;
+    if(scope.records!==expected)throw new Error('La escritura terminó, pero no se pudo verificar '+scope.branch+' / '+scope.sales_force+' el '+displayDate(scope.visit_date)+': '+scope.records+' de '+expected+' registros. Revisá los datos antes de reintentar.');
    }
+   if(verified.length!==scopes.length)throw new Error('La escritura terminó, pero faltan fechas en la verificación. Revisá Supabase antes de reintentar.');
+   const groups=new Map<string,{branch:string;force:string}>();
+   for(const scope of scopes)groups.set(scope.branch+'|'+scope.sales_force,{branch:scope.branch,force:scope.sales_force});
+   void reloadTeamCounts().catch(()=>{});
    const first=preview[0];
    const targetMonth=first.visit_date.slice(0,7);
    setSelectedBranch(first.branch);setSelectedForce('all');setColumnFilters({});setQuery('');
    try{
     if(targetMonth!==selectedMonth)setSelectedMonth(targetMonth);
-    else await reloadHistory();
-   }catch(e){notify.error('Los horarios están confirmados en Supabase, pero no se pudo actualizar la tabla. Recargá la página.');}
+    else if(first.branch===selectedBranch&&selectedForce==='all')await reloadHistory();
+   }catch(e){notify.error('Los horarios se guardaron, pero no se pudo actualizar la tabla. Recargá la página.');}
    const savedCount=preview.length;
    const labels=[...groups.values()].map(group=>TEAM_CARDS.find(team=>team.branch===group.branch&&(team.force===group.force||team.force==='all'))?.name??group.branch);
    setPreview(null);setFiles([]);setDuplicateScopes([]);setConfirmReplace(false);setOmittedIssues([]);
@@ -607,7 +635,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   {!branchScope&&<div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
    {TEAM_CARDS.map(team=>{
     const active=selectedBranch===team.branch&&selectedForce===team.force;
-    const total=history.filter(item=>item.branch===team.branch&&(team.force==='all'||item.sales_force===team.force)).length;
+    const total=Object.entries(teamCounts).reduce((sum,[key,count])=>{const [branch,force]=key.split('|');return sum+(branch===team.branch&&(team.force==='all'||team.force===force)?count:0);},0);
     const compactColor:Record<string,string>={
      masivos:'border-sky-300 bg-sky-50 text-sky-800',
      refrigerados:'border-blue-300 bg-blue-50 text-blue-800',
@@ -619,7 +647,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
      onClick={()=>{setSelectedBranch(team.branch);setSelectedForce(team.force);setAverageMonth('');setColumnFilters({});setActiveColumn(null);setSortColumn(null);}}
      className={'flex min-h-[88px] flex-col justify-center gap-1 rounded-2xl border px-5 text-left transition-all duration-200 motion-reduce:transition-none hover:shadow-sm '+compactColor[team.id]+(active?' ring-2 ring-offset-2 ring-current shadow-sm':'')}>
       <span className="text-sm font-semibold">{team.name}</span>
-      <span className="text-[11px] opacity-70">{total} registros históricos</span>
+      <span className="text-[11px] opacity-70">{total} registros del mes</span>
      </button>;
    })}
   </div>}
