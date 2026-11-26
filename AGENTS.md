@@ -18,6 +18,18 @@ Este archivo **no se carga automáticamente en todas las integraciones de ChatGP
 
 Estas reglas aplican a todo el repositorio (pantallas, modales, componentes y cambios nuevos). Antes de modificar una interfaz, revisar los componentes existentes y seguir estas pautas. Si una indicación explícita del pedido exige otra solución, respetarla sin cambiar funcionalidades ajenas.
 
+## 0.1. Skills técnicas y consulta selectiva
+
+Después de leer AGENTS.md e inspeccionar el código afectado, cargar únicamente las guías locales pertinentes antes de implementar:
+
+- [modern-frontend](.agents/skills/modern-frontend/SKILL.md): React, Next.js, renderizado, navegación, accesibilidad y rendimiento web.
+- [supabase-postgres](.agents/skills/supabase-postgres/SKILL.md): SQL, RLS, índices, migraciones, integridad y rendimiento de PostgreSQL.
+- [node-backend](.agents/skills/node-backend/SKILL.md): APIs, servicios Node.js, arquitectura backend, seguridad y manejo de errores.
+
+No cargar todas las Skills por defecto. Un ajuste visual simple puede resolverse sólo con AGENTS.md y los componentes existentes. Una optimización SQL requiere supabase-postgres; añadir modern-frontend o node-backend sólo si afecta esas capas.
+
+Consultar las referencias externas de cada Skill únicamente cuando las instrucciones locales no sean suficientes, haya incertidumbre técnica o sea necesario verificar recomendaciones vigentes. Leer sólo las secciones relevantes; no descargar ni recorrer repositorios completos ni repetir investigaciones innecesarias. Contrastar con documentación oficial de la versión instalada y respetar las reglas del proyecto. Si la integración no descubre Skills automáticamente, abrir explícitamente los archivos enlazados en GitHub de la rama activa. Estas guías no autorizan cambios fuera del alcance, ni sustituyen pruebas o controles de publicación.
+
 ## 1. Identidad visual
 - Estilo Apple: minimalista, profesional, limpio, consistente y **mobile-first**. Priorizar legibilidad, jerarquía visual, espacios generosos y distribución intuitiva.
 - Información breve, precisa y útil. **No agregar subtítulos decorativos**, etiquetas superiores, textos repetitivos ni descripciones obvias debajo de cada título. Conservar únicamente textos necesarios para comprender o utilizar la función.
