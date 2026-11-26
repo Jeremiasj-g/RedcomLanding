@@ -17,6 +17,7 @@ type ImportIssue={
  profiles:Array<Pick<Person,'id'|'name'|'role'|'branch'|'force'>>;
 };
 type ReportIssue=Omit<ImportIssue,'file'>;
+type TeamViewState={month:string;force:string;view:'daily'|'averages';query:string;columnFilters:Record<string,string[]>;averageFilters:Record<string,string[]>;sortColumn:string|null;sortDirection:'asc'|'desc';averageSort:{key:string;direction:'asc'|'desc'}|null;averageMonth:string;visibleLimit:number;dailyTop:number;dailyLeft:number;averageTop:number;averageLeft:number;windowY:number;};
 type CorrectionField='corrected_start'|'corrected_end'|'reason'|'comments';
 type ImportScope={visit_date:string;branch:string;sales_force:string};
 type ScopeCount=ImportScope&{records:number};
@@ -228,6 +229,14 @@ function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[])
 }
 export default function CategorySigoHistory({branchScope,month:externalMonth,onMonthChange}:{branchScope?:{branch:string;force:string;editorRole:string;editorName:string};month?:string;onMonthChange?:(month:string)=>void}={}){
  const [history,setHistory]=useState<Daily[]>([]);
+ const historyCache=useRef(new Map<string,Daily[]>());
+ const activeTeamId=useRef('masivos');
+ const savedTeams=useRef(new Map<string,TeamViewState>());
+ const dailyScroll=useRef<HTMLDivElement|null>(null);
+ const lastScroll=useRef({dailyTop:0,dailyLeft:0,averageTop:0,averageLeft:0});
+ const averageScroll=useRef<HTMLDivElement|null>(null);
+ const restoreScroll=useRef<{dailyTop:number;dailyLeft:number;averageTop:number;averageLeft:number;windowY:number}|null>(null);
+ const [viewEpoch,setViewEpoch]=useState(0);
  const [teamCounts,setTeamCounts]=useState<Record<string,number>>({});
  const [personnel,setPersonnel]=useState<Person[]>([]);
  const [selectedBranch,setSelectedBranch]=useState<string>(branchScope?.branch??'CASA CENTRAL');
@@ -268,10 +277,45 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
  const syncTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const loadSequence=useRef(0);
  const localWriteUntil=useRef(0);
+ const currentScopeKey=[branchScope?.branch??selectedBranch,branchScope?.force??selectedForce,selectedMonth].join('|');
+ const selectTeam=(id:string,branch:string,force:string)=>{
+  if(branchScope||id===activeTeamId.current)return;
+  savedTeams.current.set(activeTeamId.current,{
+   month:selectedMonth,force:selectedForce,view,query,columnFilters,averageFilters,sortColumn,sortDirection,
+   averageSort,averageMonth,visibleLimit,dailyTop:lastScroll.current.dailyTop,
+   dailyLeft:lastScroll.current.dailyLeft,averageTop:lastScroll.current.averageTop,
+   averageLeft:lastScroll.current.averageLeft,windowY:window.scrollY
+  });
+  const previous=savedTeams.current.get(id);
+  activeTeamId.current=id;
+  setSelectedBranch(branch);setSelectedForce(previous?.force??force);setSelectedMonth(previous?.month??selectedMonth);
+  setView(previous?.view??'daily');setQuery(previous?.query??'');setColumnFilters(previous?.columnFilters??{});
+  setAverageFilters(previous?.averageFilters??{});setSortColumn(previous?.sortColumn??null);
+  setSortDirection(previous?.sortDirection??'asc');setAverageSort(previous?.averageSort??null);
+  setAverageMonth(previous?.averageMonth??'');setVisibleLimit(previous?.visibleLimit??120);
+  setActiveColumn(null);setAverageFilterColumn(null);
+  restoreScroll.current=previous?{dailyTop:previous.dailyTop,dailyLeft:previous.dailyLeft,averageTop:previous.averageTop,averageLeft:previous.averageLeft,windowY:previous.windowY}:
+   {dailyTop:0,dailyLeft:0,averageTop:0,averageLeft:0,windowY:window.scrollY};
+  lastScroll.current={dailyTop:restoreScroll.current.dailyTop,dailyLeft:restoreScroll.current.dailyLeft,averageTop:restoreScroll.current.averageTop,averageLeft:restoreScroll.current.averageLeft};
+  setViewEpoch(n=>n+1);
+ };
+ useEffect(()=>{
+  const position=restoreScroll.current;
+  if(!position||loading||!historyCache.current.has(currentScopeKey))return;
+  const frame=requestAnimationFrame(()=>{
+   if(dailyScroll.current){dailyScroll.current.scrollTop=position.dailyTop;dailyScroll.current.scrollLeft=position.dailyLeft;}
+   if(averageScroll.current){averageScroll.current.scrollTop=position.averageTop;averageScroll.current.scrollLeft=position.averageLeft;}
+   if(!branchScope)window.scrollTo({top:position.windowY,behavior:'auto'});
+   restoreScroll.current=null;
+  });
+  return()=>cancelAnimationFrame(frame);
+ },[loading,viewEpoch,view,visibleLimit,history,currentScopeKey]);
  const reloadHistory=useCallback(async()=>{
+  const cacheKey=[branchScope?.branch??selectedBranch,branchScope?.force??selectedForce,selectedMonth].join('|');
   const sequence=++loadSequence.current;
   const team=branchScope?{branch:branchScope.branch,force:branchScope.force}:{branch:selectedBranch,force:selectedForce};
   const rows=await loadSigoRows(selectedMonth,team);
+  historyCache.current.set(cacheKey,rows);
   if(sequence===loadSequence.current)setHistory(rows);
  },[selectedMonth,selectedBranch,selectedForce,branchScope?.branch,branchScope?.force]);
  const reloadTeamCounts=useCallback(async()=>{
@@ -283,11 +327,14 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   for(const item of data as TeamCount[])next[item.branch+'|'+item.sales_force]=item.records;
   setTeamCounts(next);
  },[selectedMonth,branchScope?.branch]);
- useEffect(()=>{let active=true;setLoading(true);setHistory([]);
+ useEffect(()=>{let active=true;
+  const cached=historyCache.current.get(currentScopeKey);
+  setLoading(!cached);setHistory(cached??[]);
+  if(cached)return()=>{active=false;++loadSequence.current;};
   void reloadHistory().catch(e=>{if(active)notify.error(errorMessage(e,'No se pudieron cargar los horarios de '+selectedBranch+'.'));})
    .finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;++loadSequence.current;};
- },[reloadHistory]);
+ },[reloadHistory,currentScopeKey]);
  useEffect(()=>{let active=true;
   void reloadTeamCounts().catch(e=>{if(active&&!branchScope)notify.error(errorMessage(e,'No se pudieron cargar los contadores SIGO.'));});
   return()=>{active=false;};
@@ -308,12 +355,12 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    if(syncTimer.current)clearTimeout(syncTimer.current);
    syncTimer.current=setTimeout(()=>{
     const remaining=localWriteUntil.current-Date.now();
-    if(remaining>0){syncTimer.current=setTimeout(()=>{void reloadHistory().catch(()=>{});},remaining+250);}
-    else {void reloadHistory().catch(()=>{});void reloadTeamCounts().catch(()=>{});}
+    if(remaining>0){syncTimer.current=setTimeout(()=>{historyCache.current.delete(currentScopeKey);void reloadHistory().catch(()=>{});},remaining+250);}
+    else {historyCache.current.delete(currentScopeKey);void reloadHistory().catch(()=>{});void reloadTeamCounts().catch(()=>{});}
    },900);
   }).subscribe();
   return()=>{if(syncTimer.current)clearTimeout(syncTimer.current);void supabase.removeChannel(channel);};
- },[reloadHistory,reloadTeamCounts,selectedBranch,selectedForce,branchScope?.branch,branchScope?.force]);
+ },[reloadHistory,reloadTeamCounts,selectedBranch,selectedForce,currentScopeKey,branchScope?.branch,branchScope?.force]);
  const sellerDetails=useMemo(()=>{
   const map=new Map<string,{code:string;supervisor:string}>();
   for(const seller of personnel.filter(p=>norm(p.role)==='VENDEDOR'&&norm(p.branch)===norm(selectedBranch)&&(selectedForce==='all'||p.force===selectedForce))){
@@ -343,7 +390,10 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   const found=await getImportScopeCounts(scopes);
   const duplicated=found.filter(scope=>scope.records>0).map(({visit_date,branch,sales_force})=>({visit_date,branch,sales_force}));
   setPreview(combined);setOmittedIssues(omitted);
-  if(new Set(combined.map(p=>p.branch)).size===1)setSelectedBranch(combined[0].branch);
+  if(new Set(combined.map(p=>p.branch)).size===1){
+   setSelectedBranch(combined[0].branch);
+   activeTeamId.current=TEAM_CARDS.find(team=>team.branch===combined[0].branch&&(team.force==='all'||team.force===combined[0].sales_force))?.id??activeTeamId.current;
+  }
   setSelectedForce('all');setDuplicateScopes(duplicated);
   if(duplicated.length)notify.warning('Algunas fechas y equipos ya tienen datos. Se solicitará confirmación antes de reemplazarlos.');
   else notify.warning(omitted.length
@@ -451,8 +501,10 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    const groups=new Map<string,{branch:string;force:string}>();
    for(const scope of scopes)groups.set(scope.branch+'|'+scope.sales_force,{branch:scope.branch,force:scope.sales_force});
    void reloadTeamCounts().catch(()=>{});
+   for(const scope of scopes){for(const key of historyCache.current.keys())if(key.startsWith(scope.branch+'|')&&key.endsWith('|'+scope.visit_date.slice(0,7)))historyCache.current.delete(key);}
    const first=preview[0];
    const targetMonth=first.visit_date.slice(0,7);
+   activeTeamId.current=TEAM_CARDS.find(team=>team.branch===first.branch&&(team.force==='all'||team.force===first.sales_force))?.id??activeTeamId.current;
    setSelectedBranch(first.branch);setSelectedForce('all');setColumnFilters({});setQuery('');
    try{
     if(targetMonth!==selectedMonth)setSelectedMonth(targetMonth);
@@ -506,6 +558,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
     }
    }
   }else setHistory(prev=>prev.map(item=>correctionKey(item)===key?next:item));
+  historyCache.current.delete(currentScopeKey);
   setSavingCorrection(null);
  };
  const dataset=preview??history;
@@ -559,7 +612,6 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   return a.visit_date.localeCompare(b.visit_date)||a.seller_name.localeCompare(b.seller_name,'es');
  }),[baseRows,columnFilters,sortColumn,sortDirection,sellerDetails]);
  const visibleRows=useMemo(()=>shown.slice(0,visibleLimit),[shown,visibleLimit]);
- useEffect(()=>{setVisibleLimit(120);},[selectedBranch,selectedForce,deferredQuery,columnFilters,sortColumn,sortDirection]);
  const options=useMemo(()=>activeColumn?[...new Set(baseRows.filter(item=>columns.every(col=>col.key===activeColumn||matches(item,col.key))).map(item=>cellValue(item,activeColumn)))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true})):[],[activeColumn,baseRows,columnFilters,sellerDetails]);
  const visibleOptions=options.filter(value=>norm(value).includes(norm(filterSearch)));
  const selectedDraft=draftSelection??(activeColumn&&columnFilters[activeColumn]?.length?options.filter(value=>columnFilters[activeColumn].includes(value)):options);
@@ -644,7 +696,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
      obera:'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-800',
     };
     return <button key={team.id} type="button" aria-pressed={active}
-     onClick={()=>{setSelectedBranch(team.branch);setSelectedForce(team.force);setAverageMonth('');setColumnFilters({});setActiveColumn(null);setSortColumn(null);}}
+     onClick={()=>selectTeam(team.id,team.branch,team.force)}
      className={'flex min-h-[88px] flex-col justify-center gap-1 rounded-2xl border px-5 text-left transition-all duration-200 motion-reduce:transition-none hover:shadow-sm '+compactColor[team.id]+(active?' ring-2 ring-offset-2 ring-current shadow-sm':'')}>
       <span className="text-sm font-semibold">{team.name}</span>
       <span className="text-[11px] opacity-70">{total} registros del mes</span>
@@ -723,9 +775,9 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   {view==='daily'&&<>
   <div className="grid grid-cols-2 border-b border-slate-200 md:grid-cols-4">{[['Días registrados',days.length],['Clientes asignados',totals.assigned],['Visitados',totals.visited],['Sin visitar',totals.missing]].map(([label,n])=><div key={label} className="border-r border-slate-100 px-6 py-4"><p className="text-[10px] uppercase text-slate-400">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{Number(n).toLocaleString('es-AR')}</p></div>)}</div>
   <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4">
-   {!branchScope&&<RedcomSelect accent="neutral" aria-label="Fuerza de venta" value={selectedForce} onValueChange={value=>{setSelectedForce(value);setAverageMonth('');setColumnFilters({});}} options={[{value:'all',label:'Todas las fuerzas de venta'},...forces.map(force=>({value:force,label:force}))]} className="h-10 min-w-[205px] w-auto rounded-xl text-xs"/>}
+   {!branchScope&&<RedcomSelect accent="neutral" aria-label="Fuerza de venta" value={selectedForce} onValueChange={value=>{setSelectedForce(value);setAverageMonth('');}} options={[{value:'all',label:'Todas las fuerzas de venta'},...forces.map(force=>({value:force,label:force}))]} className="h-10 min-w-[205px] w-auto rounded-xl text-xs"/>}
    <div className="relative min-w-[230px] flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar vendedor..." className="h-10 w-full rounded-xl border border-slate-200 bg-[#fafbfc] pl-9 pr-3 text-xs outline-none"/></div>
-   {!branchScope&&<div className="flex items-center gap-2 text-xs text-slate-600"><span>Mes</span><CategoryMonthPicker label="Mes del histórico" value={selectedMonth} onChange={value=>{setSelectedMonth(value);setAverageMonth('');setColumnFilters({});}}/></div>}
+   {!branchScope&&<div className="flex items-center gap-2 text-xs text-slate-600"><span>Mes</span><CategoryMonthPicker label="Mes del histórico" value={selectedMonth} onChange={value=>{setSelectedMonth(value);setAverageMonth('');}}/></div>}
   </div>
   {Object.values(columnFilters).some(values=>values.length>0)&&<div className="flex items-center justify-between border-b border-blue-100 bg-blue-50 px-5 py-2 text-[11px] font-medium text-blue-700"><span><Filter className="mr-1 inline h-3.5 w-3.5"/>Filtros activos · {shown.length} filas</span><button type="button" onClick={clearFilters} className="rounded-lg px-2 py-1 hover:bg-blue-100">Limpiar todos</button></div>}
   {activeColumn&&<ColumnFilterPopup
@@ -740,7 +792,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    onApply={applyFilter}
    onClose={closeFilter}
   />}
-  <div className="h-[min(78dvh,960px)] min-h-[520px] overflow-y-auto overflow-x-auto overscroll-contain border-t border-t-slate-200"><table className="w-full min-w-[1080px] table-fixed text-left text-[11px] xl:min-w-0">
+  <div ref={dailyScroll} onScroll={e=>{lastScroll.current.dailyTop=e.currentTarget.scrollTop;lastScroll.current.dailyLeft=e.currentTarget.scrollLeft;}} className="h-[min(78dvh,960px)] min-h-[520px] overflow-y-auto overflow-x-auto overscroll-contain border-t border-t-slate-200"><table className="w-full min-w-[1080px] table-fixed text-left text-[11px] xl:min-w-0">
    <colgroup>{[5,7,9,5,10,6,6,7,6,9,9,10,11].map((width,index)=><col key={columns[index].key} style={{width:width+'%'}}/>)}</colgroup>
     <thead className="sticky top-0 z-20 bg-[#f5f7fa] text-[10px] text-slate-500 shadow-[0_1px_0_#cbd5e1]"><tr>{columns.map(col=><th key={col.key} scope="col" aria-sort={sortColumn===col.key?(sortDirection==='asc'?'ascending':'descending'):'none'} className={"min-w-0 break-words px-1 py-2 font-medium "+(col.key==='correctStart'||col.key==='supervisor'?'border-l-2 border-l-slate-300 ':'')}><button type="button" onClick={event=>openFilter(col.key,event.currentTarget)} className={'flex w-full min-w-0 items-center justify-between gap-1 rounded-md px-0.5 py-1 text-left hover:bg-slate-200 '+(columnFilters[col.key]?.length?'text-blue-600':'')}><span className="min-w-0 break-words">{col.label}</span><ChevronDown className="h-3 w-3 shrink-0"/></button></th>)}</tr></thead>
    <tbody>{loading?Array.from({length:10},(_,index)=><tr key={'skeleton-'+index} className={index%2?'bg-slate-50':'bg-white'}>{columns.map(column=><td key={column.key} className="px-1.5 py-2.5"><div className="h-6 w-full min-w-[40px] rounded bg-slate-100 animate-pulse motion-reduce:animate-none"/></td>)}</tr>):visibleRows.map((item,i)=><tr key={item.visit_date+'|'+item.seller_name} className={(i>0&&item.visit_date!==shown[i-1].visit_date?'border-t-[3px] border-t-slate-400 ':'border-t border-t-slate-100 ')+(i%2?'bg-slate-50/40':'bg-white')}>
@@ -788,7 +840,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
       <div className="flex justify-end gap-2 border-t border-slate-100 p-3"><button type="button" onClick={()=>setAverageFilterColumn(null)} className="rounded-lg border border-slate-200 px-4 py-2">Cancelar</button><button type="button" onClick={applyAverageFilter} className="rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white">Aceptar</button></div>
      </div>
     </>}
-    <div className="h-[min(78dvh,960px)] min-h-[520px] overflow-auto border-t border-t-slate-200">
+    <div ref={averageScroll} onScroll={e=>{lastScroll.current.averageTop=e.currentTarget.scrollTop;lastScroll.current.averageLeft=e.currentTarget.scrollLeft;}} className="h-[min(78dvh,960px)] min-h-[520px] overflow-auto border-t border-t-slate-200">
      <table className="w-full min-w-[620px] text-left text-xs">
       <thead className="sticky top-0 z-20 bg-[#f5f7fa] text-[10px] font-semibold uppercase tracking-wider text-slate-500"><tr>{averageColumns.map(col=><th key={col.key} className={'px-3 py-2 '+(col.key==='supervisor'?'border-l-[3px] border-l-slate-400':'')}><button type="button" onClick={e=>openAverageFilter(col.key,e.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(averageFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5"/></button></th>)}</tr></thead>
       <tbody>{filteredAverages.map((item,index)=><tr key={item.id+'|'+item.seller} className={'border-t border-slate-100 '+(index%2?'bg-slate-50/40':'bg-white')}>

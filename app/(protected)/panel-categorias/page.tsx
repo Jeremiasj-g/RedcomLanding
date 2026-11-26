@@ -209,6 +209,8 @@ export default function CategoryPanelPage() {
   const [search, setSearch] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
   const [activeTab, setActiveTab] = useState<'kpis' | 'sigo' | 'scales' | 'personnel' | 'categories'>('kpis');
+  const [sigoVisited,setSigoVisited]=useState(false);
+  useEffect(()=>{if(activeTab==='sigo')setSigoVisited(true);},[activeTab]);
   const [pendingLeave,setPendingLeave]=useState<{kind:'tab';value:typeof activeTab}|{kind:'month';value:string}|null>(null);
   const [monthlyDirty,setMonthlyDirty]=useState(false);
   const unsavedImport=Boolean(kpiDraft||preview||pivotFile||tmpFile||monthlyDirty);
@@ -558,6 +560,9 @@ export default function CategoryPanelPage() {
               <button type="button" disabled={registeringLegacy} onClick={()=>setConfirmLegacyMonth(true)} className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50">Asignar mes al lote anterior</button>
             </div>}
           </div>}
+          {(sigoVisited||activeTab==='sigo')&&<div hidden={activeTab!=='sigo'} aria-hidden={activeTab!=='sigo'}>
+            <CategorySigoHistory />
+          </div>}
           {activeTab === 'personnel' ? <CommercialPersonnel /> : activeTab === 'categories' ? <CategoryUnifiedOverview rows={monthlyRows} projections={kpiProjections} month={selectedMonth} onMonthChange={setSelectedMonth} availableMonths={availableMonths.map(m=>m.month)} loadingMonth={loadingMonthly} /> : activeTab === 'kpis' ? (
             <>
           <section className="mt-6 grid gap-4 lg:grid-cols-3">
@@ -821,9 +826,7 @@ export default function CategoryPanelPage() {
             ) : null}
           </section>
             </>
-          ) : activeTab === 'sigo' ? (
-            <CategorySigoHistory month={selectedMonth} onMonthChange={setSelectedMonth} />
-          ) : (
+          ) : activeTab === 'sigo' ? null : (
             <CategoryScaleTab month={selectedMonth} onDirtyChange={setMonthlyDirty}/>
           )}
         </div>
