@@ -12,6 +12,11 @@ import {errorMessage,notify} from '@/lib/notifications';
 
 type Daily={visit_date:string;seller_name:string;seller_id:number|null;corrected_start:string|null;corrected_end:string|null;reason:string|null;comments:string|null;branch:string;sales_force:string;total_clients:number;visited_clients:number;unvisited_clients:number;first_visit:string|null;last_visit:string|null};
 type Person={id:number;name:string;branch:string;role:string;superior:string;force?:string};
+type ImportIssue={
+ file:string;name:string;visits:number;skippable:boolean;
+ profiles:Array<Pick<Person,'id'|'name'|'role'|'branch'|'force'>>;
+};
+type ReportIssue=Omit<ImportIssue,'file'>;
 type CorrectionField='corrected_start'|'corrected_end'|'reason'|'comments';
 const nextMonth=(month:string)=>{const [year,m]=month.split('-').map(Number);const d=new Date(year,m,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
 const currentMonth=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
@@ -163,23 +168,36 @@ class PersonnelMismatchError extends Error {
  names:string[];
  constructor(names:string[]){super('Hay vendedores que no coinciden con Personal comercial.');this.name='PersonnelMismatchError';this.names=names;}
 }
-function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[]):Daily[]{
+function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[]):{rows:Daily[];issues:ReportIssue[]}{
  const byName=new Map<string,Person[]>();
- for(const p of personnel.filter(p=>norm(p.role)==='VENDEDOR')){
-  const key=norm(p.name);byName.set(key,[...(byName.get(key)??[]),p]);
+ const allByName=new Map<string,Person[]>();
+ for(const person of personnel){
+  const name=norm(person.name);
+  if(!name)continue;
+  allByName.set(name,[...(allByName.get(name)??[]),person]);
+  if(norm(person.role)==='VENDEDOR')byName.set(name,[...(byName.get(name)??[]),person]);
  }
  const header=matrix.findIndex(row=>norm(row?.[7])==='SECTOR'&&norm(row?.[8])==='FECHA'&&norm(row?.[9])==='VISITADO');
  if(header<0)throw new Error('No se encontraron las columnas H: Sector, I: Fecha y J: Visitado.');
  const result=new Map<string,Daily>();
- const unknown=new Set<string>();
+ const issues=new Map<string,ReportIssue>();
  for(const row of matrix.slice(header+1)){
   const name=clean(row?.[7]),date=normalizeDate(row?.[8]),status=norm(row?.[9]);
   if(!name||!date||!['SI','NO'].includes(status))continue;
   const matches=byName.get(norm(name))??[];
   const teams=[...new Map(matches.filter(person=>person.branch&&person.force).map(person=>[person.branch+'|'+person.force+'|'+person.id,person])).values()];
-  if(teams.length!==1){unknown.add(name);continue;}
+  if(teams.length!==1){
+   const key=norm(name);
+   const current=issues.get(key);
+   if(current){current.visits++;continue;}
+   const profiles=[...new Map((allByName.get(key)??[]).map(p=>[[p.id,p.role,p.branch,p.force].join('|'),{id:p.id,name:p.name,role:p.role,branch:p.branch,force:p.force}])).values()];
+   // Únicamente perfiles identificados como NO vendedores pueden omitirse.
+   const skippable=profiles.length>0&&profiles.every(p=>Boolean(p.role)&&norm(p.role)!=='VENDEDOR');
+   issues.set(key,{name,visits:1,profiles,skippable});
+   continue;
+  }
   const person=teams[0];
-  const key=date+'|'+norm(person.branch)+'|'+norm(person.force)+'|'+norm(name);
+  const key=date+'|'+norm(person.branch)+'|'+norm(person.force)+'|'+person.id;
   let item=result.get(key);
   if(!item){item={visit_date:date,seller_name:clean(person.name),seller_id:person.id,corrected_start:null,corrected_end:null,reason:null,comments:null,branch:person.branch,sales_force:person.force!,total_clients:0,visited_clients:0,unvisited_clients:0,first_visit:null,last_visit:null};result.set(key,item);}
   item.total_clients++;
@@ -190,11 +208,10 @@ function parseReport(matrix:(string|number|boolean|null)[][],personnel:Person[])
    if(!item.last_visit||time>item.last_visit)item.last_visit=time;
   }
  }
- if(unknown.size)throw new PersonnelMismatchError([...unknown].sort((a,b)=>a.localeCompare(b,'es')));
- if(!result.size)throw new Error('No hay filas válidas de visitas para importar.');
- return [...result.values()].sort((a,b)=>b.visit_date.localeCompare(a.visit_date)||a.seller_name.localeCompare(b.seller_name,'es'));
+ if(!result.size&&!issues.size)throw new Error('No hay filas válidas de visitas para importar.');
+ return {rows:[...result.values()].sort((a,b)=>b.visit_date.localeCompare(a.visit_date)||a.seller_name.localeCompare(b.seller_name,'es')),
+  issues:[...issues.values()].sort((a,b)=>a.name.localeCompare(b.name,'es'))};
 }
-
 export default function CategorySigoHistory({branchScope,month:externalMonth,onMonthChange}:{branchScope?:{branch:string;force:string;editorRole:string;editorName:string};month?:string;onMonthChange?:(month:string)=>void}={}){
  const [history,setHistory]=useState<Daily[]>([]);
  const [personnel,setPersonnel]=useState<Person[]>([]);
@@ -206,6 +223,10 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
  const [busy,setBusy]=useState(false);
  const [savingCorrection,setSavingCorrection]=useState<string|null>(null);
  const [missingNames,setMissingNames]=useState<string[]>([]);
+ const [importIssues,setImportIssues]=useState<ImportIssue[]>([]);
+ const [pendingImport,setPendingImport]=useState<Daily[]|null>(null);
+ const [skipNonSellers,setSkipNonSellers]=useState(false);
+ const [omittedIssues,setOmittedIssues]=useState<ImportIssue[]>([]);
  const [duplicateScopes,setDuplicateScopes]=useState<{visit_date:string;branch:string;sales_force:string}[]>([]);
  const [confirmReplace,setConfirmReplace]=useState(false);
  const [localMonth,setLocalMonth]=useState(currentMonth);
@@ -270,50 +291,75 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
   return map;
  },[personnel,selectedBranch,selectedForce]);
  const discardUpload=()=>{
-  setFiles([]);setPreview(null);setMissingNames([]);setDuplicateScopes([]);setConfirmReplace(false);
+  setFiles([]);setPreview(null);setMissingNames([]);setImportIssues([]);setPendingImport(null);
+  setSkipNonSellers(false);setOmittedIssues([]);setDuplicateScopes([]);setConfirmReplace(false);
   setColumnFilters({});setActiveColumn(null);
+ };
+ const stagePreview=async(rows:Daily[],omitted:ImportIssue[])=>{
+  if(!rows.length)throw new Error('Los archivos no contienen registros de vendedores para guardar.');
+  const unique=new Map<string,Daily>();
+  for(const item of rows){
+   const key=[item.visit_date,item.branch,item.sales_force,item.seller_id].join('|');
+   if(unique.has(key))throw new Error('Registro duplicado entre los Excel seleccionados: '+displayDate(item.visit_date)+' · '+item.seller_name+'. Quitá uno de los archivos para evitar duplicar sus visitas.');
+   unique.set(key,item);
+  }
+  const combined=[...unique.values()];
+  const scopes=[...new Map(combined.map(p=>[p.visit_date+'|'+p.branch+'|'+p.sales_force,{visit_date:p.visit_date,branch:p.branch,sales_force:p.sales_force}])).values()];
+  const {data:existing,error}=await supabase.from('category_sigo_daily')
+   .select('visit_date,branch,sales_force').in('visit_date',[...new Set(scopes.map(scope=>scope.visit_date))]);
+  if(error)throw error;
+  const keys=new Set((existing??[]).map(p=>p.visit_date+'|'+p.branch+'|'+p.sales_force));
+  const duplicated=scopes.filter(scope=>keys.has(scope.visit_date+'|'+scope.branch+'|'+scope.sales_force));
+  setPreview(combined);setOmittedIssues(omitted);
+  if(new Set(combined.map(p=>p.branch)).size===1)setSelectedBranch(combined[0].branch);
+  setSelectedForce('all');setDuplicateScopes(duplicated);
+  if(duplicated.length)notify.warning('Algunas fechas y equipos ya tienen datos. Se solicitará confirmación antes de reemplazarlos.');
+  else notify.warning(omitted.length
+   ?'Vista previa lista: '+omitted.length+' perfil(es) no vendedor omitidos. Revisá los datos antes de guardar.'
+   :'Excel procesado, todavía NO guardado. Revisá la sucursal y el mes y presioná «Guardar en Supabase».');
  };
  const upload=async(nextFiles:File[])=>{
   setFiles(nextFiles);setPreview(null);setMissingNames([]);setDuplicateScopes([]);setConfirmReplace(false);
+  setImportIssues([]);setPendingImport(null);setSkipNonSellers(false);setOmittedIssues([]);
   if(!nextFiles.length)return;
   try{
    setBusy(true);
    if(!personnel.length)throw new PersonnelMismatchError(['No se cargó el detalle de Personal comercial']);
    const parsed:Daily[]=[];
-   const missing=new Set<string>();
-   for(const next of nextFiles){
-    try{parsed.push(...parseReport(await readFirstWorksheet(next),personnel));}
-    catch(e){
-     if(e instanceof PersonnelMismatchError){e.names.forEach(name=>missing.add(next.name+' · '+name));continue;}
-     throw new Error(next.name+': '+errorMessage(e,'No se pudo procesar el Excel.'));
-    }
+   const issues:ImportIssue[]=[];
+   for(const file of nextFiles){
+    const result=parseReport(await readFirstWorksheet(file),personnel);
+    parsed.push(...result.rows);
+    issues.push(...result.issues.map(issue=>({...issue,file:file.name})));
    }
-   if(missing.size)throw new PersonnelMismatchError([...missing].sort((a,b)=>a.localeCompare(b,'es')));
-   const unique=new Map<string,Daily>();
-   for(const item of parsed){
-    const key=[item.visit_date,item.branch,item.sales_force,item.seller_name].join('|');
-    if(unique.has(key))throw new Error('Registro duplicado entre los Excel seleccionados: '+displayDate(item.visit_date)+' · '+item.seller_name+'. Quitá uno de los archivos para evitar duplicar sus visitas.');
-    unique.set(key,item);
+   if(issues.length){
+    setImportIssues(issues);setPendingImport(parsed);
+    return;
    }
-   const combined=[...unique.values()];
-   setPreview(combined);
-   if(new Set(combined.map(p=>p.branch)).size===1)setSelectedBranch(combined[0].branch);
-   setSelectedForce('all');
-   const scopes=[...new Map(combined.map(p=>[p.visit_date+'|'+p.branch+'|'+p.sales_force,{visit_date:p.visit_date,branch:p.branch,sales_force:p.sales_force}])).values()];
-   const {data:existing,error}=await supabase.from('category_sigo_daily')
-    .select('visit_date,branch,sales_force')
-    .in('visit_date',[...new Set(scopes.map(s=>s.visit_date))]);
-   if(error)throw error;
-   const keys=new Set((existing??[]).map(p=>p.visit_date+'|'+p.branch+'|'+p.sales_force));
-   const duplicated=scopes.filter(scope=>keys.has(scope.visit_date+'|'+scope.branch+'|'+scope.sales_force));
-   setDuplicateScopes(duplicated);
-   if(duplicated.length)notify.error('Algunas fechas y equipos ya tienen datos. Se solicitará confirmación antes de reemplazarlos.');
-   else notify.warning('Excel procesado, todavía NO guardado. Revisá la sucursal y el mes y presioná «Guardar en Supabase».');
+   await stagePreview(parsed,[]);
   }catch(e){
-   setPreview(null);
+   setPreview(null);setPendingImport(null);setImportIssues([]);
    if(e instanceof PersonnelMismatchError)setMissingNames(e.names);
    else notify.error(errorMessage(e,'No se pudieron procesar los archivos SIGO.'));
   }finally{setBusy(false);}
+ };
+ const acceptSkippedImport=async()=>{
+  if(!skipNonSellers||!pendingImport?.length||importIssues.some(issue=>!issue.skippable)||busy)return;
+  setBusy(true);
+  try{
+   // Revalidar roles antes de permitir continuar con un archivo que omite perfiles.
+   const {data,error}=await supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle();
+   if(error)throw error;
+   const latest=Array.isArray(data?.people)?data!.people as Person[]:[];
+   const stillNonSellers=importIssues.every(issue=>{
+    const matches=latest.filter(p=>norm(p.name)===norm(issue.name));
+    return matches.length>0&&matches.every(p=>Boolean(p.role)&&norm(p.role)!=='VENDEDOR');
+   });
+   if(!stillNonSellers)throw new Error('El padrón comercial cambió. Volvé a procesar los Excel para verificar los perfiles.');
+   await stagePreview(pendingImport,importIssues);
+   setImportIssues([]);setPendingImport(null);setSkipNonSellers(false);
+  }catch(e){notify.error(errorMessage(e,'No se pudo preparar la importación.'));}
+  finally{setBusy(false);}
  };
  const save=async(confirmed=false)=>{
   if(!preview?.length||busy)return;
@@ -336,6 +382,13 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    const {data:master,error:masterError}=await supabase.from('category_commercial_personnel').select('people').eq('id',1).maybeSingle();
    if(masterError)throw masterError;
    const currentPeople=Array.isArray(master?.people)?master!.people as Person[]:[];
+   if(omittedIssues.length){
+    const validOmissions=omittedIssues.every(issue=>{
+     const matches=currentPeople.filter(p=>norm(p.name)===norm(issue.name));
+     return matches.length>0&&matches.every(p=>Boolean(p.role)&&norm(p.role)!=='VENDEDOR');
+    });
+    if(!validOmissions)throw new Error('El padrón cambió para un perfil omitido. Volvé a importar los Excel y revisá la advertencia.');
+   }
    const mismatches=new Map<string,string>();
    for(const row of preview){
     const key=[row.branch,row.sales_force,row.seller_id,row.seller_name].join('|');
@@ -379,7 +432,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    }catch(e){notify.error('Los horarios están confirmados en Supabase, pero no se pudo actualizar la tabla. Recargá la página.');}
    const savedCount=preview.length;
    const labels=[...groups.values()].map(group=>TEAM_CARDS.find(team=>team.branch===group.branch&&(team.force===group.force||team.force==='all'))?.name??group.branch);
-   setPreview(null);setFiles([]);setDuplicateScopes([]);setConfirmReplace(false);
+   setPreview(null);setFiles([]);setDuplicateScopes([]);setConfirmReplace(false);setOmittedIssues([]);
    notify.success(savedCount+' registros verificados en Supabase · '+[...new Set(labels)].join(', ')+'.');
   }catch(e){notify.error(errorMessage(e,'No se pudo guardar el histórico.'));}
   finally{setBusy(false);}
@@ -570,6 +623,32 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
      </button>;
    })}
   </div>}
+  {!branchScope&&importIssues.length>0&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-import-issues-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+   <div className="flex max-h-[90vh] w-full max-w-xl flex-col rounded-[24px] bg-white p-5 shadow-2xl sm:p-6">
+    <h3 id="sigo-import-issues-title" className="text-lg font-semibold text-slate-900">Perfiles no reconocidos como vendedores ({importIssues.length})</h3>
+    <p className="mt-2 text-sm leading-6 text-slate-600">Estos nombres aparecen en los Excel pero no se identificaron como vendedores únicos. Revisá su rol en Personal comercial antes de continuar.</p>
+    <div className="mt-4 min-h-0 space-y-2 overflow-y-auto rounded-xl bg-amber-50 p-3">
+     {importIssues.map((issue,index)=><div key={issue.file+'|'+issue.name+'|'+index} className="border-b border-amber-200/70 py-2 last:border-0">
+      <p className="break-words text-sm font-medium text-slate-900">{issue.file} · {issue.name}</p>
+      <p className="mt-1 text-xs text-slate-600">{issue.visits} visita(s) en el archivo</p>
+      {issue.profiles.length?issue.profiles.map(p=><p key={p.id+'|'+p.role+'|'+p.branch} className="mt-1 text-xs text-slate-700">En Personal comercial: <strong>{p.role}</strong> · ID {p.id} · {p.name} · {p.branch}{p.force?' · '+p.force:''}</p>):
+       <p className="mt-1 text-xs text-rose-700">No figura en Personal comercial. Revisar nombre y padrón.</p>}
+      <p className={'mt-1 text-xs '+(issue.skippable?'text-emerald-800':'text-rose-700')}>{issue.skippable?'Se puede omitir (no es vendedor).':'Requiere revisión. No se puede omitir automáticamente.'}</p>
+     </div>)}
+    </div>
+    <label className={'mt-4 flex items-center justify-between gap-4 rounded-xl border p-3 '+(importIssues.every(issue=>issue.skippable)?'cursor-pointer border-slate-200':'border-slate-200 bg-slate-50 opacity-60')}>
+     <span className="min-w-0"><span className="block text-sm font-medium text-slate-900">Omitir perfiles que no son vendedores</span><span className="mt-1 block text-xs text-slate-500">Solo se omiten las visitas de los perfiles identificados arriba. Los vendedores válidos se mantienen.</span></span>
+     <input type="checkbox" role="switch" aria-label="Omitir perfiles que no son vendedores" checked={skipNonSellers} disabled={!importIssues.every(issue=>issue.skippable)||busy} onChange={event=>setSkipNonSellers(event.target.checked)} className="peer sr-only"/>
+     <span aria-hidden="true" className={'relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 '+(skipNonSellers?'bg-emerald-600':'bg-slate-300')}><span className={'absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 '+(skipNonSellers?'translate-x-5':'')}/></span>
+    </label>
+    {importIssues.some(issue=>!issue.skippable)&&<p className="mt-2 text-xs text-rose-700">Hay nombres desconocidos o vendedores ambiguos. Debés corregirlos en el padrón o el archivo antes de guardar.</p>}
+    <div className="mt-5 flex flex-wrap justify-end gap-2">
+     <button type="button" onClick={()=>void navigator.clipboard.writeText(importIssues.map(i=>i.file+' · '+i.name+' · '+(i.profiles.map(p=>p.role+' (ID '+p.id+', '+p.branch+')').join(', ')||'No figura en padrón')).join('\n'))} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Copiar detalle</button>
+     <button type="button" disabled={busy} onClick={discardUpload} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-medium text-slate-700">Cancelar</button>
+     <button type="button" disabled={busy||!skipNonSellers||!pendingImport?.length||importIssues.some(issue=>!issue.skippable)} onClick={()=>void acceptSkippedImport()} className="rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-medium text-white transition-colors duration-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40">Continuar sin estos perfiles</button>
+    </div>
+   </div>
+  </div>}
   {!branchScope&&missingNames.length>0&&<div role="dialog" aria-modal="true" aria-labelledby="sigo-missing-title" className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
    <div className="w-full max-w-lg rounded-[24px] bg-white p-6 shadow-2xl">
     
@@ -607,6 +686,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    <p className="font-semibold">Excel procesado · PENDIENTE DE GUARDAR EN SUPABASE</p>
    <p className="mt-1">{preview.length} registros de vendedor/día · {datesInPreview.length} fechas. Verificá el equipo y período antes de guardar.</p>
    <p className="mt-2 font-medium">Equipos del Excel: {[...new Set(preview.map(item=>(TEAM_CARDS.find(team=>team.branch===item.branch&&(team.force===item.sales_force||team.force==='all'))?.name??item.branch)+' · '+item.sales_force+' · '+item.visit_date.slice(0,7)))].join(' / ')}</p>
+   {omittedIssues.length>0&&<p className="mt-1 text-amber-900">{omittedIssues.length} perfil(es) no vendedor omitidos · {omittedIssues.reduce((total,issue)=>total+issue.visits,0)} visita(s) excluidas del guardado.</p>}
   </div>}
   <div className="sticky top-[72px] z-30 flex flex-wrap gap-2 border-b border-slate-200 bg-[#fafbfc] px-5 py-3" role="tablist" aria-label="Vistas de Horarios SIGO">
    <button type="button" role="tab" aria-selected={view==='daily'} onClick={()=>{setView('daily');setActiveColumn(null);}} className={'rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-200 '+(view==='daily'?'bg-slate-950 text-white shadow-sm':'bg-white text-slate-600 hover:bg-slate-100')}>Detalle diario</button>
