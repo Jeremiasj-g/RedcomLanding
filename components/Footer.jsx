@@ -51,12 +51,12 @@ const branches = ['Corrientes', 'Chaco', 'Misiones', 'Oberá'];
 
 const Footer = () => {
   return (
-    <footer className="border-t border-slate-200 bg-[#F7F7F8] text-slate-600">
+    <footer className="border-t border-white/10 bg-[#1d1d1f] text-neutral-300">
       <Container>
         <div className="py-8 sm:py-10">
           <div className="grid grid-cols-2 gap-x-6 gap-y-8 text-sm lg:grid-cols-[1.4fr_1fr_0.8fr_1fr]">
             <div className="col-span-2 lg:col-span-1">
-              <p className="text-lg font-semibold tracking-tight text-slate-900">Redcom S.A.</p>
+              <p className="text-lg font-semibold tracking-tight text-white">Redcom S.A.</p>
               <p className="mt-2 max-w-xs leading-relaxed">
                 Distribución comercial y logística con alcance regional.
               </p>
@@ -68,7 +68,7 @@ const Footer = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={social.name}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-600 motion-reduce:transition-none"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.045] text-neutral-300 transition-colors duration-200 hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none"
                   >
                     <span className="h-5 w-5">{social.icon}</span>
                   </a>
@@ -77,23 +77,23 @@ const Footer = () => {
             </div>
 
             <div>
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">Servicios</h2>
+              <h2 className="mb-3 text-sm font-semibold text-white">Servicios</h2>
               <ul className="space-y-2">
                 {services.map((service) => <li key={service}>{service}</li>)}
               </ul>
             </div>
 
             <div>
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">Sucursales</h2>
+              <h2 className="mb-3 text-sm font-semibold text-white">Sucursales</h2>
               <ul className="space-y-2">
                 {branches.map((branch) => <li key={branch}>{branch}</li>)}
               </ul>
             </div>
 
             <div className="col-span-2 lg:col-span-1">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">Contacto</h2>
+              <h2 className="mb-3 text-sm font-semibold text-white">Contacto</h2>
               <address className="space-y-2 not-italic">
-                <a href="tel:+543794524304" className="inline-flex min-h-8 items-center rounded text-slate-700 transition-colors duration-200 hover:text-slate-950 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-600 motion-reduce:transition-none">
+                <a href="tel:+543794524304" className="inline-flex min-h-8 items-center rounded text-neutral-200 transition-colors duration-200 hover:text-white hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none">
                   +54 379 4524304
                 </a>
                 <p>Lunes a sábados</p>
@@ -101,7 +101,7 @@ const Footer = () => {
             </div>
           </div>
 
-          <div className="mt-7 flex flex-col gap-2 border-t border-slate-200 pt-5 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-7 flex flex-col gap-2 border-t border-white/10 pt-5 text-xs text-neutral-300 sm:flex-row sm:items-center sm:justify-between">
             <p>© {new Date().getFullYear()} Redcom. Todos los derechos reservados.</p>
             <p>Más de 13 años de trayectoria.</p>
           </div>
