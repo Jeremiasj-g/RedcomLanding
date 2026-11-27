@@ -844,12 +844,12 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
     <div ref={averageScroll} onScroll={e=>{lastScroll.current.averageTop=e.currentTarget.scrollTop;lastScroll.current.averageLeft=e.currentTarget.scrollLeft;}} className="h-[min(78dvh,960px)] min-h-[520px] overflow-auto border-t border-t-slate-200">
      <table className="w-full min-w-[620px] text-left text-xs">
       <thead className="sticky top-0 z-20 bg-[#f5f7fa] text-[10px] font-semibold uppercase tracking-wider text-slate-500"><tr>{averageColumns.map(col=><th key={col.key} className={'px-3 py-2 '+(col.key==='supervisor'?'border-l-[3px] border-l-slate-400':'')}><button type="button" onClick={e=>openAverageFilter(col.key,e.currentTarget)} className={'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-slate-200 '+(averageFilters[col.key]?.length?'text-blue-600':'')}><span>{col.label}</span><ChevronDown className="h-3.5 w-3.5"/></button></th>)}</tr></thead>
-      <tbody>{filteredAverages.map((item,index)=><tr key={item.id+'|'+item.seller} className={'border-t border-slate-100 '+(index%2?'bg-slate-50/40':'bg-white')}>
+      <tbody>{filteredAverages.map((item,index)=><tr key={item.id+'|'+item.seller} className={'border-t border-slate-100 '+(item.daysToConsider>0?'bg-amber-50 hover:bg-amber-100/70':index%2?'bg-slate-50/40':'bg-white')}>
        <td className="px-2.5 py-2.5 font-medium tabular-nums text-slate-600">{item.id}</td>
        <td className="border-l-[3px] border-l-slate-400 px-2.5 py-2.5 text-slate-700">{item.supervisor}</td>
        <td className="px-2.5 py-2.5 font-semibold text-slate-900">{item.seller}</td>
        <td className="px-2.5 py-2.5"><span className={'inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums '+(item.days?item.seconds/item.days<5*3600?'bg-red-100 text-red-700':item.seconds/item.days<5*3600+20*60?'bg-amber-100 text-amber-800':'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-500')}>{item.days?formatDuration(Math.round(item.seconds/item.days)):'—'}</span></td>
-       <td className="px-2.5 py-2.5 text-right font-medium tabular-nums text-slate-700">{item.daysToConsider}</td>
+       <td className="px-2.5 py-2.5 text-right font-medium tabular-nums"><span className={item.daysToConsider>0?'inline-flex rounded-md bg-amber-200/70 px-2 py-1 text-amber-950':'text-slate-500'}>{item.daysToConsider}</span></td>
       </tr>)}</tbody>
      </table>
      {!filteredAverages.length&&<p className="px-6 py-12 text-center text-xs text-slate-400">No hay vendedores para mostrar con los filtros actuales.</p>}
