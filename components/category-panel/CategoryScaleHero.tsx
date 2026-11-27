@@ -59,8 +59,8 @@ export default function CategoryScaleHero({metrics,gates,loading,error}:{
       {TIERS.map((tier,index)=><tr key={tier.key} className={index%2===0?'bg-white':'bg-gray-50'}>
        <td className="px-3 py-2 font-semibold"><span className={'inline-flex items-center whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold text-white '+tier.color}>{tier.label}</span></td>
        <td className="px-3 py-2">{threshold(billing,tier.key)}</td>
-       <td className="px-3 py-2" title={route?'Requisito: '+route.valueText:'Sin requisito configurado'}>{tier.key!=='improvementValue'&&route?'✓':'—'}</td>
-       <td className="px-3 py-2" title={effective?'Requisito: '+effective.valueText:'Sin requisito configurado'}>{tier.key!=='improvementValue'&&effective?'✓':'—'}</td>
+       <td className="px-3 py-2" title={route?'Requisito: '+route.valueText:'Sin requisito configurado'}>{tier.key!=='improvementValue'&&route?route.valueText:'—'}</td>
+       <td className="px-3 py-2" title={effective?'Requisito: '+effective.valueText:'Sin requisito configurado'}>{tier.key!=='improvementValue'&&effective?effective.valueText:'—'}</td>
        {columns.map(column=><td key={column.label} className="px-3 py-2">{threshold(column.metric,tier.key)}</td>)}
        <td className="px-3 py-2 font-semibold">{tier.key==='improvementValue'||!maxPoints?'—':format.format(maxPoints)}</td>
       </tr>)}

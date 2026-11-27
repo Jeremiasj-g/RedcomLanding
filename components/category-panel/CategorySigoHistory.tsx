@@ -648,20 +648,21 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
    const matching=scopedData.filter(item=>item.visit_date.slice(0,7)===effectiveMonth&&item.seller_id===person.id&&norm(item.seller_name)===norm(person.name)&&item.sales_force===person.force);
    const durations=matching.filter(item=>!item.reason).map(item=>durationSeconds(effectiveStart(item),effectiveEnd(item))).filter((seconds):seconds is number=>seconds!==null);
    const supervisor=personnel.find(p=>norm(p.role)==='SUPERVISOR'&&norm(p.branch)===norm(person.branch)&&norm(p.name)===norm(person.superior))?.name??'—';
-   return {seller:person.name,id:person.id,supervisor,days:durations.length,seconds:durations.reduce((sum,seconds)=>sum+seconds,0)};
-  }).filter(item=>item.days>0).sort((a,b)=>a.seller.localeCompare(b.seller,'es'));
+   return {seller:person.name,id:person.id,supervisor,days:durations.length,daysToConsider:new Set(matching.filter(item=>Boolean(item.reason?.trim())).map(item=>item.visit_date)).size,seconds:durations.reduce((sum,seconds)=>sum+seconds,0)};
+  }).filter(item=>item.days>0||item.daysToConsider>0).sort((a,b)=>a.seller.localeCompare(b.seller,'es'));
  },[scopedData,effectiveMonth,personnel,selectedBranch,selectedForce]);
- const averageColumns=[{key:'id',label:'Cod vendedor'},{key:'supervisor',label:'Supervisor'},{key:'seller',label:'Vendedor'},{key:'average',label:'Hora promedio'}];
+ const averageColumns=[{key:'id',label:'Cod vendedor'},{key:'supervisor',label:'Supervisor'},{key:'seller',label:'Vendedor'},{key:'average',label:'Hora promedio'},{key:'daysToConsider',label:'Días a considerar'}];
  const averageValue=(item:(typeof monthlyAverages)[number],key:string):string=>{
   if(key==='id')return String(item.id);
   if(key==='supervisor')return item.supervisor;
   if(key==='seller')return item.seller;
+  if(key==='daysToConsider')return String(item.daysToConsider);
   return item.days?formatDuration(Math.round(item.seconds/item.days)):'—';
  };
  const filteredAverages=monthlyAverages.filter(item=>averageColumns.every(col=>!averageFilters[col.key]?.length||averageFilters[col.key].includes(averageValue(item,col.key)))).sort((a,b)=>{
   if(averageSort){
    const left=averageValue(a,averageSort.key),right=averageValue(b,averageSort.key);
-   const diff=left.localeCompare(right,'es',{numeric:true});
+   const diff=averageSort.key==='daysToConsider'?a.daysToConsider-b.daysToConsider:left.localeCompare(right,'es',{numeric:true});
    if(diff)return averageSort.direction==='asc'?diff:-diff;
   }
   return a.seller.localeCompare(b.seller,'es');
@@ -848,6 +849,7 @@ export default function CategorySigoHistory({branchScope,month:externalMonth,onM
        <td className="border-l-[3px] border-l-slate-400 px-2.5 py-2.5 text-slate-700">{item.supervisor}</td>
        <td className="px-2.5 py-2.5 font-semibold text-slate-900">{item.seller}</td>
        <td className="px-2.5 py-2.5"><span className={'inline-flex rounded-lg px-2.5 py-1 font-semibold tabular-nums '+(item.days?item.seconds/item.days<5*3600?'bg-red-100 text-red-700':item.seconds/item.days<5*3600+20*60?'bg-amber-100 text-amber-800':'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-500')}>{item.days?formatDuration(Math.round(item.seconds/item.days)):'—'}</span></td>
+       <td className="px-2.5 py-2.5 text-right font-medium tabular-nums text-slate-700">{item.daysToConsider}</td>
       </tr>)}</tbody>
      </table>
      {!filteredAverages.length&&<p className="px-6 py-12 text-center text-xs text-slate-400">No hay vendedores para mostrar con los filtros actuales.</p>}

@@ -209,6 +209,8 @@ export function RedcomSelect({
 
 type RedcomSearchableSelectProps = {
   value?: string;
+  multipleValues?: readonly string[];
+  onMultipleValuesChange?: (values: string[]) => void;
   options: readonly RedcomSelectOption[];
   onValueChange: (value: string) => void;
   placeholder?: string;
@@ -224,6 +226,8 @@ type RedcomSearchableSelectProps = {
 
 export function RedcomSearchableSelect({
   value,
+  multipleValues,
+  onMultipleValuesChange,
   options,
   onValueChange,
   placeholder = "Seleccionar una opción",
@@ -238,10 +242,16 @@ export function RedcomSearchableSelect({
 }: RedcomSearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const listboxId = useId();
-  const selectedOption = options.find((option) => option.value === value);
+  const multiple = multipleValues !== undefined;
+  const isSelected = (key: string) => multiple ? multipleValues.includes(key) : key === value;
+  const selectedOption = options.find((option) => isSelected(option.value));
   const styles = accentStyles[accent];
 
   function handleSelect(nextValue: string) {
+    if (multiple) {
+      onMultipleValuesChange?.(isSelected(nextValue) ? multipleValues.filter(key => key !== nextValue) : [...multipleValues, nextValue]);
+      return;
+    }
     onValueChange(nextValue);
     setOpen(false);
   }
@@ -269,7 +279,7 @@ export function RedcomSearchableSelect({
           )}
         >
           <span className={cn("min-w-0 flex-1 truncate", !selectedOption && (surface === "dark" ? "text-white/[0.65]" : "text-slate-400"))}>
-            {selectedOption?.label ?? placeholder}
+            {multiple && multipleValues.length > 1 ? `${multipleValues.length} seleccionados` : selectedOption?.label ?? placeholder}
           </span>
           <span
             className={cn(
@@ -328,7 +338,7 @@ export function RedcomSearchableSelect({
               {options.map((option) => (
                 <Command.Item
                   key={option.value}
-                  value={option.label}
+                  value={option.label + (multiple ? ' '+option.value : '')}
                   keywords={[option.value, ...(option.keywords ?? [])]}
                   disabled={option.disabled}
                   onSelect={() => handleSelect(option.value)}
@@ -346,10 +356,10 @@ export function RedcomSearchableSelect({
                           : "data-[selected=true]:bg-slate-950 data-[selected=true]:text-white",
                   )}
                 >
-                  <span className={cn("truncate", option.value === value && "font-semibold")}>
+                  <span className={cn("truncate", isSelected(option.value) && "font-semibold")}>
                     {option.label}
                   </span>
-                  {option.value === value ? (
+                  {isSelected(option.value) ? (
                     <span
                       className={cn(
                         "absolute right-3 grid h-6 w-6 place-items-center rounded-lg",

@@ -2083,6 +2083,7 @@ function ScaleValueCell({
       formatted = Number.isInteger(value)
         ? integerFormatter.format(value)
         : value.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+      if (valueType === 'percent') formatted += '%';
     }
   }
 
