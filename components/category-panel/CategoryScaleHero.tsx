@@ -26,9 +26,9 @@ const threshold=(metric:CategoryScaleMetric|undefined,key:Tier['key'])=>{
 };
 
 export default function CategoryScaleHero({metrics,gates,loading,error}:{
- const {colors:categoryColors}=useCategoryColors();
  metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];loading:boolean;error?:string;
 }){
+ const {colors:categoryColors}=useCategoryColors();
  const columns=[
   {label:'Eficiencia',metric:matchMetric(metrics,'eficiencia')},
   {label:'Cobertura',metric:matchMetric(metrics,'cobertura')},
