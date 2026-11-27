@@ -1,8 +1,12 @@
 'use client';
 
+import {useCategoryColors} from '@/components/providers/CategoryColorsProvider';
+import {categoryStyle} from '@/lib/categoryColors';
+import CategoryColorsTab from '@/components/category-panel/CategoryColorsTab';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
+  Palette,
   ArrowRight,
   CheckCircle2,
   Clock3,
@@ -208,7 +212,7 @@ export default function CategoryPanelPage() {
 
   const [search, setSearch] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState<'kpis' | 'sigo' | 'scales' | 'personnel' | 'categories'>('kpis');
+  const [activeTab, setActiveTab] = useState<'kpis' | 'sigo' | 'scales' | 'personnel' | 'categories' | 'colors'>('kpis');
   const [sigoVisited,setSigoVisited]=useState(false);
   useEffect(()=>{if(activeTab==='sigo')setSigoVisited(true);},[activeTab]);
   const [pendingLeave,setPendingLeave]=useState<{kind:'tab';value:typeof activeTab}|{kind:'month';value:string}|null>(null);
@@ -541,6 +545,7 @@ export default function CategoryPanelPage() {
               icon={<Gauge className="h-4 w-4" />}
               label="Cuadro de escalas"
             />
+            <PanelTab active={activeTab==='colors'} onClick={()=>requestTab('colors')} icon={<Palette className="h-4 w-4"/>} label="Colores de categorías"/>
             <PanelTab
               active={activeTab === 'personnel'}
               onClick={() => requestTab('personnel')}
@@ -563,7 +568,7 @@ export default function CategoryPanelPage() {
           {(sigoVisited||activeTab==='sigo')&&<div hidden={activeTab!=='sigo'} aria-hidden={activeTab!=='sigo'}>
             <CategorySigoHistory />
           </div>}
-          {activeTab === 'personnel' ? <CommercialPersonnel /> : activeTab === 'categories' ? <CategoryUnifiedOverview rows={monthlyRows} projections={kpiProjections} month={selectedMonth} onMonthChange={setSelectedMonth} availableMonths={availableMonths.map(m=>m.month)} loadingMonth={loadingMonthly} /> : activeTab === 'kpis' ? (
+          {activeTab==='colors'?<CategoryColorsTab onDirtyChange={setMonthlyDirty}/>:activeTab === 'personnel' ? <CommercialPersonnel /> : activeTab === 'categories' ? <CategoryUnifiedOverview rows={monthlyRows} projections={kpiProjections} month={selectedMonth} onMonthChange={setSelectedMonth} availableMonths={availableMonths.map(m=>m.month)} loadingMonth={loadingMonthly} /> : activeTab === 'kpis' ? (
             <>
           <section className="mt-6 grid gap-4 lg:grid-cols-3">
             <UploadCard
@@ -1403,6 +1408,7 @@ function PanelTab({
 }
 
 function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dirty:boolean)=>void}) {
+ const {colors}=useCategoryColors();
   const [scaleKey,setScaleKey]=useState<CategoryScaleKey>('general');
   const [pendingScale,setPendingScale]=useState<CategoryScaleKey|null>(null);
   const [settings, setSettings] = useState<CategoryScaleSettings>({
@@ -1741,10 +1747,10 @@ function CategoryScaleTab({month,onDirtyChange}:{month:string;onDirtyChange:(dir
                 <tr>
                   <th className="px-4 py-3 font-semibold">Sección</th>
                   <th className="px-4 py-3 font-semibold">Métrica / KPI</th>
-                  <th className="bg-emerald-900 px-4 py-3 font-semibold text-white">Senior</th>
-                  <th className="bg-emerald-200 px-4 py-3 font-semibold text-emerald-950">Semi Senior</th>
-                  <th className="bg-amber-200 px-4 py-3 font-semibold text-amber-950">Junior</th>
-                  <th className="bg-rose-200 px-4 py-3 font-semibold text-rose-950">Plan Mejora</th>
+                  <th style={categoryStyle(colors,'SENIOR')} className="px-4 py-3 font-semibold">Senior</th>
+                  <th style={categoryStyle(colors,'SEMI_SENIOR')} className="px-4 py-3 font-semibold">Semi Senior</th>
+                  <th style={categoryStyle(colors,'JUNIOR')} className="px-4 py-3 font-semibold">Junior</th>
+                  <th style={categoryStyle(colors,'PLAN_MEJORA')} className="px-4 py-3 font-semibold">Plan Mejora</th>
                   <th className="px-4 py-3 text-right font-semibold">Peso</th>
                   <th className="px-4 py-3 text-center font-semibold">Acción</th>
                 </tr>
@@ -2068,12 +2074,8 @@ function ScaleValueCell({
   value: number | null;
   valueType: CategoryScaleValueType;
 }) {
-  const classes = {
-    senior: 'bg-emerald-900 text-white',
-    semi: 'bg-emerald-200 text-emerald-950',
-    junior: 'bg-amber-200 text-amber-950',
-    improvement: 'bg-rose-200 text-rose-950',
-  };
+  const {colors}=useCategoryColors();
+  const keys={senior:'SENIOR',semi:'SEMI_SENIOR',junior:'JUNIOR',improvement:'PLAN_MEJORA'};
 
   let formatted = '—';
   if (value !== null) {
@@ -2088,7 +2090,7 @@ function ScaleValueCell({
   }
 
   return (
-    <td className={`break-words px-2 py-3 text-center text-[11px] font-medium tabular-nums ${classes[tone]}`}>
+    <td style={categoryStyle(colors,keys[tone])} className="break-words px-2 py-3 text-center text-[11px] font-medium tabular-nums">
       {formatted}
     </td>
   );

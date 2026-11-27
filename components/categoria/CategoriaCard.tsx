@@ -1,7 +1,8 @@
 'use client';
 
+import {useCategoryColors} from '@/components/providers/CategoryColorsProvider';
+import {categoryHex} from '@/lib/categoryColors';
 import React from 'react';
-import { CATEGORIA_ACCENTS } from '@/utils/categories';
 
 type Props = {
   id: string;
@@ -26,19 +27,18 @@ export default function CategoriaCard({
   vendedor,
   categoriaLabel,
   considerationNote,
-  categoriaColor,
   eficiencia,
   cobertura,
   volumen,
   pop,
   exhibicion,
-  accentColor, // (no usado por ahora)
   onDetails,
 }: Props) {
+ const {colors:categoryColors}=useCategoryColors();
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
       {/* top bar */}
-      <div className={['h-1.5 w-full', categoriaColor.bg.replace(/\/\d+$/, '')].join(' ')} />
+      <div style={{backgroundColor:categoryHex(categoryColors,categoriaLabel)}} className="h-1.5 w-full" />
 
       <div className="px-6 py-10">
         <div className="flex items-start justify-between gap-3">
@@ -59,7 +59,7 @@ export default function CategoriaCard({
           </div>
 
           {/* puntito */}
-          <div className={['w-3 h-3 rounded-full mt-1', categoriaColor.bg.replace(/\/\d+$/, '')].join(' ')} />
+          <div style={{backgroundColor:categoryHex(categoryColors,categoriaLabel)}} className="w-3 h-3 rounded-full mt-1" />
         </div>
 
         {/* progreso + stats */}
@@ -96,16 +96,17 @@ function CircularProgress({
   size?: number;
   stroke?: number;
 }) {
+  const {colors:categoryColors}=useCategoryColors();
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const progress = Math.min(Math.max(value ?? 0, 0), 100);
   const offset = circumference - (progress / 100) * circumference;
 
   const COLORS = {
-    senior: CATEGORIA_ACCENTS.SENIOR,
-    semi: CATEGORIA_ACCENTS.SEMI_SENIOR,
-    junior: CATEGORIA_ACCENTS.JUNIOR,
-    mejora: CATEGORIA_ACCENTS.PLAN_MEJORA,
+    senior: categoryColors.SENIOR,
+    semi: categoryColors.SEMI_SENIOR,
+    junior: categoryColors.JUNIOR,
+    mejora: categoryColors.PLAN_MEJORA,
   };
 
   const gradientId = `cat-ring-gradient-${uid}`;

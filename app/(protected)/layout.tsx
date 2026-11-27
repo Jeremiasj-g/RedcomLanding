@@ -1,4 +1,5 @@
 'use client';
+import CategoryColorsProvider from '@/components/providers/CategoryColorsProvider';
 import RequireAuth from '@/app/auth/RequireAuth';
 import ModuleAccessGuard from '@/components/permissions/ModuleAccessGuard';
 import AnalyticsConfigProvider from '@/components/analytics/AnalyticsConfigProvider';
@@ -7,7 +8,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   return (
     <RequireAuth>
       <AnalyticsConfigProvider>
-        <ModuleAccessGuard>{children}</ModuleAccessGuard>
+        <ModuleAccessGuard><CategoryColorsProvider>{children}</CategoryColorsProvider></ModuleAccessGuard>
       </AnalyticsConfigProvider>
     </RequireAuth>
   );

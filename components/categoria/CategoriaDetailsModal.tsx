@@ -1,5 +1,7 @@
 'use client';
 
+import {useCategoryColors} from '@/components/providers/CategoryColorsProvider';
+import {categoryStyle} from '@/lib/categoryColors';
 import React, { useEffect, useMemo, useState } from 'react';
 import { notify } from '@/lib/notifications';
 
@@ -81,6 +83,7 @@ const PDF_CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props) {
+ const {colors:categoryColors}=useCategoryColors();
   const [activeTab, setActiveTab] = useState<TabKey>('comparacion');
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
@@ -159,10 +162,7 @@ export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props
 
               <div className="mt-1 inline-flex items-center gap-2">
                 <span
-                  className={[
-                    'px-2 py-1 mb-2 rounded-md text-xs font-bold text-white',
-                    alcanzada.color.bg.replace(/\/\d+$/, ''),
-                  ].join(' ')}
+                  style={categoryStyle(categoryColors,alcanzada.label)} className="px-2 py-1 mb-2 rounded-md text-xs font-medium"
                 >
                   {alcanzada.label.toUpperCase()}
                 </span>
@@ -289,16 +289,14 @@ export default function CategoriaDetailsModal({ open, onOpenChange, row }: Props
 }
 
 function CompareColumn({ cat, computed }: { cat: Categoria; computed: Computed }) {
+ const {colors:categoryColors}=useCategoryColors();
   const result = getCategoriaComparison(cat, computed);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       <div className="p-4 border-b border-slate-200 flex items-center justify-between">
         <span
-          className={[
-            'px-2 py-1 rounded-md text-xs font-bold text-white',
-            (cat as any).color.bg.replace(/\/\d+$/, ''),
-          ].join(' ')}
+          style={categoryStyle(categoryColors,(cat as any).label)} className="px-2 py-1 rounded-md text-xs font-medium"
         >
           {(cat as any).label.toUpperCase()}
         </span>

@@ -1,16 +1,13 @@
 'use client';
+import {useCategoryColors} from '@/components/providers/CategoryColorsProvider';
+import {categoryStyle} from '@/lib/categoryColors';
 import {CalendarDays,ChevronRight,ClipboardList} from 'lucide-react';
 import type {useVendorProfileOverview} from './useVendorProfileOverview';
 
-const tones:Record<string,string>={
- SENIOR:'bg-emerald-800 text-white',
- 'SEMI SENIOR':'bg-emerald-200 text-emerald-950',
- JUNIOR:'bg-amber-200 text-amber-950',
- 'PLAN DE MEJORA':'bg-rose-200 text-rose-950',
-};
 const monthLabel=(month:string)=>new Intl.DateTimeFormat('es-AR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'));
 type Overview=ReturnType<typeof useVendorProfileOverview>;
 export default function VendorProfileSummary({overview,tenure,hireLoading}:{overview:Overview;tenure:{label:string;date:string}|null;hireLoading:boolean}){
+ const {colors:categoryColors}=useCategoryColors();
  const navigate=(section:'category'|'plan')=>(event:React.MouseEvent<HTMLAnchorElement>)=>{
   if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
   event.preventDefault();window.dispatchEvent(new CustomEvent('redcom:profile-navigate',{detail:section}));
@@ -26,7 +23,7 @@ export default function VendorProfileSummary({overview,tenure,hireLoading}:{over
    <div className="grid grid-cols-2 gap-3">
     {[overview.currentMonth,overview.previousMonth].map((month,index)=>{
      const label=overview.categories[index];const error=overview.categoryErrors[index];
-     return <div key={month} className={'min-w-0 rounded-2xl p-4 sm:rounded-3xl sm:p-6 '+(!overview.categoriesLoading&&!error&&label?tones[label]??'bg-white text-slate-900':'bg-white text-slate-700')}>
+     return <div key={month} className="min-w-0 rounded-2xl bg-white p-4 text-slate-700 sm:rounded-3xl sm:p-6" style={!overview.categoriesLoading&&!error&&label?categoryStyle(categoryColors,label):undefined}>
       <p className="text-xs font-medium opacity-90">{index===0?'Categoría actual':'Mes anterior'}</p>
       {overview.categoriesLoading?<div className="mt-4 h-8 w-full max-w-40 animate-pulse rounded-lg bg-slate-200 motion-reduce:animate-none"/>:<p className="mt-3 break-words text-base font-semibold leading-tight sm:text-2xl">{error?'No disponible':label??'Sin datos'}</p>}
       <p className="mt-2 text-[11px] capitalize opacity-90 sm:text-xs">{monthLabel(month)}</p>

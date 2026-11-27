@@ -1,7 +1,11 @@
+'use client';
+import {useCategoryColors} from '@/components/providers/CategoryColorsProvider';
+import {categoryStyle} from '@/lib/categoryColors';
 import React from 'react';
 import { CATEGORIAS, PLAN_MEJORA, type CategoriaConfig } from '@/utils/categories';
 
 const CategoriasTable = () => {
+ const {colors:categoryColors}=useCategoryColors();
   // ✅ Orden: Senior → Semi → Junior, y Plan de mejora al final (cambiá si querés)
   const rows: CategoriaConfig[] = [...CATEGORIAS, PLAN_MEJORA];
 
@@ -9,12 +13,7 @@ const CategoriasTable = () => {
   const fmtNumber = (v: number) => (v > 0 ? v : '—');
 
   // ✅ Convierte bg translucido del utils a un bg sólido tipo “pill” como tu screenshot
-  const toSolidBg = (bg: string) => {
-    // ejemplos: "bg-emerald-700/10" -> "bg-emerald-700"
-    //           "bg-yellow-400/10"  -> "bg-yellow-400"
-    //           "bg-red-500/10"     -> "bg-red-500"
-    return bg.replace(/\/\d+$/, '');
-  };
+
 
   return (
     <div className="hidden md:block shadow-2xl">
@@ -43,10 +42,7 @@ const CategoriasTable = () => {
                 {/* ✅ Columna 1 con fondo sólido según c.color.bg */}
                 <td className="px-3 py-2 font-semibold">
                   <span
-                    className={[
-                      'inline-flex items-center rounded-md px-2 py-1 text-xs font-bold text-white',
-                      toSolidBg(c.color.bg),
-                    ].join(' ')}
+                    style={categoryStyle(categoryColors,c.key)} className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium"
                   >
                     {c.label.toUpperCase()}
                   </span>
