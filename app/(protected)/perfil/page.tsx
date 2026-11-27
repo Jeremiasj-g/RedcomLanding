@@ -293,23 +293,23 @@ export default function MiPerfilPage() {
       <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
 
         <div hidden={activeTab!=='profile'}>
-        <section className={commercialVendor?"rounded-3xl bg-slate-900 p-5 text-white sm:p-8":"border-b border-slate-200 pb-6 sm:pb-8"}>
-          <div className="flex items-center gap-4 sm:gap-8">
+        <section className={commercialVendor?"border-b border-slate-200 px-2 pb-6 pt-2 sm:pb-8":"border-b border-slate-200 pb-6 sm:pb-8"}>
+          <div className={cn("flex items-center",commercialVendor?"flex-col gap-3 text-center":"gap-4 sm:gap-8")}>
             <div aria-label={'Iniciales de '+(me.full_name||'usuario')} className="relative grid h-24 w-24 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-2xl font-semibold text-slate-800 sm:h-32 sm:w-32 sm:text-4xl">
               {initials}
               <span className={cn('absolute bottom-1 right-1 h-4 w-4 rounded-full border-[3px] border-white sm:h-5 sm:w-5',me.is_active?'bg-emerald-500':'bg-rose-500')}/>
             </div>
-            <div className="min-w-0 flex-1">
-              <h1 className={cn("break-words text-xl font-semibold tracking-tight sm:text-3xl",commercialVendor?"text-white":"text-slate-950")}>{me.full_name||'Sin nombre'}</h1>
-              <div className={cn("mt-2 flex flex-wrap items-center gap-2 text-xs sm:text-sm",commercialVendor?"text-slate-200":"text-slate-600")}>
-                <span className={cn("rounded-lg px-2.5 py-1 font-medium",commercialVendor?"bg-white/15 text-white":"bg-slate-200/70")}>{roleLabel(me.role)}</span>
+            <div className={cn("min-w-0",commercialVendor?"w-full":"flex-1")}>
+              <h1 className="break-words text-xl font-semibold tracking-tight text-slate-950 sm:text-3xl">{me.full_name||'Sin nombre'}</h1>
+              <div className={cn("mt-2 flex flex-wrap items-center gap-2 text-xs sm:text-sm",commercialVendor?"justify-center text-slate-600":"text-slate-600")}>
+                <span className={cn("rounded-lg px-2.5 py-1 font-medium","bg-slate-200/70 text-slate-700")}>{roleLabel(me.role)}</span>
                 <span className="inline-flex items-center gap-1.5"><span className={cn('h-1.5 w-1.5 rounded-full',me.is_active?'bg-emerald-500':'bg-rose-500')}/>{me.is_active?'Cuenta activa':'Cuenta inactiva'}</span>
               </div>
-              {displayEmail&&<div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-xs text-slate-500">
+              {displayEmail&&<div className={cn("mt-3 flex min-w-0 flex-wrap items-center gap-2 text-xs text-slate-500",commercialVendor&&"justify-center")}>
                 <Mail className="h-4 w-4 shrink-0"/><span className="max-w-full break-all">{me.email}</span>
                 <button type="button" onClick={copyEmail} aria-label="Copiar correo" className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-600"><Copy className="h-3.5 w-3.5"/>Copiar</button>
               </div>}
-              <div className={cn("mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs",commercialVendor?"text-slate-300":"text-slate-500")}>
+              <div className={cn("mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs",commercialVendor?"justify-center text-slate-500":"text-slate-500")}>
                 <span>{branches.length} {branches.length===1?'sucursal asignada':'sucursales asignadas'}</span>
                 {commercialVendor&&<span>Acceso comercial</span>}
               </div>
