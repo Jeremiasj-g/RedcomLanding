@@ -16,6 +16,7 @@ export default function Misiones() {
   const { canAccessModule } = useModulePermissions();
 
   const canSeeCategories = canAccessModule('branch_categories');
+  const canSeeV2 = canAccessModule('branch_categories_v2');
   const canSeeAnalytics = canAccessModule('branch_analytics');
 
   const lookerTabs = useMemo(
@@ -48,30 +49,30 @@ export default function Misiones() {
       <div className="min-h-screen bg-white">
         <BranchResourcesSection branchName="Misiones" branchKey="misiones" />
 
-        {(canSeeCategories || canSeeAnalytics) && (
+        {(canSeeCategories || canSeeV2 || canSeeAnalytics) && (
           <section className="bg-white py-12 sm:py-14">
             <Container>
-              {canSeeCategories && (
+              {(canSeeCategories || canSeeV2) && (
                 <div className="space-y-5">
-                  <CategoryBannerLink
+                  {canSeeCategories && <CategoryBannerLink
                     branchLabel="Misiones"
                     href="/misiones/categorias"
                     title="Categorías"
                     description="Ranking por vendedor, puntajes y comparación por criterios."
                     buttonLabel="Abrir"
-                  />
-                  <CategoryBannerLink
+                  />}
+                  {canSeeV2 && <CategoryBannerLink
                     branchLabel="Misiones"
                     href="/misiones/categorias-v2"
                     title="Categorías V 2.0"
                     description="Horarios SIGO, puntajes y categorías por vendedor."
                     buttonLabel="Abrir"
-                  />
+                  />}
                 </div>
               )}
 
               {canSeeAnalytics && (
-                <div className={canSeeCategories ? 'mt-8' : ''}>
+                <div className={(canSeeCategories || canSeeV2) ? 'mt-8' : ''}>
                   <ConfiguredWorkbookCard scopeKey="misiones" icon={<Table />} />
                 </div>
               )}

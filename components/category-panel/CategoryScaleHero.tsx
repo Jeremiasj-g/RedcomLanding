@@ -1,5 +1,7 @@
 'use client';
 
+import {useCategoryColors} from '@/components/providers/CategoryColorsProvider';
+import {categoryStyle} from '@/lib/categoryColors';
 import type {CategoryScaleGate,CategoryScaleMetric} from '@/lib/categoryScale';
 
 type Tier={key:'seniorValue'|'semiSeniorValue'|'juniorValue'|'improvementValue';label:string;color:string};
@@ -26,6 +28,7 @@ const threshold=(metric:CategoryScaleMetric|undefined,key:Tier['key'])=>{
 export default function CategoryScaleHero({metrics,gates,loading,error}:{
  metrics:CategoryScaleMetric[];gates:CategoryScaleGate[];loading:boolean;error?:string;
 }){
+ const {colors:categoryColors}=useCategoryColors();
  const columns=[
   {label:'Eficiencia',metric:matchMetric(metrics,'eficiencia')},
   {label:'Cobertura',metric:matchMetric(metrics,'cobertura')},
@@ -57,7 +60,7 @@ export default function CategoryScaleHero({metrics,gates,loading,error}:{
      </thead>
      <tbody className="text-gray-700">
       {TIERS.map((tier,index)=><tr key={tier.key} className={index%2===0?'bg-white':'bg-gray-50'}>
-       <td className="px-3 py-2 font-semibold"><span className={'inline-flex items-center whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold text-white '+tier.color}>{tier.label}</span></td>
+       <td className="px-3 py-2 font-semibold"><span style={categoryStyle(categoryColors,tier.label)} className="inline-flex items-center whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold">{tier.label}</span></td>
        <td className="px-3 py-2">{threshold(billing,tier.key)}</td>
        <td className="px-3 py-2" title={route?'Requisito: '+route.valueText:'Sin requisito configurado'}>{tier.key!=='improvementValue'&&route?route.valueText:'—'}</td>
        <td className="px-3 py-2" title={effective?'Requisito: '+effective.valueText:'Sin requisito configurado'}>{tier.key!=='improvementValue'&&effective?effective.valueText:'—'}</td>

@@ -1,5 +1,7 @@
 "use client";
 
+import {useCategoryColors} from '@/components/providers/CategoryColorsProvider';
+import {categoryStyle,categoryHex} from '@/lib/categoryColors';
 import ClosedLinesTable from "@/components/categoria/ClosedLinesTable";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -42,7 +44,6 @@ import {
 } from "lucide-react";
 import { getBranchKeyFromPath } from "@/utils/branchFromPath";
 import {
-  CATEGORY_COLORS,
   CATEGORY_LABEL,
   formatMoney,
   formatNumber,
@@ -713,6 +714,7 @@ function calculateRiskAssessment(
 }
 
 function StatusPill({ categoria }: { categoria: CategoriaKey | null }) {
+ const {colors:categoryColors}=useCategoryColors();
   if (!categoria) {
     return (
       <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
@@ -724,7 +726,7 @@ function StatusPill({ categoria }: { categoria: CategoriaKey | null }) {
   return (
     <span
       className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-extrabold text-white shadow-sm"
-      style={{ backgroundColor: CATEGORY_COLORS[categoria] }}
+      style={categoryStyle(categoryColors,categoria)}
     >
       {CATEGORY_LABEL[categoria]}
     </span>
@@ -1681,12 +1683,12 @@ function HistoryTable({
   );
 }
 
-function buildChartData(history: CategoriaHistoryPoint[]) {
+function buildChartData(history: CategoriaHistoryPoint[], colors:import('@/lib/categoryColors').CategoryColors) {
   return history.map((item) => ({
     ...item,
     horasRutaHours:
       item.horasRutaSeconds === null ? null : item.horasRutaSeconds / 3600,
-    categoriaColor: CATEGORY_COLORS[item.categoria],
+    categoriaColor: categoryHex(colors,item.categoria),
   }));
 }
 
@@ -1780,7 +1782,8 @@ function SingleDashboard({
   summary: CategoriaHistorySummary;
   selectedSeller: CategoriaHistorySeller | null;
 }) {
-  const chartData = useMemo(() => buildChartData(history), [history]);
+  const {colors:categoryColors}=useCategoryColors();
+  const chartData = useMemo(() => buildChartData(history,categoryColors), [history,categoryColors]);
   const historicalScore = useMemo(() => calculateHistoricalScore(summary, history), [summary, history]);
   const riskAssessment = useMemo(
     () => calculateRiskAssessment(summary, history, historicalScore),

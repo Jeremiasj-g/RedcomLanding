@@ -1,10 +1,9 @@
 'use client';
 
-import {useEffect,useMemo,useState} from 'react';
+import {useMemo} from 'react';
 import {CalendarDays,CheckCircle2,ClipboardList,LockKeyhole,UsersRound,FolderKanban} from 'lucide-react';
 import {decodeTodoLabel} from '@/lib/projectActionPlanGroups';
-import {errorMessage} from '@/lib/notifications';
-import {fetchMyVendorActionPlans,type MyVendorActionPlan} from '@/lib/myVendorActionPlans';
+import type {MyVendorActionPlan} from '@/lib/myVendorActionPlans';
 
 const statusLabels:Record<string,string>={
  not_started:'Sin empezar',in_progress:'En progreso',done:'Finalizado',cancelled:'Cancelado',
@@ -110,19 +109,7 @@ function PlanOverview({plan}:{plan:MyVendorActionPlan}){
  </article>;
 }
 
-export default function MyVendorActionPlans(){
- const [plans,setPlans]=useState<MyVendorActionPlan[]>([]);
- const [loading,setLoading]=useState(true);
- const [error,setError]=useState('');
- const [reload,setReload]=useState(0);
- useEffect(()=>{
-  let active=true;
-  setLoading(true);setError('');
-  void fetchMyVendorActionPlans().then(data=>{if(active)setPlans(data);})
-   .catch(err=>{if(active)setError(errorMessage(err,'No se pudo consultar tu Plan de acción.'));})
-   .finally(()=>{if(active)setLoading(false);});
-  return()=>{active=false;};
- },[reload]);
+export default function MyVendorActionPlans({plans,loading,error,onReload}:{plans:MyVendorActionPlan[];loading:boolean;error:string;onReload:()=>void}){
  const total=useMemo(()=>plans.reduce((n,p)=>n+p.checklist_total,0),[plans]);
  const done=useMemo(()=>plans.reduce((n,p)=>n+p.checklist_done,0),[plans]);
  return <section className="space-y-5">
@@ -131,7 +118,7 @@ export default function MyVendorActionPlans(){
     <h2 className="text-xl font-medium tracking-tight text-slate-950">Mi plan de acción</h2>
     <p className="mt-1 text-sm text-slate-500">Seguimiento de los planes asignados a tu cuenta comercial</p>
    </div>
-   <button type="button" onClick={()=>setReload(x=>x+1)} disabled={loading}
+   <button type="button" onClick={onReload} disabled={loading}
     className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-50 disabled:opacity-50">
     Actualizar
    </button>

@@ -119,6 +119,9 @@ const GROUP_ORDER: ModulePermissionGroup[] = [
 const MODULE_ICONS: Record<ModulePermissionKey, ComponentType<{ className?: string }>> = {
   branch_dashboards: Building2,
   branch_categories: BarChart3,
+  branch_categories_v2: BarChart3,
+  branch_supervisor_objectives: UsersRound,
+  sku_foco_tracking: Gauge,
   branch_sigo: CalendarCheck2,
   branch_buyers: Users,
   branch_coverages: Gauge,
@@ -1422,7 +1425,7 @@ function ModulePermissionCard({
   disabled: boolean;
   onCheckedChange: (checked: boolean) => void;
 }) {
-  const Icon = MODULE_ICONS[definition.key];
+  const Icon = MODULE_ICONS[definition.key] ?? ShieldCheck;
   const changed = checked !== baseline;
   return (
     <div className="flex items-center gap-3 border-b border-slate-100 px-1 py-4 last:border-0">

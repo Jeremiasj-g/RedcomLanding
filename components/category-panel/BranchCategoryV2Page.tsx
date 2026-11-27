@@ -49,7 +49,7 @@ export default function BranchCategoryV2Page({scope,children}:{scope:Scope;child
  useEffect(()=>{if(view==='horarios-sigo')setVisitedSigo(true);else setVisitedCategories(true);},[view]);
  const ownsBranch=Boolean(me?.is_active&&(me.role==='admin'||me.branches?.includes(scope.userBranch)));
  const canManageSigo=Boolean(ownsBranch&&(me?.role==='admin'||me?.role==='supervisor'||me?.role==='jdv'));
- const canSeeCategories=Boolean(ownsBranch&&(canAccessModule('branch_categories')||canManageSigo));
+ const canSeeCategories=Boolean(ownsBranch&&(canAccessModule('branch_categories_v2')));
  const canConfirm=Boolean(me?.is_active&&me?.role==='admin');
  useEffect(()=>{
   if(!canConfirm)return;

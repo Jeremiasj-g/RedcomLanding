@@ -163,8 +163,8 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         label: 'Seguimiento SKUs FOCO',
         href: '/seguimiento-skus-foco',
         icon: <Target className="h-4 w-4" />,
-        enabledWhen: mustBeLoggedActive,
-        enabledReason: () => 'Debés iniciar sesión para acceder',
+        enabledWhen: (ctx) => canUse('sku_foco_tracking')(ctx),
+        enabledReason: () => 'Sin permiso para Seguimiento SKUs FOCO',
         className: 'text-rose-300 hover:text-rose-200',
       },
       {

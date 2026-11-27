@@ -1,6 +1,3 @@
-'use client';
-
-import { motion } from 'framer-motion';
 import Container from './Container';
 
 const socialLinks = [
@@ -54,130 +51,61 @@ const branches = ['Corrientes', 'Chaco', 'Misiones', 'Oberá'];
 
 const Footer = () => {
   return (
-    <footer className="relative overflow-hidden bg-[#080B12] text-white md:mt-24">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-red-600/15 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-sky-500/10 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-      </div>
-
+    <footer className="border-t border-white/10 bg-[#1d1d1f] text-neutral-300">
       <Container>
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: 'easeOut' }}
-          viewport={{ once: true }}
-          className="relative py-14 md:py-16"
-        >
-          <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.3fr_0.8fr_0.8fr_1fr]">
-            <div className="max-w-md">
-              <div className="mb-5 inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-red-300">
-                Redcom S.A.
-              </div>
-
-              <h3 className="text-3xl font-black tracking-tight md:text-4xl">
-                Distribución comercial con alcance regional.
-              </h3>
-
-              <p className="mt-4 text-sm leading-7 text-slate-400 md:text-base">
-                Más de 13 años conectando productores, comercios y equipos de venta
-                con soluciones de distribución, logística y abastecimiento.
+        <div className="py-8 sm:py-10">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-8 text-sm lg:grid-cols-[1.4fr_1fr_0.8fr_1fr]">
+            <div className="col-span-2 lg:col-span-1">
+              <p className="text-lg font-semibold tracking-tight text-white">Redcom S.A.</p>
+              <p className="mt-2 max-w-xs leading-relaxed">
+                Distribución comercial y logística con alcance regional.
               </p>
-
-              <div className="mt-7 flex items-center gap-3">
+              <div className="mt-4 flex flex-wrap items-center gap-2">
                 {socialLinks.map((social) => (
-                  <motion.a
+                  <a
                     key={social.name}
                     href={social.href}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={social.name}
-                    whileHover={{ y: -3, scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
-                    className="group flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-slate-300 shadow-lg shadow-black/20 transition-all duration-300 hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-300"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.045] text-neutral-300 transition-colors duration-200 hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none"
                   >
-                    <span className="h-7 w-7 transition-transform duration-300 group-hover:scale-110">
-                      {social.icon}
-                    </span>
-                  </motion.a>
+                    <span className="h-5 w-5">{social.icon}</span>
+                  </a>
                 ))}
               </div>
             </div>
 
             <div>
-              <h4 className="mb-5 text-xs font-black uppercase tracking-[0.24em] text-slate-500">
-                Servicios
-              </h4>
-
-              <ul className="space-y-3">
-                {services.map((service) => (
-                  <li key={service} className="text-sm font-semibold text-slate-300">
-                    {service}
-                  </li>
-                ))}
+              <h2 className="mb-3 text-sm font-semibold text-white">Servicios</h2>
+              <ul className="space-y-2">
+                {services.map((service) => <li key={service}>{service}</li>)}
               </ul>
             </div>
 
             <div>
-              <h4 className="mb-5 text-xs font-black uppercase tracking-[0.24em] text-slate-500">
-                Sucursales
-              </h4>
-
-              <ul className="space-y-3">
-                {branches.map((branch) => (
-                  <li key={branch} className="text-sm font-semibold text-slate-300">
-                    {branch}
-                  </li>
-                ))}
+              <h2 className="mb-3 text-sm font-semibold text-white">Sucursales</h2>
+              <ul className="space-y-2">
+                {branches.map((branch) => <li key={branch}>{branch}</li>)}
               </ul>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20 backdrop-blur">
-              <h4 className="text-xs font-black uppercase tracking-[0.24em] text-red-300">
-                Contacto
-              </h4>
-
-              <div className="mt-5 space-y-4 text-sm text-slate-300">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
-                    Teléfono
-                  </p>
-                  <p className="mt-1 font-semibold">+54 379 4524304</p>
-                </div>
-
-                {/* <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
-                    Email
-                  </p>
-                  <p className="mt-1 font-semibold">info@redcom.com.ar</p>
-                </div> */}
-
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
-                    Atención
-                  </p>
-                  <p className="mt-1 font-semibold">Lunes a sábados</p>
-                </div>
-              </div>
+            <div className="col-span-2 lg:col-span-1">
+              <h2 className="mb-3 text-sm font-semibold text-white">Contacto</h2>
+              <address className="space-y-2 not-italic">
+                <a href="tel:+543794524304" className="inline-flex min-h-8 items-center rounded text-neutral-200 transition-colors duration-200 hover:text-white hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none">
+                  +54 379 4524304
+                </a>
+                <p>Lunes a sábados</p>
+              </address>
             </div>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            viewport={{ once: true }}
-            className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-7 text-sm text-slate-500 md:flex-row md:items-center md:justify-between"
-          >
-            <p>
-              © 2026 Redcom. Todos los derechos reservados.
-            </p>
-
-            <p className="font-semibold text-slate-400">
-              13+ años distribuyendo calidad.
-            </p>
-          </motion.div>
-        </motion.div>
+          <div className="mt-7 flex flex-col gap-2 border-t border-white/10 pt-5 text-xs text-neutral-300 sm:flex-row sm:items-center sm:justify-between">
+            <p>© {new Date().getFullYear()} Redcom. Todos los derechos reservados.</p>
+            <p>Más de 13 años de trayectoria.</p>
+          </div>
+        </div>
       </Container>
     </footer>
   );

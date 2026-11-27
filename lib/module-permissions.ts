@@ -1,6 +1,9 @@
 export type ModulePermissionKey =
   | 'branch_dashboards'
   | 'branch_categories'
+  | 'branch_categories_v2'
+  | 'branch_supervisor_objectives'
+  | 'sku_foco_tracking'
   | 'branch_sigo'
   | 'branch_buyers'
   | 'branch_coverages'
@@ -75,7 +78,7 @@ export const MODULE_PERMISSION_DEFINITIONS: ModulePermissionDefinition[] = [
   },
   {
     key: 'branch_categories',
-    label: 'Categorías por sucursal',
+    label: 'Categorías V1 por sucursal',
     shortLabel: 'Categorías',
     description:
       'Muestra la herramienta de categorías y permite ingresar a sus páginas de ranking e histórico.',
@@ -84,11 +87,18 @@ export const MODULE_PERMISSION_DEFINITIONS: ModulePermissionDefinition[] = [
       '/corrientes/masivos/categorias',
       '/chaco/categorias',
       '/misiones/categorias',
-      '/corrientes/refrigerados/categorias-v2',
-      '/obera/categorias-v2',
     ],
-    defaultRoles: INTERNAL_BASE_ROLES,
+    defaultRoles: ALL_ACTIVE_ROLES,
     branchAware: true,
+  },
+  {
+    key: 'branch_categories_v2', label: 'Categorías V2', shortLabel: 'Categorías V2', description: 'Acceso al panel de categorías V2 de la sucursal asignada.', group: 'Herramientas de sucursal', routePrefixes: ['/corrientes/masivos/categorias-v2','/corrientes/refrigerados/categorias-v2','/chaco/categorias-v2','/misiones/categorias-v2','/obera/categorias-v2'], defaultRoles: INTERNAL_BASE_ROLES, branchAware: true,
+  },
+  {
+    key: 'branch_supervisor_objectives', label: 'Avance de supervisores', shortLabel: 'Objetivos supervisores', description: 'Planillas de avance de supervisores.', group: 'Herramientas de sucursal', routePrefixes: [], defaultRoles: INTERNAL_BASE_ROLES, branchAware: true,
+  },
+  {
+    key: 'sku_foco_tracking', label: 'Seguimiento SKUs FOCO', shortLabel: 'SKUs FOCO', description: 'Acceso al seguimiento de volumen y cobertura de artículos foco.', group: 'Espacio de trabajo', routePrefixes: ['/seguimiento-skus-foco'], defaultRoles: INTERNAL_BASE_ROLES,
   },
   {
     key: 'branch_sigo',

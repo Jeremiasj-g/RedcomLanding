@@ -6,7 +6,6 @@ import { BarChart3, Flame, Table } from 'lucide-react';
 import BranchResourcesSection from '@/components/BranchResourcesSection';
 import Container from '@/components/Container';
 import CategoryBannerLink from '@/components/categoria/CategoryBannerLink';
-import {useMe} from '@/hooks/useMe';
 import ConfiguredWorkbookCard from '@/components/analytics/ConfiguredWorkbookCard';
 import LookerEmbed from '@/components/LookerEmbed';
 import LookerTabs from '@/components/LookerTabs';
@@ -16,9 +15,7 @@ import PageHeader from '@/components/PageHeader';
 
 export default function Obera() {
   const { canAccessModule } = useModulePermissions();
-  const {me}=useMe();
-  const canManageSigo=Boolean(me?.is_active&&['admin','jdv','supervisor'].includes(me.role)&&(me.role==='admin'||me.branches?.includes('obera')));
-  const canSeeV2=canAccessModule('branch_categories')||canManageSigo;
+  const canSeeV2=canAccessModule('branch_categories_v2');
 
   const canSeeAnalytics = canAccessModule('branch_analytics');
 
