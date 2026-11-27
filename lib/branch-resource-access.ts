@@ -15,5 +15,5 @@ export function canViewBranchResource(
   if (role === 'admin') return true;
   if (resource.allowed_roles != null) return resource.allowed_roles.includes(role ?? '');
   if (resource.permission_key) return canAccessModule(resource.permission_key);
-  return true;
+  return role !== 'vendedor';
 }
