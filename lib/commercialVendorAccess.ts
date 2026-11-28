@@ -71,3 +71,28 @@ export async function getMyCommercialEmployment():Promise<CommercialEmployment>{
  if(!data||typeof data!=='object')throw new Error('No se pudo consultar la antigüedad comercial.');
  return data as CommercialEmployment;
 }
+
+export type VendorActivity={lastAccess:string|null;lastActivity:string|null};
+export async function listCommercialVendorActivity(accounts:CommercialVendorAccess[]):Promise<Map<string,VendorActivity>>{
+ if(!accounts.length)return new Map();
+ const [users,rotations]=await Promise.all([
+  supabase.rpc('admin_list_users'),
+  supabase.from('commercial_vendor_holder_rotations').select('auth_user_id,rotated_at').order('rotated_at',{ascending:false}),
+ ]);
+ if(users.error)throw users.error;
+ if(rotations.error)throw rotations.error;
+ const byId=new Map<string,{id:string;last_sign_in_at?:string|null;last_active?:string|null}>((users.data??[]).map((u:{id:string;last_sign_in_at?:string|null;last_active?:string|null})=>[u.id,u]));
+ const cutoffs=new Map<string,number>();
+ for(const r of rotations.data??[]){const date=Date.parse(r.rotated_at);if(Number.isFinite(date))cutoffs.set(r.auth_user_id,Math.max(cutoffs.get(r.auth_user_id)??0,date));}
+ const result=new Map<string,VendorActivity>();
+ for(const account of accounts){
+  const user=byId.get(account.auth_user_id);
+  if(!user||account.needs_review)continue;
+  const cutoff=cutoffs.get(account.auth_user_id)??0;
+  const valid=(value?:string|null)=>value&&Number.isFinite(Date.parse(value))&&Date.parse(value)>=cutoff?value:null;
+  const lastAccess=valid(user.last_sign_in_at);
+  const lastActivity=valid(user.last_active)??lastAccess;
+  result.set(sellerKey({branch:account.branch,code:account.person_code}),{lastAccess,lastActivity});
+ }
+ return result;
+}
