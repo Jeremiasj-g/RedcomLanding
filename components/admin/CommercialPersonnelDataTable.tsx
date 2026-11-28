@@ -3,6 +3,8 @@ import {useEffect,useMemo,useState} from 'react';
 import {ColumnFilterPopup} from '@/components/category-panel/CategoryColumnFilters';
 import {ChevronDown,ChevronLeft,ChevronRight,Filter,Search,KeyRound,Shuffle,CalendarDays} from 'lucide-react';
 import {sellerFromWorksheet,sellerKey,type SellerIdentity} from '@/lib/commercialPersonnelPasswords';
+import type {VendorActivity} from '@/lib/commercialVendorAccess';
+import {dtf,fromNow} from '@/lib/adminActivityDates';
 import type {PersonnelImportChange,PersonnelChangeStatus} from '@/lib/commercialPersonnelDiff';
 import type {PersonnelTableSnapshot} from '@/lib/commercialPersonnelMaster';
 
@@ -20,12 +22,14 @@ const category=(label:string):GroupKey=>{
 };
 const groups:{key:GroupKey;title:string}[]=[{key:'code',title:'Código'},{key:'identity',title:'Personal'},{key:'branch',title:'Sucursal'},{key:'hierarchy',title:'Jerarquía'},{key:'other',title:'Información adicional'}];
 const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-AR');
-export default function CommercialPersonnelDataTable({snapshot,loading,linkedAccountKeys,reviewAccountKeys,importChanges,hireDates,onSellerAction}:{
+export default function CommercialPersonnelDataTable({snapshot,loading,linkedAccountKeys,reviewAccountKeys,importChanges,hireDates,activity,activityError,onSellerAction}:{
  snapshot:PersonnelTableSnapshot|null;loading:boolean;
  linkedAccountKeys?:Set<string>;
  reviewAccountKeys?:Set<string>;
  importChanges?:PersonnelImportChange[];
  hireDates?:Map<string,string|null>;
+ activity?:Map<string,VendorActivity>;
+ activityError?:boolean;
  onSellerAction?:(seller:SellerIdentity,action:'manual'|'random'|'review'|'hire-date')=>void;
 }){
  const [search,setSearch]=useState('');
@@ -174,6 +178,7 @@ export default function CommercialPersonnelDataTable({snapshot,loading,linkedAcc
           </div>
           <span className="mt-1 block text-[10px] text-slate-500">{reviewAccountKeys?.has(sellerKey(seller))?'Rotación pendiente':linked?'Acceso configurado':'Clave pendiente'}</span>
           {linked&&<span className="mt-1 block text-[10px] text-slate-500">{hireDates?.get(sellerKey(seller))?'Ingreso: '+new Intl.DateTimeFormat('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',timeZone:'UTC'}).format(new Date(hireDates.get(sellerKey(seller))+'T12:00:00Z')):'Ingreso sin registrar'}</span>}
+          {linked&&<div className="mt-2 space-y-1 border-t border-slate-100 pt-2 text-[10px] text-slate-600">{([['Último acceso','lastAccess'],['Última actividad','lastActivity']] as const).map(([label,key])=>{const entry=activity?.get(sellerKey(seller));const value=entry?.[key];return <div key={key} title={value?dtf.format(new Date(value)):undefined}><span className="font-medium">{label}: </span>{activityError||!entry?'No disponible':value?<time dateTime={value}>{fromNow(value)}</time>:'Sin registro'}</div>;})}</div>}
          </td>;
         })()}
      </tr>)}

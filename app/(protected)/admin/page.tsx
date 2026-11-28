@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import {dtf,fromNow} from '@/lib/adminActivityDates';
 import { supabase } from '@/lib/supabaseClient';
 import { notify } from '@/lib/notifications';
 import {
@@ -46,41 +47,6 @@ const BRANCH_COLORS: Record<string, string> = {
   obera: 'bg-orange-100 text-orange-700 border-orange-200',
   refrigerados: 'bg-cyan-100 text-cyan-700 border-cyan-200',
 };
-
-// helpers fechas (exacto + relativo)
-const dtf = new Intl.DateTimeFormat('es-AR', { dateStyle: 'medium', timeStyle: 'short' });
-const rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
-function fromNow(iso?: string | null) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  const sec = Math.round((d.getTime() - Date.now()) / 1000);
-  const abs = Math.abs(sec);
-  const unit =
-    abs < 60
-      ? 'second'
-      : abs < 3600
-        ? 'minute'
-        : abs < 86400
-          ? 'hour'
-          : abs < 2592000
-            ? 'day'
-            : abs < 31536000
-              ? 'month'
-              : 'year';
-  const val =
-    unit === 'second'
-      ? sec
-      : unit === 'minute'
-        ? sec / 60
-        : unit === 'hour'
-          ? sec / 3600
-          : unit === 'day'
-            ? sec / 86400
-            : unit === 'month'
-              ? sec / 2592000
-              : sec / 31536000;
-  return rtf.format(Math.round(val), unit as Intl.RelativeTimeFormatUnit);
-}
 
 type RoleOption = { value: string; label: string };
 

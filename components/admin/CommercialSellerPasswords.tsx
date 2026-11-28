@@ -11,7 +11,7 @@ import {RedcomDatePicker} from '@/components/ui/redcom-date-picker';
 import {notify,errorMessage} from '@/lib/notifications';
 import type {PersonnelTableSnapshot} from '@/lib/commercialPersonnelMaster';
 import type {PersonnelImportChange} from '@/lib/commercialPersonnelDiff';
-import {listCommercialVendorAccess,setCommercialVendorHireDate,assignCommercialVendorPassword,randomSecurePassword,validateManualPassword,sellerFromWorksheet,sellerKey,type SellerIdentity,type CommercialVendorAccess} from '@/lib/commercialVendorAccess';
+import {listCommercialVendorAccess,setCommercialVendorHireDate,assignCommercialVendorPassword,randomSecurePassword,validateManualPassword,sellerFromWorksheet,sellerKey,type SellerIdentity,type CommercialVendorAccess,listCommercialVendorActivity,type VendorActivity} from '@/lib/commercialVendorAccess';
 
 type Credential={seller:SellerIdentity;password:string};
 type Failed={seller:SellerIdentity;error:string};
@@ -19,6 +19,8 @@ type Failed={seller:SellerIdentity;error:string};
 export default function CommercialSellerPasswords({snapshot,loading,importChanges}:{snapshot:PersonnelTableSnapshot|null;loading:boolean;importChanges:PersonnelImportChange[]}){
  const [accounts,setAccounts]=useState<CommercialVendorAccess[]>([]);
  const [accountsLoading,setAccountsLoading]=useState(true);
+ const [activity,setActivity]=useState<Map<string,VendorActivity>>(new Map());
+ const [activityError,setActivityError]=useState(false);
  const [loadError,setLoadError]=useState<string|null>(null);
  const [manualTarget,setManualTarget]=useState<SellerIdentity|null>(null);
  const [manualPassword,setManualPassword]=useState('');
@@ -42,8 +44,11 @@ export default function CommercialSellerPasswords({snapshot,loading,importChange
  const [discardResults,setDiscardResults]=useState(false);
 
  const load=useCallback(async()=>{
-  try{setAccounts(await listCommercialVendorAccess());setLoadError(null);}
-  catch(e){setLoadError(errorMessage(e,'No se pudieron consultar los accesos comerciales.'));}
+  setAccountsLoading(true);setActivityError(false);
+  try{const next=await listCommercialVendorAccess();setAccounts(next);setLoadError(null);
+   try{setActivity(await listCommercialVendorActivity(next));}catch{setActivity(new Map());setActivityError(true);}
+  }
+  catch(e){setActivity(new Map());setActivityError(true);setLoadError(errorMessage(e,'No se pudieron consultar los accesos comerciales.'));}
   finally{setAccountsLoading(false);}
  },[]);
  useEffect(()=>{void load();},[load]);
@@ -141,6 +146,7 @@ export default function CommercialSellerPasswords({snapshot,loading,importChange
     <p className="mt-1 text-xs text-slate-500">{accountsLoading?'Consultando…':sellers.length+' vendedores · '+accountKeys.size+' con clave · '+waiting+' sin acceso · '+reviewKeys.size+' por revisar'}</p>
    </div>
    <div className="flex flex-wrap gap-2">
+    <button type="button" disabled={busy||accountsLoading} onClick={()=>void load()} className="min-h-10 rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 transition-colors duration-200 hover:bg-slate-50 disabled:opacity-40">Actualizar accesos</button>
     <button type="button" disabled={busy||accountsLoading||loading||waiting===0||!!loadError} onClick={()=>{setBulkScope('pending');setBulkConfirm(true);}}
      className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-medium text-white transition-colors duration-200 hover:bg-slate-800 disabled:opacity-40">
      <Shuffle className="h-4 w-4"/>Generar solo para pendientes ({waiting})
@@ -148,12 +154,13 @@ export default function CommercialSellerPasswords({snapshot,loading,importChange
     <button type="button" disabled={busy||accountsLoading||loading||sellers.length===0||!!loadError} onClick={()=>{setBulkScope('all');setBulkConfirm(true);}}
      className="min-h-10 rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 transition-colors duration-200 hover:bg-slate-50 disabled:opacity-40">Regenerar todas las claves</button>
    </div>
+   {activityError&&<p role="alert" className="w-full text-xs text-amber-700">No se pudo consultar la actividad. Los accesos y las contraseñas conservan su funcionamiento.</p>}
    {loadError&&<p role="alert" className="w-full text-xs text-rose-600">{loadError}</p>}
    {busy&&progress.total>0&&<p role="status" className="w-full text-xs text-slate-600">Generando accesos: {progress.done} de {progress.total}. No cierres esta página.</p>}
   </section>
 
   <CommercialPersonnelDataTable snapshot={snapshot} loading={loading||accountsLoading}
-   linkedAccountKeys={accountKeys} reviewAccountKeys={reviewKeys} importChanges={importChanges} hireDates={hireDates}
+   linkedAccountKeys={accountKeys} reviewAccountKeys={reviewKeys} importChanges={importChanges} hireDates={hireDates} activity={activity} activityError={activityError}
    onSellerAction={(seller,action)=>{
     if(busy)return;
     if(action==='review'){setRotationTarget(seller);setRotationChoice(true);return;}
